@@ -1601,6 +1601,7 @@ iterative_hash_template_arg (tree arg, hashval_t val)
     case CONSTRUCTOR:
       {
 	tree field, value;
+	iterative_hash_template_arg (TREE_TYPE (arg), val);
 	FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (arg), i, field, value)
 	  {
 	    val = iterative_hash_template_arg (field, val);
@@ -9821,7 +9822,13 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
   /* If the expansion is just T..., return the matching argument pack.  */
   if (!unsubstituted_packs
       && TREE_PURPOSE (packs) == pattern)
-    return ARGUMENT_PACK_ARGS (TREE_VALUE (packs));
+    {
+      tree args = ARGUMENT_PACK_ARGS (TREE_VALUE (packs));
+      if (TREE_CODE (t) == TYPE_PACK_EXPANSION
+	  || pack_expansion_args_count (args))
+	return args;
+      /* Otherwise use the normal path so we get convert_from_reference.  */
+    }
 
   /* We cannot expand this expansion expression, because we don't have
      all of the argument packs we need.  */
@@ -14868,11 +14875,13 @@ tsubst_copy_and_build (tree t,
     case COND_EXPR:
       {
 	tree cond = RECUR (TREE_OPERAND (t, 0));
+	tree folded_cond = (maybe_constant_value
+			    (fold_non_dependent_expr_sfinae (cond, tf_none)));
 	tree exp1, exp2;
 
-	if (TREE_CODE (cond) == INTEGER_CST)
+	if (TREE_CODE (folded_cond) == INTEGER_CST)
 	  {
-	    if (integer_zerop (cond))
+	    if (integer_zerop (folded_cond))
 	      {
 		++c_inhibit_evaluation_warnings;
 		exp1 = RECUR (TREE_OPERAND (t, 1));
@@ -14886,6 +14895,7 @@ tsubst_copy_and_build (tree t,
 		exp2 = RECUR (TREE_OPERAND (t, 2));
 		--c_inhibit_evaluation_warnings;
 	      }
+	    cond = folded_cond;
 	  }
 	else
 	  {
@@ -20789,6 +20799,8 @@ value_dependent_expression_p (tree expression)
       {
 	unsigned ix;
 	tree val;
+	if (dependent_type_p (TREE_TYPE (expression)))
+	  return true;
 	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (expression), ix, val)
 	  if (value_dependent_expression_p (val))
 	    return true;
