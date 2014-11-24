@@ -1,3 +1,75 @@
+2014-11-22  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2014-11-20  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/60111
+	* config/sh/sh.c: Use signed char for signed field.
+
+2014-11-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/63673
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Allow
+	the base pointer of vec_vsx_ld and vec_vsx_st to take a pointer to
+	double.
+
+2014-11-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/63947
+	* config/i386/i386.c (put_condition_code) <case LTU, case GEU>:
+	Output "b" and "nb" suffix for FP mode.
+
+2014-11-19  Tom de Vries  <tom@codesourcery.com>
+
+	Backport from mainline
+	PR tree-optimization/62167
+	* tree-ssa-tail-merge.c (stmt_local_def): Handle statements with vuse
+	conservatively.
+	(gimple_equal_p): Don't use vn_valueize to compare for lhs equality of
+	assigns.
+
+2014-11-18  Teresa Johnson  <tejohnson@google.com>
+
+	Backport from mainline and gcc-4_9 branch.
+	2014-11-13  Teresa Johnson  <tejohnson@google.com>
+
+	PR tree-optimization/63841
+	* tree-ssa-strlen.c (strlen_optimize_stmt): Ignore clobbers.
+
+2014-11-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/tm.texi.in (TARGET_FLAGS_REGNUM): Move around.
+	* doc/tm.texi: Regenerate.
+
+	Backport from mainline
+	2013-09-16  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* doc/tm.texi.in (Cond Exec Macros): Remove node.
+	(Condition Code): Don't reference it.
+	* doc/tm.texi: Regenerate.
+
+2014-11-13  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	Backport from mainline
+	2014-11-02  Michael Collison  <michael.collison@linaro.org>
+
+	* config/arm/arm.h (CLZ_DEFINED_VALUE_AT_ZERO) : Update
+	to support vector modes.
+	(CTZ_DEFINED_VALUE_AT_ZERO): Ditto.
+
+2014-11-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/tm.texi.in (SELECT_CC_MODE): Update example.
+	(REVERSIBLE_CC_MODE): Fix example.
+	(REVERSE_CONDITION): Fix typo.
+	* doc/tm.texi: Regenerate.
+
+2014-11-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ipa/63838
+	* ipa-pure-const.c (propagate_nothrow): Walk w->indirect_calls
+	chain instead of node->indirect_calls.
+
 2014-11-10  Daniel Hellstrom  <daniel@gaisler.com>
 
 	Backport from mainline

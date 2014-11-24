@@ -13804,7 +13804,7 @@ put_condition_code (enum rtx_code code, enum machine_mode mode, bool reverse,
       if (mode == CCmode)
 	suffix = "b";
       else if (mode == CCCmode)
-	suffix = "c";
+	suffix = fp ? "b" : "c";
       else
 	gcc_unreachable ();
       break;
@@ -13827,9 +13827,9 @@ put_condition_code (enum rtx_code code, enum machine_mode mode, bool reverse,
       break;
     case GEU:
       if (mode == CCmode)
-	suffix = fp ? "nb" : "ae";
+	suffix = "nb";
       else if (mode == CCCmode)
-	suffix = "nc";
+	suffix = fp ? "nb" : "nc";
       else
 	gcc_unreachable ();
       break;
