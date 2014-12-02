@@ -1,3 +1,12 @@
+2014-12-02  Terry Guo  <terry.guo@arm.com>
+
+	Backport from mainline r211817
+	2014-06-19  Terry Guo  <terry.guo@arm.com>
+
+	* gcc.target/arm/thumb1-load-64bit-constant-1.c: New test.
+	* gcc.target/arm/thumb1-load-64bit-constant-2.c: Ditto.
+	* gcc.target/arm/thumb1-load-64bit-constant-3.c: Ditto.
+
 2014-11-10  Hale Wang  <hale.wang@arm.com>
 
 	Backport from mainline r217175

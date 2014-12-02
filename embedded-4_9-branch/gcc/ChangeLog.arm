@@ -1,3 +1,19 @@
+2014-12-02  Terry Guo  <terry.guo@arm.com>
+
+	Backport from mainline r214214
+	2014-08-20  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/thumb1.md (64bit splitter): Replace const_double_operand
+	with immediate_operand.
+
+2014-12-02  Terry Guo  <terry.guo@arm.com>
+
+	Backport from mainline r211817
+	2014-06-19  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/thumb1.md (define_split): Split 64bit constant in earlier
+	stage.
+
 2014-11-19  Terry Guo  <terry.guo@arm.com>
 
 	Backport from mainline r217687
