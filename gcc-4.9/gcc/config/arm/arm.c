@@ -2851,6 +2851,13 @@ arm_option_override (void)
   if (target_slow_flash_data)
     arm_disable_literal_pool = true;
 
+  if (TARGET_ANDROID)
+    {
+      /* Disable array_bound warning. Work around issues
+         introduced in complete unroll.  */
+      global_options.x_warn_array_bounds = 0;
+    }
+
   /* Register global variables with the garbage collector.  */
   arm_add_gc_roots ();
 }
