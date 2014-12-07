@@ -1,7 +1,4 @@
-// { dg-options "-std=gnu++0x" }
-// { dg-do compile }
-
-// Copyright (C) 2011-2013 Free Software Foundation, Inc.
+// Copyright (C) 2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,30 +15,41 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// 20.4.2.1 [tuple.cnstr] Allocator-extended constructors
+// { dg-options "-std=gnu++11" }
 
-#include <memory>
-#include <tuple>
+#include <functional>
+#include <stdexcept>
+#include <testsuite_hooks.h>
 
-struct MyAlloc { };
-
-struct Type
+struct functor
 {
-  typedef MyAlloc allocator_type; // uses_allocator<Type, MyAlloc> is true
+  functor() = default;
 
-  explicit Type(int) { }
+  functor(const functor&)
+  {
+    throw std::runtime_error("test");
+  }
 
-  Type(std::allocator_arg_t, MyAlloc) { }
-  Type(MyAlloc) { }
+  functor(functor&& f) = default;
+
+  void operator()() const { }
 };
 
-void test01()
+
+void
+test01()
 {
-  using std::allocator_arg;
-  using std::tuple;
-
-  MyAlloc a;
-
-  tuple<Type> t(allocator_arg, a, 1);
+  std::function<void()> f = functor{};
+  try {
+    auto g = f;
+  } catch (const std::runtime_error& e) {
+    return;
+  }
+  VERIFY(false);
 }
-// { dg-error "no matching function" "" { target *-*-* } 119 }
+
+int
+main()
+{
+  test01();
+}

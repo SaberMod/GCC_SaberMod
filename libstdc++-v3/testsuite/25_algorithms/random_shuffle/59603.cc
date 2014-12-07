@@ -1,7 +1,4 @@
-// { dg-options "-std=gnu++0x" }
-// { dg-do compile }
-
-// Copyright (C) 2011-2013 Free Software Foundation, Inc.
+// Copyright (C) 2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,30 +15,20 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// 20.4.2.1 [tuple.cnstr] Allocator-extended constructors
+// { dg-options "-std=gnu++11" }
+// { dg-require-debug-mode "" }
 
-#include <memory>
-#include <tuple>
+// libstdc++/59603
 
-struct MyAlloc { };
+#include <algorithm>
+#include <vector>
 
-struct Type
-{
-  typedef MyAlloc allocator_type; // uses_allocator<Type, MyAlloc> is true
-
-  explicit Type(int) { }
-
-  Type(std::allocator_arg_t, MyAlloc) { }
-  Type(MyAlloc) { }
+struct C {
+    std::vector<int> v;
+    C (int a) : v{a} {};
 };
 
-void test01()
-{
-  using std::allocator_arg;
-  using std::tuple;
-
-  MyAlloc a;
-
-  tuple<Type> t(allocator_arg, a, 1);
+int main () {
+    std::vector<C> cs { {1}, {2}, {3}, {4} };
+    std::random_shuffle(cs.begin(), cs.end());
 }
-// { dg-error "no matching function" "" { target *-*-* } 119 }
