@@ -2498,7 +2498,6 @@ rtl_verify_edges (void)
 			    | EDGE_LOOP_EXIT
 			    | EDGE_CROSSING
 			    | EDGE_PRESERVE
-			    | EDGE_ANNOTATED
 			    | EDGE_PREDICTED_BY_EXPECT)) == 0)
 	    n_branch++;
 

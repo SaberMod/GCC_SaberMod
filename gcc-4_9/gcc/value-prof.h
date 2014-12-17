@@ -94,7 +94,7 @@ void free_histograms (void);
 void stringop_block_profile (gimple, unsigned int *, HOST_WIDE_INT *);
 gimple gimple_ic (gimple, struct cgraph_node *, int, gcov_type, gcov_type);
 bool check_ic_target (gimple, struct cgraph_node *);
-bool gimple_ic_transform (gimple_stmt_iterator *);
+
 
 /* In tree-profile.c.  */
 extern void gimple_init_edge_profiler (void);

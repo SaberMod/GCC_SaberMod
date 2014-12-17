@@ -137,6 +137,7 @@ static bool gimple_divmod_fixed_value_transform (gimple_stmt_iterator *);
 static bool gimple_mod_pow2_value_transform (gimple_stmt_iterator *);
 static bool gimple_mod_subtract_transform (gimple_stmt_iterator *);
 static bool gimple_stringops_transform (gimple_stmt_iterator *);
+static bool gimple_ic_transform (gimple_stmt_iterator *);
 
 /* Allocate histogram value.  */
 
@@ -1913,7 +1914,7 @@ gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
 /* Perform indirect call (STMT) to guarded direct function call
    transformation using value profile data.  */
 
-bool
+static bool
 gimple_ic_transform (gimple_stmt_iterator *gsi)
 {
   gimple stmt = gsi_stmt (*gsi);
