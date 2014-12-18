@@ -1,3 +1,19 @@
+2014-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/58624
+	Backported from mainline
+	2014-03-07  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/plugin/plugin.exp (DEFAULT_CXXFLAGS): Remove -ansi.
+
+2014-12-13  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2014-12-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/64269
+	* gcc.c-torture/compile/pr64269.c: New test.
+
 2014-12-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	Backport from mainline
