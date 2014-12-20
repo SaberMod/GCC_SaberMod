@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Update script for SaberMod gcc server
-git checkout 4.8.4 && git fetch gnu gcc-4_8-branch && git merge FETCH_HEAD;
+git checkout 4.8.5 && git fetch gnu gcc-4_8-branch && git merge FETCH_HEAD;
 git checkout 4.9.3 && git fetch gnu gcc-4_9-branch && git merge FETCH_HEAD;
 git checkout 5.0.0 && git fetch gnu trunk && git merge FETCH_HEAD;
 git push sm --all;
