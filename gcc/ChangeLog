@@ -1,3 +1,32 @@
+2014-12-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from mainline
+	2014-12-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/64037
+	* combine.c (setup_incoming_promotions): Pass the argument
+	before any promotions happen to promote_function_mode.
+
+2014-12-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 4.8.5.
+	* DEV-PHASE: Set to prerelease.
+
+2014-12-19  Release Manager
+
+	* GCC 4.8.4 released.
+
+2014-12-18  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	Backport from trunk.
+	PR fortran/61407
+	* config/darwin-c.c (version_as_macro): Added extra 0 for OS X 10.10
+	and above.
+	* config/darwin-driver.c (darwin_find_version_from_kernel): Removed
+	kernel version check to avoid incrementing it after every major OS X
+	release.
+	(darwin_default_min_version): Avoid static memory buffer.
+
 2014-12-15  Jakub Jelinek  <jakub@redhat.com>
 
 	PR sanitizer/64265
