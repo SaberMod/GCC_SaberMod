@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script, like so:
 # aclocal -I ../config && autoconf && autoheader && automake
 
-AC_PREREQ(2.64)
+AC_PREREQ(2.69)
 AC_INIT([GNU OpenMP Runtime Library], 1.0,,[libgomp])
 AC_CONFIG_HEADER(config.h)
 
@@ -244,7 +244,10 @@ fi
 # See if we support thread-local storage.
 GCC_CHECK_TLS
 
-# See what sort of export controls are available.
+# See if we have emulated thread-local storage.
+GCC_CHECK_EMUTLS
+
+# See what sort of export controls are availible.
 LIBGOMP_CHECK_ATTRIBUTE_VISIBILITY
 LIBGOMP_CHECK_ATTRIBUTE_DLLEXPORT
 LIBGOMP_CHECK_ATTRIBUTE_ALIAS
