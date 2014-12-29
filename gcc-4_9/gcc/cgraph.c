@@ -2462,7 +2462,7 @@ cgraph_can_remove_if_no_direct_calls_and_refs_p (struct cgraph_node *node)
 {
   gcc_assert (!node->global.inlined_to);
   /* Extern inlines can always go, we will use the external definition.  */
-  if (DECL_EXTERNAL (node->decl))
+  if (DECL_EXTERNAL (node->decl) || cgraph_is_aux_decl_external (node))
     return true;
   /* When function is needed, we can not remove it.  */
   if (node->force_output || node->used_from_other_partition)
