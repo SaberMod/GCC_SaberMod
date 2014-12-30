@@ -1,3 +1,45 @@
+2014-12-23  Janus Weil  <janus@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/64244
+	* resolve.c (resolve_typebound_call): New argument to pass out the
+	non-overridable attribute of the specific procedure.
+	(resolve_typebound_subroutine): Get overridable flag from
+	resolve_typebound_call.
+
+2014-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2014-11-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/63938
+	* trans-openmp.c (gfc_trans_omp_atomic): Make sure lhsaddr is
+	simple enough for goa_lhs_expr_p.
+
+2014-10-30  Release Manager
+
+	* GCC 4.9.2 released.
+
+2014-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/59488
+	* trans-openmp.c (gfc_omp_predetermined_sharing): Return
+	OMP_CLAUSE_DEFAULT_SHARED for parameters or vtables.
+
+2014-09-03  Marek Polacek  <polacek@redhat.com>
+
+	Backport from trunk
+	PR fortran/62270
+	* interface.c (compare_parameter): Fix condition.
+	* trans-expr.c (gfc_conv_procedure_call): Likewise.
+
+2014-08-29  Jeffrey Armstrong  <jeffrey.armstrong@approximatrix.com>
+
+	Backport from trunk
+	PR fortran/62215
+	* module.c (gfc_dump_module): Unlink old module file before
+	renaming new one.
+
 2014-08-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	Backport from trunk

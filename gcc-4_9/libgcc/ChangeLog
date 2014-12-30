@@ -1,19 +1,68 @@
-2014-10-08  Rong Xu  <xur@google.com>
+2014-12-09  John David Anglin  <danglin@gcc.gnu.org>
 
-	* libgcov-util.c (read_gcda_file): Fix format.
-	(find_match_gcov_info): Ditto.
-	(calculate_2_entries): New.
-	(compute_one_gcov): Ditto.
-	(gcov_info_count_all_cold): Ditto.
-	(gcov_info_count_all_zero): Ditto.
-	(extract_file_basename): Ditto.
-	(get_file_basename): Ditto.
-	(set_flag): Ditto.
-	(matched_gcov_info): Ditto.
-	(calculate_overlap): Ditto.
-	(gcov_profile_overlap): Ditto.
-	* libgcov-driver.c (compute_summary): Make
-	it avavilable for external calls.
+	Backport from mainline
+	2014-11-24  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/linux-atomic.c (ABORT_INSTRUCTION): Use __builtin_trap()
+	instead.
+
+	2014-11-21  Guy Martin  <gmsoft@tuxicoman.be>
+	            John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/linux-atomic.c (__kernel_cmpxchg2): New.
+	(FETCH_AND_OP_2): New.  Use for subword and double word operations.
+	(OP_AND_FETCH_2): Likewise.
+	(COMPARE_AND_SWAP_2): Likewise.
+	(SYNC_LOCK_TEST_AND_SET_2): Likewise.
+	(SYNC_LOCK_RELEASE_2): Likewise.
+	(SUBWORD_SYNC_OP): Remove.
+	(SUBWORD_VAL_CAS): Likewise.
+	(SUBWORD_BOOL_CAS): Likewise.
+	(FETCH_AND_OP_WORD): Update.
+	Consistently use signed types.
+
+2014-12-09  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2014-11-30  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/55351
+	* config/sh/lib1funcs.S: Check value of __SHMEDIA__ instead of checking
+	whether it's defined.
+
+2014-10-30  Release Manager
+
+	* GCC 4.9.2 released.
+
+2014-10-26  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/linux-unwind.h (pa32_read_access_ok): New function.
+	(pa32_fallback_frame_state): Use pa32_read_access_ok to check if
+	memory read accesses are ok.
+
+2014-10-22  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/63223
+	* config/avr/lib1funcs.S (__do_global_dtors): Reverse execution
+	order to first...last.
+
+2014-09-18  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/i386/sfp-machine.h (FP_TRAPPING_EXCEPTIONS): Treat clear
+	bits not set bits as indicating trapping exceptions.
+
+2014-09-11  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2014-09-11 trunk r215152.
+
+	PR target/63223
+	* config/avr/libgcc.S (__tablejump2__): Rewrite to use RAMPZ, ELPM
+	and R24 as needed.  Make work for all devices and .text locations.
+	(__do_global_ctors, __do_global_dtors): Use word addresses.
+	(__tablejump__, __tablejump_elpm__): Remove functions.
+	* t-avr (LIB1ASMFUNCS): Remove _tablejump, _tablejump_elpm.
+	Add _tablejump2.
+	(XICALL, XIJMP): New macros.
 
 2014-08-04  Rohit  <rohitarulraj@freescale.com>
 
@@ -74,7 +123,7 @@
 	(__gcov_delta_counter_op): Process delta profile counter values.
 	(__gcov_single_counter_op): Process single  profile counter values.
 	(fp_scale): Callback function for float-point scaling.
-	(int_scale): Callback function for integer fraction scaling. 
+	(int_scale): Callback function for integer fraction scaling.
 	(gcov_profile_scale): Scaling profile counters.
 	(gcov_profile_normalize): Normalize profile counters.
 	* libgcov.h: Add headers and functions for gcov-tool use.
@@ -475,7 +524,7 @@
 	(gcov_exit_merge_summary): Ditto.
 	(gcov_exit_dump_gcov): Ditto.
 
-2014-01-08  Rong Xu  <xur@google.com> 
+2014-01-08  Rong Xu  <xur@google.com>
 
 	* libgcov-driver.c: Use libgcov.h.
 	(buffer_fn_data): Use xmalloc instead of malloc.
@@ -1365,7 +1414,7 @@
 	* config/mips/crtn.S (fini, init): New labels.
 
 2012-02-19  Edgar E. Iglesias  <edgar.iglesias@gmail.com>
-	* config/microblaze/modsi3.S (modsi3): Fix case with 0x80000000 
+	* config/microblaze/modsi3.S (modsi3): Fix case with 0x80000000
 	as dividend.
 
 2013-02-16  Alan Modra  <amodra@gmail.com>

@@ -24,5 +24,4 @@ int main()
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-not "OBJ_TYPE_REF" "optimized"  } } */
-/* { dg-final { cleanup-tree-dump "optimized" } } */
+/* { dg-final { scan-assembler-not "_ZN3Foo5cloneEv" } } */

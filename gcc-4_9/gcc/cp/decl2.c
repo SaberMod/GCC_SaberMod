@@ -99,6 +99,10 @@ static GTY(()) vec<tree, va_gc> *pending_statics;
    may need to emit outline anyway.  */
 static GTY(()) vec<tree, va_gc> *deferred_fns;
 
+/* A list of functions which we might want to set DECL_COMDAT on at EOF.  */
+
+static GTY(()) vec<tree, va_gc> *maybe_comdat_fns;
+
 /* A list of decls that use types with no linkage, which we need to make
    sure are defined.  */
 static GTY(()) vec<tree, va_gc> *no_linkage_decls;
@@ -608,7 +612,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
   int ix;
   bool is_template;
   tree pushed_scope;
-  
+
   if (DECL_USE_TEMPLATE (function)
       && !(TREE_CODE (function) == TEMPLATE_DECL
 	   && DECL_TEMPLATE_SPECIALIZATION (function))
@@ -717,7 +721,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
 	    pop_scope (pushed_scope);
 	  return OVL_CURRENT (fndecls);
 	}
-      
+
       error_at (DECL_SOURCE_LOCATION (function),
 		"prototype for %q#D does not match any in class %qT",
 		function, ctype);
@@ -1582,7 +1586,7 @@ coerce_new_type (tree type)
       if (TREE_PURPOSE (args))
 	{
 	  /* [basic.stc.dynamic.allocation]
-	     
+
 	     The first parameter shall not have an associated default
 	     argument.  */
 	  error ("the first parameter of %<operator new%> cannot "
@@ -1893,6 +1897,12 @@ mark_needed (tree decl)
 	 definition.  */
       struct cgraph_node *node = cgraph_get_create_node (decl);
       node->forced_by_abi = true;
+
+      /* #pragma interface and -frepo code can call mark_needed for
+          maybe-in-charge 'tors; mark the clones as well.  */
+      tree clone;
+      FOR_EACH_CLONE (clone, decl)
+	mark_needed (clone);
     }
   else if (TREE_CODE (decl) == VAR_DECL)
     {
@@ -1930,11 +1940,6 @@ decl_needed_p (tree decl)
      visible to other DLLs.  */
   if (flag_keep_inline_dllexport
       && lookup_attribute ("dllexport", DECL_ATTRIBUTES (decl)))
-    return true;
-  /* Virtual functions might be needed for devirtualization.  */
-  if (flag_devirtualize
-      && TREE_CODE (decl) == FUNCTION_DECL
-      && DECL_VIRTUAL_P (decl))
     return true;
   /* Otherwise, DECL does not need to be emitted -- yet.  A subsequent
      reference to DECL might cause it to be emitted later.  */
@@ -2206,7 +2211,7 @@ determine_visibility (tree decl)
 	  if (DECL_VISIBILITY_SPECIFIED (fn))
 	    {
 	      DECL_VISIBILITY (decl) = DECL_VISIBILITY (fn);
-	      DECL_VISIBILITY_SPECIFIED (decl) = 
+	      DECL_VISIBILITY_SPECIFIED (decl) =
 		DECL_VISIBILITY_SPECIFIED (fn);
 	    }
 	  else
@@ -2287,7 +2292,7 @@ determine_visibility (tree decl)
       tree attribs = (TREE_CODE (decl) == TYPE_DECL
 		      ? TYPE_ATTRIBUTES (TREE_TYPE (decl))
 		      : DECL_ATTRIBUTES (decl));
-      
+
       if (args != error_mark_node)
 	{
 	  tree pattern = DECL_TEMPLATE_RESULT (TI_TEMPLATE (tinfo));
@@ -2680,17 +2685,7 @@ import_export_decl (tree decl)
     {
       /* The repository indicates that this entity should be defined
 	 here.  Make sure the back end honors that request.  */
-      if (VAR_P (decl))
-	mark_needed (decl);
-      else if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl)
-	       || DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (decl))
-	{
-	  tree clone;
-	  FOR_EACH_CLONE (clone, decl)
-	    mark_needed (clone);
-	}
-      else
-	mark_needed (decl);
+      mark_needed (decl);
       /* Output the definition as an ordinary strong definition.  */
       DECL_EXTERNAL (decl) = 0;
       DECL_INTERFACE_KNOWN (decl) = 1;
@@ -2986,7 +2981,7 @@ set_guard (tree guard)
   guard_init = integer_one_node;
   if (!same_type_p (TREE_TYPE (guard_init), TREE_TYPE (guard)))
     guard_init = convert (TREE_TYPE (guard), guard_init);
-  return cp_build_modify_expr (guard, NOP_EXPR, guard_init, 
+  return cp_build_modify_expr (guard, NOP_EXPR, guard_init,
 			       tf_warning_or_error);
 }
 
@@ -3473,7 +3468,7 @@ get_priority_info (int priority)
    some optimizers (enabled by -O2 -fprofile-arcs) might crash
    when trying to refer to a temporary variable that does not have
    it's DECL_CONTECT() properly set.  */
-static tree 
+static tree
 fix_temporary_vars_context_r (tree *node,
 			      int  * /*unused*/,
 			      void * /*unused1*/)
@@ -3520,7 +3515,7 @@ one_static_initialization_or_destruction (tree decl, tree init, bool initp)
   /* Make sure temporary variables in the initialiser all have
      their DECL_CONTEXT() set to a value different from NULL_TREE.
      This can happen when global variables initialisers are built.
-     In that case, the DECL_CONTEXT() of the global variables _AND_ of all 
+     In that case, the DECL_CONTEXT() of the global variables _AND_ of all
      the temporary variables that might have been generated in the
      accompagning initialisers is NULL_TREE, meaning the variables have been
      declared in the global namespace.
@@ -3992,19 +3987,19 @@ cpp_check (tree t, cpp_operation op)
 
 /* Collect source file references recursively, starting from NAMESPC.  */
 
-static void 
-collect_source_refs (tree namespc) 
+static void
+collect_source_refs (tree namespc)
 {
   tree t;
 
-  if (!namespc) 
+  if (!namespc)
     return;
 
   /* Iterate over names in this name space.  */
   for (t = NAMESPACE_LEVEL (namespc)->names; t; t = TREE_CHAIN (t))
     if (!DECL_IS_BUILTIN (t) )
       collect_source_ref (DECL_SOURCE_FILE (t));
-  
+
   /* Dump siblings, if any */
   collect_source_refs (TREE_CHAIN (namespc));
 
@@ -4252,6 +4247,34 @@ dump_tu (void)
       dump_node (global_namespace, flags & ~TDF_SLIM, stream);
       dump_end (TDI_tu, stream);
     }
+}
+
+/* Much like the above, but not necessarily defined.  4.9 hack for setting
+   DECL_COMDAT on DECL_EXTERNAL functions, along with set_comdat.  */
+
+void
+note_comdat_fn (tree decl)
+{
+  vec_safe_push (maybe_comdat_fns, decl);
+}
+
+/* DECL is a function with vague linkage that was not
+   instantiated/synthesized in this translation unit.  Set DECL_COMDAT for
+   the benefit of can_refer_decl_in_current_unit_p.  */
+
+static void
+set_comdat (tree decl)
+{
+  DECL_COMDAT (decl) = true;
+
+  tree clone;
+  FOR_EACH_CLONE (clone, decl)
+    set_comdat (clone);
+
+  if (DECL_VIRTUAL_P (decl))
+    for (tree thunk = DECL_THUNKS (decl); thunk;
+	 thunk = DECL_CHAIN (thunk))
+      DECL_COMDAT (thunk) = true;
 }
 
 /* This routine is called at the end of compilation.
@@ -4603,6 +4626,8 @@ cp_write_global_declarations (void)
   bool reconsider = false;
   location_t locus;
   struct pointer_set_t *candidates;
+  size_t i;
+  tree decl;
 
   locus = input_location;
   at_eof = 1;
@@ -4666,6 +4691,10 @@ cp_write_global_declarations (void)
       vtv_compute_class_hierarchy_transitive_closure ();
       vtv_build_vtable_verify_fndecl ();
     }
+
+  FOR_EACH_VEC_SAFE_ELT (maybe_comdat_fns, i, decl)
+    if (!DECL_COMDAT (decl) && vague_linkage_p (decl))
+      set_comdat (decl);
 
   finalize_compilation_unit ();
 
