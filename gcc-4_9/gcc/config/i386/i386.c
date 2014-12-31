@@ -3846,11 +3846,30 @@ ix86_option_override_internal (bool main_args_p,
         opts->x_target_flags |= MASK_NO_RED_ZONE;
     }
 
+  if (!global_options_set.x_flag_shrink_wrap_frame_pointer)
+    flag_shrink_wrap_frame_pointer = 0;
+
+  /* -fshrink-wrap-frame-pointer is an optimization based on
+     -fno-omit-frame-pointer mode, so it is only effective when
+     flag_omit_frame_pointer is false.
+     Frame pointer shrinkwrap may increase code size, so disable
+     it when optimize_size is true.  */
+  if (flag_omit_frame_pointer
+      || optimize == 0
+      || optimize_size)
+    flag_shrink_wrap_frame_pointer = 0;
+
+  /* If only no -mno-omit-leaf-frame-pointer is explicitly specified,
+     -fshrink_wrap_frame_pointer will enable omitting leaf frame
+     pointer by default.  */
+  if (flag_shrink_wrap_frame_pointer
+      && !(TARGET_OMIT_LEAF_FRAME_POINTER_P (opts_set->x_target_flags)
+	   && !TARGET_OMIT_LEAF_FRAME_POINTER_P (opts->x_target_flags)))
+    opts->x_target_flags |= MASK_OMIT_LEAF_FRAME_POINTER;
+
   /* Keep nonleaf frame pointers.  */
   if (opts->x_flag_omit_frame_pointer)
     opts->x_target_flags &= ~MASK_OMIT_LEAF_FRAME_POINTER;
-  else if (TARGET_OMIT_LEAF_FRAME_POINTER_P (opts->x_target_flags))
-    opts->x_flag_omit_frame_pointer = 1;
 
   /* If we're doing fast math, we don't care about comparison order
      wrt NaNs.  This lets us use a shorter comparison sequence.  */
@@ -9085,18 +9104,20 @@ ix86_frame_pointer_required (void)
   if (TARGET_64BIT_MS_ABI && get_frame_size () > SEH_MAX_FRAME_SIZE)
     return true;
 
-  /* In ix86_option_override_internal, TARGET_OMIT_LEAF_FRAME_POINTER
-     turns off the frame pointer by default.  Turn it back on now if
-     we've not got a leaf function.  */
-  if (TARGET_OMIT_LEAF_FRAME_POINTER
-      && (!crtl->is_leaf
-	  || ix86_current_function_calls_tls_descriptor))
-    return true;
-
   if (crtl->profile && !flag_fentry)
     return true;
 
   return false;
+}
+
+/* Return true if the frame pointer of the function could be omitted.  */
+
+static bool
+ix86_can_omit_leaf_frame_pointer (void)
+{
+  return TARGET_OMIT_LEAF_FRAME_POINTER
+	 && (crtl->is_leaf
+	     && !ix86_current_function_calls_tls_descriptor);
 }
 
 /* Record that the current function accesses previous call frames.  */
@@ -9571,7 +9592,7 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
     offset += UNITS_PER_WORD;
 
   /* Skip saved base pointer.  */
-  if (frame_pointer_needed)
+  if (frame_pointer_needed || frame_pointer_partially_needed)
     offset += UNITS_PER_WORD;
   frame->hfp_save_offset = offset;
 
@@ -10892,6 +10913,26 @@ ix86_expand_prologue (void)
 	  m->fs.fp_valid = true;
 	}
     }
+  else if (frame_pointer_partially_needed)
+    {
+      insn = emit_insn (gen_push (hard_frame_pointer_rtx));
+      RTX_FRAME_RELATED_P (insn) = 1;
+      if (fpset_needed_in_prologue)
+	{
+	  insn = emit_move_insn (hard_frame_pointer_rtx, stack_pointer_rtx);
+	  /* Using sp as cfa_reg will involve more .cfi_def_cfa_offset for
+	     pushes in prologue, so use fp as cfa_reg to reduce .eh_frame
+	     size when possible.  */
+	  if (!any_fp_def)
+	    {
+	      RTX_FRAME_RELATED_P (insn) = 1;
+	      if (m->fs.cfa_reg == stack_pointer_rtx)
+		m->fs.cfa_reg = hard_frame_pointer_rtx;
+	      m->fs.fp_offset = m->fs.sp_offset;
+	      m->fs.fp_valid = true;
+	    }
+	}
+    }
 
   if (!int_registers_saved)
     {
@@ -11233,6 +11274,34 @@ ix86_expand_prologue (void)
     emit_insn (gen_prologue_use (stack_pointer_rtx));
 }
 
+/* Get frame pointer setting insn based on frame state.  */
+static rtx
+ix86_set_fp_insn ()
+{
+  rtx r, seq;
+  struct ix86_frame frame;
+  HOST_WIDE_INT offset;
+
+  ix86_compute_frame_layout (&frame);
+  gcc_assert (frame_pointer_partially_needed);
+  offset = frame.stack_pointer_offset - frame.hard_frame_pointer_offset; 
+
+  if (TARGET_64BIT && (offset > 0x7fffffff))
+    {
+      r = gen_rtx_SET (DImode, hard_frame_pointer_rtx, GEN_INT (offset));
+      emit_insn (r);
+      r = gen_rtx_PLUS (Pmode, hard_frame_pointer_rtx, stack_pointer_rtx);
+      r = gen_rtx_SET (VOIDmode, hard_frame_pointer_rtx, r);
+    }
+  else
+    {
+      r = gen_rtx_PLUS (Pmode, stack_pointer_rtx, GEN_INT (offset));
+      r = gen_rtx_SET (VOIDmode, hard_frame_pointer_rtx, r);
+    }
+  emit_insn (r);
+  return r;
+}
+
 /* Emit code to restore REG using a POP insn.  */
 
 static void
@@ -11417,7 +11486,11 @@ ix86_expand_epilogue (int style)
 	      || m->fs.sp_offset == frame.stack_pointer_offset);
 
   /* The FP must be valid if the frame pointer is present.  */
-  gcc_assert (frame_pointer_needed == m->fs.fp_valid);
+  if (!frame_pointer_partially_needed)
+    gcc_assert (frame_pointer_needed == m->fs.fp_valid);
+  else
+    gcc_assert (!(any_fp_def && m->fs.fp_valid));
+
   gcc_assert (!m->fs.fp_valid
 	      || m->fs.fp_offset == frame.hard_frame_pointer_offset);
 
@@ -11621,7 +11694,7 @@ ix86_expand_epilogue (int style)
 
   /* If we used a stack pointer and haven't already got rid of it,
      then do so now.  */
-  if (m->fs.fp_valid)
+  if (m->fs.fp_valid || frame_pointer_partially_needed)
     {
       /* If the stack pointer is valid and pointing at the frame
 	 pointer store address, then we only need a pop.  */
@@ -11629,15 +11702,20 @@ ix86_expand_epilogue (int style)
 	ix86_emit_restore_reg_using_pop (hard_frame_pointer_rtx);
       /* Leave results in shorter dependency chains on CPUs that are
 	 able to grok it fast.  */
-      else if (TARGET_USE_LEAVE
-	       || optimize_bb_for_size_p (EXIT_BLOCK_PTR_FOR_FN (cfun))
-	       || !cfun->machine->use_fast_prologue_epilogue)
+      else if (m->fs.fp_valid
+	       && (TARGET_USE_LEAVE
+		   || optimize_function_for_size_p (cfun)
+		   || !cfun->machine->use_fast_prologue_epilogue))
 	ix86_emit_leave ();
       else
         {
+	  rtx dest, offset;
+	  dest = (m->fs.fp_valid) ? hard_frame_pointer_rtx : stack_pointer_rtx;
+	  offset = (m->fs.fp_valid) ? const0_rtx :
+			GEN_INT (m->fs.sp_offset - frame.hfp_save_offset);
 	  pro_epilogue_adjust_stack (stack_pointer_rtx,
-				     hard_frame_pointer_rtx,
-				     const0_rtx, style, !using_drap);
+				     dest,
+				     offset, style, !using_drap);
 	  ix86_emit_restore_reg_using_pop (hard_frame_pointer_rtx);
         }
     }
@@ -47157,6 +47235,9 @@ adjacent_mem_locations (rtx mem1, rtx mem2)
 #undef TARGET_PROFILE_BEFORE_PROLOGUE
 #define TARGET_PROFILE_BEFORE_PROLOGUE ix86_profile_before_prologue
 
+#undef TARGET_SET_FP_INSN
+#define TARGET_SET_FP_INSN ix86_set_fp_insn
+
 #undef TARGET_MANGLE_DECL_ASSEMBLER_NAME
 #define TARGET_MANGLE_DECL_ASSEMBLER_NAME ix86_mangle_decl_assembler_name
 
@@ -47441,6 +47522,9 @@ adjacent_mem_locations (rtx mem1, rtx mem2)
 
 #undef TARGET_FRAME_POINTER_REQUIRED
 #define TARGET_FRAME_POINTER_REQUIRED ix86_frame_pointer_required
+
+#undef TARGET_CAN_OMIT_LEAF_FRAME_POINTER
+#define TARGET_CAN_OMIT_LEAF_FRAME_POINTER ix86_can_omit_leaf_frame_pointer
 
 #undef TARGET_CAN_ELIMINATE
 #define TARGET_CAN_ELIMINATE ix86_can_eliminate

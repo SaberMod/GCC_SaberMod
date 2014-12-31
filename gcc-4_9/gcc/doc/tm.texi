@@ -3801,6 +3801,10 @@ fixed register.  See @code{FIXED_REGISTERS} for more information.
 
 Default return value is @code{false}.
 @end deftypefn
+@deftypefn {Target Hook} bool TARGET_CAN_OMIT_LEAF_FRAME_POINTER (void)
+This target hook will return @code{true} if a function is a leaf function and
+its frame pointer can be omitted on the target.
+@end deftypefn
 
 @findex get_frame_size
 @defmac INITIAL_FRAME_POINTER_OFFSET (@var{depth-var})
@@ -11444,6 +11448,12 @@ is zero, which disables this optimization.
 Return the offset bitwise ored into shifted address to get corresponding
 Address Sanitizer shadow memory address.  NULL if Address Sanitizer is not
 supported by the target.
+@end deftypefn
+
+@deftypefn {Target Hook} rtx TARGET_SET_FP_INSN (void)
+When flag_shrink_wrap_frame_pointer is true, fp setting insn should
+be generated inside function body. The insertion is done after CFA
+information is known.
 @end deftypefn
 
 @deftypefn {Target Hook} {unsigned HOST_WIDE_INT} TARGET_MEMMODEL_CHECK (unsigned HOST_WIDE_INT @var{val})

@@ -3367,6 +3367,7 @@ defined and 0 otherwise.
 This is about eliminating the frame pointer and arg pointer.
 
 @hook TARGET_FRAME_POINTER_REQUIRED
+@hook TARGET_CAN_OMIT_LEAF_FRAME_POINTER
 
 @findex get_frame_size
 @defmac INITIAL_FRAME_POINTER_OFFSET (@var{depth-var})
@@ -8452,6 +8453,8 @@ and the associated definitions of those functions.
 @hook TARGET_CONST_ANCHOR
 
 @hook TARGET_ASAN_SHADOW_OFFSET
+
+@hook TARGET_SET_FP_INSN
 
 @hook TARGET_MEMMODEL_CHECK
 
