@@ -1044,12 +1044,6 @@ arm*-*-linux-*)			# ARM GNU/Linux with ELF
 		tmake_file="$tmake_file arm/t-linux-androideabi"
 		;;
 	    esac
-	    # Pull in spec changes for GRTE configurations.
-	    case ${target} in
-	    *-grte*)
-		tm_file="${tm_file} linux-grte.h arm/linux-grte.h"
-		;;
-	    esac
   	    # The BPABI long long divmod functions return a 128-bit value in
 	    # registers r0-r3.  Correctly modeling that requires the use of
 	    # TImode.
@@ -1469,12 +1463,6 @@ i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu | i
 		else
 			tm_file="${tm_file} i386/gnu-user-common.h i386/gnu-user.h i386/linux-common.h i386/linux.h"
 		fi
-		# Pull in spec changes for GRTE configurations.
-		case ${target} in
-		*-grte*)
-			tm_file="${tm_file} linux-grte.h"
-			;;
-		esac
 		;;
 	i[34567]86-*-knetbsd*-gnu)
 		tm_file="${tm_file} i386/gnu-user-common.h i386/gnu-user.h knetbsd-gnu.h i386/knetbsd-gnu.h"
@@ -1499,12 +1487,6 @@ x86_64-*-linux* | x86_64-*-kfreebsd*-gnu | x86_64-*-knetbsd*-gnu)
 		extra_options="${extra_options} linux-android.opt"
 		# Assume modern glibc
 		default_gnu_indirect_function=yes
-		# Pull in spec changes for GRTE configurations.
-		case ${target} in
-		*-grte*)
-			tm_file="${tm_file} linux-grte.h"
-			;;
-		esac
 	  	;;
 	x86_64-*-kfreebsd*-gnu)
 		tm_file="${tm_file} kfreebsd-gnu.h i386/kfreebsd-gnu64.h"
@@ -2389,12 +2371,6 @@ powerpc*-*-linux*)
 	if test x${enable_secureplt} = xyes; then
 		tm_file="rs6000/secureplt.h ${tm_file}"
 	fi
-	# Pull in spec changes for GRTE configurations.
-	case ${target} in
-	*-grte*)
-	    tm_file="${tm_file} rs6000/linux-grte.h"
-	    ;;
-	esac
 	;;
 powerpc-wrs-vxworks|powerpc-wrs-vxworksae)
 	tm_file="${tm_file} elfos.h freebsd-spec.h rs6000/sysv4.h"
