@@ -2462,7 +2462,12 @@ cgraph_can_remove_if_no_direct_calls_and_refs_p (struct cgraph_node *node)
 {
   gcc_assert (!node->global.inlined_to);
   /* Extern inlines can always go, we will use the external definition.  */
-  if (DECL_EXTERNAL (node->decl) || cgraph_is_aux_decl_external (node))
+  if (DECL_EXTERNAL (node->decl))
+    return true;
+  /* Aux functions are safe to remove, but only once static promotion is
+     complete since they may affect promoted names if they are the context
+     for any static variables.  */
+  if (cgraph_pre_profiling_inlining_done && cgraph_is_aux_decl_external (node))
     return true;
   /* When function is needed, we can not remove it.  */
   if (node->force_output || node->used_from_other_partition)
