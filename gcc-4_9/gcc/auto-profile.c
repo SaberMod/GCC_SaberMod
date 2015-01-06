@@ -652,6 +652,8 @@ function_instance::find_icall_target_map (gimple stmt,
         continue;
       if (!check_ic_target (stmt, node))
         continue;
+      if (!node->definition)
+        continue;
       (*map)[callee] = iter->second->total_count ();
       ret += iter->second->total_count ();
     }
