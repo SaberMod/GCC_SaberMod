@@ -5974,7 +5974,18 @@ ix86_function_type_abi (const_tree fntype)
       if (abi == SYSV_ABI)
 	{
 	  if (lookup_attribute ("ms_abi", TYPE_ATTRIBUTES (fntype)))
-	    abi = MS_ABI;
+	    {
+	      if (TARGET_X32)
+		{
+		  static bool warned = false;
+		  if (!warned)
+		    {
+		      error ("X32 does not support ms_abi attribute");
+		      warned = true;
+		    }
+		}
+	      abi = MS_ABI;
+	    }
 	}
       else if (lookup_attribute ("sysv_abi", TYPE_ATTRIBUTES (fntype)))
 	abi = SYSV_ABI;
@@ -14505,7 +14516,7 @@ put_condition_code (enum rtx_code code, enum machine_mode mode, bool reverse,
       if (mode == CCmode)
 	suffix = "b";
       else if (mode == CCCmode)
-	suffix = "c";
+	suffix = fp ? "b" : "c";
       else
 	gcc_unreachable ();
       break;
@@ -14528,9 +14539,9 @@ put_condition_code (enum rtx_code code, enum machine_mode mode, bool reverse,
       break;
     case GEU:
       if (mode == CCmode)
-	suffix = fp ? "nb" : "ae";
+	suffix = "nb";
       else if (mode == CCCmode)
-	suffix = "nc";
+	suffix = fp ? "nb" : "nc";
       else
 	gcc_unreachable ();
       break;
@@ -23892,7 +23903,8 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
 		      *noalign = alg_noalign;
 		      return alg;
 		    }
-		  break;
+		  else if (!any_alg_usable_p)
+		    break;
 		}
 	      else if (alg_usable_p (candidate, memset))
 		{
@@ -23930,9 +23942,10 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
       alg = decide_alg (count, max / 2, min_size, max_size, memset,
 			zero_memset, dynamic_check, noalign);
       gcc_assert (*dynamic_check == -1);
-      gcc_assert (alg != libcall);
       if (TARGET_INLINE_STRINGOPS_DYNAMICALLY)
 	*dynamic_check = max;
+      else
+	gcc_assert (alg != libcall);
       return alg;
     }
   return (alg_usable_p (algs->unknown_size, memset)
