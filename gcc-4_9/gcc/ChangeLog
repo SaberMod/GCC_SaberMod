@@ -1,3 +1,132 @@
+2015-01-13  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/54442
+	* tree.c (build_qualified_type): Use a canonical type for
+	TYPE_CANONICAL.
+
+2015-01-13  Pat Haugen  <pthaugen@us.ibm.com>
+
+	Backport from mainline
+	2014-12-20  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/64358
+	* config/rs6000/rs6000.c (rs6000_split_logical_inner): Swap the
+	input operands if only the second is inverted.
+	* config/rs6000/rs6000.md (*boolc<mode>3_internal1 for BOOL_128):
+	Swap BOOL_REGS_OP1 and BOOL_REGS_OP2.  Correct arguments to
+	rs6000_split_logical.
+	(*boolc<mode>3_internal2 for TI2): Swap operands[1] and operands[2].
+
+2015-01-13  Renlin Li  <renlin.li@arm.com>
+
+	Backport from mainline:
+	2014-11-19 Renlin Li <renlin.li@arm.com>
+
+	PR target/63424
+	* config/aarch64/aarch64-simd.md (<su><maxmin>v2di3): New.
+
+2015-01-13  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport form mainline
+	2015-01-13  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/64479
+	* rtlanal.c (set_reg_p): Handle SEQUENCE constructs.
+
+2015-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/64536
+	* cfgrtl.c (rtl_tidy_fallthru_edge): Handle removal of degenerate
+	tablejumps.
+
+2015-01-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline:
+	2015-01-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/64505
+	* config/rs6000/rs6000.c (rs6000_secondary_reload): Return the
+	correct reload handler if -m32 -mpowerpc64 is used.
+
+2015-01-09  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline:
+	2015-01-09  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/rs6000/rtems.h (CPP_OS_RTEMS_SPEC): Define __PPC_CPU_E6500__
+	for -mcpu=e6500.
+	* config/rs6000/t-rtems: Add e6500 multilibs.
+
+2015-01-09  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline:
+	2015-01-09  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/rs6000/t-rtems: Add -mno-spe to soft-float multilib for
+	MPC8540.
+
+2015-01-09  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline:
+	2015-01-09  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/rs6000/t-rtems: Use MULTILIB_REQUIRED instead of
+	MULTILIB_EXCEPTIONS.
+
+2015-01-09  Renlin Li  <renlin.li@arm.com>
+
+	Backport from mainline:
+	2014-08-12 Ramana Radhakrishnan <ramana.radhakrishnan@arm.com>
+
+	PR target/61413
+	* config/arm/arm.h (TARGET_CPU_CPP_BUILTINS): Fix definition
+	of __ARM_SIZEOF_WCHAR_T.
+
+2015-01-08  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/64507
+	* config/sh/sh-mem.cc (sh_expand_cmpnstr): Check 0 length.
+
+2015-01-03  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.md (decrement_and_branch_until_zero): Use `Q' constraint
+	instead of `m' constraint.  Likewise for unnamed movb comparison
+	patterns using reg_before_reload_operand predicate.
+	* config/pa/predicates.md (reg_before_reload_operand): Tighten
+	predicate to reject register index and LO_SUM DLT memory forms
+	after reload.
+
+2014-12-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2014-12-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/64409
+	* config/i386/i386.c (ix86_function_type_abi): Issue an error
+	when ms_abi attribute is used with x32.
+
+2014-12-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/mmx.md (*vec_extractv2sf_1): Do not emit unpckhps.
+	Emit movshdup for SSE3 and shufps otherwise.
+	(*vec_extractv2si_1): Do not emit punpckhdq and unpckhps.
+	Emit pshufd for SSE2 and shufps otherwise.
+
+2014-12-24  Nick Clifton  <nickc@redhat.com>
+
+	Backport from mainline:
+	2014-06-13  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.h (JUMP_ALIGN): Return the log value if user
+	requested alignment is active.
+	(LABEL_ALIGN): Likewise.
+	(LOOP_ALIGN): Likewise.
+
+	2014-03-25  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.c (rx_print_operand): Allow R operator to accept
+	SImode values.
+
 2014-12-17  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline

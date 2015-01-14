@@ -1,3 +1,71 @@
+2015-01-13  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/54442
+	* g++.dg/pr54442.C: New file.
+
+2015-01-13  Renlin Li  <renlin.li@arm.com>
+
+	Backported from mainline
+	2014-11-19 Renlin Li <renlin.li@arm.com>
+
+	PR target/63424
+	* gcc.target/aarch64/pr63424.c: New Test.
+
+2015-01-12  Janus Weil  <janus@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/63733
+	* gfortran.dg/typebound_operator_20.f90: New.
+
+2015-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/64536
+	* gcc.dg/pr64536.c: New test.
+
+2015-01-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline:
+	2015-01-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/64505
+	* gcc.target/powerpc/pr64505.c: New file to test -m32 -mpowerpc64
+	fix is correct.
+
+2014-01-08  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/56867
+	* gfortran.dg/dependency_45.f90:  New test.
+
+2015-01-08  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/64507
+	* gcc.target/sh/pr64507.c: New test.
+
+2015-01-05  Ian Lance Taylor  <iant@google.com>
+
+	Backport from mainline:
+	2014-11-21  Lynn Boger  <laboger@linux.vnet.ibm.com>
+
+	* go.test/go-test.exp (go-set-goarch): Add case for ppc64le goarch
+	value for go testing.
+
+2014-12-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2014-12-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/pr57003.c: Skip on x32.
+	* gcc.target/i386/pr59927.c: Likewise.
+	* gcc.target/i386/pr60516.c: Likewise.
+
+2014-12-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2014-12-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/64409
+	* gcc.target/i386/pr64409.c: New test.
+
 2014-12-23  Janus Weil  <janus@gcc.gnu.org>
 
 	Backport from mainline

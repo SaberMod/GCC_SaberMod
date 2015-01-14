@@ -16636,10 +16636,13 @@ rs6000_secondary_reload (bool in_p,
 	      : (offset + 0x8000 < 0x10000 - extra /* legitimate_address_p */
 		 && (offset & 3) != 0))
 	    {
+	      /* -m32 -mpowerpc64 needs to use a 32-bit scratch register.  */
 	      if (in_p)
-		sri->icode = CODE_FOR_reload_di_load;
+		sri->icode = ((TARGET_32BIT) ? CODE_FOR_reload_si_load
+			      : CODE_FOR_reload_di_load);
 	      else
-		sri->icode = CODE_FOR_reload_di_store;
+		sri->icode = ((TARGET_32BIT) ? CODE_FOR_reload_si_store
+			      : CODE_FOR_reload_di_store);
 	      sri->extra_cost = 2;
 	      ret = NO_REGS;
 	    }
@@ -32549,6 +32552,14 @@ rs6000_split_logical_inner (rtx dest,
 
   if (complement_op2_p)
     op2 = gen_rtx_NOT (mode, op2);
+
+  /* For canonical RTL, if only one arm is inverted it is the first.  */
+  if (!complement_op1_p && complement_op2_p)
+    {
+      rtx temp = op1;
+      op1 = op2;
+      op2 = temp;
+    }
 
   bool_rtx = ((code == NOT)
 	      ? gen_rtx_NOT (mode, op1)
