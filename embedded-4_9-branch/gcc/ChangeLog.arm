@@ -1,3 +1,8 @@
+2015-01-15  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/t-rmprofile (Multilibs for M7): Five new multilib
+	variants for Cortex-M7.
+
 2014-12-02  Terry Guo  <terry.guo@arm.com>
 
 	Backport from mainline r214214
