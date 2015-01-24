@@ -1,3 +1,90 @@
+2015-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/64734
+	* omp-low.c (scan_sharing_clauses): Don't ignore
+	OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION GOMP_MAP_POINTER clauses
+	on target data/update constructs.
+
+2015-01-23  Wei Mi  <wmi@google.com>
+
+	Backported from trunk.
+	2015-01-22  Wei Mi  <wmi@google.com>
+
+	PR rtl-optimization/64557
+	* dse.c (record_store): Call get_addr for mem_addr.
+	(check_mem_read_rtx): Likewise.
+
+2015-01-22  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md (atomic code attribute): Fix typo "ior" ->
+	"or".
+
+2015-01-21  Wei Mi  <wmi@google.com>
+
+	Backported from trunk.
+	2014-11-22  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/63970
+	* ipa.c (symbol_table::remove_unreachable_nodes): Mark all inline clones
+	as having abstract origin used.
+	* ipa-inline-transform.c (can_remove_node_now_p_1): Drop abstract origin check.
+	(clone_inlined_nodes): Copy abstract originflag.
+	* lto-cgraph.c (compute_ltrans_boundary): Use get_create to get abstract origin node.
+
+2015-01-20  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	Backport from mainline
+	* config/nios2/nios2.c (nios2_asm_file_end): Implement
+	TARGET_ASM_FILE_END hook for adding .note.GNU-stack section when
+	needed.
+	(TARGET_ASM_FILE_END): Define.
+
+2015-01-15  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2014-11-27  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/63704
+	* alias.c (mems_in_disjoint_alias_sets_p): Remove assert
+	and instead return false when !fstrict-aliasing.
+
+2015-01-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* expr.c (expand_expr_real_1) <normal_inner_ref>: Use the expression to
+	set the memory attributes in all cases but clear MEM_EXPR if need be.
+
+2015-01-14  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2015-01-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/64513
+	* config/i386/i386.c (ix86_expand_prologue): Add
+	REG_FRAME_RELATED_EXPR to %rax and %r10 pushes.
+
+	2015-01-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/64286
+	* ree.c (combine_reaching_defs): Move part of comment earlier,
+	remove !SCALAR_INT_MODE_P check.
+	(add_removable_extension): Don't add vector mode
+	extensions if all uses of the source register aren't the same
+	vector extensions.
+
+	2015-01-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/64563
+	* tree-vrp.c (vrp_evaluate_conditional): Check for VR_RANGE
+	instead of != VR_VARYING.
+
+2015-01-14  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2015-01-13  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/64391
+	* trans-mem.c (get_attrs_for): Return NULL_TREE if X is NULL_TREE.
+
 2015-01-13  Marc Glisse  <marc.glisse@inria.fr>
 
 	PR c++/54442
