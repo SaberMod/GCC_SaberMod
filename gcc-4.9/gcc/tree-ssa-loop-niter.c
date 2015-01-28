@@ -2727,6 +2727,7 @@ record_nonwrapping_iv (struct loop *loop, tree base, tree step, gimple stmt,
   tree niter_bound, extreme, delta;
   tree type = TREE_TYPE (base), unsigned_type;
   double_int max;
+  tree orig_base = base;
 
   if (TREE_CODE (step) != INTEGER_CST || integer_zerop (step))
     return;
@@ -2750,7 +2751,14 @@ record_nonwrapping_iv (struct loop *loop, tree base, tree step, gimple stmt,
 
   if (tree_int_cst_sign_bit (step))
     {
+      double_int min, max;
       extreme = fold_convert (unsigned_type, low);
+      if (TREE_CODE (orig_base) == SSA_NAME
+	  && TREE_CODE (high) == INTEGER_CST
+	  && INTEGRAL_TYPE_P (TREE_TYPE (orig_base))
+	  && get_range_info (orig_base, &min, &max) == VR_RANGE
+	  && max.slt (TREE_INT_CST (high)))
+	base = double_int_to_tree (unsigned_type, max);
       if (TREE_CODE (base) != INTEGER_CST)
 	base = fold_convert (unsigned_type, high);
       delta = fold_build2 (MINUS_EXPR, unsigned_type, base, extreme);
@@ -2758,8 +2766,15 @@ record_nonwrapping_iv (struct loop *loop, tree base, tree step, gimple stmt,
     }
   else
     {
+      double_int min, max;
       extreme = fold_convert (unsigned_type, high);
-      if (TREE_CODE (base) != INTEGER_CST)
+      if (TREE_CODE (orig_base) == SSA_NAME
+	  && TREE_CODE (low) == INTEGER_CST
+	  && INTEGRAL_TYPE_P (TREE_TYPE (orig_base))
+	  && get_range_info (orig_base, &min, &max) == VR_RANGE
+	  && min.sgt (TREE_INT_CST (low)))
+	base = double_int_to_tree (unsigned_type, min);
+      else if (TREE_CODE (base) != INTEGER_CST)
 	base = fold_convert (unsigned_type, low);
       delta = fold_build2 (MINUS_EXPR, unsigned_type, extreme, base);
     }
