@@ -1,5 +1,12 @@
 2015-01-29  Terry Guo  <terry.guo@arm.com>
 
+	Backport from mainline r220197
+	2015-01-28  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/thumb1.md (*thumb1_movpc_insn): New insn pattern.
+	
+2015-01-29  Terry Guo  <terry.guo@arm.com>
+
 	Backport from mainline r220106
 	2015-01-26  Terry Guo  <terry.guo@arm.com>
 
