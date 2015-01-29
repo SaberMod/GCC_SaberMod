@@ -1,3 +1,11 @@
+2015-01-29  Terry Guo  <terry.guo@arm.com>
+
+	Backport from mainline r220106
+	2015-01-26  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/arm.c (arm_file_start): Update the assignment of
+	Tag_ABI_HardFP_use.
+
 2015-01-15  Terry Guo  <terry.guo@arm.com>
 
 	* config/arm/t-rmprofile (Multilibs for M7): Five new multilib
