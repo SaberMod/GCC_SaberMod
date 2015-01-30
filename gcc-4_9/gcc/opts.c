@@ -2050,6 +2050,12 @@ common_handle_option (struct gcc_options *opts,
       set_debug_level (DWARF2_DEBUG, false, "", opts, opts_set, loc);
       break;
 
+    case OPT_gline_tables_only:
+      set_debug_level (NO_DEBUG, DEFAULT_GDB_EXTENSIONS, "1", opts, opts_set,
+		       loc);
+      opts->x_debug_line_tables_only = 1;
+      break;
+
     case OPT_gsplit_dwarf:
       set_debug_level (NO_DEBUG, DEFAULT_GDB_EXTENSIONS, "", opts, opts_set,
 		       loc);
@@ -2247,6 +2253,7 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg,
 		 struct gcc_options *opts, struct gcc_options *opts_set,
 		 location_t loc)
 {
+  opts->x_debug_line_tables_only = 0;
   opts->x_use_gnu_debug_info_extensions = extended;
 
   if (type == NO_DEBUG)

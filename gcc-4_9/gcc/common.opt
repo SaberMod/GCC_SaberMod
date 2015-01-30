@@ -1213,6 +1213,10 @@ fdwarf2-cfi-asm
 Common Report Var(flag_dwarf2_cfi_asm) Init(HAVE_GAS_CFI_DIRECTIVE)
 Enable CFI tables via GAS assembler directives.
 
+ftwo-level-line-tables
+Common Report Var(flag_two_level_line_tables) Init(0)
+Use two-level line tables in DWARF (experimental).
+
 fripa
 Common Report Var(flag_dyn_ipa)
 Perform Dynamic Inter-Procedural Analysis.
@@ -2656,6 +2660,10 @@ Generate debug information in DWARF v2 (or later) format
 ggdb
 Common JoinedOrMissing
 Generate debug information in default extended format
+
+gline-tables-only
+Common RejectNegative Var(debug_line_tables_only) Init(0)
+Generate DWARF line number tables and no other debug sections
 
 gno-pubnames
 Common Negative(gpubnames) Var(debug_generate_pub_sections, 0) Init(-1)

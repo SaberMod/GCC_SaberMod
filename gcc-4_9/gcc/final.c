@@ -1802,18 +1802,6 @@ final_start_function (rtx first, FILE *file,
 	profile_function (file);
     }
 
-  /* If debugging, assign block numbers to all of the blocks in this
-     function.  */
-  if (write_symbols)
-    {
-      reemit_insn_block_notes ();
-      number_blocks (current_function_decl);
-      /* We never actually put out begin/end notes for the top-level
-	 block in the function.  But, conceptually, that block is
-	 always needed.  */
-      TREE_ASM_WRITTEN (DECL_INITIAL (current_function_decl)) = 1;
-    }
-
   if (warn_frame_larger_than
     && get_frame_size () > frame_larger_than_size)
   {
@@ -4497,6 +4485,18 @@ rest_of_handle_final (void)
   fnname = XSTR (x, 0);
 
   has_cold_section_p = false;
+
+  /* If debugging, assign block numbers to all of the blocks in this
+     function.  */
+  if (write_symbols)
+    {
+      reemit_insn_block_notes ();
+      number_blocks (current_function_decl);
+      /* We never actually put out begin/end notes for the top-level
+	 block in the function.  But, conceptually, that block is
+	 always needed.  */
+      TREE_ASM_WRITTEN (DECL_INITIAL (current_function_decl)) = 1;
+    }
 
   assemble_start_function (current_function_decl, fnname);
   final_start_function (get_insns (), asm_out_file, optimize);
