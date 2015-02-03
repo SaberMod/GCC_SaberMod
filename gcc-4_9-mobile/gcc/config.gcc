@@ -791,7 +791,13 @@ case ${target} in
   ;;
 *-*-rtems*)
   case ${enable_threads} in
-    yes) thread_file='rtems' ;;
+    "" | yes | rtems) thread_file='rtems' ;;
+    posix) thread_file='posix' ;;
+    no) ;;
+    *)
+      echo 'Unknown thread configuration for RTEMS'
+      exit 1
+      ;;
   esac
   tmake_file="${tmake_file} t-rtems"
   extra_options="${extra_options} rtems.opt"
@@ -1036,12 +1042,6 @@ arm*-*-linux-*)			# ARM GNU/Linux with ELF
 	    case ${target} in
 	    *-androideabi)
 		tmake_file="$tmake_file arm/t-linux-androideabi"
-		;;
-	    esac
-	    # Pull in spec changes for GRTE configurations.
-	    case ${target} in
-	    *-grte*)
-		tm_file="${tm_file} linux-grte.h arm/linux-grte.h"
 		;;
 	    esac
   	    # The BPABI long long divmod functions return a 128-bit value in
@@ -1465,12 +1465,6 @@ i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu | i
 		else
 			tm_file="${tm_file} i386/gnu-user-common.h i386/gnu-user.h i386/linux-common.h i386/linux.h"
 		fi
-		# Pull in spec changes for GRTE configurations.
-		case ${target} in
-		*-grte*)
-			tm_file="${tm_file} linux-grte.h"
-			;;
-		esac
 		;;
 	i[34567]86-*-knetbsd*-gnu)
 		tm_file="${tm_file} i386/gnu-user-common.h i386/gnu-user.h knetbsd-gnu.h i386/knetbsd-gnu.h"
@@ -1495,12 +1489,6 @@ x86_64-*-linux* | x86_64-*-kfreebsd*-gnu | x86_64-*-knetbsd*-gnu)
 		extra_options="${extra_options} linux-android.opt"
 		# Assume modern glibc
 		default_gnu_indirect_function=yes
-		# Pull in spec changes for GRTE configurations.
-		case ${target} in
-		*-grte*)
-			tm_file="${tm_file} linux-grte.h"
-			;;
-		esac
 	  	;;
 	x86_64-*-kfreebsd*-gnu)
 		tm_file="${tm_file} kfreebsd-gnu.h i386/kfreebsd-gnu64.h"
@@ -2385,12 +2373,6 @@ powerpc*-*-linux*)
 	if test x${enable_secureplt} = xyes; then
 		tm_file="rs6000/secureplt.h ${tm_file}"
 	fi
-	# Pull in spec changes for GRTE configurations.
-	case ${target} in
-	*-grte*)
-	    tm_file="${tm_file} rs6000/linux-grte.h"
-	    ;;
-	esac
 	;;
 powerpc-wrs-vxworks|powerpc-wrs-vxworksae)
 	tm_file="${tm_file} elfos.h freebsd-spec.h rs6000/sysv4.h"
@@ -2719,7 +2701,7 @@ sparc-*-elf*)
 	;;
 sparc-*-rtems*)
 	tm_file="${tm_file} dbxelf.h elfos.h sparc/sysv4.h sparc/sp-elf.h sparc/rtemself.h rtems.h newlib-stdint.h"
-	tmake_file="${tmake_file} sparc/t-sparc sparc/t-elf sparc/t-rtems"
+	tmake_file="${tmake_file} sparc/t-sparc sparc/t-rtems"
 	;;
 sparc-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h sparc/sysv4.h gnu-user.h linux.h glibc-stdint.h sparc/tso.h"
@@ -3262,6 +3244,9 @@ if test x$with_cpu = x ; then
 	*-leon[3-9]*)
 	  with_cpu=leon3
 	  ;;
+	*-leon[3-9]v7*)
+	  with_cpu=leon3v7
+	  ;;
 	*)
 	  with_cpu="`echo ${target} | sed 's/-.*$//'`"
 	  ;;
@@ -3597,20 +3582,17 @@ case "${target}" in
 			;;
 		esac
 
-		case "$with_fpu" in
-		"" \
-		| vfp | vfp3 | vfpv3 \
-		| vfpv3-fp16 | vfpv3-d16 | vfpv3-d16-fp16 | vfpv3xd \
-		| vfpv3xd-fp16 | neon | neon-fp16 | vfpv4 | vfpv4-d16 \
-		| fpv4-sp-d16 | neon-vfpv4 | fp-arm-v8 | neon-fp-armv8 \
-                | crypto-neon-fp-armv8)
-			# OK
-			;;
-		*)
-			echo "Unknown fpu used in --with-fpu=$with_fpu" 2>&1
-			exit 1
-			;;
-		esac
+		# see if it matches any of the entries in arm-fpus.def
+		if [ x"$with_fpu" = x ] \
+		    || grep "^ARM_FPU(\"$with_fpu\"," \
+			    ${srcdir}/config/arm/arm-fpus.def \
+			    > /dev/null; then
+		  # OK
+		  true
+		else
+		  echo "Unknown fpu used in --with-fpu=$with_fpu" 1>&2
+		  exit 1
+		fi
 
 		case "$with_abi" in
 		"" \
@@ -4053,7 +4035,7 @@ case "${target}" in
 			case ${val} in
 			"" | sparc | sparcv9 | sparc64 \
 			| v7 | cypress \
-			| v8 | supersparc | hypersparc | leon | leon3 \
+			| v8 | supersparc | hypersparc | leon | leon3 | leon3v7 \
 			| sparclite | f930 | f934 | sparclite86x \
 			| sparclet | tsc701 \
 			| v9 | ultrasparc | ultrasparc3 | niagara | niagara2 \

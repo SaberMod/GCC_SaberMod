@@ -169,6 +169,8 @@ proc profopt-final-code { which final_code name } {
 # SRC is the full pathname of the testcase.
 #
 proc profopt-get-options { src } {
+    global srcdir
+
     # dg-options sets a variable called dg-extra-tool-flags.
     set dg-extra-tool-flags ""
 

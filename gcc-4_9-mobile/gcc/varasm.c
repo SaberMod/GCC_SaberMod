@@ -96,11 +96,6 @@ tree last_assemble_variable_decl;
 
 bool first_function_block_is_cold;
 
-/* We give all constants their own alias set.  Perhaps redundant with
-   MEM_READONLY_P, but pre-dates it.  */
-
-static alias_set_type const_alias_set;
-
 /* Whether we saw any functions with no_split_stack.  */
 
 static bool saw_no_split_stack;
@@ -168,6 +163,13 @@ section *in_section;
 /* True if code for the current function is currently being directed
    at the cold section.  */
 bool in_cold_section_p;
+
+/* The following global holds the "function name" for the code in the
+   cold section of a function, if hot/cold function splitting is enabled
+   and there was actually code that went into the cold section.  A
+   pseudo function name is needed for the cold section of code for some
+   debugging tools that perform symbolization. */
+tree cold_partition_name = NULL_TREE;
 
 /* A linked list of all the unnamed sections.  */
 static GTY(()) section *unnamed_sections;
@@ -1624,6 +1626,7 @@ assemble_start_function (tree decl, const char *fnname)
       ASM_GENERATE_INTERNAL_LABEL (tmp_label, "LCOLDE", const_labelno);
       crtl->subsections.cold_section_end_label = ggc_strdup (tmp_label);
       const_labelno++;
+      cold_partition_name = NULL_TREE;
     }
   else
     {
@@ -1756,6 +1759,10 @@ assemble_end_function (tree decl, const char *fnname ATTRIBUTE_UNUSED)
 
       save_text_section = in_section;
       switch_to_section (unlikely_text_section ());
+      if (cold_partition_name != NULL_TREE)
+	ASM_DECLARE_FUNCTION_SIZE (asm_out_file,
+				   IDENTIFIER_POINTER (cold_partition_name),
+				   decl);
       ASM_OUTPUT_LABEL (asm_out_file, crtl->subsections.cold_section_end_label);
       if (first_function_block_is_cold)
 	switch_to_section (text_section);
@@ -3265,7 +3272,6 @@ build_constant_desc (tree exp)
   rtl = gen_const_mem (TYPE_MODE (TREE_TYPE (exp)), symbol);
   set_mem_attributes (rtl, exp, 1);
   set_mem_alias_set (rtl, 0);
-  set_mem_alias_set (rtl, const_alias_set);
 
   /* We cannot share RTX'es in pool entries.
      Mark this piece of RTL as required for unsharing.  */
@@ -5983,7 +5989,6 @@ init_varasm_once (void)
   const_desc_htab = htab_create_ggc (1009, const_desc_hash,
 				     const_desc_eq, NULL);
 
-  const_alias_set = new_alias_set ();
   shared_constant_pool = create_constant_pool ();
 
 #ifdef TEXT_SECTION_ASM_OP

@@ -177,7 +177,10 @@ static inline bool
 polymorphic_type_binfo_p (tree binfo)
 {
   /* See if BINFO's type has an virtual table associtated with it.  */
-  return BINFO_VTABLE (TYPE_BINFO (BINFO_TYPE (binfo)));
+  tree type_binfo = TYPE_BINFO (BINFO_TYPE (binfo));
+  if (L_IPO_COMP_MODE && !type_binfo)
+    return false;
+  return BINFO_VTABLE (type_binfo);
 }
 
 /* One Definition Rule hashtable helpers.  */
@@ -994,7 +997,8 @@ give_up:
   if ((TREE_CODE (type) != RECORD_TYPE
        || !TYPE_BINFO (type)
        || !polymorphic_type_binfo_p (TYPE_BINFO (type)))
-      && (TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST
+      && (!TYPE_SIZE (type)
+	  || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST
 	  || (offset + tree_to_uhwi (TYPE_SIZE (expected_type)) <=
 	      tree_to_uhwi (TYPE_SIZE (type)))))
     return true;
@@ -1869,8 +1873,7 @@ ipa_devirt (void)
 	    /* Don't use an implicitly-declared destructor (c++/58678).  */
 	    struct cgraph_node *non_thunk_target
 	      = cgraph_function_node (likely_target);
-	    if (DECL_ARTIFICIAL (non_thunk_target->decl)
-		&& DECL_COMDAT (non_thunk_target->decl))
+	    if (DECL_ARTIFICIAL (non_thunk_target->decl))
 	      {
 		if (dump_file)
 		  fprintf (dump_file, "Target is artificial\n\n");

@@ -108,10 +108,12 @@ __gcov_merge_dc (gcov_type *counters, unsigned n_counters)
           else if (__gcov_is_gid_insane (global_id))
             global_id = counters[i];
 
+#if !defined(__KERNEL__)
           /* In the case of inconsistency, use the src's target.  */
           if (counters[i] != global_id)
             fprintf (stderr, "Warning: Inconsistent call targets in"
                      " direct-call profile.\n");
+#endif
         }
       else if (global_id)
 	counters[i] = global_id;

@@ -25,6 +25,7 @@
 #ifndef GCC_LIBGCOV_H
 #define GCC_LIBGCOV_H
 
+#ifndef __KERNEL__
 /* work around the poisoned malloc/calloc in system.h.  */
 #ifndef xmalloc
 #define xmalloc malloc
@@ -35,16 +36,24 @@
 #ifndef xrealloc
 #define xrealloc realloc
 #endif
+#ifndef xfree
+#define xfree free
+#endif
+#else /* __KERNEL__ */
+#include "libgcov-kernel.h"
+#endif /* __KERNEL__ */
 
 #ifndef IN_GCOV_TOOL
 /* About the target.  */
 /* This path will be used by libgcov runtime.  */
 
+#ifndef __KERNEL__
 #include "tconfig.h"
 #include "tsystem.h"
 #include "coretypes.h"
 #include "tm.h"
 #include "libgcc_tm.h"
+#endif /* __KERNEL__ */
 
 #undef FUNC_ID_WIDTH
 #undef FUNC_ID_MASK
@@ -128,7 +137,6 @@ typedef unsigned gcov_position_t;
 #define GCOV_LOCKED 0
 #endif
 
-/* xur??? */
 #define FUNC_ID_WIDTH 32
 #define FUNC_ID_MASK ((1ll << FUNC_ID_WIDTH) - 1)
 
@@ -189,6 +197,7 @@ extern unsigned gcov_get_merge_weight ();
 #define gcov_read_unsigned __gcov_read_unsigned
 #define gcov_read_counter __gcov_read_counter
 #define gcov_read_summary __gcov_read_summary
+#define gcov_read_buildinfo __gcov_read_buildinfo
 #define gcov_read_module_info __gcov_read_module_info
 #define gcov_sort_n_vals __gcov_sort_n_vals
 
@@ -246,12 +255,16 @@ struct gcov_info
 
   unsigned n_functions;         /* number of functions */
 
-#ifndef IN_GCOV_TOOL
+#if !defined (IN_GCOV_TOOL) && !defined (__KERNEL__)
   const struct gcov_fn_info *const *functions; /* pointer to pointers
                                                   to function information  */
-#else
+#elif defined (IN_GCOV_TOOL)
   const struct gcov_fn_info **functions;
+#else
+  struct gcov_fn_info **functions;
 #endif /* !IN_GCOV_TOOL */
+  char **build_info;            /* strings to include in BUILD_INFO
+                                   section of gcda file.  */
 };
 
 /* Information about a single imported module.  */
@@ -339,12 +352,17 @@ GCOV_LINKAGE void gcov_write_summary (gcov_unsigned_t /*tag*/,
     ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE void gcov_seek (gcov_position_t /*position*/) ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE void gcov_truncate (void) ATTRIBUTE_HIDDEN;
+void gcov_write_module_info (const struct gcov_info *, unsigned)
+    ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE void gcov_write_module_infos (struct gcov_info *mod_info)
     ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE const struct dyn_imp_mod **
 gcov_get_sorted_import_module_array (struct gcov_info *mod_info, unsigned *len)
     ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE inline void gcov_rewrite (void);
+
+extern void set_gcov_fn_fixed_up (int fixed_up);
+extern int get_gcov_fn_fixed_up (void);
 
 /* "Counts" stored in gcda files can be a real counter value, or
    an target address. When differentiate these two types because
@@ -358,7 +376,13 @@ gcov_get_counter (void)
   /* This version is for reading count values in libgcov runtime:
      we read from gcda files.  */
 
-  return gcov_read_counter ();
+  if (get_gcov_fn_fixed_up ())
+    {
+      gcov_read_counter ();
+      return 0;
+    }
+  else
+    return gcov_read_counter ();
 #else
   /* This version is for gcov-tool. We read the value from memory and
      multiply it by the merge weight.  */
@@ -377,7 +401,13 @@ gcov_get_counter_target (void)
   /* This version is for reading count target values in libgcov runtime:
      we read from gcda files.  */
 
-  return gcov_read_counter ();
+  if (get_gcov_fn_fixed_up ())
+    {
+      gcov_read_counter ();
+      return 0;
+    }
+  else
+    return gcov_read_counter ();
 #else
   /* This version is for gcov-tool.  We read the value from memory and we do NOT
      multiply it by the merge weight.  */

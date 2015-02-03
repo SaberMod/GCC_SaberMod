@@ -3874,7 +3874,7 @@ aarch64_print_operand_address (FILE *f, rtx x)
 	switch (GET_CODE (x))
 	  {
 	  case PRE_INC:
-	    asm_fprintf (f, "[%s,%d]!", reg_names [REGNO (addr.base)], 
+	    asm_fprintf (f, "[%s,%d]!", reg_names [REGNO (addr.base)],
 			 GET_MODE_SIZE (aarch64_memory_reference_mode));
 	    return;
 	  case POST_INC:
@@ -5152,7 +5152,6 @@ aarch64_parse_cpu (void)
       if (strlen (cpu->name) == len && strncmp (cpu->name, str, len) == 0)
 	{
 	  selected_cpu = cpu;
-	  selected_tune = cpu;
 	  aarch64_isa_flags = selected_cpu->flags;
 
 	  if (ext != NULL)
@@ -5248,9 +5247,8 @@ aarch64_override_options (void)
 
   gcc_assert (selected_cpu);
 
-  /* The selected cpu may be an architecture, so lookup tuning by core ID.  */
   if (!selected_tune)
-    selected_tune = &all_cores[selected_cpu->core];
+    selected_tune = selected_cpu;
 
   aarch64_tune_flags = selected_tune->flags;
   aarch64_tune = selected_tune->core;
@@ -7194,7 +7192,7 @@ aarch64_expand_vector_init (rtx target, rtx vals)
   x = XVECEXP (vals, 0, 0);
   if (!CONST_INT_P (x) && !CONST_DOUBLE_P (x))
     n_var = 1, one_var = 0;
-  
+
   for (i = 1; i < n_elts; ++i)
     {
       x = XVECEXP (vals, 0, i);
@@ -8641,6 +8639,10 @@ aarch64_cannot_change_mode_class (enum machine_mode from,
 #undef TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES
 #define TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES \
   aarch64_autovectorize_vector_sizes
+
+#undef TARGET_ATOMIC_ASSIGN_EXPAND_FENV
+#define TARGET_ATOMIC_ASSIGN_EXPAND_FENV \
+  aarch64_atomic_assign_expand_fenv
 
 /* Section anchor support.  */
 

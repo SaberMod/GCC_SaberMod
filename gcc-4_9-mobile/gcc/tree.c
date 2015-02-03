@@ -1121,7 +1121,7 @@ int_cst_hash_hash (const void *x)
   const_tree const t = (const_tree) x;
 
   return (TREE_INT_CST_HIGH (t) ^ TREE_INT_CST_LOW (t)
-	  ^ htab_hash_pointer (TREE_TYPE (t)));
+	  ^ TYPE_UID (TREE_TYPE (t)));
 }
 
 /* Return nonzero if the value represented by *X (an INTEGER_CST tree node)
@@ -6216,8 +6216,11 @@ build_qualified_type (tree type, int type_quals)
       else if (TYPE_CANONICAL (type) != type)
 	/* Build the underlying canonical type, since it is different
 	   from TYPE. */
-	TYPE_CANONICAL (t) = build_qualified_type (TYPE_CANONICAL (type),
-						   type_quals);
+	{
+	  tree c = build_qualified_type (TYPE_CANONICAL (type),
+					 type_quals);
+	  TYPE_CANONICAL (t) = TYPE_CANONICAL (c);
+	}
       else
 	/* T is its own canonical type. */
 	TYPE_CANONICAL (t) = t;
@@ -9876,8 +9879,9 @@ local_define_builtin (const char *name, tree type, enum built_in_function code,
 }
 
 /* Call this function after instantiating all builtins that the language
-   front end cares about.  This will build the rest of the builtins that
-   are relied upon by the tree optimizers and the middle-end.  */
+   front end cares about.  This will build the rest of the builtins
+   and internal functions that are relied upon by the tree optimizers and
+   the middle-end.  */
 
 void
 build_common_builtin_nodes (void)
@@ -10110,6 +10114,8 @@ build_common_builtin_nodes (void)
 			      ECF_CONST | ECF_NOTHROW | ECF_LEAF);
       }
   }
+
+  init_internal_fns ();
 }
 
 /* HACK.  GROSS.  This is absolutely disgusting.  I wish there was a

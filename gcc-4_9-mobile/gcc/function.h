@@ -391,6 +391,15 @@ struct GTY(()) rtl_data {
      on the stack there.  */
   bool frame_pointer_needed;
 
+  /* Nonzero if hard frame pointer reg will be used as both a caller
+     saved register and the register to pass frame base address from
+     caller to callee.  */
+  bool frame_pointer_partially_needed;
+  /* Nonzero if sp->bp mov insn is needed in prologue.  */
+  bool fpset_needed_in_prologue;
+  /* Nonzero if no fp defined in function body except prologue/epilogue.  */
+  bool any_fp_def;
+
   /* When set, expand should optimize for speed.  */
   bool maybe_hot_insn_p;
 
@@ -474,6 +483,9 @@ struct GTY(()) rtl_data {
 #define temp_slot_level (crtl->x_temp_slot_level)
 #define nonlocal_goto_handler_labels (crtl->x_nonlocal_goto_handler_labels)
 #define frame_pointer_needed (crtl->frame_pointer_needed)
+#define frame_pointer_partially_needed (crtl->frame_pointer_partially_needed)
+#define fpset_needed_in_prologue (crtl->fpset_needed_in_prologue)
+#define any_fp_def (crtl->any_fp_def)
 #define stack_realign_fp (crtl->stack_realign_needed && !crtl->need_drap)
 #define stack_realign_drap (crtl->stack_realign_needed && crtl->need_drap)
 

@@ -24,18 +24,3 @@ along with GCC; see the file COPYING3.  If not see
 #define RUNTIME_ROOT_PREFIX ""
 #endif
 #define GLIBC_DYNAMIC_LINKER RUNTIME_ROOT_PREFIX "/lib/ld-linux.so.2"
-
-/* These may be provided by config/linux-grtev*.h.  */
-#ifndef LINUX_GRTE_EXTRA_SPECS
-#define LINUX_GRTE_EXTRA_SPECS
-#endif
-
-#undef  SUBTARGET_EXTRA_SPECS
-#ifndef SUBTARGET_EXTRA_SPECS_STR
-#define SUBTARGET_EXTRA_SPECS \
-  LINUX_GRTE_EXTRA_SPECS
-#else
-#define SUBTARGET_EXTRA_SPECS \
-  LINUX_GRTE_EXTRA_SPECS \
-  SUBTARGET_EXTRA_SPECS_STR
-#endif

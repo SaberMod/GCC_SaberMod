@@ -372,7 +372,8 @@ Objective-C and Objective-C++ Dialects}.
 -fdelete-null-pointer-checks -fdevirtualize -fdevirtualize-speculatively -fdse @gol
 -fearly-inlining -fipa-sra -fexpensive-optimizations -ffat-lto-objects @gol
 -ffast-math -ffinite-math-only -ffloat-store -fexcess-precision=@var{style} @gol
--fforward-propagate -ffp-contract=@var{style} -ffunction-sections @gol
+-fforward-propagate -ffp-contract=@var{style} @gol
+-ffunction-attribute-list -ffunction-sections @gol
 -fgcse -fgcse-after-reload -fgcse-las -fgcse-lm -fgraphite-identity @gol
 -fgcse-sm -fhoist-adjacent-loads -fif-conversion @gol
 -fif-conversion2 -findirect-inlining @gol
@@ -462,7 +463,7 @@ Objective-C and Objective-C++ Dialects}.
 @item Linker Options
 @xref{Link Options,,Options for Linking}.
 @gccoptlist{@var{object-file-name}  -l@var{library} @gol
--nostartfiles  -nodefaultlibs  -nostdlib -pie -rdynamic @gol
+-nostartfiles  -nodefaultlibs -no-pie -nostdlib -pie -rdynamic @gol
 -s  -static -static-libgcc -static-libstdc++ @gol
 -static-libasan -static-libtsan -static-liblsan -static-libubsan @gol
 -shared -shared-libgcc  -symbolic @gol
@@ -668,7 +669,6 @@ Objective-C and Objective-C++ Dialects}.
 -mtune-ctrl=@var{feature-list} -mdump-tune-features -mno-default @gol
 -mfpmath=@var{unit} @gol
 -masm=@var{dialect}  -mno-fancy-math-387 @gol
--mcopyrelocs @gol
 -mno-fp-ret-in-387  -msoft-float @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} @gol
@@ -837,7 +837,7 @@ Objective-C and Objective-C++ Dialects}.
 
 @emph{MSP430 Options}
 @gccoptlist{-msim -masm-hex -mmcu= -mcpu= -mlarge -msmall -mrelax @gol
--mhwmult=}
+-mhwmult= -minrt}
 
 @emph{NDS32 Options}
 @gccoptlist{-mbig-endian -mlittle-endian @gol
@@ -5423,6 +5423,11 @@ more details.  The run-time behavior can be influenced using the
 @url{https://code.google.com/p/address-sanitizer/wiki/Flags#Run-time_flags} for
 a list of supported options.
 
+@item -fsanitize=kernel-address
+@opindex fsanitize=kernel-address
+Enable AddressSanitizer for Linux kernel.
+See @uref{http://code.google.com/p/address-sanitizer/wiki/AddressSanitizerForKernel} for more details.
+
 @item -fsanitize=thread
 @opindex fsanitize=thread
 Enable ThreadSanitizer, a fast data race detector.
@@ -9458,6 +9463,15 @@ You cannot use @code{gprof} on all systems if you
 specify this option, and you may have problems with debugging if
 you specify both this option and @option{-g}.
 
+@item -ffunction-attribute-list
+@opindex ffunction-attribute-list
+List of function name patterns that will be applied specified attribute.
+For example, the following command line will add "cold" attribute to
+functions that has "ErrorMessage" in its name.
+@smallexample
+gcc -ffunction-atribute-list=cold:ErrorMessage -c foo.c
+@end smallexample
+
 @item -fbranch-target-load-optimize
 @opindex fbranch-target-load-optimize
 Perform branch target register load optimization before prologue / epilogue
@@ -10409,6 +10423,12 @@ is enabled by default when using @option{-fsanitize=address} option.
 To disable use-after-return detection use 
 @option{--param asan-use-after-return=0}.
 
+@item asan-instrumentation-with-call-threshold
+If number of memory accesses in function being instrumented
+is greater or equal to this number, use callbacks instead of inline checks.
+E.g. to disable inline code use
+@option{--param asan-instrumentation-with-call-threshold=0}.
+
 @end table
 @end table
 
@@ -10574,6 +10594,11 @@ The compiler may generate calls to @code{memcmp},
 These entries are usually resolved by entries in
 libc.  These entry points should be supplied through some other
 mechanism when this option is specified.
+
+@item -no-pie
+@opindex no-pie
+Produce a position dependent executable.  This is the negative of option
+@option{-pie} which produces a position independent executable.
 
 @item -nostdlib
 @opindex nostdlib
@@ -12573,8 +12598,8 @@ architecture together with the optional CRC32 extensions.
 
 @option{-march=native} causes the compiler to auto-detect the architecture
 of the build computer.  At present, this feature is only supported on
-Linux, and not all architectures are recognized.  If the auto-detect is
-unsuccessful the option has no effect.
+GNU/Linux, and not all architectures are recognized.  If the auto-detect
+is unsuccessful the option has no effect.
 
 @item -mtune=@var{name}
 @opindex mtune
@@ -12625,7 +12650,7 @@ this option may change in future GCC versions as CPU models come and go.
 
 @option{-mtune=native} causes the compiler to auto-detect the CPU
 of the build computer.  At present, this feature is only supported on
-Linux, and not all architectures are recognized.  If the auto-detect is
+GNU/Linux, and not all architectures are recognized.  If the auto-detect is
 unsuccessful the option has no effect.
 
 @item -mcpu=@var{name}
@@ -12646,8 +12671,8 @@ See @option{-mtune} for more information.
 
 @option{-mcpu=native} causes the compiler to auto-detect the CPU
 of the build computer.  At present, this feature is only supported on
-Linux, and not all architectures are recognized.  If the auto-detect is
-unsuccessful the option has no effect.
+GNU/Linux, and not all architectures are recognized.  If the auto-detect
+is unsuccessful the option has no effect.
 
 @item -mfpu=@var{name}
 @opindex mfpu
@@ -15303,15 +15328,6 @@ not support @samp{intel}.
 Control whether or not the compiler uses IEEE floating-point
 comparisons.  These correctly handle the case where the result of a
 comparison is unordered.
-
-@item -mcopyrelocs
-@itemx -mno-copyrelocs
-@opindex mcopyrelocs
-@opindex mno-copyrelocs
-With @option{-fpie} and @option{fPIE}, copy relocations support allows the
-compiler to assume that all symbol references are local.  This allows the
-compiler to skip the GOT for global accesses and this applies only to the
-x86-64 architecture.
 
 @item -msoft-float
 @opindex msoft-float
@@ -18568,6 +18584,13 @@ The hardware multiply routines disable interrupts whilst running and
 restore the previous interrupt state when they finish.  This makes
 them safe to use inside interrupt handlers as well as in normal code.
 
+@item -minrt
+@opindex minrt
+Enable the use of a minimum runtime environment - no static
+initializers or constructors.  This is intended for memory-constrained
+devices.  The compiler will include special symbols in some objects
+that tell the linker and runtime which code fragments are required.
+
 @end table
 
 @node NDS32 Options
@@ -21379,8 +21402,8 @@ the rules of the ABI@.
 Set the instruction set, register set, and instruction scheduling parameters
 for machine type @var{cpu_type}.  Supported values for @var{cpu_type} are
 @samp{v7}, @samp{cypress}, @samp{v8}, @samp{supersparc}, @samp{hypersparc},
-@samp{leon}, @samp{leon3}, @samp{sparclite}, @samp{f930}, @samp{f934},
-@samp{sparclite86x}, @samp{sparclet}, @samp{tsc701}, @samp{v9},
+@samp{leon}, @samp{leon3}, @samp{leon3v7}, @samp{sparclite}, @samp{f930},
+@samp{f934}, @samp{sparclite86x}, @samp{sparclet}, @samp{tsc701}, @samp{v9},
 @samp{ultrasparc}, @samp{ultrasparc3}, @samp{niagara}, @samp{niagara2},
 @samp{niagara3} and @samp{niagara4}.
 
@@ -21398,7 +21421,7 @@ implementations.
 
 @table @asis
 @item v7
-cypress
+cypress, leon3v7
 
 @item v8
 supersparc, hypersparc, leon, leon3
@@ -21463,11 +21486,11 @@ option @option{-mcpu=@var{cpu_type}} does.
 The same values for @option{-mcpu=@var{cpu_type}} can be used for
 @option{-mtune=@var{cpu_type}}, but the only useful values are those
 that select a particular CPU implementation.  Those are @samp{cypress},
-@samp{supersparc}, @samp{hypersparc}, @samp{leon}, @samp{leon3}, @samp{f930},
-@samp{f934}, @samp{sparclite86x}, @samp{tsc701}, @samp{ultrasparc},
-@samp{ultrasparc3}, @samp{niagara}, @samp{niagara2}, @samp{niagara3} and
-@samp{niagara4}.  With native Solaris and GNU/Linux toolchains, @samp{native}
-can also be used.
+@samp{supersparc}, @samp{hypersparc}, @samp{leon}, @samp{leon3},
+@samp{leon3v7}, @samp{f930}, @samp{f934}, @samp{sparclite86x}, @samp{tsc701},
+@samp{ultrasparc}, @samp{ultrasparc3}, @samp{niagara}, @samp{niagara2},
+@samp{niagara3} and @samp{niagara4}.  With native Solaris and GNU/Linux
+toolchains, @samp{native} can also be used.
 
 @item -mv8plus
 @itemx -mno-v8plus

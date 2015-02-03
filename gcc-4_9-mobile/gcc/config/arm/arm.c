@@ -89,7 +89,6 @@ static rtx arm_legitimize_address (rtx, rtx, enum machine_mode);
 static reg_class_t arm_preferred_reload_class (rtx, reg_class_t);
 static rtx thumb_legitimize_address (rtx, rtx, enum machine_mode);
 inline static int thumb1_index_register_rtx_p (rtx, int);
-static bool arm_legitimate_address_p (enum machine_mode, rtx, bool);
 static int thumb_far_jump_used_p (void);
 static bool thumb_force_lr_save (void);
 static unsigned arm_size_return_regs (void);
@@ -13952,9 +13951,9 @@ arm_block_move_unaligned_straight (rtx dstbase, rtx srcbase,
   HOST_WIDE_INT srcoffset, dstoffset;
   HOST_WIDE_INT src_autoinc, dst_autoinc;
   rtx mem, addr;
-  
+
   gcc_assert (1 <= interleave_factor && interleave_factor <= 4);
-  
+
   /* Use hard registers if we have aligned source or destination so we can use
      load/store multiple with contiguous registers.  */
   if (dst_aligned || src_aligned)
@@ -13968,7 +13967,7 @@ arm_block_move_unaligned_straight (rtx dstbase, rtx srcbase,
   src = copy_addr_to_reg (XEXP (srcbase, 0));
 
   srcoffset = dstoffset = 0;
-  
+
   /* Calls to arm_gen_load_multiple and arm_gen_store_multiple update SRC/DST.
      For copying the last bytes we want to subtract this offset again.  */
   src_autoinc = dst_autoinc = 0;
@@ -14022,14 +14021,14 @@ arm_block_move_unaligned_straight (rtx dstbase, rtx srcbase,
 
       remaining -= block_size_bytes;
     }
-  
+
   /* Copy any whole words left (note these aren't interleaved with any
      subsequent halfword/byte load/stores in the interests of simplicity).  */
-  
+
   words = remaining / UNITS_PER_WORD;
 
   gcc_assert (words < interleave_factor);
-  
+
   if (src_aligned && words > 1)
     {
       emit_insn (arm_gen_load_multiple (regnos, words, src, TRUE, srcbase,
@@ -14069,11 +14068,11 @@ arm_block_move_unaligned_straight (rtx dstbase, rtx srcbase,
     }
 
   remaining -= words * UNITS_PER_WORD;
-  
+
   gcc_assert (remaining < 4);
-  
+
   /* Copy a halfword if necessary.  */
-  
+
   if (remaining >= 2)
     {
       halfword_tmp = gen_reg_rtx (SImode);
@@ -14097,11 +14096,11 @@ arm_block_move_unaligned_straight (rtx dstbase, rtx srcbase,
       remaining -= 2;
       srcoffset += 2;
     }
-  
+
   gcc_assert (remaining < 2);
-  
+
   /* Copy last byte.  */
-  
+
   if ((remaining & 1) != 0)
     {
       byte_tmp = gen_reg_rtx (SImode);
@@ -14122,9 +14121,9 @@ arm_block_move_unaligned_straight (rtx dstbase, rtx srcbase,
       remaining--;
       srcoffset++;
     }
-  
+
   /* Store last halfword if we haven't done so already.  */
-  
+
   if (halfword_tmp)
     {
       addr = plus_constant (Pmode, dst, dstoffset - dst_autoinc);
@@ -14143,7 +14142,7 @@ arm_block_move_unaligned_straight (rtx dstbase, rtx srcbase,
       emit_move_insn (mem, gen_lowpart (QImode, byte_tmp));
       dstoffset++;
     }
-  
+
   gcc_assert (remaining == 0 && srcoffset == dstoffset);
 }
 
@@ -14162,7 +14161,7 @@ arm_adjust_block_mem (rtx mem, HOST_WIDE_INT length, rtx *loop_reg,
 		      rtx *loop_mem)
 {
   *loop_reg = copy_addr_to_reg (XEXP (mem, 0));
-  
+
   /* Although the new mem does not refer to a known location,
      it does keep up to LENGTH bytes of alignment.  */
   *loop_mem = change_address (mem, BLKmode, *loop_reg);
@@ -14182,14 +14181,14 @@ arm_block_move_unaligned_loop (rtx dest, rtx src, HOST_WIDE_INT length,
 {
   rtx label, src_reg, dest_reg, final_src, test;
   HOST_WIDE_INT leftover;
-  
+
   leftover = length % bytes_per_iter;
   length -= leftover;
-  
+
   /* Create registers and memory references for use within the loop.  */
   arm_adjust_block_mem (src, bytes_per_iter, &src_reg, &src);
   arm_adjust_block_mem (dest, bytes_per_iter, &dest_reg, &dest);
-  
+
   /* Calculate the value that SRC_REG should have after the last iteration of
      the loop.  */
   final_src = expand_simple_binop (Pmode, PLUS, src_reg, GEN_INT (length),
@@ -14198,7 +14197,7 @@ arm_block_move_unaligned_loop (rtx dest, rtx src, HOST_WIDE_INT length,
   /* Emit the start of the loop.  */
   label = gen_label_rtx ();
   emit_label (label);
-  
+
   /* Emit the loop body.  */
   arm_block_move_unaligned_straight (dest, src, bytes_per_iter,
 				     interleave_factor);
@@ -14206,11 +14205,11 @@ arm_block_move_unaligned_loop (rtx dest, rtx src, HOST_WIDE_INT length,
   /* Move on to the next block.  */
   emit_move_insn (src_reg, plus_constant (Pmode, src_reg, bytes_per_iter));
   emit_move_insn (dest_reg, plus_constant (Pmode, dest_reg, bytes_per_iter));
-  
+
   /* Emit the loop condition.  */
   test = gen_rtx_NE (VOIDmode, src_reg, final_src);
   emit_jump_insn (gen_cbranchsi4 (test, src_reg, final_src, label));
-  
+
   /* Mop up any left-over bytes.  */
   if (leftover)
     arm_block_move_unaligned_straight (dest, src, leftover, interleave_factor);
@@ -14224,7 +14223,7 @@ static int
 arm_movmemqi_unaligned (rtx *operands)
 {
   HOST_WIDE_INT length = INTVAL (operands[2]);
-  
+
   if (optimize_size)
     {
       bool src_aligned = MEM_ALIGN (operands[1]) >= BITS_PER_WORD;
@@ -14235,7 +14234,7 @@ arm_movmemqi_unaligned (rtx *operands)
 	 resulting code can be smaller.  */
       unsigned int interleave_factor = (src_aligned || dst_aligned) ? 2 : 1;
       HOST_WIDE_INT bytes_per_iter = (src_aligned || dst_aligned) ? 8 : 4;
-      
+
       if (length > 12)
 	arm_block_move_unaligned_loop (operands[0], operands[1], length,
 				       interleave_factor, bytes_per_iter);
@@ -14253,7 +14252,7 @@ arm_movmemqi_unaligned (rtx *operands)
       else
 	arm_block_move_unaligned_straight (operands[0], operands[1], length, 4);
     }
-  
+
   return 1;
 }
 
@@ -28520,7 +28519,11 @@ arm_set_return_address (rtx source, rtx scratch)
 
 	  addr = plus_constant (Pmode, addr, delta);
 	}
-      emit_move_insn (gen_frame_mem (Pmode, addr), source);
+      /* The store needs to be marked as frame related in order to prevent
+	 DSE from deleting it as dead if it is based on fp.  */
+      rtx insn = emit_move_insn (gen_frame_mem (Pmode, addr), source);
+      RTX_FRAME_RELATED_P (insn) = 1;
+      add_reg_note (insn, REG_CFA_RESTORE, gen_rtx_REG (Pmode, LR_REGNUM));
     }
 }
 
@@ -28572,7 +28575,11 @@ thumb_set_return_address (rtx source, rtx scratch)
       else
 	addr = plus_constant (Pmode, addr, delta);
 
-      emit_move_insn (gen_frame_mem (Pmode, addr), source);
+      /* The store needs to be marked as frame related in order to prevent
+	 DSE from deleting it as dead if it is based on fp.  */
+      rtx insn = emit_move_insn (gen_frame_mem (Pmode, addr), source);
+      RTX_FRAME_RELATED_P (insn) = 1;
+      add_reg_note (insn, REG_CFA_RESTORE, gen_rtx_REG (Pmode, LR_REGNUM));
     }
   else
     emit_move_insn (gen_rtx_REG (Pmode, LR_REGNUM), source);
@@ -29828,10 +29835,10 @@ int
 vfp3_const_double_for_fract_bits (rtx operand)
 {
   REAL_VALUE_TYPE r0;
-  
+
   if (!CONST_DOUBLE_P (operand))
     return 0;
-  
+
   REAL_VALUE_FROM_CONST_DOUBLE (r0, operand);
   if (exact_real_inverse (DFmode, &r0))
     {
@@ -30825,7 +30832,7 @@ arm_autoinc_modes_ok_p (enum machine_mode mode, enum arm_auto_incmodes code)
 	  else
 	    return false;
 	}
-      
+
       return true;
 
     case ARM_POST_DEC:
@@ -30842,10 +30849,10 @@ arm_autoinc_modes_ok_p (enum machine_mode mode, enum arm_auto_incmodes code)
 	return false;
 
       return true;
-     
+
     default:
       return false;
-      
+
     }
 
   return false;
@@ -30856,7 +30863,7 @@ arm_autoinc_modes_ok_p (enum machine_mode mode, enum arm_auto_incmodes code)
    Additionally, the default expansion code is not available or suitable
    for post-reload insn splits (this can occur when the register allocator
    chooses not to do a shift in NEON).
-   
+
    This function is used in both initial expand and post-reload splits, and
    handles all kinds of 64-bit shifts.
 
@@ -31109,7 +31116,7 @@ arm_validize_comparison (rtx *comparison, rtx * op1, rtx * op2)
 {
   enum rtx_code code = GET_CODE (*comparison);
   int code_int;
-  enum machine_mode mode = (GET_MODE (*op1) == VOIDmode) 
+  enum machine_mode mode = (GET_MODE (*op1) == VOIDmode)
     ? GET_MODE (*op2) : GET_MODE (*op1);
 
   gcc_assert (GET_MODE (*op1) != VOIDmode || GET_MODE (*op2) != VOIDmode);
@@ -31163,7 +31170,7 @@ arm_asan_shadow_offset (void)
 
 /* This is a temporary fix for PR60655.  Ideally we need
    to handle most of these cases in the generic part but
-   currently we reject minus (..) (sym_ref).  We try to 
+   currently we reject minus (..) (sym_ref).  We try to
    ameliorate the case with minus (sym_ref1) (sym_ref2)
    where they are in the same section.  */
 
@@ -31391,6 +31398,15 @@ arm_load_global_address (rtx symbol, rtx offset_reg,
      We reuse the existed load instruction.  */
   XEXP (SET_SRC (set), 0) = tmp_reg;
   df_insn_rescan (load_insn);
+}
+
+/* return TRUE if x is a reference to a value in a constant pool */
+extern bool
+arm_is_constant_pool_ref (rtx x)
+{
+  return (MEM_P (x)
+	  && GET_CODE (XEXP (x, 0)) == SYMBOL_REF
+	  && CONSTANT_POOL_ADDRESS_P (XEXP (x, 0)));
 }
 
 #include "gt-arm.h"

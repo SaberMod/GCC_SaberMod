@@ -485,7 +485,6 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS, OPT_ftree_pre, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_switch_conversion, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fipa_cp, NULL, 1 },
-    { OPT_LEVELS_2_PLUS, OPT_fdevirtualize, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fdevirtualize_speculatively, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fipa_sra, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_falign_loops, NULL, 1 },
@@ -870,6 +869,27 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	 opts->x_param_values, opts_set->x_param_values);
     }
 
+  if (opts->x_profile_arc_flag
+      || opts->x_flag_branch_probabilities)
+    {
+      maybe_set_param_value
+	(PARAM_EARLY_INLINER_MAX_ITERATIONS, 2,
+	 opts->x_param_values, opts_set->x_param_values);
+    }
+
+  if (!(opts->x_flag_auto_profile
+        || (opts->x_profile_arc_flag || opts->x_flag_branch_probabilities)))
+    {
+      /* In plain mode, we relax the limit to allow funcs not declared as
+	 inline but with big_speedup or good inline hints to be inline candidates
+	 in plain mode. This change will improve some performance but also
+	 increase code size. PARAM_INLINE_UNIT_GROWTH is used to trim down code
+	 size without affecting the improved performance.  */
+      maybe_set_param_value
+	(PARAM_INLINE_UNIT_GROWTH, 25,
+	 opts->x_param_values, opts_set->x_param_values);
+    }
+
   /* Tune vectorization related parametees according to cost model.  */
   if (opts->x_flag_vect_cost_model == VECT_COST_MODEL_CHEAP)
     {
@@ -907,6 +927,40 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
   /* Turn on -ffunction-sections when -freorder-functions=* is used.  */
   if (opts->x_flag_reorder_functions > 1)
     opts->x_flag_function_sections = 1;
+
+  /* LIPO module grouping depends on the memory consumed by the profile-gen
+     parsing phase, recorded in a per-module ggc_memory field of the module
+     info struct. This will be higher when debug generation is on via
+     -g/-gmlt, which causes the FE to generate debug structures that will
+     increase the ggc_total_memory. This could in theory cause the module
+     groups to be slightly more conservative. Disable -g/-gmlt under
+     -fripa -fprofile-generate, but provide an option to override this
+     in case we actually need to debug an instrumented binary.  */
+  if (opts->x_profile_arc_flag
+      && opts->x_flag_dyn_ipa
+      && opts->x_debug_info_level != DINFO_LEVEL_NONE
+      && !opts->x_flag_dyn_ipa_allow_debug)
+    {
+      inform (loc,
+	      "Debug generation via -g option disabled under -fripa "
+              "-fprofile-generate (use -fripa-allow-debug to override)");
+      set_debug_level (NO_DEBUG, DEFAULT_GDB_EXTENSIONS, "0", opts, opts_set,
+                       loc);
+    }
+
+  /* Userspace and kernel ASan conflict with each other and with TSan.  */
+
+  if ((flag_sanitize & SANITIZE_USER_ADDRESS)
+      && (flag_sanitize & SANITIZE_KERNEL_ADDRESS))
+    error_at (loc,
+              "-fsanitize=address is incompatible with "
+              "-fsanitize=kernel-address");
+
+  if ((flag_sanitize & SANITIZE_ADDRESS)
+      && (flag_sanitize & SANITIZE_THREAD))
+    error_at (loc,
+              "-fsanitize=address and -fsanitize=kernel-address "
+              "are incompatible with -fsanitize=thread");
 }
 
 #define LEFT_COLUMN	27
@@ -1562,7 +1616,10 @@ common_handle_option (struct gcc_options *opts,
 	      size_t len;
 	    } spec[] =
 	    {
-	      { "address", SANITIZE_ADDRESS, sizeof "address" - 1 },
+	      { "address", SANITIZE_ADDRESS | SANITIZE_USER_ADDRESS,
+		sizeof "address" - 1 },
+	      { "kernel-address", SANITIZE_ADDRESS | SANITIZE_KERNEL_ADDRESS,
+		sizeof "kernel-address" - 1 },
 	      { "thread", SANITIZE_THREAD, sizeof "thread" - 1 },
 	      { "leak", SANITIZE_LEAK, sizeof "leak" - 1 },
 	      { "shift", SANITIZE_SHIFT, sizeof "shift" - 1 },
@@ -1623,6 +1680,25 @@ common_handle_option (struct gcc_options *opts,
 	   the null pointer checks.  */
 	if (flag_sanitize & SANITIZE_NULL)
 	  opts->x_flag_delete_null_pointer_checks = 0;
+
+	/* Kernel ASan implies normal ASan but does not yet support
+	   all features.  */
+	if (flag_sanitize & SANITIZE_KERNEL_ADDRESS)
+	  {
+	    maybe_set_param_value (PARAM_ASAN_INSTRUMENTATION_WITH_CALL_THRESHOLD, 0,
+				   opts->x_param_values,
+				   opts_set->x_param_values);
+	    maybe_set_param_value (PARAM_ASAN_GLOBALS, 0,
+				   opts->x_param_values,
+				   opts_set->x_param_values);
+	    maybe_set_param_value (PARAM_ASAN_STACK, 0,
+				   opts->x_param_values,
+				   opts_set->x_param_values);
+	    maybe_set_param_value (PARAM_ASAN_USE_AFTER_RETURN, 0,
+				   opts->x_param_values,
+				   opts_set->x_param_values);
+	  }
+
 	break;
       }
 
@@ -1887,6 +1963,10 @@ common_handle_option (struct gcc_options *opts,
       /* Deferred.  */
       break;
 
+    case OPT_ffunction_attribute_list_:
+      /* Deferred.  */
+      break;
+
     case OPT_fsched_verbose_:
 #ifdef INSN_SCHEDULING
       /* Handled with Var in common.opt.  */
@@ -1968,6 +2048,12 @@ common_handle_option (struct gcc_options *opts,
       else
 	opts->x_dwarf_version = value;
       set_debug_level (DWARF2_DEBUG, false, "", opts, opts_set, loc);
+      break;
+
+    case OPT_gline_tables_only:
+      set_debug_level (NO_DEBUG, DEFAULT_GDB_EXTENSIONS, "1", opts, opts_set,
+		       loc);
+      opts->x_debug_line_tables_only = 1;
       break;
 
     case OPT_gsplit_dwarf:
@@ -2167,6 +2253,7 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg,
 		 struct gcc_options *opts, struct gcc_options *opts_set,
 		 location_t loc)
 {
+  opts->x_debug_line_tables_only = 0;
   opts->x_use_gnu_debug_info_extensions = extended;
 
   if (type == NO_DEBUG)

@@ -156,8 +156,6 @@ gcov_open_by_filename (char *gi_filename)
 }
 
 
-#define GCOV_GET_FILENAME gcov_strip_leading_dirs
-
 /* Strip GCOV_PREFIX_STRIP levels of leading '/' from FILENAME and
    put the result into GI_FILENAME_UP.  */
 
@@ -196,25 +194,4 @@ gcov_strip_leading_dirs (int prefix_length, int gcov_prefix_strip,
     }
   else
     strcpy (gi_filename_up, filename);
-}
-
-
-/* Open a gcda file specified by GI_FILENAME.
-   Return -1 on error.  Return 0 on success.  */
-
-static int
-gcov_exit_open_gcda_file (struct gcov_info *gi_ptr, struct gcov_filename_aux *gf)
-{
-  int gcov_prefix_strip;
-  size_t prefix_length;
-  char *gi_filename_up;
-
-  gcov_prefix_strip = gf->gcov_prefix_strip;
-  gi_filename_up = gf->gi_filename_up;
-  prefix_length = gf->prefix_length;
-
-  GCOV_GET_FILENAME (prefix_length, gcov_prefix_strip, gi_ptr->filename,
-                     gi_filename_up);
-
-  return gcov_open_by_filename (gi_filename);
 }

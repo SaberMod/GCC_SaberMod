@@ -4948,16 +4948,18 @@ min_align_of_type (tree type)
 {
   unsigned int align = TYPE_ALIGN (type);
   align = MIN (align, BIGGEST_ALIGNMENT);
+  if (!TYPE_USER_ALIGN (type))
+    {
 #ifdef BIGGEST_FIELD_ALIGNMENT
-  align = MIN (align, BIGGEST_FIELD_ALIGNMENT);
+      align = MIN (align, BIGGEST_FIELD_ALIGNMENT);
 #endif
-  unsigned int field_align = align;
+      unsigned int field_align = align;
 #ifdef ADJUST_FIELD_ALIGN
-  tree field = build_decl (UNKNOWN_LOCATION, FIELD_DECL, NULL_TREE,
-			   type);
-  field_align = ADJUST_FIELD_ALIGN (field, field_align);
+      tree field = build_decl (UNKNOWN_LOCATION, FIELD_DECL, NULL_TREE, type);
+      field_align = ADJUST_FIELD_ALIGN (field, field_align);
 #endif
-  align = MIN (align, field_align);
+      align = MIN (align, field_align);
+    }
   return align / BITS_PER_UNIT;
 }
 
@@ -10454,7 +10456,8 @@ get_atomic_generic_size (location_t loc, tree function,
 		    function);
 	  return 0;
 	}
-      size = tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (type)));
+      tree type_size = TYPE_SIZE_UNIT (TREE_TYPE (type));
+      size = type_size ? tree_to_uhwi (type_size) : 0;
       if (size != size_0)
 	{
 	  error_at (loc, "size mismatch in argument %d of %qE", x + 1,
@@ -11563,6 +11566,13 @@ maybe_record_typedef_use (tree t)
 void
 maybe_warn_unused_local_typedefs (void)
 {
+  int i;
+  tree decl;
+  /* The number of times we have emitted -Wunused-local-typedefs
+     warnings.  If this is different from errorcount, that means some
+     unrelated errors have been issued.  In which case, we'll avoid
+     emitting "unused-local-typedefs" warnings.  */
+  static int unused_local_typedefs_warn_count;
   struct c_language_function *l;
 
   if (cfun == NULL)
@@ -11570,6 +11580,17 @@ maybe_warn_unused_local_typedefs (void)
 
   if ((l = (struct c_language_function *) cfun->language) == NULL)
     return;
+
+  if (warn_unused_local_typedefs
+      && errorcount == unused_local_typedefs_warn_count)
+    {
+      FOR_EACH_VEC_SAFE_ELT (l->local_typedefs, i, decl)
+	if (!TREE_USED (decl))
+	  warning_at (DECL_SOURCE_LOCATION (decl),
+		      OPT_Wunused_local_typedefs,
+		      "typedef %qD locally defined but not used", decl);
+      unused_local_typedefs_warn_count = errorcount;
+    }
 
   vec_free (l->local_typedefs);
 }

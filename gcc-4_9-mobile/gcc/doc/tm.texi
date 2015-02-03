@@ -3801,6 +3801,10 @@ fixed register.  See @code{FIXED_REGISTERS} for more information.
 
 Default return value is @code{false}.
 @end deftypefn
+@deftypefn {Target Hook} bool TARGET_CAN_OMIT_LEAF_FRAME_POINTER (void)
+This target hook will return @code{true} if a function is a leaf function and
+its frame pointer can be omitted on the target.
+@end deftypefn
 
 @findex get_frame_size
 @defmac INITIAL_FRAME_POINTER_OFFSET (@var{depth-var})
@@ -4440,10 +4444,6 @@ that can be performed in some cases.  If you do not define this hook
 to return a nonzero value when it is required, the compiler will run out
 of spill registers and print a fatal error message.
 @end deftypefn
-
-@deftypevr {Target Hook} {unsigned int} TARGET_FLAGS_REGNUM
-If the target has a dedicated flags register, and it needs to use the post-reload comparison elimination pass, then this value should be set appropriately.
-@end deftypevr
 
 @node Scalar Return
 @subsection How Scalar Function Values Are Returned
@@ -6047,10 +6047,11 @@ for comparisons whose argument is a @code{plus}:
 
 @smallexample
 #define SELECT_CC_MODE(OP,X,Y) \
-  (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT          \
-   ? ((OP == EQ || OP == NE) ? CCFPmode : CCFPEmode)    \
-   : ((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS    \
-       || GET_CODE (X) == NEG) \
+  (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT           \
+   ? ((OP == LT || OP == LE || OP == GT || OP == GE)     \
+      ? CCFPEmode : CCFPmode)                            \
+   : ((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS     \
+       || GET_CODE (X) == NEG || GET_CODE (x) == ASHIFT) \
       ? CC_NOOVmode : CCmode))
 @end smallexample
 
@@ -6093,10 +6094,11 @@ then @code{REVERSIBLE_CC_MODE (@var{mode})} must be zero.
 You need not define this macro if it would always returns zero or if the
 floating-point format is anything other than @code{IEEE_FLOAT_FORMAT}.
 For example, here is the definition used on the SPARC, where floating-point
-inequality comparisons are always given @code{CCFPEmode}:
+inequality comparisons are given either @code{CCFPEmode} or @code{CCFPmode}:
 
 @smallexample
-#define REVERSIBLE_CC_MODE(MODE)  ((MODE) != CCFPEmode)
+#define REVERSIBLE_CC_MODE(MODE) \
+   ((MODE) != CCFPEmode && (MODE) != CCFPmode)
 @end smallexample
 @end defmac
 
@@ -6106,7 +6108,7 @@ comparison done in CC_MODE @var{mode}.  The macro is used only in case
 @code{REVERSIBLE_CC_MODE (@var{mode})} is nonzero.  Define this macro in case
 machine has some non-standard way how to reverse certain conditionals.  For
 instance in case all floating point conditions are non-trapping, compiler may
-freely convert unordered compares to ordered one.  Then definition may look
+freely convert unordered compares to ordered ones.  Then definition may look
 like:
 
 @smallexample
@@ -6143,6 +6145,10 @@ The default version of this hook checks whether the modes are the
 same.  If they are, it returns that mode.  If they are different, it
 returns @code{VOIDmode}.
 @end deftypefn
+
+@deftypevr {Target Hook} {unsigned int} TARGET_FLAGS_REGNUM
+If the target has a dedicated flags register, and it needs to use the post-reload comparison elimination pass, then this value should be set appropriately.
+@end deftypevr
 
 @node Costs
 @section Describing Relative Costs of Operations
@@ -9514,6 +9520,10 @@ True if sched2 is not to be run at its normal place.  This usually means it will
 True if vartrack is not to be run at its normal place.  This usually means it will be run as part of machine-specific reorg.
 @end deftypevr
 
+@deftypevr {Target Hook} bool TARGET_STRICT_ALIGN
+True if it is beneficial to try stricter function  or loop alignment on the target.
+@end deftypevr
+
 @defmac ASM_OUTPUT_DWARF_DELTA (@var{stream}, @var{size}, @var{label1}, @var{label2})
 A C statement to issue assembly directives that create a difference
 @var{lab1} minus @var{lab2}, using an integer of the given @var{size}.
@@ -11438,6 +11448,12 @@ is zero, which disables this optimization.
 Return the offset bitwise ored into shifted address to get corresponding
 Address Sanitizer shadow memory address.  NULL if Address Sanitizer is not
 supported by the target.
+@end deftypefn
+
+@deftypefn {Target Hook} rtx TARGET_SET_FP_INSN (void)
+When flag_shrink_wrap_frame_pointer is true, fp setting insn should
+be generated inside function body. The insertion is done after CFA
+information is known.
 @end deftypefn
 
 @deftypefn {Target Hook} {unsigned HOST_WIDE_INT} TARGET_MEMMODEL_CHECK (unsigned HOST_WIDE_INT @var{val})

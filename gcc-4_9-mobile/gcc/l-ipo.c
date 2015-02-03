@@ -47,6 +47,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "vec.h"
 #include "params.h"
+#include "rtl.h"
+#include "varasm.h"
 
 unsigned ggc_total_memory; /* in KB */
 
@@ -1138,8 +1140,11 @@ cgraph_is_aux_decl_external (struct cgraph_node *node)
 
   /* Comdat or weak functions in aux modules are not external --
      there is no guarantee that the definitition will be emitted
-     in the primary compilation of this auxiliary module.  */
-  if (DECL_COMDAT (decl) || DECL_WEAK (decl))
+     in the primary compilation of this auxiliary module.
+     Functions marked artificial (e.g. an implicitly instantiated virtual
+     destructor) are also not guaranteed to be available in the primary module,
+     as they are not promoted by process_module_scope_static_func.  */
+  if (DECL_COMDAT (decl) || DECL_WEAK (decl) || DECL_ARTIFICIAL (decl))
     return false;
 
   /* virtual functions won't be deleted in the primary module.  */
@@ -1909,6 +1914,9 @@ promote_static_var_func (unsigned module_id, tree decl, bool is_extern)
         }
       varpool_link_node (node);
       insert_to_assembler_name_hash (node, false);
+      /* Possibly update the RTL name as well. */
+      if (DECL_RTL_SET_P (decl))
+        XSTR (XEXP (DECL_RTL (decl), 0), 0) = IDENTIFIER_POINTER (assemb_id);
     }
 
   if (is_extern)

@@ -388,9 +388,18 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	      && DECL_ABSTRACT_ORIGIN (node->decl))
 	    {
 	      struct cgraph_node *origin_node
-	      = cgraph_get_create_node (DECL_ABSTRACT_ORIGIN (node->decl));
-	      origin_node->used_as_abstract_origin = true;
-	      enqueue_node (origin_node, &first, reachable);
+	      = cgraph_get_node (DECL_ABSTRACT_ORIGIN (node->decl));
+	      if (origin_node && !origin_node->used_as_abstract_origin)
+		{
+	          origin_node->used_as_abstract_origin = true;
+		  gcc_assert (!origin_node->prev_sibling_clone);
+		  gcc_assert (!origin_node->next_sibling_clone);
+		  for (cgraph_node *n = origin_node->clones; n;
+		       n = n->next_sibling_clone)
+		    if (n->decl == DECL_ABSTRACT_ORIGIN (node->decl))
+		      n->used_as_abstract_origin = true;
+	          enqueue_node (origin_node, &first, reachable);
+		}
 	    }
 	  /* If any symbol in a comdat group is reachable, force
 	     all externally visible symbols in the same comdat
@@ -1146,12 +1155,15 @@ function_and_variable_visibility (bool whole_program)
       if (node->callers && can_replace_by_local_alias (node))
 	{
 	  struct cgraph_node *alias = cgraph (symtab_nonoverwritable_alias (node));
+	  struct cgraph_edge *e, *next_caller;
 
 	  if (alias && alias != node)
 	    {
-	      while (node->callers)
+              for (e = node->callers; e; e = next_caller)
 		{
-		  struct cgraph_edge *e = node->callers;
+                  next_caller = e->next_caller;
+		  if (L_IPO_COMP_MODE && cgraph_is_fake_indirect_call_edge (e))
+		    continue;
 
 		  cgraph_redirect_edge_callee (e, alias);
 		  if (gimple_has_body_p (e->caller->decl))

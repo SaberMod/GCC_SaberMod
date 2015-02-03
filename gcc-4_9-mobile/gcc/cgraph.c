@@ -64,6 +64,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "expr.h"
 #include "tree-dfa.h"
+#include "opts.h"
 
 /* FIXME: Only for PROP_loops, but cgraph shouldn't have to know about this.  */
 #include "tree-pass.h"
@@ -546,6 +547,7 @@ cgraph_create_node (tree decl)
       node->next_nested = node->origin->nested;
       node->origin->nested = node;
     }
+  pattern_match_function_attributes (decl);
   return node;
 }
 
@@ -2461,6 +2463,11 @@ cgraph_can_remove_if_no_direct_calls_and_refs_p (struct cgraph_node *node)
   gcc_assert (!node->global.inlined_to);
   /* Extern inlines can always go, we will use the external definition.  */
   if (DECL_EXTERNAL (node->decl))
+    return true;
+  /* Aux functions are safe to remove, but only once static promotion is
+     complete since they may affect promoted names if they are the context
+     for any static variables.  */
+  if (cgraph_pre_profiling_inlining_done && cgraph_is_aux_decl_external (node))
     return true;
   /* When function is needed, we can not remove it.  */
   if (node->force_output || node->used_from_other_partition)

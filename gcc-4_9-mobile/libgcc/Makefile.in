@@ -1147,10 +1147,14 @@ install-leaf: $(install-shared) $(install-libunwind)
 	  cp ../../gcc/gcov-iov.h $$gcov_src_dest;		\
 	  cp $(srcdir)/../gcc/gcov-io.h $$gcov_src_dest;	\
 	  cp $(srcdir)/../gcc/gcov-io.c $$gcov_src_dest;	\
-	  cp $(srcdir)/libgcov-driver.c $$gcov_src_dest;		\
-	  chmod 644 $$gcov_src_dest/gcov-iov.h			\
-	  $$gcov_src_dest/gcov-io.h $$gcov_src_dest/gcov-io.c	\
-	  $$gcov_src_dest/libgcov-driver.c;				\
+	  cp $(srcdir)/../gcc/gcov-counter.def $$gcov_src_dest;	\
+	  cp $(srcdir)/libgcov-driver.c $$gcov_src_dest;	\
+	  cp $(srcdir)/libgcov-driver-kernel.c $$gcov_src_dest;	\
+	  cp $(srcdir)/libgcov.h $$gcov_src_dest;		\
+	  cp $(srcdir)/libgcov-kernel.h $$gcov_src_dest;	\
+	  cp $(srcdir)/libgcov-profiler.c $$gcov_src_dest;	\
+	  cp $(srcdir)/libgcov-merge.c $$gcov_src_dest;		\
+	  chmod 644 $$gcov_src_dest/*.[ch];			\
 	fi
 
 install: install-leaf install-unwind_h

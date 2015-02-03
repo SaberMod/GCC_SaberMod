@@ -1875,7 +1875,8 @@ record_niter_bound (struct loop *loop, double_int i_bound, bool realistic,
     }
   if (realistic
       && (!loop->any_estimate
-	  || i_bound.ult (loop->nb_iterations_estimate)))
+	  || (!flag_auto_profile &&
+	      i_bound.ult (loop->nb_iterations_estimate))))
     {
       loop->any_estimate = true;
       loop->nb_iterations_estimate = i_bound;

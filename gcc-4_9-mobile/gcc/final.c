@@ -789,6 +789,15 @@ compute_alignments (void)
 	      max_log = log;
 	      max_skip = targetm.asm_out.loop_align_max_skip (label);
 	    }
+	  /* For small size loop, let them align more strictly.  */
+	  if (targetm.strict_align
+	      && bb->loop_father->num
+	      && (bb->loop_father->ninsns
+		  <= PARAM_VALUE (PARAM_ALIGN_LOOP_SIZE)))
+	    {
+	      max_log = max_log + 1;
+	      max_skip = max_skip * 2;
+	    }
 	}
       LABEL_TO_ALIGNMENT (label) = max_log;
       LABEL_TO_MAX_SKIP (label) = max_skip;
@@ -1793,18 +1802,6 @@ final_start_function (rtx first, FILE *file,
 	profile_function (file);
     }
 
-  /* If debugging, assign block numbers to all of the blocks in this
-     function.  */
-  if (write_symbols)
-    {
-      reemit_insn_block_notes ();
-      number_blocks (current_function_decl);
-      /* We never actually put out begin/end notes for the top-level
-	 block in the function.  But, conceptually, that block is
-	 always needed.  */
-      TREE_ASM_WRITTEN (DECL_INITIAL (current_function_decl)) = 1;
-    }
-
   if (warn_frame_larger_than
     && get_frame_size () > frame_larger_than_size)
   {
@@ -2174,10 +2171,16 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	     suffixing "cold" to the original function's name.  */
 	  if (in_cold_section_p)
 	    {
-	      tree cold_function_name
+	      cold_partition_name
 		= clone_function_name (current_function_decl, "cold");
+#ifdef ASM_DECLARE_FUNCTION_NAME
+	      ASM_DECLARE_FUNCTION_NAME (asm_out_file,
+					 IDENTIFIER_POINTER (cold_partition_name),
+					 current_function_decl);
+#else
 	      ASM_OUTPUT_LABEL (asm_out_file,
-				IDENTIFIER_POINTER (cold_function_name));
+				IDENTIFIER_POINTER (cold_partition_name));
+#endif
 	    }
 	  has_cold_section_p = true;
 	  break;
@@ -4488,6 +4491,18 @@ rest_of_handle_final (void)
   fnname = XSTR (x, 0);
 
   has_cold_section_p = false;
+
+  /* If debugging, assign block numbers to all of the blocks in this
+     function.  */
+  if (write_symbols)
+    {
+      reemit_insn_block_notes ();
+      number_blocks (current_function_decl);
+      /* We never actually put out begin/end notes for the top-level
+	 block in the function.  But, conceptually, that block is
+	 always needed.  */
+      TREE_ASM_WRITTEN (DECL_INITIAL (current_function_decl)) = 1;
+    }
 
   assemble_start_function (current_function_decl, fnname);
   final_start_function (get_insns (), asm_out_file, optimize);

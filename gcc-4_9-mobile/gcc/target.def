@@ -3610,6 +3610,16 @@ supported by the target.",
  unsigned HOST_WIDE_INT, (void),
  NULL)
 
+/* Get frame pointer setting insn when flag_shrink_wrap_frame_pointer
+   is true.  */
+DEFHOOK
+(set_fp_insn,
+ "When flag_shrink_wrap_frame_pointer is true, fp setting insn should\n\
+be generated inside function body. The insertion is done after CFA\n\
+information is known.",
+ rtx, (void),
+ default_set_fp_insn)
+
 /* Functions relating to calls - argument passing, returns, etc.  */
 /* Members of struct call have no special macro prefix.  */
 HOOK_VECTOR (TARGET_CALLS, calls)
@@ -4673,6 +4683,14 @@ five otherwise.  This is best for most machines.",
  unsigned int, (void),
  default_case_values_threshold)
 
+/* Return true if a function is a leaf and its frame pointer can be omitted.  */
+DEFHOOK
+(can_omit_leaf_frame_pointer,
+ "This target hook will return @code{true} if a function is a leaf function and\n\
+its frame pointer can be omitted on the target.",
+ bool, (void),
+ hook_bool_void_false)
+
 /* Retutn true if a function must have and use a frame pointer.  */
 DEFHOOK
 (frame_pointer_required,
@@ -5387,6 +5405,12 @@ DEFHOOKPOD
 (delay_vartrack, "True if vartrack is not to be run at its normal place.  \
 This usually means it will be run as part of machine-specific reorg.",
 bool, false)
+
+DEFHOOKPOD
+(strict_align,
+ "True if it is beneficial to try stricter function \
+ or loop alignment on the target.",
+ bool, false)
 
 /* Leave the boolean fields at the end.  */
 
