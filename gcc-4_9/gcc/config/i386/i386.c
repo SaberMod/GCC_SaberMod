@@ -13007,7 +13007,11 @@ legitimate_pic_address_disp_p (rtx disp)
 		   && (SYMBOL_REF_LOCAL_P (op0)
 		       || (HAVE_LD_PIE_COPYRELOC
 			   && flag_pie
-			   && !SYMBOL_REF_WEAK (op0)
+			   && !(SYMBOL_REF_WEAK (op0)
+		  /* TODO:Temporary fix for weak defined symbols.
+		     Revert after fix is checked in here:
+		     https://gcc.gnu.org/ml/gcc-patches/2015-02/msg00366.html*/
+				&& SYMBOL_REF_EXTERNAL_P (op0))
 			   && !SYMBOL_REF_FUNCTION_P (op0)))
 		   && ix86_cmodel != CM_LARGE_PIC)
 	    return true;
