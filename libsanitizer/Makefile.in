@@ -13,6 +13,7 @@
 # PARTICULAR PURPOSE.
 
 @SET_MAKE@
+
 VPATH = @srcdir@
 am__is_gnu_make = test -n '$(MAKEFILE_LIST)' && test -n '$(MAKELEVEL)'
 am__make_running_with_option = \
@@ -78,10 +79,17 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
+@SANITIZER_SUPPORTED_TRUE@am__append_1 = include/sanitizer/common_interface_defs.h \
+@SANITIZER_SUPPORTED_TRUE@	include/sanitizer/lsan_interface.h \
+@SANITIZER_SUPPORTED_TRUE@	include/sanitizer/asan_interface.h
+@SANITIZER_SUPPORTED_TRUE@@USING_MAC_INTERPOSE_FALSE@am__append_2 = interception
+@LIBBACKTRACE_SUPPORTED_TRUE@@SANITIZER_SUPPORTED_TRUE@am__append_3 = libbacktrace
+@SANITIZER_SUPPORTED_TRUE@@TSAN_SUPPORTED_TRUE@am__append_4 = tsan
 subdir = .
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/configure $(am__configure_deps) \
-	$(top_srcdir)/../mkinstalldirs
+	$(srcdir)/config.h.in $(top_srcdir)/../mkinstalldirs \
+	$(srcdir)/libsanitizer.spec.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
 	$(top_srcdir)/../config/depstand.m4 \
@@ -89,6 +97,7 @@ am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
 	$(top_srcdir)/../config/libstdc++-raw-cxx.m4 \
 	$(top_srcdir)/../config/multi.m4 \
 	$(top_srcdir)/../config/override.m4 \
+	$(top_srcdir)/../config/stdint.m4 \
 	$(top_srcdir)/../ltoptions.m4 $(top_srcdir)/../ltsugar.m4 \
 	$(top_srcdir)/../ltversion.m4 $(top_srcdir)/../lt~obsolete.m4 \
 	$(top_srcdir)/acinclude.m4 $(top_srcdir)/../libtool.m4 \
@@ -98,7 +107,8 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno config.status.lineno
 mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
-CONFIG_CLEAN_FILES =
+CONFIG_HEADER = config.h
+CONFIG_CLEAN_FILES = libsanitizer.spec
 CONFIG_CLEAN_VPATH_FILES =
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -126,6 +136,36 @@ am__can_run_installinfo = \
     n|no|NO) false;; \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
+am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
+am__vpath_adj = case $$p in \
+    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
+    *) f=$$p;; \
+  esac;
+am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
+am__install_max = 40
+am__nobase_strip_setup = \
+  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
+am__nobase_strip = \
+  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
+am__nobase_list = $(am__nobase_strip_setup); \
+  for p in $$list; do echo "$$p $$p"; done | \
+  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
+  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
+    if (++n[$$2] == $(am__install_max)) \
+      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
+    END { for (dir in files) print dir, files[dir] }'
+am__base_list = \
+  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
+  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
+am__uninstall_files_from_dir = { \
+  test -z "$$files" \
+    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
+    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
+         $(am__cd) "$$dir" && rm -f $$files; }; \
+  }
+am__installdirs = "$(DESTDIR)$(sanincludedir)" \
+	"$(DESTDIR)$(toolexeclibdir)"
+HEADERS = $(nodist_saninclude_HEADERS) $(nodist_toolexeclib_HEADERS)
 RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
   distclean-recursive maintainer-clean-recursive
 am__recursive_targets = \
@@ -134,7 +174,8 @@ am__recursive_targets = \
   $(am__extra_recursive_targets)
 AM_RECURSIVE_TARGETS = $(am__recursive_targets:-recursive=) TAGS CTAGS \
 	cscope
-am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
+am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) \
+	$(LISP)config.h.in
 # Read a list of newline-separated strings from the standard input,
 # and print each of them once, without duplicates.  Input order is
 # *not* preserved.
@@ -154,8 +195,10 @@ am__define_uniq_tagged_files = \
 ETAGS = etags
 CTAGS = ctags
 CSCOPE = cscope
-DIST_SUBDIRS = interception sanitizer_common asan tsan
+DIST_SUBDIRS = sanitizer_common interception libbacktrace lsan asan \
+	ubsan tsan
 ACLOCAL = @ACLOCAL@
+ALLOC_FILE = @ALLOC_FILE@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
 AR = @AR@
@@ -163,6 +206,9 @@ AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
+BACKTRACE_SUPPORTED = @BACKTRACE_SUPPORTED@
+BACKTRACE_SUPPORTS_THREADS = @BACKTRACE_SUPPORTS_THREADS@
+BACKTRACE_USES_MALLOC = @BACKTRACE_USES_MALLOC@
 CC = @CC@
 CCAS = @CCAS@
 CCASDEPMODE = @CCASDEPMODE@
@@ -178,6 +224,7 @@ CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
+DLLTOOL = @DLLTOOL@
 DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
@@ -186,6 +233,7 @@ ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
+FORMAT_FILE = @FORMAT_FILE@
 GREP = @GREP@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
@@ -204,6 +252,7 @@ LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
+MANIFEST_TOOL = @MANIFEST_TOOL@
 MKDIR_P = @MKDIR_P@
 NM = @NM@
 NMEDIT = @NMEDIT@
@@ -224,11 +273,14 @@ SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
+TSAN_TARGET_DEPENDENT_OBJECTS = @TSAN_TARGET_DEPENDENT_OBJECTS@
 VERSION = @VERSION@
+VIEW_FILE = @VIEW_FILE@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
+ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
 ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
@@ -262,6 +314,10 @@ infodir = @infodir@
 install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
+link_libasan = @link_libasan@
+link_liblsan = @link_liblsan@
+link_libtsan = @link_libtsan@
+link_libubsan = @link_libubsan@
 localedir = @localedir@
 localstatedir = @localstatedir@
 mandir = @mandir@
@@ -288,9 +344,12 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 ACLOCAL_AMFLAGS = -I .. -I ../config
-@TSAN_SUPPORTED_FALSE@SUBDIRS = interception sanitizer_common asan 
-@TSAN_SUPPORTED_TRUE@SUBDIRS = interception sanitizer_common asan tsan 
-@USING_MAC_INTERPOSE_TRUE@SUBDIRS = sanitizer_common asan
+sanincludedir = $(libdir)/gcc/$(target_alias)/$(gcc_version)/include/sanitizer
+nodist_saninclude_HEADERS = $(am__append_1)
+@SANITIZER_SUPPORTED_TRUE@SUBDIRS = sanitizer_common $(am__append_2) \
+@SANITIZER_SUPPORTED_TRUE@	$(am__append_3) lsan asan ubsan \
+@SANITIZER_SUPPORTED_TRUE@	$(am__append_4)
+gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 
 # Work around what appears to be a GNU make bug handling MAKEFLAGS
 # values defined in terms of make variables, as is the case for CC and
@@ -331,7 +390,9 @@ AM_MAKEFLAGS = \
 	"DESTDIR=$(DESTDIR)"
 
 MAKEOVERRIDES = 
-all: all-recursive
+nodist_toolexeclib_HEADERS = libsanitizer.spec
+all: config.h
+	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
 .SUFFIXES:
 am--refresh: Makefile
@@ -369,6 +430,23 @@ $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	$(am__cd) $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
 $(am__aclocal_m4_deps):
 
+config.h: stamp-h1
+	@test -f $@ || rm -f stamp-h1
+	@test -f $@ || $(MAKE) $(AM_MAKEFLAGS) stamp-h1
+
+stamp-h1: $(srcdir)/config.h.in $(top_builddir)/config.status
+	@rm -f stamp-h1
+	cd $(top_builddir) && $(SHELL) ./config.status config.h
+$(srcdir)/config.h.in: @MAINTAINER_MODE_TRUE@ $(am__configure_deps) 
+	($(am__cd) $(top_srcdir) && $(AUTOHEADER))
+	rm -f stamp-h1
+	touch $@
+
+distclean-hdr:
+	-rm -f config.h stamp-h1
+libsanitizer.spec: $(top_builddir)/config.status $(srcdir)/libsanitizer.spec.in
+	cd $(top_builddir) && $(SHELL) ./config.status $@
+
 mostlyclean-libtool:
 	-rm -f *.lo
 
@@ -377,6 +455,48 @@ clean-libtool:
 
 distclean-libtool:
 	-rm -f libtool config.lt
+install-nodist_sanincludeHEADERS: $(nodist_saninclude_HEADERS)
+	@$(NORMAL_INSTALL)
+	@list='$(nodist_saninclude_HEADERS)'; test -n "$(sanincludedir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(sanincludedir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(sanincludedir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(sanincludedir)'"; \
+	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(sanincludedir)" || exit $$?; \
+	done
+
+uninstall-nodist_sanincludeHEADERS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(nodist_saninclude_HEADERS)'; test -n "$(sanincludedir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(sanincludedir)'; $(am__uninstall_files_from_dir)
+install-nodist_toolexeclibHEADERS: $(nodist_toolexeclib_HEADERS)
+	@$(NORMAL_INSTALL)
+	@list='$(nodist_toolexeclib_HEADERS)'; test -n "$(toolexeclibdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(toolexeclibdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(toolexeclibdir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(toolexeclibdir)'"; \
+	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(toolexeclibdir)" || exit $$?; \
+	done
+
+uninstall-nodist_toolexeclibHEADERS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(nodist_toolexeclib_HEADERS)'; test -n "$(toolexeclibdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(toolexeclibdir)'; $(am__uninstall_files_from_dir)
 
 # This directory's subdirectories are mostly independent; you can cd
 # into them and run 'make' without going through this Makefile.
@@ -485,9 +605,12 @@ distclean-tags:
 	-rm -f cscope.out cscope.in.out cscope.po.out cscope.files
 check-am: all-am
 check: check-recursive
-all-am: Makefile
+all-am: Makefile $(HEADERS) config.h
 installdirs: installdirs-recursive
 installdirs-am:
+	for dir in "$(DESTDIR)$(sanincludedir)" "$(DESTDIR)$(toolexeclibdir)"; do \
+	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
+	done
 install: install-recursive
 install-exec: install-exec-recursive
 install-data: install-data-recursive
@@ -525,8 +648,8 @@ clean-am: clean-generic clean-libtool mostlyclean-am
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -f Makefile
-distclean-am: clean-am distclean-generic distclean-libtool \
-	distclean-tags
+distclean-am: clean-am distclean-generic distclean-hdr \
+	distclean-libtool distclean-tags
 
 dvi: dvi-recursive
 
@@ -540,13 +663,13 @@ info: info-recursive
 
 info-am:
 
-install-data-am:
+install-data-am: install-nodist_sanincludeHEADERS
 
 install-dvi: install-dvi-recursive
 
 install-dvi-am:
 
-install-exec-am:
+install-exec-am: install-nodist_toolexeclibHEADERS
 
 install-html: install-html-recursive
 
@@ -586,23 +709,27 @@ ps: ps-recursive
 
 ps-am:
 
-uninstall-am:
+uninstall-am: uninstall-nodist_sanincludeHEADERS \
+	uninstall-nodist_toolexeclibHEADERS
 
-.MAKE: $(am__recursive_targets) install-am install-strip
+.MAKE: $(am__recursive_targets) all install-am install-strip
 
 .PHONY: $(am__recursive_targets) CTAGS GTAGS TAGS all all-am \
 	am--refresh check check-am clean clean-cscope clean-generic \
 	clean-libtool cscope cscopelist-am ctags ctags-am distclean \
-	distclean-generic distclean-libtool distclean-tags dvi dvi-am \
-	html html-am info info-am install install-am install-data \
-	install-data-am install-dvi install-dvi-am install-exec \
-	install-exec-am install-html install-html-am install-info \
-	install-info-am install-man install-pdf install-pdf-am \
+	distclean-generic distclean-hdr distclean-libtool \
+	distclean-tags dvi dvi-am html html-am info info-am install \
+	install-am install-data install-data-am install-dvi \
+	install-dvi-am install-exec install-exec-am install-html \
+	install-html-am install-info install-info-am install-man \
+	install-nodist_sanincludeHEADERS \
+	install-nodist_toolexeclibHEADERS install-pdf install-pdf-am \
 	install-ps install-ps-am install-strip installcheck \
 	installcheck-am installdirs installdirs-am maintainer-clean \
 	maintainer-clean-generic mostlyclean mostlyclean-generic \
 	mostlyclean-libtool pdf pdf-am ps ps-am tags tags-am uninstall \
-	uninstall-am
+	uninstall-am uninstall-nodist_sanincludeHEADERS \
+	uninstall-nodist_toolexeclibHEADERS
 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
