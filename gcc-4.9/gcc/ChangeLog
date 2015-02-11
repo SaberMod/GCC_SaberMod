@@ -1,3 +1,9 @@
+2014-11-22  Uros Bizjak  <ubizjak@gmail.com>
+
+       * params.def (PARAM_MAX_COMPLETELY_PEELED_INSNS): Increase to 200.
+       * config/i386/i386.c (ix86_option_override_internal): Do not increase
+       PARAM_MAX_COMPLETELY_PEELED_INSNS.
+
 2015-03-26  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	Backport of r214242, r214254, and bug fix patches from mainline

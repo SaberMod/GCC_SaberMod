@@ -343,7 +343,7 @@ DEFPARAM(PARAM_MAX_PEEL_BRANCHES,
 DEFPARAM(PARAM_MAX_COMPLETELY_PEELED_INSNS,
 	"max-completely-peeled-insns",
 	"The maximum number of insns of a completely peeled loop",
-	100, 0, 0)
+	200, 0, 0)
 /* The default maximum number of insns of a peeled loop, with -O2.  */
 DEFPARAM(PARAM_MAX_DEFAULT_COMPLETELY_PEELED_INSNS,
 	"max-default-completely-peeled-insns",
