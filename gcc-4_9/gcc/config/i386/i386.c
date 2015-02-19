@@ -13008,9 +13008,11 @@ legitimate_pic_address_disp_p (rtx disp)
 		       || (HAVE_LD_PIE_COPYRELOC
 			   && flag_pie
 			   && !(SYMBOL_REF_WEAK (op0)
-		  /* TODO:Temporary fix for weak defined symbols.
+		  /* TODO:Temporary fix for weak defined symbols. Weak defined
+		     symbols in an executable cannot be overridden even with
+		     a non-weak symbol in a shared library.
 		     Revert after fix is checked in here:
-		     https://gcc.gnu.org/ml/gcc-patches/2015-02/msg00366.html*/
+		     http://gcc.gnu.org/ml/gcc-patches/2015-02/msg00366.html*/
 				&& SYMBOL_REF_EXTERNAL_P (op0))
 			   && !SYMBOL_REF_FUNCTION_P (op0)))
 		   && ix86_cmodel != CM_LARGE_PIC)
