@@ -398,8 +398,6 @@ static unsigned
 get_combined_location (location_t loc, tree decl)
 {
   /* TODO: allow more bits for line and less bits for discriminator.  */
-  if (LOCATION_LINE (loc) - DECL_SOURCE_LINE (decl) >= (1<<16))
-    warning_at (loc, OPT_Woverflow, "Offset exceeds 16 bytes.");
   return ((LOCATION_LINE (loc) - DECL_SOURCE_LINE (decl)) << 16)
          | get_discriminator_from_locus (loc);
 }
