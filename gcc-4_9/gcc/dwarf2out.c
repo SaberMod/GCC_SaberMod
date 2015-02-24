@@ -21617,7 +21617,10 @@ scan_blocks_for_inlined_calls (tree block, subprog_entry *subprog,
 
       for (i = 0; i < level; i++)
 	fprintf(stderr, "  ");
-      fprintf (stderr, "SCAN: block %d, subprog %s", BLOCK_NUMBER (block), dwarf2_name (subprog->decl, 0));
+      fprintf (stderr, "SCAN: [%p] block %d, subprog %s",
+	       (void *) block,
+	       BLOCK_NUMBER (block),
+	       dwarf2_name (subprog->decl, 0));
       if (caller != NULL)
 	{
 	  expanded_location loc = expand_location (caller_loc);
@@ -21670,6 +21673,21 @@ scan_blocks_for_inlined_calls (tree block, subprog_entry *subprog,
        subblock != NULL;
        subblock = BLOCK_FRAGMENT_CHAIN (subblock))
     {
+#ifdef DEBUG_TWO_LEVEL
+      if (level < 6)
+	{
+	  unsigned int i;
+
+	  for (i = 0; i < level; i++)
+	    fprintf(stderr, "  ");
+	  fprintf (stderr, "SCAN: [%p] block frag %d, origin %d\n",
+		   (void *) subblock,
+		   BLOCK_NUMBER (subblock),
+		   (BLOCK_FRAGMENT_ORIGIN (subblock)
+		    ? BLOCK_NUMBER (BLOCK_FRAGMENT_ORIGIN (subblock))
+		    : -1));
+	}
+#endif
       block_num = BLOCK_NUMBER (subblock);
       slot = block_table->find_slot_with_hash (&block_num, (hashval_t) block_num, INSERT);
       if (*slot == HTAB_EMPTY_ENTRY)
@@ -21717,6 +21735,7 @@ dwarf2out_begin_function (tree fun)
       subprog_entry *subprog;
 
       block_table->empty ();
+      logical_table->empty ();
 #ifdef DEBUG_TWO_LEVEL
       fprintf (stderr, "Begin function %s\n", dwarf2_name (fun, 0));
 #endif
@@ -21862,7 +21881,8 @@ out_logical_entry (dw_line_info_table *table, unsigned int file_num,
   /* Declare the subprogram if it hasn't already been declared.  */
   if (block != NULL)
     subprog = block->subprog;
-  if (subprog != NULL && subprog->subprog_num == 0 && context != NULL)
+  if (subprog != NULL && subprog->subprog_num == 0
+      && (context != NULL || flag_two_level_all_subprogs))
     out_subprog_directive (subprog);
   if (subprog != NULL)
     subprog_num = subprog->subprog_num;
