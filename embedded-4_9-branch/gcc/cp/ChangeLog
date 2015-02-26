@@ -1,3 +1,39 @@
+2015-02-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/62255
+	* pt.c (instantiate_decl): Handle recursive instantiation of
+	static data member.
+
+	* decl.c (begin_destructor_body): Condition clobber on
+	-flifetime-dse.
+
+2015-02-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/62017
+	* decl.c (begin_destructor_body): Only clobber the as-base part of
+	*this.
+
+2015-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2015-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/64824
+	PR c/64868
+	* parser.c (cp_parser_omp_atomic): Handle RDIV_EXPR.
+
+2015-02-04  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR c++/64901
+	* decl.c (duplicate_decls): Also duplicate DECL_FINAL_P and
+	DECL_OVERRIDE_P.
+
+2015-01-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/64521
+	* repo.c (repo_emit_p): It's OK for a clone to be extern at this
+	point.
+
 2015-01-13  Jason Merrill  <jason@redhat.com>
 
 	PR c++/64514
