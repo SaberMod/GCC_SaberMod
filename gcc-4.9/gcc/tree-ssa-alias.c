@@ -1405,7 +1405,36 @@ refs_may_alias_p_1 (ao_ref *ref1, ao_ref *ref2, bool tbaa_p)
 					  ao_ref_alias_set (ref1),
 					  ao_ref_base_alias_set (ref1),
 					  tbaa_p);
-  else if (ind1_p && ind2_p)
+
+  /* Handle restrict based accesses.
+     ???  ao_ref_base strips inner MEM_REF [&decl], recover from that
+     here.  */
+  tree rbase1 = base1;
+  tree rbase2 = base2;
+  if (var1_p)
+    {
+      rbase1 = ref1->ref;
+      if (rbase1)
+	while (handled_component_p (rbase1))
+	  rbase1 = TREE_OPERAND (rbase1, 0);
+    }
+  if (var2_p)
+    {
+      rbase2 = ref2->ref;
+      if (rbase2)
+	 while (handled_component_p (rbase2))
+	   rbase2 = TREE_OPERAND (rbase2, 0);
+    }
+  if (rbase1 && rbase2
+      && (TREE_CODE (base1) == MEM_REF || TREE_CODE (base1) == TARGET_MEM_REF)
+      && (TREE_CODE (base2) == MEM_REF || TREE_CODE (base2) == TARGET_MEM_REF)
+      /* If the accesses are in the same restrict clique... */
+      && MR_DEPENDENCE_CLIQUE (base1) == MR_DEPENDENCE_CLIQUE (base2)
+      /* But based on different pointers they do not alias.  */
+      && MR_DEPENDENCE_BASE (base1) != MR_DEPENDENCE_BASE (base2))
+    return false;
+
+  if (ind1_p && ind2_p)
     return indirect_refs_may_alias_p (ref1->ref, base1,
 				      offset1, max_size1,
 				      ao_ref_alias_set (ref1), -1,

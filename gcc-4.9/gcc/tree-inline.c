@@ -787,6 +787,24 @@ is_parm (tree decl)
   return (TREE_CODE (decl) == PARM_DECL);
 }
 
+/* Remap the dependence CLIQUE from the source to the destination function
+   as specified in ID.  */
+
+static unsigned short
+remap_dependence_clique (copy_body_data *id, unsigned short clique)
+{
+  if (clique == 0)
+    return 0;
+  if (!id->dependence_map)
+    id->dependence_map = pointer_map_create ();
+  void **newc = pointer_map_contains (id->dependence_map,
+				      (void *)(uintptr_t)clique);
+  if (!newc)
+    newc = pointer_map_insert (id->dependence_map,
+			       (void *)(uintptr_t)++cfun->last_clique);
+  return (uintptr_t)*newc;
+}
+
 /* Remap the GIMPLE operand pointed to by *TP.  DATA is really a
    'struct walk_stmt_info *'.  DATA->INFO is a 'copy_body_data *'.
    WALK_SUBTREES is used to indicate walk_gimple_op whether to keep
@@ -886,6 +904,12 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 	  TREE_THIS_VOLATILE (*tp) = TREE_THIS_VOLATILE (old);
 	  TREE_SIDE_EFFECTS (*tp) = TREE_SIDE_EFFECTS (old);
 	  TREE_NO_WARNING (*tp) = TREE_NO_WARNING (old);
+	  if (MR_DEPENDENCE_CLIQUE (old) != 0)
+	    {
+	      MR_DEPENDENCE_CLIQUE (*tp)
+	        = remap_dependence_clique (id, MR_DEPENDENCE_CLIQUE (old));
+	      MR_DEPENDENCE_BASE (*tp) = MR_DEPENDENCE_BASE (old);
+	    }
 	  /* We cannot propagate the TREE_THIS_NOTRAP flag if we have
 	     remapped a parameter as the property might be valid only
 	     for the parameter itself.  */
@@ -1139,6 +1163,12 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 	  TREE_THIS_VOLATILE (*tp) = TREE_THIS_VOLATILE (old);
 	  TREE_SIDE_EFFECTS (*tp) = TREE_SIDE_EFFECTS (old);
 	  TREE_NO_WARNING (*tp) = TREE_NO_WARNING (old);
+	  if (MR_DEPENDENCE_CLIQUE (old) != 0)
+	    {
+	      MR_DEPENDENCE_CLIQUE (*tp)
+		= remap_dependence_clique (id, MR_DEPENDENCE_CLIQUE (old));
+	      MR_DEPENDENCE_BASE (*tp) = MR_DEPENDENCE_BASE (old);
+	    }
 	  /* We cannot propagate the TREE_THIS_NOTRAP flag if we have
 	     remapped a parameter as the property might be valid only
 	     for the parameter itself.  */
@@ -2597,6 +2627,11 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
     {
       pointer_map_destroy (id->eh_map);
       id->eh_map = NULL;
+    }
+  if (id->dependence_map)
+    {
+      pointer_map_destroy (id->dependence_map);
+      id->dependence_map = NULL;
     }
 
   return new_fndecl;
@@ -4953,6 +4988,11 @@ copy_gimple_seq_and_replace_locals (gimple_seq seq)
   pointer_map_destroy (id.decl_map);
   if (id.debug_map)
     pointer_map_destroy (id.debug_map);
+  if (id.dependence_map)
+    {
+      pointer_map_destroy (id.dependence_map);
+      id.dependence_map = NULL;
+    }
 
   return copy;
 }

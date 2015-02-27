@@ -766,6 +766,16 @@ struct GTY(()) tree_base {
     int length;
     /* SSA version number.  This field is only used with SSA_NAME.  */
     unsigned int version;
+
+    /* The following two fields are used for MEM_REF and TARGET_MEM_REF
+       expression trees and specify known data non-dependences.  For
+       two memory references in a function they are known to not
+       alias if dependence_info.clique are equal and dependence_info.base
+       are distinct.  */
+    struct {
+      unsigned short clique;
+      unsigned short base;
+    } dependence_info;
   } GTY((skip(""))) u;
 };
 
