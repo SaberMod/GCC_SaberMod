@@ -71,16 +71,19 @@ MULTILIB_REQUIRED   += mthumb/march=armv7e-m/mfloat-abi=hard/mfpu=fpv4-sp-d16
 MULTILIB_OSDIRNAMES += mthumb/march.armv7e-m=!armv7e-m
 MULTILIB_OSDIRNAMES += mthumb/march.armv7e-m/mfloat-abi.hard/mfpu.fpv4-sp-d16=!armv7e-m/fpu
 MULTILIB_OSDIRNAMES += mthumb/march.armv7e-m/mfloat-abi.softfp/mfpu.fpv4-sp-d16=!armv7e-m/softfp
+endif
+
+ifneq (,$(findstring cortex-m7,$(subst $(comma),$(space),$(with_multilib_list))))
 MULTILIB_REQUIRED   += mthumb/mcpu=cortex-m7
 MULTILIB_REQUIRED   += mthumb/mcpu=cortex-m7/mfloat-abi=softfp/mfpu=fpv5-sp-d16
 MULTILIB_REQUIRED   += mthumb/mcpu=cortex-m7/mfloat-abi=hard/mfpu=fpv5-sp-d16
 MULTILIB_REQUIRED   += mthumb/mcpu=cortex-m7/mfloat-abi=softfp/mfpu=fpv5-d16
 MULTILIB_REQUIRED   += mthumb/mcpu=cortex-m7/mfloat-abi=hard/mfpu=fpv5-d16
-MULTILIB_OSDIRNAMES += mthumb/mcpu.cortex-m7=!armv7e-m/cortex-m7
-MULTILIB_OSDIRNAMES += mthumb/mcpu.cortex-m7/mfloat-abi.hard/mfpu.fpv5-sp-d16=!armv7e-m/cortex-m7/fpu/fpv5-sp-d16
-MULTILIB_OSDIRNAMES += mthumb/mcpu.cortex-m7/mfloat-abi.softfp/mfpu.fpv5-sp-d16=!armv7e-m/cortex-m7/softfp/fpv5-sp-d16
-MULTILIB_OSDIRNAMES += mthumb/mcpu.cortex-m7/mfloat-abi.hard/mfpu.fpv5-d16=!armv7e-m/cortex-m7/fpu/fpv5-d16
-MULTILIB_OSDIRNAMES += mthumb/mcpu.cortex-m7/mfloat-abi.softfp/mfpu.fpv5-d16=!armv7e-m/cortex-m7/softfp/fpv5-d16
+MULTILIB_OSDIRNAMES += mthumb/mcpu.cortex-m7=!cortex-m7
+MULTILIB_OSDIRNAMES += mthumb/mcpu.cortex-m7/mfloat-abi.hard/mfpu.fpv5-sp-d16=!cortex-m7/fpu/fpv5-sp-d16
+MULTILIB_OSDIRNAMES += mthumb/mcpu.cortex-m7/mfloat-abi.softfp/mfpu.fpv5-sp-d16=!cortex-m7/softfp/fpv5-sp-d16
+MULTILIB_OSDIRNAMES += mthumb/mcpu.cortex-m7/mfloat-abi.hard/mfpu.fpv5-d16=!cortex-m7/fpu/fpv5-d16
+MULTILIB_OSDIRNAMES += mthumb/mcpu.cortex-m7/mfloat-abi.softfp/mfpu.fpv5-d16=!cortex-m7/softfp/fpv5-d16
 endif
 
 ifneq (,$(filter armv7 armv7-r armv7-a,$(subst $(comma),$(space),$(with_multilib_list))))
