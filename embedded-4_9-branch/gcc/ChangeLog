@@ -1,3 +1,43 @@
+2015-01-23  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2015-01-14  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR target/64453
+	* config/arm/arm.c (callee_saved_reg_p): Define.
+	(arm_compute_save_reg0_reg12_mask): Use callee_saved_reg_p to check if
+	register is callee saved instead of !call_used_regs[reg].
+	(thumb1_compute_save_reg_mask): Likewise.
+
+2015-02-27  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/63175
+	* builtins.c (get_object_alignment_2): Make sure to re-apply
+	the ANDed mask after recursing to its operand gets us a new
+	misalignment bit position.
+
+2015-02-27  Andrew Pinski  <apinski@cavium.com>
+	    Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+ 
+	* config/aarch64/aarch64.c (*aarch64_load_symref_appropriately):
+	Check whether the destination of SYMBOL_SMALL_TPREL is Pmode.
+
+2015-02-27  Richard Biener  <rguenther@suse.de>
+
+	PR lto/65193
+	Backport from mainline
+	2014-07-24  Jan Hubicka  <hubicka@ucw.cz>
+ 
+	* lto-streamer-out.c (tree_is_indexable): Consider IMPORTED_DECL
+	as non-indexable.
+
+2015-02-25  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2015-02-25  Adhemerval Zanella  <azanella@linux.vnet.ibm.com>
+
+	* config/rs6000/htm.md (tcheck): Fix assembly encoding.
+
 2015-02-26  Matthew Fortune  <matthew.fortune@imgtec.com>
 
 	PR target/64569
