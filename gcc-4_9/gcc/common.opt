@@ -1214,9 +1214,9 @@ Common Report Var(flag_dwarf2_cfi_asm) Init(HAVE_GAS_CFI_DIRECTIVE)
 Enable CFI tables via GAS assembler directives.
 
 ftwo-level-all-subprogs
-Common Report Var(flag_two_level_all_subprogs) Init(1)
+Common Report Var(flag_two_level_all_subprogs) Init(0)
 When generating two-level line tables in DWARF (experimental),
-generate subprogram table entries for all functions.
+add linkage names for all functions (not just inlined functions).
 
 ftwo-level-line-tables
 Common Report Var(flag_two_level_line_tables) Init(0)
