@@ -3,6 +3,10 @@
 	* cloog.m4: Remove the path to isllibs from clooglibs.
 	* isl.m4: Add paths to islinc, isllibs.
 
+2014-07-16  Release Manager
+
+	* GCC 4.9.1 released.
+
 2014-04-22  Release Manager
 
 	* GCC 4.9.0 released.
