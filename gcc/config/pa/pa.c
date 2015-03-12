@@ -119,6 +119,7 @@ static void pa_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static int pa_adjust_cost (rtx, rtx, rtx, int);
 static int pa_adjust_priority (rtx, int);
 static int pa_issue_rate (void);
+static int pa_reloc_rw_mask (void);
 static void pa_som_asm_init_sections (void) ATTRIBUTE_UNUSED;
 static section *pa_som_tm_clone_table_section (void) ATTRIBUTE_UNUSED;
 static section *pa_select_section (tree, int, unsigned HOST_WIDE_INT)
@@ -293,6 +294,9 @@ static size_t n_deferred_plabels = 0;
 #else
 #define TARGET_ASM_FILE_END output_deferred_plabels
 #endif
+
+#undef TARGET_ASM_RELOC_RW_MASK
+#define TARGET_ASM_RELOC_RW_MASK pa_reloc_rw_mask
 
 #undef TARGET_PRINT_OPERAND_PUNCT_VALID_P
 #define TARGET_PRINT_OPERAND_PUNCT_VALID_P pa_print_operand_punct_valid_p
@@ -3235,7 +3239,12 @@ pa_assemble_integer (rtx x, unsigned int size, int aligned_p)
       && aligned_p
       && function_label_operand (x, VOIDmode))
     {
-      fputs (size == 8? "\t.dword\tP%" : "\t.word\tP%", asm_out_file);
+      fputs (size == 8? "\t.dword\t" : "\t.word\t", asm_out_file);
+
+      /* We don't want an OPD when generating fast indirect calls.  */
+      if (!TARGET_FAST_INDIRECT_CALLS)
+	fputs ("P%", asm_out_file);
+
       output_addr_const (asm_out_file, x);
       fputc ('\n', asm_out_file);
       return true;
@@ -4155,8 +4164,7 @@ static void
 pa_output_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
   rtx insn = get_last_insn ();
-
-  last_address = 0;
+  bool extra_nop;
 
   /* pa_expand_epilogue does the dirty work now.  We just need
      to output the assembler directives which denote the end
@@ -4180,8 +4188,10 @@ pa_output_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
   if (insn && CALL_P (insn))
     {
       fputs ("\tnop\n", file);
-      last_address += 4;
+      extra_nop = true;
     }
+  else
+    extra_nop = false;
 
   fputs ("\t.EXIT\n\t.PROCEND\n", file);
 
@@ -4194,16 +4204,20 @@ pa_output_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
       cfun->machine->in_nsubspa = 2;
     }
 
-  /* Thunks do their own accounting.  */
+  /* Thunks do their own insn accounting.  */
   if (cfun->is_thunk)
     return;
 
   if (INSN_ADDRESSES_SET_P ())
     {
+      last_address = extra_nop ? 4 : 0;
       insn = get_last_nonnote_insn ();
-      last_address += INSN_ADDRESSES (INSN_UID (insn));
-      if (INSN_P (insn))
-	last_address += insn_default_length (insn);
+      if (insn)
+	{
+	  last_address += INSN_ADDRESSES (INSN_UID (insn));
+	  if (INSN_P (insn))
+	    last_address += insn_default_length (insn);
+	}
       last_address = ((last_address + FUNCTION_BOUNDARY / BITS_PER_UNIT - 1)
 		      & ~(FUNCTION_BOUNDARY / BITS_PER_UNIT - 1));
     }
@@ -6003,18 +6017,15 @@ pa_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
 	{
 	  x = XEXP (x, 0);
 
-	  /* We don't need an intermediate for indexed and LO_SUM DLT
-	     memory addresses.  When INT14_OK_STRICT is true, it might
-	     appear that we could directly allow register indirect
-	     memory addresses.  However, this doesn't work because we
-	     don't support SUBREGs in floating-point register copies
-	     and reload doesn't tell us when it's going to use a SUBREG.  */
-	  if (IS_INDEX_ADDR_P (x)
-	      || IS_LO_SUM_DLT_ADDR_P (x))
-	    return NO_REGS;
+	  /* We don't need a secondary reload for indexed memory addresses.
 
-	  /* Request intermediate general register.  */
-	  return GENERAL_REGS;
+	     When INT14_OK_STRICT is true, it might appear that we could
+	     directly allow register indirect memory addresses.  However,
+	     this doesn't work because we don't support SUBREGs in
+	     floating-point register copies and reload doesn't tell us
+	     when it's going to use a SUBREG.  */
+	  if (IS_INDEX_ADDR_P (x))
+	    return NO_REGS;
 	}
 
       /* Request a secondary reload with a general scratch register
@@ -8293,12 +8304,16 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 		   || ((DECL_SECTION_NAME (thunk_fndecl)
 			== DECL_SECTION_NAME (function))
 		       && last_address < 262132)))
+	      /* In this case, we need to be able to reach the start of
+		 the stub table even though the function is likely closer
+		 and can be jumped to directly.  */
 	      || (targetm_common.have_named_sections
 		  && DECL_SECTION_NAME (thunk_fndecl) == NULL
 		  && DECL_SECTION_NAME (function) == NULL
-		  && last_address < 262132)
+		  && total_code_bytes < MAX_PCREL17F_OFFSET)
+	      /* Likewise.  */
 	      || (!targetm_common.have_named_sections
-		  && last_address < 262132))))
+		  && total_code_bytes < MAX_PCREL17F_OFFSET))))
     {
       if (!val_14)
 	output_asm_insn ("addil L'%2,%%r26", xoperands);
@@ -8944,40 +8959,15 @@ pa_following_call (rtx insn)
 }
 
 /* We use this hook to perform a PA specific optimization which is difficult
-   to do in earlier passes.
-
-   We surround the jump table itself with BEGIN_BRTAB and END_BRTAB
-   insns.  Those insns mark where we should emit .begin_brtab and
-   .end_brtab directives when using GAS.  This allows for better link
-   time optimizations.  */
+   to do in earlier passes.  */
 
 static void
 pa_reorg (void)
 {
-  rtx insn;
-
   remove_useless_addtr_insns (1);
 
   if (pa_cpu < PROCESSOR_8000)
     pa_combine_instructions ();
-
-    /* Still need brtab marker insns.  FIXME: the presence of these
-       markers disables output of the branch table to readonly memory,
-       and any alignment directives that might be needed.  Possibly,
-       the begin_brtab insn should be output before the label for the
-       table.  This doesn't matter at the moment since the tables are
-       always output in the text section.  */
-    for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-      {
-	/* Find an ADDR_VEC insn.  */
-	if (! JUMP_TABLE_DATA_P (insn))
-	  continue;
-
-	/* Now generate markers for the beginning and end of the
-	   branch table.  */
-	emit_insn_before (gen_begin_brtab (), insn);
-	emit_insn_after (gen_end_brtab (), insn);
-      }
 }
 
 /* The PA has a number of odd instructions which can perform multiple
@@ -9327,6 +9317,12 @@ pa_function_value (const_tree valtype,
       || TREE_CODE (valtype) == COMPLEX_TYPE
       || TREE_CODE (valtype) == VECTOR_TYPE)
     {
+      HOST_WIDE_INT valsize = int_size_in_bytes (valtype);
+
+      /* Handle aggregates that fit exactly in a word or double word.  */
+      if ((valsize & (UNITS_PER_WORD - 1)) == 0)
+	return gen_rtx_REG (TYPE_MODE (valtype), 28);
+
       if (TARGET_64BIT)
 	{
           /* Aggregates with a size less than or equal to 128 bits are
@@ -9335,7 +9331,7 @@ pa_function_value (const_tree valtype,
 	     memory.  */
 	  rtx loc[2];
 	  int i, offset = 0;
-	  int ub = int_size_in_bytes (valtype) <= UNITS_PER_WORD ? 1 : 2;
+	  int ub = valsize <= UNITS_PER_WORD ? 1 : 2;
 
 	  for (i = 0; i < ub; i++)
 	    {
@@ -9347,7 +9343,7 @@ pa_function_value (const_tree valtype,
 
 	  return gen_rtx_PARALLEL (BLKmode, gen_rtvec_v (ub, loc));
 	}
-      else if (int_size_in_bytes (valtype) > UNITS_PER_WORD)
+      else if (valsize > UNITS_PER_WORD)
 	{
 	  /* Aggregates 5 to 8 bytes in size are returned in general
 	     registers r28-r29 in the same manner as other non
@@ -9823,6 +9819,19 @@ pa_select_section (tree exp, int reloc,
     return som_one_only_data_section;
   else
     return data_section;
+}
+
+/* Implement pa_reloc_rw_mask.  */
+
+static int
+pa_reloc_rw_mask (void)
+{
+  /* We force (const (plus (symbol) (const_int))) to memory when the
+     const_int doesn't fit in a 14-bit integer.  The SOM linker can't
+     handle this construct in read-only memory and we want to avoid
+     this for ELF.  So, we always force an RTX needing relocation to
+     the data section.  */
+  return 3;
 }
 
 static void
@@ -10570,6 +10579,48 @@ pa_legitimize_reload_address (rtx ad, enum machine_mode mode,
     }
 
   return NULL_RTX;
+}
+
+/* Output address vector.  */
+
+void
+pa_output_addr_vec (rtx lab, rtx body)
+{
+  int idx, vlen = XVECLEN (body, 0);
+
+  targetm.asm_out.internal_label (asm_out_file, "L", CODE_LABEL_NUMBER (lab));
+  if (TARGET_GAS)
+    fputs ("\t.begin_brtab\n", asm_out_file);
+  for (idx = 0; idx < vlen; idx++)
+    {
+      ASM_OUTPUT_ADDR_VEC_ELT
+	(asm_out_file, CODE_LABEL_NUMBER (XEXP (XVECEXP (body, 0, idx), 0)));
+    }
+  if (TARGET_GAS)
+    fputs ("\t.end_brtab\n", asm_out_file);
+}
+
+/* Output address difference vector.  */
+
+void
+pa_output_addr_diff_vec (rtx lab, rtx body)
+{
+  rtx base = XEXP (XEXP (body, 0), 0);
+  int idx, vlen = XVECLEN (body, 1);
+
+  targetm.asm_out.internal_label (asm_out_file, "L", CODE_LABEL_NUMBER (lab));
+  if (TARGET_GAS)
+    fputs ("\t.begin_brtab\n", asm_out_file);
+  for (idx = 0; idx < vlen; idx++)
+    {
+      ASM_OUTPUT_ADDR_DIFF_ELT
+	(asm_out_file,
+	 body,
+	 CODE_LABEL_NUMBER (XEXP (XVECEXP (body, 1, idx), 0)),
+	 CODE_LABEL_NUMBER (base));
+    }
+  if (TARGET_GAS)
+    fputs ("\t.end_brtab\n", asm_out_file);
 }
 
 #include "gt-pa.h"

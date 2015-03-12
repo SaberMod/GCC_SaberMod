@@ -4385,7 +4385,7 @@
 (define_expand "vec_unpacks_hi_v8sf"
   [(set (match_dup 2)
 	(vec_select:V4SF
-	  (match_operand:V8SF 1 "nonimmediate_operand")
+	  (match_operand:V8SF 1 "register_operand")
 	  (parallel [(const_int 4) (const_int 5)
 		     (const_int 6) (const_int 7)])))
    (set (match_operand:V4DF 0 "register_operand")
@@ -4397,7 +4397,7 @@
 (define_expand "vec_unpacks_hi_v16sf"
   [(set (match_dup 2)
 	(vec_select:V8SF
-	  (match_operand:V16SF 1 "nonimmediate_operand")
+	  (match_operand:V16SF 1 "register_operand")
 	  (parallel [(const_int 8) (const_int 9)
 		     (const_int 10) (const_int 11)
 		     (const_int 12) (const_int 13)
@@ -5887,9 +5887,10 @@
 	      (match_operand 5  "const_0_to_15_operand")]))
 	  (match_operand:<ssequartermode> 6 "memory_operand" "0")
 	  (match_operand:QI 7 "register_operand" "Yk")))]
-  "TARGET_AVX512F && (INTVAL (operands[2]) = INTVAL (operands[3]) - 1)
-  && (INTVAL (operands[3]) = INTVAL (operands[4]) - 1)
-  && (INTVAL (operands[4]) = INTVAL (operands[5]) - 1)"
+  "TARGET_AVX512F
+   && (INTVAL (operands[2]) == (INTVAL (operands[3]) - 1)
+       && INTVAL (operands[3]) == (INTVAL (operands[4]) - 1)
+       && INTVAL (operands[4]) == (INTVAL (operands[5]) - 1))"
 {
   operands[2] = GEN_INT ((INTVAL (operands[2])) >> 2);
   return "vextract<shuffletype>32x4\t{%2, %1, %0%{%7%}|%0%{%7%}, %1, %2}";
@@ -5909,9 +5910,10 @@
             (match_operand 3  "const_0_to_15_operand")
             (match_operand 4  "const_0_to_15_operand")
             (match_operand 5  "const_0_to_15_operand")])))]
-  "TARGET_AVX512F && (INTVAL (operands[2]) = INTVAL (operands[3]) - 1)
-  && (INTVAL (operands[3]) = INTVAL (operands[4]) - 1)
-  && (INTVAL (operands[4]) = INTVAL (operands[5]) - 1)"
+  "TARGET_AVX512F
+   && (INTVAL (operands[2]) == (INTVAL (operands[3]) - 1)
+       && INTVAL (operands[3]) == (INTVAL (operands[4]) - 1)
+       && INTVAL (operands[4]) == (INTVAL (operands[5]) - 1))"
 {
   operands[2] = GEN_INT ((INTVAL (operands[2])) >> 2);
   return "vextract<shuffletype>32x4\t{%2, %1, %0<mask_operand6>|%0<mask_operand6>, %1, %2}";
@@ -5992,9 +5994,9 @@
    (set_attr "mode" "<sseinsnmode>")])
 
 (define_insn "vec_extract_lo_<mode><mask_name>"
-  [(set (match_operand:<ssehalfvecmode> 0 "<store_mask_predicate>" "=<store_mask_constraint>")
+  [(set (match_operand:<ssehalfvecmode> 0 "<store_mask_predicate>" "=<store_mask_constraint>,v")
 	(vec_select:<ssehalfvecmode>
-	  (match_operand:V8FI 1 "nonimmediate_operand" "vm")
+	  (match_operand:V8FI 1 "nonimmediate_operand" "v,m")
 	  (parallel [(const_int 0) (const_int 1)
             (const_int 2) (const_int 3)])))]
   "TARGET_AVX512F && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
@@ -10301,7 +10303,7 @@
    movss\t{%2, %0|%0, %2}
    movss\t{%2, %0|%0, %2}
    vmovss\t{%2, %1, %0|%0, %1, %2}"
-  [(set_attr "isa" "sse2,*,noavx,noavx,avx")
+  [(set_attr "isa" "sse2,sse2,noavx,noavx,avx")
    (set_attr "type" "ssemov")
    (set_attr "prefix" "maybe_vex,maybe_vex,orig,orig,vex")
    (set_attr "mode" "TI,TI,V4SF,SF,SF")])

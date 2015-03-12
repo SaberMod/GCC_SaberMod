@@ -432,7 +432,7 @@ nds32*)
 nios2-*-*)
 	cpu_type=nios2
 	extra_options="${extra_options} g.opt"
-	;;	
+	;;
 picochip-*-*)
         cpu_type=picochip
         ;;
@@ -791,7 +791,13 @@ case ${target} in
   ;;
 *-*-rtems*)
   case ${enable_threads} in
-    yes) thread_file='rtems' ;;
+    "" | yes | rtems) thread_file='rtems' ;;
+    posix) thread_file='posix' ;;
+    no) ;;
+    *)
+      echo 'Unknown thread configuration for RTEMS'
+      exit 1
+      ;;
   esac
   tmake_file="${tmake_file} t-rtems"
   extra_options="${extra_options} rtems.opt"
@@ -1129,8 +1135,7 @@ cris-*-elf | cris-*-none)
 	;;
 crisv32-*-linux* | cris-*-linux*)
 	tm_file="dbxelf.h elfos.h ${tm_file} gnu-user.h linux.h glibc-stdint.h cris/linux.h"
-	# We need to avoid using t-linux, so override default tmake_file
-	tmake_file="cris/t-cris cris/t-linux t-slibgcc t-linux"
+	tmake_file="${tmake_file} cris/t-cris cris/t-linux"
 	extra_options="${extra_options} cris/linux.opt"
 	case $target in
 	  cris-*-*)
@@ -2156,6 +2161,10 @@ nios2-*-*)
 		tm_file="${tm_file} newlib-stdint.h nios2/elf.h"
 		extra_options="${extra_options} nios2/elf.opt"
 		;;
+	nios2-*-rtems*)
+		tm_file="${tm_file} newlib-stdint.h nios2/rtems.h rtems.h"
+		tmake_file="${tmake_file} t-rtems nios2/t-rtems"
+		;;
         esac
 	;;
 pdp11-*-*)
@@ -2264,28 +2273,32 @@ powerpc-*-rtems*)
 powerpc*-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h freebsd-spec.h rs6000/sysv4.h"
 	extra_options="${extra_options} rs6000/sysv4.opt"
-	tmake_file="rs6000/t-fprules rs6000/t-ppcos ${tmake_file} rs6000/t-ppccomm"
+	tmake_file="${tmake_file} rs6000/t-fprules rs6000/t-ppccomm"
 	extra_objs="$extra_objs rs6000-linux.o"
 	case ${target} in
 	    powerpc*le-*-*)
 		tm_file="${tm_file} rs6000/sysv4le.h" ;;
 	esac
-	maybe_biarch=yes
+	case ${target}:${with_cpu} in
+	    powerpc64*: | powerpc64*:native) cpu_is_64bit=yes ;;
+	esac
+	maybe_biarch=${cpu_is_64bit}
+	case ${enable_targets} in
+	    *powerpc64*) maybe_biarch=yes ;;
+	esac
 	case ${target} in
 	    powerpc64*-*-linux*spe* | powerpc64*-*-linux*paired*)
-	    	echo "*** Configuration ${target} not supported" 1>&2
+		echo "*** Configuration ${target} not supported" 1>&2
 		exit 1
 		;;
 	    powerpc*-*-linux*spe* | powerpc*-*-linux*paired*)
 		maybe_biarch=
 		;;
-	    powerpc64*-*-linux*)
-	    	test x$with_cpu != x || cpu_is_64bit=yes
-		maybe_biarch=always
-		;;
 	esac
-	case ${maybe_biarch}:${enable_targets}:${cpu_is_64bit} in
-	    always:* | yes:*powerpc64* | yes:all:* | yes:*:yes)
+	case ${target}:${enable_targets}:${maybe_biarch} in
+	    powerpc64-* | powerpc-*:*:yes | *:*powerpc64-*:yes | *:all:yes \
+	    | powerpc64le*:*powerpcle* | powerpc64le*:*powerpc-* \
+	    | powerpcle-*:*powerpc64le*:yes)
 		if test x$cpu_is_64bit = xyes; then
 		    tm_file="${tm_file} rs6000/default64.h"
 		fi
@@ -2306,9 +2319,14 @@ powerpc*-*-linux*)
 		esac
 		extra_options="${extra_options} rs6000/linux64.opt"
 		;;
+	    powerpc64*)
+		tm_file="${tm_file} rs6000/default64.h rs6000/linux64.h glibc-stdint.h"
+		extra_options="${extra_options} rs6000/linux64.opt"
+		tmake_file="${tmake_file} rs6000/t-linux"
+		;;
 	    *)
 		tm_file="${tm_file} rs6000/linux.h glibc-stdint.h"
-		tmake_file="$tmake_file rs6000/t-linux"
+		tmake_file="${tmake_file} rs6000/t-ppcos rs6000/t-linux"
 		;;
 	esac
 	case ${target} in
@@ -2653,7 +2671,7 @@ sparc-*-elf*)
 	;;
 sparc-*-rtems*)
 	tm_file="${tm_file} dbxelf.h elfos.h sparc/sysv4.h sparc/sp-elf.h sparc/rtemself.h rtems.h newlib-stdint.h"
-	tmake_file="${tmake_file} sparc/t-sparc sparc/t-elf sparc/t-rtems"
+	tmake_file="${tmake_file} sparc/t-sparc sparc/t-rtems"
 	;;
 sparc-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h sparc/sysv4.h gnu-user.h linux.h glibc-stdint.h sparc/tso.h"
@@ -3196,6 +3214,9 @@ if test x$with_cpu = x ; then
 	*-leon[3-9]*)
 	  with_cpu=leon3
 	  ;;
+	*-leon[3-9]v7*)
+	  with_cpu=leon3v7
+	  ;;
 	*)
 	  with_cpu="`echo ${target} | sed 's/-.*$//'`"
 	  ;;
@@ -3531,20 +3552,17 @@ case "${target}" in
 			;;
 		esac
 
-		case "$with_fpu" in
-		"" \
-		| vfp | vfp3 | vfpv3 \
-		| vfpv3-fp16 | vfpv3-d16 | vfpv3-d16-fp16 | vfpv3xd \
-		| vfpv3xd-fp16 | neon | neon-fp16 | vfpv4 | vfpv4-d16 \
-		| fpv4-sp-d16 | neon-vfpv4 | fp-arm-v8 | neon-fp-armv8 \
-                | crypto-neon-fp-armv8)
-			# OK
-			;;
-		*)
-			echo "Unknown fpu used in --with-fpu=$with_fpu" 2>&1
-			exit 1
-			;;
-		esac
+		# see if it matches any of the entries in arm-fpus.def
+		if [ x"$with_fpu" = x ] \
+		    || grep "^ARM_FPU(\"$with_fpu\"," \
+			    ${srcdir}/config/arm/arm-fpus.def \
+			    > /dev/null; then
+		  # OK
+		  true
+		else
+		  echo "Unknown fpu used in --with-fpu=$with_fpu" 1>&2
+		  exit 1
+		fi
 
 		case "$with_abi" in
 		"" \
@@ -3987,7 +4005,7 @@ case "${target}" in
 			case ${val} in
 			"" | sparc | sparcv9 | sparc64 \
 			| v7 | cypress \
-			| v8 | supersparc | hypersparc | leon | leon3 \
+			| v8 | supersparc | hypersparc | leon | leon3 | leon3v7 \
 			| sparclite | f930 | f934 | sparclite86x \
 			| sparclet | tsc701 \
 			| v9 | ultrasparc | ultrasparc3 | niagara | niagara2 \

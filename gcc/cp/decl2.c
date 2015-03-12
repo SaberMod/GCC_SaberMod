@@ -99,6 +99,10 @@ static GTY(()) vec<tree, va_gc> *pending_statics;
    may need to emit outline anyway.  */
 static GTY(()) vec<tree, va_gc> *deferred_fns;
 
+/* A list of functions which we might want to set DECL_COMDAT on at EOF.  */
+
+static GTY(()) vec<tree, va_gc> *maybe_comdat_fns;
+
 /* A list of decls that use types with no linkage, which we need to make
    sure are defined.  */
 static GTY(()) vec<tree, va_gc> *no_linkage_decls;
@@ -1896,6 +1900,12 @@ mark_needed (tree decl)
 	 definition.  */
       struct cgraph_node *node = cgraph_get_create_node (decl);
       node->forced_by_abi = true;
+
+      /* #pragma interface and -frepo code can call mark_needed for
+          maybe-in-charge 'tors; mark the clones as well.  */
+      tree clone;
+      FOR_EACH_CLONE (clone, decl)
+	mark_needed (clone);
     }
   else if (TREE_CODE (decl) == VAR_DECL)
     {
@@ -2112,9 +2122,12 @@ constrain_visibility_for_template (tree decl, tree targs)
       tree arg = TREE_VEC_ELT (args, i-1);
       if (TYPE_P (arg))
 	vis = type_visibility (arg);
-      else if (TREE_TYPE (arg) && POINTER_TYPE_P (TREE_TYPE (arg)))
+      else
 	{
-	  STRIP_NOPS (arg);
+	  if (REFERENCE_REF_P (arg))
+	    arg = TREE_OPERAND (arg, 0);
+	  if (TREE_TYPE (arg))
+	    STRIP_NOPS (arg);
 	  if (TREE_CODE (arg) == ADDR_EXPR)
 	    arg = TREE_OPERAND (arg, 0);
 	  if (VAR_OR_FUNCTION_DECL_P (arg))
@@ -2678,17 +2691,7 @@ import_export_decl (tree decl)
     {
       /* The repository indicates that this entity should be defined
 	 here.  Make sure the back end honors that request.  */
-      if (VAR_P (decl))
-	mark_needed (decl);
-      else if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl)
-	       || DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (decl))
-	{
-	  tree clone;
-	  FOR_EACH_CLONE (clone, decl)
-	    mark_needed (clone);
-	}
-      else
-	mark_needed (decl);
+      mark_needed (decl);
       /* Output the definition as an ordinary strong definition.  */
       DECL_EXTERNAL (decl) = 0;
       DECL_INTERFACE_KNOWN (decl) = 1;
@@ -4231,6 +4234,34 @@ dump_tu (void)
     }
 }
 
+/* Much like the above, but not necessarily defined.  4.9 hack for setting
+   DECL_COMDAT on DECL_EXTERNAL functions, along with set_comdat.  */
+
+void
+note_comdat_fn (tree decl)
+{
+  vec_safe_push (maybe_comdat_fns, decl);
+}
+
+/* DECL is a function with vague linkage that was not
+   instantiated/synthesized in this translation unit.  Set DECL_COMDAT for
+   the benefit of can_refer_decl_in_current_unit_p.  */
+
+static void
+set_comdat (tree decl)
+{
+  DECL_COMDAT (decl) = true;
+
+  tree clone;
+  FOR_EACH_CLONE (clone, decl)
+    set_comdat (clone);
+
+  if (DECL_VIRTUAL_P (decl))
+    for (tree thunk = DECL_THUNKS (decl); thunk;
+	 thunk = DECL_CHAIN (thunk))
+      DECL_COMDAT (thunk) = true;
+}
+
 /* This routine is called at the end of compilation.
    Its job is to create all the code needed to initialize and
    destroy the global aggregates.  We do the destruction
@@ -4608,6 +4639,10 @@ cp_write_global_declarations (void)
       vtv_build_vtable_verify_fndecl ();
     }
 
+  FOR_EACH_VEC_SAFE_ELT (maybe_comdat_fns, i, decl)
+    if (!DECL_COMDAT (decl) && vague_linkage_p (decl))
+      set_comdat (decl);
+
   finalize_compilation_unit ();
 
   if (flag_vtable_verify)
@@ -4882,7 +4917,7 @@ mark_used (tree decl, tsubst_flags_t complain)
       --function_depth;
     }
 
-  if (processing_template_decl)
+  if (processing_template_decl || in_template_function ())
     return true;
 
   /* Check this too in case we're within fold_non_dependent_expr.  */

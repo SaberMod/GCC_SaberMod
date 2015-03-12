@@ -1657,10 +1657,12 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
 
   c = ref->u.c.component;
 
-  gcc_assert (c->backend_decl);
+  if (c->backend_decl == NULL_TREE
+      && ref->u.c.sym != NULL)
+    gfc_get_derived_type (ref->u.c.sym);
 
   field = c->backend_decl;
-  gcc_assert (TREE_CODE (field) == FIELD_DECL);
+  gcc_assert (field && TREE_CODE (field) == FIELD_DECL);
   decl = se->expr;
 
   /* Components can correspond to fields of different containing
@@ -4409,7 +4411,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 		      && e->expr_type == EXPR_VARIABLE
 		      && (!e->ref
 			  || (e->ref->type == REF_ARRAY
-			      && !e->ref->u.ar.type != AR_FULL))
+			      && e->ref->u.ar.type != AR_FULL))
 		      && e->symtree->n.sym->attr.optional)
 		    {
 		      tmp = fold_build3_loc (input_location, COND_EXPR,
@@ -7842,7 +7844,7 @@ is_runtime_conformable (gfc_expr *expr1, gfc_expr *expr2)
 	  for (a = expr2->value.function.actual; a != NULL; a = a->next)
 	    {
 	      e1 = a->expr;
-	      if (e1->rank > 0 && !is_runtime_conformable (expr1, e1))
+	      if (e1 && e1->rank > 0 && !is_runtime_conformable (expr1, e1))
 		return false;
 	    }
 	  return true;
@@ -7853,7 +7855,7 @@ is_runtime_conformable (gfc_expr *expr1, gfc_expr *expr2)
 	  for (a = expr2->value.function.actual; a != NULL; a = a->next)
 	    {
 	      e1 = a->expr;
-	      if (e1->rank > 0 && !is_runtime_conformable (expr1, e1))
+	      if (e1 && e1->rank > 0 && !is_runtime_conformable (expr1, e1))
 		return false;
 	    }
 	  return true;

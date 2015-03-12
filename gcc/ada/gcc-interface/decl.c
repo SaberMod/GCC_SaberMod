@@ -2200,11 +2200,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		tree gnu_max
 		  = convert (sizetype, TYPE_MAX_VALUE (gnu_index_type));
 		tree gnu_this_max
-		  = size_binop (MAX_EXPR,
-				size_binop (PLUS_EXPR, size_one_node,
-					    size_binop (MINUS_EXPR,
-							gnu_max, gnu_min)),
-				size_zero_node);
+		  = size_binop (PLUS_EXPR, size_one_node,
+				size_binop (MINUS_EXPR, gnu_max, gnu_min));
 
 		if (TREE_CODE (gnu_this_max) == INTEGER_CST
 		    && TREE_OVERFLOW (gnu_this_max))
@@ -2525,20 +2522,26 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		    gnu_max_size = NULL_TREE;
 		  else
 		    {
-		      tree gnu_this_max
-			= size_binop (MAX_EXPR,
-				      size_binop (PLUS_EXPR, size_one_node,
-						  size_binop (MINUS_EXPR,
-							      gnu_base_max,
-							      gnu_base_min)),
-				      size_zero_node);
+		      tree gnu_this_max;
 
-		      if (TREE_CODE (gnu_this_max) == INTEGER_CST
-			  && TREE_OVERFLOW (gnu_this_max))
-			gnu_max_size = NULL_TREE;
+		      /* Use int_const_binop if the bounds are constant to
+			 avoid any unwanted overflow.  */
+		      if (TREE_CODE (gnu_base_min) == INTEGER_CST
+			  && TREE_CODE (gnu_base_max) == INTEGER_CST)
+			gnu_this_max
+			  = int_const_binop (PLUS_EXPR, size_one_node,
+					     int_const_binop (MINUS_EXPR,
+							      gnu_base_max,
+							      gnu_base_min));
 		      else
-			gnu_max_size
-			  = size_binop (MULT_EXPR, gnu_max_size, gnu_this_max);
+			gnu_this_max
+			  = size_binop (PLUS_EXPR, size_one_node,
+					size_binop (MINUS_EXPR,
+						    gnu_base_max,
+						    gnu_base_min));
+
+		      gnu_max_size
+			= size_binop (MULT_EXPR, gnu_max_size, gnu_this_max);
 		    }
 		}
 
@@ -5507,16 +5510,17 @@ is_cplusplus_method (Entity_Id gnat_entity)
   if (Convention (gnat_entity) != Convention_CPP)
     return false;
 
-  /* This is the main case: C++ method imported as a primitive operation.  */
-  if (Is_Dispatching_Operation (gnat_entity))
+  /* This is the main case: C++ method imported as a primitive operation.
+     Note that a C++ class with no virtual functions can be imported as a
+     limited record type so the operation is not necessarily dispatching.  */
+  if (Is_Primitive (gnat_entity))
     return true;
 
   /* A thunk needs to be handled like its associated primitive operation.  */
   if (Is_Subprogram (gnat_entity) && Is_Thunk (gnat_entity))
     return true;
 
-  /* C++ classes with no virtual functions can be imported as limited
-     record types, but we need to return true for the constructors.  */
+  /* A constructor is a method on the C++ side.  */
   if (Is_Constructor (gnat_entity))
     return true;
 

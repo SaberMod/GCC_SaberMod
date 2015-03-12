@@ -352,6 +352,13 @@
 	push __zero_reg__"
   [(set_attr "length" "1,1")])
 
+(define_insn "pushhi1_insn"
+  [(set (mem:HI (post_dec:HI (reg:HI REG_SP)))
+        (match_operand:HI 0 "register_operand" "r"))]
+  ""
+  "push %B0\;push %A0"
+  [(set_attr "length" "2")])
+
 ;; All modes for a multi-byte push.  We must include complex modes here too,
 ;; lest emit_single_push_insn "helpfully" create the auto-inc itself.
 (define_mode_iterator MPUSH
@@ -367,17 +374,42 @@
   [(match_operand:MPUSH 0 "" "")]
   ""
   {
-    int i;
-
-    // Avoid (subreg (mem)) for non-generic address spaces below.  Because
-    // of the poor addressing capabilities of these spaces it's better to
-    // load them in one chunk.  And it avoids PR61443.
-
     if (MEM_P (operands[0])
         && !ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (operands[0])))
-      operands[0] = copy_to_mode_reg (<MODE>mode, operands[0]);
+      {
+        // Avoid (subreg (mem)) for non-generic address spaces.  Because
+        // of the poor addressing capabilities of these spaces it's better to
+        // load them in one chunk.  And it avoids PR61443.
 
-    for (i = GET_MODE_SIZE (<MODE>mode) - 1; i >= 0; --i)
+        operands[0] = copy_to_mode_reg (<MODE>mode, operands[0]);
+      }
+    else if (REG_P (operands[0])
+             && IN_RANGE (REGNO (operands[0]), FIRST_VIRTUAL_REGISTER,
+                          LAST_VIRTUAL_REGISTER))
+      {
+        // Byte-wise pushing of virtual regs might result in something like
+        //
+        //     (set (mem:QI (post_dec:HI (reg:HI 32 SP)))
+        //          (subreg:QI (plus:HI (reg:HI 28)
+        //                              (const_int 17)) 0))
+        //
+        // after elimination.  This cannot be handled by reload, cf. PR64452.
+        // Reload virtuals in one chunk.  That way it's possible to reload
+        // above situation and finally
+        //
+        //    (set (reg:HI **)
+        //         (const_int 17))
+        //    (set (reg:HI **)
+        //         (plus:HI (reg:HI **)
+        //                  (reg:HI 28)))
+        //    (set (mem:HI (post_dec:HI (reg:HI 32 SP))
+        //         (reg:HI **)))
+ 
+        emit_insn (gen_pushhi1_insn (operands[0]));
+        DONE;
+      }
+
+    for (int i = GET_MODE_SIZE (<MODE>mode) - 1; i >= 0; --i)
       {
         rtx part = simplify_gen_subreg (QImode, operands[0], <MODE>mode, i);
         if (part != const0_rtx)
@@ -1482,7 +1514,11 @@
    (set (reg:QI 22) (match_operand:QI 2 "register_operand" ""))
    (parallel [(set (reg:QI 24) (mult:QI (reg:QI 24) (reg:QI 22)))
               (clobber (reg:QI 22))])
-   (set (match_operand:QI 0 "register_operand" "") (reg:QI 24))])
+   (set (match_operand:QI 0 "register_operand" "") (reg:QI 24))]
+  ""
+  {
+    avr_fix_inputs (operands, 1 << 2, regmask (QImode, 24));
+  })
 
 (define_insn "*mulqi3_call"
   [(set (reg:QI 24) (mult:QI (reg:QI 24) (reg:QI 22)))
@@ -2210,7 +2246,13 @@
    (parallel [(set (reg:HI 24) (mult:HI (reg:HI 24) (reg:HI 22)))
               (clobber (reg:HI 22))
               (clobber (reg:QI 21))])
-   (set (match_operand:HI 0 "register_operand" "") (reg:HI 24))])
+   (set (match_operand:HI 0 "register_operand" "")
+        (reg:HI 24))]
+  ""
+  {
+    avr_fix_inputs (operands, (1 << 2), regmask (HImode, 24));
+  })
+
 
 (define_insn "*mulhi3_call"
   [(set (reg:HI 24) (mult:HI (reg:HI 24) (reg:HI 22)))
@@ -2248,6 +2290,10 @@
         emit_insn (gen_mulohisi3 (operands[0], operands[2], operands[1]));
         DONE;
       }
+
+    if (avr_emit3_fix_outputs (gen_mulsi3, operands, 1 << 0,
+                               regmask (DImode, 18) | regmask (HImode, 26)))
+      DONE;
   })
 
 (define_insn_and_split "*mulsi3"
@@ -2287,7 +2333,23 @@
 
 ;; "muluqisi3"
 ;; "muluhisi3"
-(define_insn_and_split "mulu<mode>si3"
+(define_expand "mulu<mode>si3"
+  [(parallel [(set (match_operand:SI 0 "pseudo_register_operand" "")
+                   (mult:SI (zero_extend:SI (match_operand:QIHI 1 "pseudo_register_operand" ""))
+                            (match_operand:SI 2 "pseudo_register_or_const_int_operand" "")))
+              (clobber (reg:HI 26))
+              (clobber (reg:DI 18))])]
+  "AVR_HAVE_MUL"
+  {
+    avr_fix_inputs (operands, (1 << 1) | (1 << 2), -1u);
+    if (avr_emit3_fix_outputs (gen_mulu<mode>si3, operands, 1 << 0,
+                               regmask (DImode, 18) | regmask (HImode, 26)))
+      DONE;
+  })
+
+;; "*muluqisi3"
+;; "*muluhisi3"
+(define_insn_and_split "*mulu<mode>si3"
   [(set (match_operand:SI 0 "pseudo_register_operand"                           "=r")
         (mult:SI (zero_extend:SI (match_operand:QIHI 1 "pseudo_register_operand" "r"))
                  (match_operand:SI 2 "pseudo_register_or_const_int_operand"      "rn")))
@@ -2323,7 +2385,23 @@
 
 ;; "mulsqisi3"
 ;; "mulshisi3"
-(define_insn_and_split "muls<mode>si3"
+(define_expand "muls<mode>si3"
+  [(parallel [(set (match_operand:SI 0 "pseudo_register_operand" "")
+                   (mult:SI (sign_extend:SI (match_operand:QIHI 1 "pseudo_register_operand" ""))
+                            (match_operand:SI 2 "pseudo_register_or_const_int_operand" "")))
+              (clobber (reg:HI 26))
+              (clobber (reg:DI 18))])]
+  "AVR_HAVE_MUL"
+  {
+    avr_fix_inputs (operands, (1 << 1) | (1 << 2), -1u);
+    if (avr_emit3_fix_outputs (gen_muls<mode>si3, operands, 1 << 0,
+                               regmask (DImode, 18) | regmask (HImode, 26)))
+      DONE;
+  })
+
+;; "*mulsqisi3"
+;; "*mulshisi3"
+(define_insn_and_split "*muls<mode>si3"
   [(set (match_operand:SI 0 "pseudo_register_operand"                           "=r")
         (mult:SI (sign_extend:SI (match_operand:QIHI 1 "pseudo_register_operand" "r"))
                  (match_operand:SI 2 "pseudo_register_or_const_int_operand"      "rn")))
@@ -2366,7 +2444,22 @@
 
 ;; One-extend operand 1
 
-(define_insn_and_split "mulohisi3"
+(define_expand "mulohisi3"
+  [(parallel [(set (match_operand:SI 0 "pseudo_register_operand" "")
+                   (mult:SI (not:SI (zero_extend:SI
+                                     (not:HI (match_operand:HI 1 "pseudo_register_operand" ""))))
+                            (match_operand:SI 2 "pseudo_register_or_const_int_operand" "")))
+              (clobber (reg:HI 26))
+              (clobber (reg:DI 18))])]
+  "AVR_HAVE_MUL"
+  {
+    avr_fix_inputs (operands, (1 << 1) | (1 << 2), -1u);
+    if (avr_emit3_fix_outputs (gen_mulohisi3, operands, 1 << 0,
+                               regmask (DImode, 18) | regmask (HImode, 26)))
+      DONE;
+  })
+
+(define_insn_and_split "*mulohisi3"
   [(set (match_operand:SI 0 "pseudo_register_operand"                          "=r")
         (mult:SI (not:SI (zero_extend:SI
                           (not:HI (match_operand:HI 1 "pseudo_register_operand" "r"))))
@@ -2394,7 +2487,12 @@
                             (any_extend:SI (match_operand:HI 2 "register_operand" ""))))
               (clobber (reg:HI 26))
               (clobber (reg:DI 18))])]
-  "AVR_HAVE_MUL")
+  "AVR_HAVE_MUL"
+  {
+    if (avr_emit3_fix_outputs (gen_<extend_u>mulhisi3, operands, 1 << 0,
+                               regmask (DImode, 18) | regmask (HImode, 26)))
+      DONE;
+  })
 
 (define_expand "usmulhisi3"
   [(parallel [(set (match_operand:SI 0 "register_operand" "")
@@ -2402,7 +2500,12 @@
                             (sign_extend:SI (match_operand:HI 2 "register_operand" ""))))
               (clobber (reg:HI 26))
               (clobber (reg:DI 18))])]
-  "AVR_HAVE_MUL")
+  "AVR_HAVE_MUL"
+  {
+    if (avr_emit3_fix_outputs (gen_usmulhisi3, operands, 1 << 0,
+                               regmask (DImode, 18) | regmask (HImode, 26)))
+      DONE;
+  })
 
 ;; "*uumulqihisi3" "*uumulhiqisi3" "*uumulhihisi3" "*uumulqiqisi3"
 ;; "*usmulqihisi3" "*usmulhiqisi3" "*usmulhihisi3" "*usmulqiqisi3"
@@ -2474,7 +2577,10 @@
               (clobber (reg:HI 22))])
    (set (match_operand:HI 0 "register_operand" "")
         (reg:HI 24))]
-  "AVR_HAVE_MUL")
+  "AVR_HAVE_MUL"
+  {
+    avr_fix_inputs (operands, 1 << 2, regmask (HImode, 18));
+  })
 
 
 (define_insn "*mulsi3_call"
@@ -2697,6 +2803,10 @@
         emit_insn (gen_mulsqipsi3 (operands[0], reg, operands[1]));
         DONE;
       }
+
+    if (avr_emit3_fix_outputs (gen_mulpsi3, operands, 1u << 0,
+                               regmask (DImode, 18) | regmask (HImode, 26)))
+      DONE;
   })
 
 (define_insn "*umulqihipsi3"
@@ -2729,7 +2839,21 @@
   [(set_attr "length" "7")
    (set_attr "cc" "clobber")])
 
-(define_insn_and_split "mulsqipsi3"
+(define_expand "mulsqipsi3"
+  [(parallel [(set (match_operand:PSI 0 "pseudo_register_operand" "")
+                   (mult:PSI (sign_extend:PSI (match_operand:QI 1 "pseudo_register_operand" ""))
+                             (match_operand:PSI 2 "pseudo_register_or_const_int_operand""")))
+              (clobber (reg:HI 26))
+              (clobber (reg:DI 18))])]
+  "AVR_HAVE_MUL"
+  {
+    avr_fix_inputs (operands, (1 << 1) | (1 << 2), -1u);
+    if (avr_emit3_fix_outputs (gen_mulsqipsi3, operands, 1 << 0,
+                               regmask (DImode, 18) | regmask (HImode, 26)))
+      DONE;
+  })
+
+(define_insn_and_split "*mulsqipsi3"
   [(set (match_operand:PSI 0 "pseudo_register_operand"                          "=r")
         (mult:PSI (sign_extend:PSI (match_operand:QI 1 "pseudo_register_operand" "r"))
                   (match_operand:PSI 2 "pseudo_register_or_const_int_operand"    "rn")))
@@ -4931,8 +5055,9 @@
         (unspec:HI [(match_operand:HI 0 "register_operand" "!z,*r,z")]
                    UNSPEC_INDEX_JMP))
    (use (label_ref (match_operand 1 "" "")))
-   (clobber (match_dup 0))]
-  ""
+   (clobber (match_dup 0))
+   (clobber (const_int 0))]
+  "!AVR_HAVE_EIJMP_EICALL"
   "@
 	ijmp
 	push %A0\;push %B0\;ret
@@ -4940,6 +5065,19 @@
   [(set_attr "length" "1,3,2")
    (set_attr "isa" "rjmp,rjmp,jmp")
    (set_attr "cc" "none,none,clobber")])
+
+(define_insn "*tablejump.3byte-pc"
+  [(set (pc)
+        (unspec:HI [(reg:HI REG_Z)]
+                   UNSPEC_INDEX_JMP))
+   (use (label_ref (match_operand 0 "" "")))
+   (clobber (reg:HI REG_Z))
+   (clobber (reg:QI 24))]
+  "AVR_HAVE_EIJMP_EICALL"
+  "clr r24\;subi r30,pm_lo8(-(%0))\;sbci r31,pm_hi8(-(%0))\;sbci r24,pm_hh8(-(%0))\;jmp __tablejump2__"
+  [(set_attr "length" "6")
+   (set_attr "isa" "eijmp")
+   (set_attr "cc" "clobber")])
 
 
 (define_expand "casesi"
@@ -4958,15 +5096,31 @@
                       (label_ref (match_operand 4 "" ""))
                       (pc)))
 
-   (set (match_dup 6)
-        (plus:HI (match_dup 6) (label_ref (match_operand:HI 3 "" ""))))
+   (set (match_dup 10)
+        (match_dup 7))
 
-   (parallel [(set (pc) (unspec:HI [(match_dup 6)] UNSPEC_INDEX_JMP))
+   (parallel [(set (pc)
+                   (unspec:HI [(match_dup 10)] UNSPEC_INDEX_JMP))
               (use (label_ref (match_dup 3)))
-              (clobber (match_dup 6))])]
+              (clobber (match_dup 10))
+              (clobber (match_dup 8))])]
   ""
   {
     operands[6] = gen_reg_rtx (HImode);
+
+    if (AVR_HAVE_EIJMP_EICALL)
+      {
+        operands[7] = operands[6];
+        operands[8] = all_regs_rtx[24];
+        operands[10] = gen_rtx_REG (HImode, REG_Z);
+      }
+    else
+      {
+        operands[7] = gen_rtx_PLUS (HImode, operands[6], 
+                                    gen_rtx_LABEL_REF (VOIDmode, operands[3]));
+        operands[8] = const0_rtx;
+        operands[10] = operands[6];
+      }
   })
 
 
@@ -6034,6 +6188,7 @@
         emit_insn (gen_fmul_insn (operand0, operand1, operand2));
         DONE;
       }
+    avr_fix_inputs (operands, 1 << 2, regmask (QImode, 24));
   })
 
 (define_insn "fmul_insn"
@@ -6077,6 +6232,7 @@
         emit_insn (gen_fmuls_insn (operand0, operand1, operand2));
         DONE;
       }
+    avr_fix_inputs (operands, 1 << 2, regmask (QImode, 24));
   })
 
 (define_insn "fmuls_insn"
@@ -6120,6 +6276,7 @@
         emit_insn (gen_fmulsu_insn (operand0, operand1, operand2));
         DONE;
       }
+    avr_fix_inputs (operands, 1 << 2, regmask (QImode, 24));
   })
 
 (define_insn "fmulsu_insn"

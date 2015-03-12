@@ -1848,11 +1848,40 @@ gfc_check_element_vs_element (gfc_ref *lref, gfc_ref *rref, int n)
   return GFC_DEP_EQUAL;
 }
 
+/* Callback function for checking if an expression depends on a
+   dummy variable which is any other than INTENT(IN).  */
+
+static int
+callback_dummy_intent_not_in (gfc_expr **ep,
+			      int *walk_subtrees ATTRIBUTE_UNUSED,
+			      void *data ATTRIBUTE_UNUSED)
+{
+  gfc_expr *e = *ep;
+
+  if (e->expr_type == EXPR_VARIABLE && e->symtree
+      && e->symtree->n.sym->attr.dummy)
+    return e->symtree->n.sym->attr.intent != INTENT_IN;
+  else
+    return 0;
+}
+
+/* Auxiliary function to check if subexpressions have dummy variables which
+   are not intent(in).
+*/
+
+static bool
+dummy_intent_not_in (gfc_expr **ep)
+{
+  return gfc_expr_walker (ep, callback_dummy_intent_not_in, NULL);
+}
 
 /* Determine if an array ref, usually an array section specifies the
    entire array.  In addition, if the second, pointer argument is
    provided, the function will return true if the reference is
-   contiguous; eg. (:, 1) gives true but (1,:) gives false.  */
+   contiguous; eg. (:, 1) gives true but (1,:) gives false. 
+   If one of the bounds depends on a dummy variable which is
+   not INTENT(IN), also return false, because the user may
+   have changed the variable.  */
 
 bool
 gfc_full_array_ref_p (gfc_ref *ref, bool *contiguous)
@@ -1916,14 +1945,16 @@ gfc_full_array_ref_p (gfc_ref *ref, bool *contiguous)
 	  && (!ref->u.ar.as
 	      || !ref->u.ar.as->lower[i]
 	      || gfc_dep_compare_expr (ref->u.ar.start[i],
-				       ref->u.ar.as->lower[i])))
+				       ref->u.ar.as->lower[i])
+	      || dummy_intent_not_in (&ref->u.ar.start[i])))
 	lbound_OK = false;
       /* Check the upper bound.  */
       if (ref->u.ar.end[i]
 	  && (!ref->u.ar.as
 	      || !ref->u.ar.as->upper[i]
 	      || gfc_dep_compare_expr (ref->u.ar.end[i],
-				       ref->u.ar.as->upper[i])))
+				       ref->u.ar.as->upper[i])
+	      || dummy_intent_not_in (&ref->u.ar.end[i])))
 	ubound_OK = false;
       /* Check the stride.  */
       if (ref->u.ar.stride[i]
@@ -2023,6 +2054,7 @@ int
 gfc_dep_resolver (gfc_ref *lref, gfc_ref *rref, gfc_reverse *reverse)
 {
   int n;
+  int m;
   gfc_dependency fin_dep;
   gfc_dependency this_dep;
 
@@ -2072,6 +2104,8 @@ gfc_dep_resolver (gfc_ref *lref, gfc_ref *rref, gfc_reverse *reverse)
 	      break;
 	    }
 
+	  /* Index for the reverse array.  */
+	  m = -1;
 	  for (n=0; n < lref->u.ar.dimen; n++)
 	    {
 	      /* Handle dependency when either of array reference is vector
@@ -2118,38 +2152,44 @@ gfc_dep_resolver (gfc_ref *lref, gfc_ref *rref, gfc_reverse *reverse)
 		 The ability to reverse or not is set by previous conditions
 		 in this dimension.  If reversal is not activated, the
 		 value GFC_DEP_BACKWARD is reset to GFC_DEP_OVERLAP.  */
+
+	      /* Get the indexing right for the scalarizing loop. If this
+		 is an element, there is no corresponding loop.  */
+	      if (lref->u.ar.dimen_type[n] != DIMEN_ELEMENT)
+		m++;
+
 	      if (rref->u.ar.dimen_type[n] == DIMEN_RANGE
 		    && lref->u.ar.dimen_type[n] == DIMEN_RANGE)
 		{
 		  /* Set reverse if backward dependence and not inhibited.  */
-		  if (reverse && reverse[n] == GFC_ENABLE_REVERSE)
-		    reverse[n] = (this_dep == GFC_DEP_BACKWARD) ?
-			         GFC_REVERSE_SET : reverse[n];
+		  if (reverse && reverse[m] == GFC_ENABLE_REVERSE)
+		    reverse[m] = (this_dep == GFC_DEP_BACKWARD) ?
+			         GFC_REVERSE_SET : reverse[m];
 
 		  /* Set forward if forward dependence and not inhibited.  */
-		  if (reverse && reverse[n] == GFC_ENABLE_REVERSE)
-		    reverse[n] = (this_dep == GFC_DEP_FORWARD) ?
-			         GFC_FORWARD_SET : reverse[n];
+		  if (reverse && reverse[m] == GFC_ENABLE_REVERSE)
+		    reverse[m] = (this_dep == GFC_DEP_FORWARD) ?
+			         GFC_FORWARD_SET : reverse[m];
 
 		  /* Flag up overlap if dependence not compatible with
 		     the overall state of the expression.  */
-		  if (reverse && reverse[n] == GFC_REVERSE_SET
+		  if (reverse && reverse[m] == GFC_REVERSE_SET
 		        && this_dep == GFC_DEP_FORWARD)
 		    {
-	              reverse[n] = GFC_INHIBIT_REVERSE;
+	              reverse[m] = GFC_INHIBIT_REVERSE;
 		      this_dep = GFC_DEP_OVERLAP;
 		    }
-		  else if (reverse && reverse[n] == GFC_FORWARD_SET
+		  else if (reverse && reverse[m] == GFC_FORWARD_SET
 		        && this_dep == GFC_DEP_BACKWARD)
 		    {
-	              reverse[n] = GFC_INHIBIT_REVERSE;
+	              reverse[m] = GFC_INHIBIT_REVERSE;
 		      this_dep = GFC_DEP_OVERLAP;
 		    }
 
 		  /* If no intention of reversing or reversing is explicitly
 		     inhibited, convert backward dependence to overlap.  */
 		  if ((reverse == NULL && this_dep == GFC_DEP_BACKWARD)
-		      || (reverse != NULL && reverse[n] == GFC_INHIBIT_REVERSE))
+		      || (reverse != NULL && reverse[m] == GFC_INHIBIT_REVERSE))
 		    this_dep = GFC_DEP_OVERLAP;
 		}
 

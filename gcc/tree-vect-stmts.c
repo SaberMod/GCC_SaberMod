@@ -325,7 +325,8 @@ vect_stmt_relevant_p (gimple stmt, loop_vec_info loop_vinfo,
 
   /* changing memory.  */
   if (gimple_code (stmt) != GIMPLE_PHI)
-    if (gimple_vdef (stmt))
+    if (gimple_vdef (stmt)
+	&& !gimple_clobber_p (stmt))
       {
 	if (dump_enabled_p ())
 	  dump_printf_loc (MSG_NOTE, vect_location,
@@ -3184,7 +3185,7 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
   set_vinfo_for_stmt (new_stmt, stmt_info);
   set_vinfo_for_stmt (stmt, NULL);
   STMT_VINFO_STMT (stmt_info) = new_stmt;
-  gsi_replace (gsi, new_stmt, false);
+  gsi_replace (gsi, new_stmt, true);
   unlink_stmt_vdef (stmt);
 
   return true;
@@ -5600,6 +5601,7 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
   int i, j, group_size, group_gap;
   tree msq = NULL_TREE, lsq;
   tree offset = NULL_TREE;
+  tree byte_offset = NULL_TREE;
   tree realignment_token = NULL_TREE;
   gimple phi = NULL;
   vec<tree> dr_chain = vNULL;
@@ -6261,7 +6263,8 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
       if (alignment_support_scheme == dr_explicit_realign_optimized)
 	{
 	  phi = SSA_NAME_DEF_STMT (msq);
-	  offset = size_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
+	  byte_offset = size_binop (MINUS_EXPR, TYPE_SIZE_UNIT (vectype),
+				    size_one_node);
 	}
     }
   else
@@ -6302,7 +6305,8 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	    dataref_ptr
 	      = vect_create_data_ref_ptr (first_stmt, aggr_type, at_loop,
 					  offset, &dummy, gsi, &ptr_incr,
-					  simd_lane_access_p, &inv_p);
+					  simd_lane_access_p, &inv_p,
+					  byte_offset);
 	}
       else if (dataref_offset)
 	dataref_offset = int_const_binop (PLUS_EXPR, dataref_offset,

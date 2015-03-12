@@ -8579,6 +8579,20 @@ check_return_expr (tree retval, bool *no_warning)
       if (VOID_TYPE_P (functype))
 	return error_mark_node;
 
+      /* If we had an id-expression obfuscated by force_paren_expr, we need
+	 to undo it so we can try to treat it as an rvalue below.  */
+      if (cxx_dialect >= cxx1y
+	  && INDIRECT_REF_P (retval)
+	  && REF_PARENTHESIZED_P (retval))
+	{
+	  retval = TREE_OPERAND (retval, 0);
+	  while (TREE_CODE (retval) == NON_LVALUE_EXPR
+		 || TREE_CODE (retval) == NOP_EXPR)
+	    retval = TREE_OPERAND (retval, 0);
+	  gcc_assert (TREE_CODE (retval) == ADDR_EXPR);
+	  retval = TREE_OPERAND (retval, 0);
+	}
+
       /* Under C++0x [12.8/16 class.copy], a returned lvalue is sometimes
 	 treated as an rvalue for the purposes of overload resolution to
 	 favor move constructors over copy constructors.
@@ -8867,6 +8881,12 @@ apply_memfn_quals (tree type, cp_cv_quals memfn_quals, cp_ref_qualifier rqual)
   /* This should really have a different TYPE_MAIN_VARIANT, but that gets
      complex.  */
   tree result = build_qualified_type (type, memfn_quals);
+  if (tree canon = TYPE_CANONICAL (result))
+    if (canon != result)
+      /* check_qualified_type doesn't check the ref-qualifier, so make sure
+	 TYPE_CANONICAL is correct.  */
+      TYPE_CANONICAL (result)
+	= build_ref_qualified_type (canon, type_memfn_rqual (result));
   result = build_exception_variant (result, TYPE_RAISES_EXCEPTIONS (type));
   return build_ref_qualified_type (result, rqual);
 }

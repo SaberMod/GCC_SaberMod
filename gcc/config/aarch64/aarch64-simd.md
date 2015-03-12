@@ -934,6 +934,41 @@
   [(set_attr "type" "neon_minmax<q>")]
 )
 
+(define_expand "<su><maxmin>v2di3"
+  [(parallel [
+    (set (match_operand:V2DI 0 "register_operand" "")
+	 (MAXMIN:V2DI (match_operand:V2DI 1 "register_operand" "")
+		  (match_operand:V2DI 2 "register_operand" "")))
+    (clobber (reg:CC CC_REGNUM))])]
+  "TARGET_SIMD"
+{
+  enum rtx_code cmp_operator;
+  rtx cmp_fmt;
+
+  switch (<CODE>)
+    {
+    case UMIN:
+      cmp_operator = LTU;
+      break;
+    case SMIN:
+      cmp_operator = LT;
+      break;
+    case UMAX:
+      cmp_operator = GTU;
+      break;
+    case SMAX:
+      cmp_operator = GT;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  cmp_fmt = gen_rtx_fmt_ee (cmp_operator, V2DImode, operands[1], operands[2]);
+  emit_insn (gen_aarch64_vcond_internalv2div2di (operands[0], operands[1],
+              operands[2], cmp_fmt, operands[1], operands[2]));
+  DONE;
+})
+
 ;; vec_concat gives a new vector with the low elements from operand 1, and
 ;; the high elements from operand 2.  That is to say, given op1 = { a, b }
 ;; op2 = { c, d }, vec_concat (op1, op2) = { a, b, c, d }.
@@ -945,8 +980,8 @@
 ;; On big-endian this is { zeroes, operand }
 
 (define_insn "move_lo_quad_internal_<mode>"
-  [(set (match_operand:VQ 0 "register_operand" "=w,w,w")
-        (vec_concat:VQ
+  [(set (match_operand:VQ_NO2E 0 "register_operand" "=w,w,w")
+	(vec_concat:VQ_NO2E
 	  (match_operand:<VHALF> 1 "register_operand" "w,r,r")
 	  (vec_duplicate:<VHALF> (const_int 0))))]
   "TARGET_SIMD && !BYTES_BIG_ENDIAN"
@@ -960,10 +995,42 @@
    (set_attr "length" "4")]
 )
 
+(define_insn "move_lo_quad_internal_<mode>"
+  [(set (match_operand:VQ_2E 0 "register_operand" "=w,w,w")
+	(vec_concat:VQ_2E
+	  (match_operand:<VHALF> 1 "register_operand" "w,r,r")
+	  (const_int 0)))]
+  "TARGET_SIMD && !BYTES_BIG_ENDIAN"
+  "@
+   dup\\t%d0, %1.d[0]
+   fmov\\t%d0, %1
+   dup\\t%d0, %1"
+  [(set_attr "type" "neon_dup<q>,f_mcr,neon_dup<q>")
+   (set_attr "simd" "yes,*,yes")
+   (set_attr "fp" "*,yes,*")
+   (set_attr "length" "4")]
+)
+
 (define_insn "move_lo_quad_internal_be_<mode>"
-  [(set (match_operand:VQ 0 "register_operand" "=w,w,w")
-        (vec_concat:VQ
+  [(set (match_operand:VQ_NO2E 0 "register_operand" "=w,w,w")
+	(vec_concat:VQ_NO2E
 	  (vec_duplicate:<VHALF> (const_int 0))
+	  (match_operand:<VHALF> 1 "register_operand" "w,r,r")))]
+  "TARGET_SIMD && BYTES_BIG_ENDIAN"
+  "@
+   dup\\t%d0, %1.d[0]
+   fmov\\t%d0, %1
+   dup\\t%d0, %1"
+  [(set_attr "type" "neon_dup<q>,f_mcr,neon_dup<q>")
+   (set_attr "simd" "yes,*,yes")
+   (set_attr "fp" "*,yes,*")
+   (set_attr "length" "4")]
+)
+
+(define_insn "move_lo_quad_internal_be_<mode>"
+  [(set (match_operand:VQ_2E 0 "register_operand" "=w,w,w")
+	(vec_concat:VQ_2E
+	  (const_int 0)
 	  (match_operand:<VHALF> 1 "register_operand" "w,r,r")))]
   "TARGET_SIMD && BYTES_BIG_ENDIAN"
   "@
@@ -4533,8 +4600,8 @@
 })
 
 (define_insn "*aarch64_simd_ld1r<mode>"
-  [(set (match_operand:VALLDI 0 "register_operand" "=w")
-	(vec_duplicate:VALLDI
+  [(set (match_operand:VALL 0 "register_operand" "=w")
+	(vec_duplicate:VALL
 	  (match_operand:<VEL> 1 "aarch64_simd_struct_operand" "Utv")))]
   "TARGET_SIMD"
   "ld1r\\t{%0.<Vtype>}, %1"
