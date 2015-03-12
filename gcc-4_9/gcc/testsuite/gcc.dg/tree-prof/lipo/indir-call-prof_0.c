@@ -1,4 +1,4 @@
-/* { dg-options "-O2 -fdump-tree-optimized -fdump-ipa-profile" } */
+/* { dg-options "-O2 -fdump-tree-optimized -fdump-ipa-profile --param=lipo-sampling-period=3" } */
 
 extern void setp (int (**pp) (void), int i);
 

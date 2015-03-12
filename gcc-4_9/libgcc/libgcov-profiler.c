@@ -227,7 +227,23 @@ __gcov_indirect_call_profiler_atomic_v2 (gcov_type value, void* cur_func)
 
 #endif
 
+/*
+#if defined(L_gcov_direct_call_profiler) || defined(L_gcov_indirect_call_topn_profiler)
+__attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_sampling_period;
+#endif
+*/
+
+extern gcov_unsigned_t __gcov_lipo_sampling_period;
+
 #ifdef L_gcov_indirect_call_topn_profiler
+
+#include "gthr.h"
+
+#ifdef __GTHREAD_MUTEX_INIT
+__thread int in_profiler;
+ATTRIBUTE_HIDDEN __gthread_mutex_t __indir_topn_val_mx = __GTHREAD_MUTEX_INIT;
+#endif
+
 /* Tries to keep track the most frequent N values in the counters where
    N is specified by parameter TOPN_VAL. To track top N values, 2*N counter
    entries are used.
@@ -252,6 +268,14 @@ __gcov_topn_value_profiler_body (gcov_type *counters, gcov_type value,
 
    /* There are 2*topn_val values tracked, each value takes two slots in the
       counter array */
+#ifdef __GTHREAD_MUTEX_INIT
+   /* If this is reentry, return.  */
+   if (in_profiler == 1)
+     return;
+
+   in_profiler = 1;
+   __gthread_mutex_lock (&__indir_topn_val_mx);
+#endif
    for ( i = 0; i < (topn_val << 2); i += 2)
      {
        entry = &value_array[i];
@@ -271,7 +295,13 @@ __gcov_topn_value_profiler_body (gcov_type *counters, gcov_type value,
      }
 
    if (found)
-     return;
+     {
+       in_profiler = 0;
+#ifdef __GTHREAD_MUTEX_INIT
+       __gthread_mutex_unlock (&__indir_topn_val_mx);
+#endif
+       return;
+     }
 
    /* lfu_entry is either an empty entry or an entry
       with lowest count, which will be evicted.  */
@@ -326,6 +356,11 @@ __gcov_topn_value_profiler_body (gcov_type *counters, gcov_type value,
              }
          }
      }
+
+#ifdef __GTHREAD_MUTEX_INIT
+     in_profiler = 0;
+     __gthread_mutex_unlock (&__indir_topn_val_mx);
+#endif
 }
 
 #if defined(HAVE_CC_TLS) && !defined (USE_EMUTLS)
@@ -337,6 +372,11 @@ gcov_type *__gcov_indirect_call_topn_counters ATTRIBUTE_HIDDEN;
 __thread
 #endif
 void *__gcov_indirect_call_topn_callee ATTRIBUTE_HIDDEN;
+
+#if defined(HAVE_CC_TLS) && !defined (USE_EMUTLS)
+__thread
+#endif
+gcov_unsigned_t __gcov_indirect_call_sampling_counter ATTRIBUTE_HIDDEN;
 
 #ifdef TARGET_VTABLE_USES_DESCRIPTORS
 #define VTABLE_USES_DESCRIPTORS 1
@@ -357,10 +397,14 @@ __gcov_indirect_call_topn_profiler (void *cur_func,
       || (VTABLE_USES_DESCRIPTORS && callee_func
 	  && *(void **) cur_func == *(void **) callee_func))
     {
-      gcov_type global_id 
-          = ((struct gcov_info *) cur_module_gcov_info)->mod_info->ident;
-      global_id = GEN_FUNC_GLOBAL_ID (global_id, cur_func_id);
-      __gcov_topn_value_profiler_body (counter, global_id, GCOV_ICALL_TOPN_VAL);
+      if (++__gcov_indirect_call_sampling_counter >= __gcov_lipo_sampling_period)
+        {
+          __gcov_indirect_call_sampling_counter = 0;
+          gcov_type global_id
+              = ((struct gcov_info *) cur_module_gcov_info)->mod_info->ident;
+          global_id = GEN_FUNC_GLOBAL_ID (global_id, cur_func_id);
+          __gcov_topn_value_profiler_body (counter, global_id, GCOV_ICALL_TOPN_VAL);
+        }
       __gcov_indirect_call_topn_callee = 0;
     }
 }
@@ -376,7 +420,13 @@ gcov_type *__gcov_direct_call_counters ATTRIBUTE_HIDDEN;
 __thread
 #endif
 void *__gcov_direct_call_callee ATTRIBUTE_HIDDEN;
+#if defined(HAVE_CC_TLS) && !defined (USE_EMUTLS)
+__thread
+#endif
+gcov_unsigned_t __gcov_direct_call_sampling_counter ATTRIBUTE_HIDDEN;
+
 /* Direct call profiler. */
+
 void
 __gcov_direct_call_profiler (void *cur_func,
            void *cur_module_gcov_info,
@@ -384,11 +434,15 @@ __gcov_direct_call_profiler (void *cur_func,
 {
   if (cur_func == __gcov_direct_call_callee)
     {
-      gcov_type global_id
-          = ((struct gcov_info *) cur_module_gcov_info)->mod_info->ident;
-      global_id = GEN_FUNC_GLOBAL_ID (global_id, cur_func_id);
-      __gcov_direct_call_counters[0] = global_id;
-      __gcov_direct_call_counters[1]++;
+      if (++__gcov_direct_call_sampling_counter >= __gcov_lipo_sampling_period)
+        {
+          __gcov_direct_call_sampling_counter = 0;
+          gcov_type global_id
+              = ((struct gcov_info *) cur_module_gcov_info)->mod_info->ident;
+          global_id = GEN_FUNC_GLOBAL_ID (global_id, cur_func_id);
+          __gcov_direct_call_counters[0] = global_id;
+          __gcov_direct_call_counters[1]++;
+        }
       __gcov_direct_call_callee = 0;
     }
 }

@@ -1111,6 +1111,11 @@ DEFPARAM (PARAM_PROFILE_GENERATE_SAMPLING_PERIOD,
          "sampling rate with -fprofile-generate-sampling",
          100, 0, 2000000000)
 
+DEFPARAM (PARAM_LIPO_SAMPLING_PERIOD,
+         "lipo-sampling-period",
+         "sampling rate for lipo direct call and indirect call profile",
+         79, 0, 2000000000)
+
 DEFPARAM (PARAM_PROFILE_VALUES_TIME,
          "profile-values-time",
          "Enable time profiling when value profiling",

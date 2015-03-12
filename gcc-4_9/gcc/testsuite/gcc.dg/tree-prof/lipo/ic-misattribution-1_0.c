@@ -1,4 +1,4 @@
-/* { dg-options "-O2 -fdump-ipa-profile" } */
+/* { dg-options "-O2 -fdump-ipa-profile --param=lipo-sampling-period=1" } */
 
 extern void callee (void);
 extern void caller (void (*func) (void));

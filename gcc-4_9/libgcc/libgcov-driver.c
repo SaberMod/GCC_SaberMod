@@ -998,6 +998,8 @@ gcov_exit_merge_summary (const struct gcov_info *gi_ptr, struct gcov_summary *pr
   return 0;
 }
 
+__attribute__((weak)) gcov_unsigned_t __gcov_lipo_sampling_period;
+
 /* Sort N entries in VALUE_ARRAY in descending order.
    Each entry in VALUE_ARRAY has two values. The sorting
    is based on the second value.  */
@@ -1069,6 +1071,42 @@ gcov_sort_topn_counter_arrays (const struct gcov_info *gi_ptr)
      }
 }
 
+/* Scaling LIPO sampled profile counters.  */
+static void
+gcov_scaling_lipo_counters (const struct gcov_info *gi_ptr)
+{
+  unsigned int i,j,k;
+  int f_ix;
+  const struct gcov_fn_info *gfi_ptr;
+  const struct gcov_ctr_info *ci_ptr;
+
+  if (__gcov_lipo_sampling_period <= 1)
+    return;
+
+  for (f_ix = 0; (unsigned)f_ix != gi_ptr->n_functions; f_ix++)
+    {
+      gfi_ptr = gi_ptr->functions[f_ix];
+      ci_ptr = gfi_ptr->ctrs;
+      for (i = 0; i < GCOV_COUNTERS; i++)
+        {
+          if (!gcov_counter_active (gi_ptr, i))
+            continue;
+          if (i == GCOV_COUNTER_ICALL_TOPNV)
+            {
+              for (j = 0; j < ci_ptr->num; j += GCOV_ICALL_TOPN_NCOUNTS)
+                for (k = 2; k < GCOV_ICALL_TOPN_NCOUNTS; k += 2)
+                  ci_ptr->values[j+k] *= __gcov_lipo_sampling_period;
+            }
+          if (i == GCOV_COUNTER_DIRECT_CALL)
+            {
+              for (j = 0; j < ci_ptr->num; j += 2)
+                ci_ptr->values[j+1] *= __gcov_lipo_sampling_period;
+            }
+          ci_ptr++;
+        }
+    }
+}
+
 /* Open a gcda file specified by GI_FILENAME.
    Return -1 on error.  Return 0 on success.  */
 
@@ -1116,6 +1154,7 @@ gcov_exit_dump_gcov (struct gcov_info *gi_ptr, struct gcov_filename_aux *gf,
   sum_buffer = 0;
 
   gcov_sort_topn_counter_arrays (gi_ptr);
+  gcov_scaling_lipo_counters (gi_ptr);
 
   error = gcov_exit_open_gcda_file (gi_ptr, gf);
   if (error == -1)
@@ -1359,6 +1398,13 @@ __gcov_init (struct gcov_info *info)
           int env_value_int = atoi(env_value_str);
           if (env_value_int >= 1)
             __gcov_sampling_period = env_value_int;
+        }
+      env_value_str = getenv ("GCOV_LIPO_SAMPLING_PERIOD");
+      if (env_value_str)
+        {
+          int env_value_int = atoi(env_value_str);
+          if (env_value_int >= 0)
+            __gcov_lipo_sampling_period = env_value_int;
         }
       gcov_sampling_period_initialized = 1;
     }
