@@ -697,20 +697,12 @@ check_ic_counter (gimple stmt, gcov_type *count1, gcov_type *count2,
 
   if (*count1 + *count2 > all)
     {
-      /* If (COUNT1 + COUNT2) is greater than ALL by less than around 10% then
-	 just fix COUNT2 up so that (COUNT1 + COUNT2) equals ALL.  */
-      if ((*count1 + *count2 - all) < (all >> 3))
-	*count2 = all - *count1;
-      else
-	{
-          if (dump_enabled_p ())
-            dump_printf_loc (MSG_MISSED_OPTIMIZATION, locus,
-                             "Corrupted topn ic value profile: top two "
-                             "targets's total count (%ld) exceeds bb count "
-                             "(%ld)",
-                             (long)(*count1 + *count2), (long)all);
-	  return true;
-	}
+      /* If (COUNT1 + COUNT2) is greater than ALL, we will fix it. This might
+         not necessarily be a corrupted profile. It may be caused by the sample
+         scaling. We will scale down both count1 and counte2.  */
+      double factor = (double) all / (*count1 + *count2);
+      *count1 *= factor;
+      *count2 *= factor;
     }
   return false;
 }

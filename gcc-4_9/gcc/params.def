@@ -960,7 +960,7 @@ DEFPARAM (PARAM_ICALL_PROMOTE_PERCENT_THRESHOLD,
 	  "icall-promote-target-percent-threshold",
 	  "percentage threshold for direct call promotion"
           " of a callee target",
-	  33, 0, 100)
+	  30, 0, 100)
 
 DEFPARAM (PARAM_ICALL_PROMOTE_COUNT_THRESHOLD,
 	  "icall-promote-target_count-threshold",
