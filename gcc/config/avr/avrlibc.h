@@ -1,6 +1,6 @@
 /* Definitions of target machine for the GNU compiler collection
    for Atmel AVR micro controller if configured for AVR-Libc.
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Georg-Johann Lay (avr@gjlay.de)
 
 This file is part of GCC.
@@ -19,11 +19,25 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-/* AVR-Libc implements functions from libgcc.a in libm.a, see PR54461.  */
+/* AVR-Libc implements functions from libgcc.a in libm.a, see PR54461.
+   More AVR-Libc specific specs originate from gen-avr-mmcu-specs.c:
+
+   - LIBGCC_SPEC (*libgcc)
+   - LIB_SPEC (*lib)
+   
+*/
+
+#undef  LIB_SPEC
+#define LIB_SPEC                                \
+  " -lc %(avrlibc_devicelib) "
 
 #undef  LIBGCC_SPEC
-#define LIBGCC_SPEC                                                     \
-  "%{!mmcu=at90s1*:%{!mmcu=attiny11:%{!mmcu=attiny12:%{!mmcu=attiny15:%{!mmcu=attiny28: -lgcc -lm }}}}}"
+#define LIBGCC_SPEC                             \
+  " -lgcc -lm "
+
+#undef  STARTFILE_SPEC
+#define STARTFILE_SPEC                          \
+  " %(avrlibc_startfile) "
 
 #undef  LINK_GCC_C_SEQUENCE_SPEC
 #define LINK_GCC_C_SEQUENCE_SPEC \

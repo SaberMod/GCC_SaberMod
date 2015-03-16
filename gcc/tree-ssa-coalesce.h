@@ -1,5 +1,5 @@
 /* Header file for tree-ssa-coalesce.c exports.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,5 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_TREE_SSA_COALESCE_H
 
 extern var_map coalesce_ssa_name (void);
+extern void verify_ssa_coalescing (void);
 
 #endif /* GCC_TREE_SSA_COALESCE_H */

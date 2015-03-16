@@ -1,5 +1,5 @@
 /* Header for array handling functions
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -44,9 +44,13 @@ void gfc_trans_g77_array (gfc_symbol *, gfc_wrapped_block *);
 /* Generate code to deallocate an array, if it is allocated.  */
 tree gfc_trans_dealloc_allocated (tree, bool, gfc_expr *);
 
+tree gfc_full_array_size (stmtblock_t *, tree, int);
+
 tree gfc_duplicate_allocatable (tree dest, tree src, tree type, int rank);
 
 tree gfc_copy_allocatable_data (tree dest, tree src, tree type, int rank);
+
+tree gfc_duplicate_allocatable_nocopy (tree, tree, tree, int);
 
 tree gfc_nullify_alloc_comp (gfc_symbol *, tree, int);
 

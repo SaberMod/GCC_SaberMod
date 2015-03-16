@@ -6,7 +6,8 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---          Copyright (C) 2013, Free Software Foundation, Inc.              --
+--             Copyright (C) 2013-2014, Free Software Foundation, Inc.      --
+--
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -35,14 +36,29 @@
 --  PLEASE DO NOT add any with-clauses to this package or remove the pragma
 --  Preelaborate. This package is designed to be a bottom-level (leaf) package
 
+with Interfaces.C;
+
 package System.Linux is
    pragma Preelaborate;
 
-   ------------
-   -- time_t --
-   ------------
+   ----------
+   -- Time --
+   ----------
 
-   type time_t is new Long_Long_Integer;
+   type time_t       is new Long_Long_Integer;
+   subtype clockid_t is Interfaces.C.int;
+
+   type timespec is record
+      tv_sec  : time_t;
+      tv_nsec : Long_Long_Integer;
+   end record;
+   pragma Convention (C, timespec);
+
+   type timeval is record
+      tv_sec  : time_t;
+      tv_usec : Long_Long_Integer;
+   end record;
+   pragma Convention (C, timeval);
 
    -----------
    -- Errno --

@@ -1,6 +1,6 @@
 // Iterators -*- C++ -*-
 
-// Copyright (C) 2001-2014 Free Software Foundation, Inc.
+// Copyright (C) 2001-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -388,6 +388,18 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     { return __y.base() - __x.base(); }
   //@}
 
+#if __cplusplus > 201103L
+#define __cpp_lib_make_reverse_iterator 201402
+
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+  // DR 2285. make_reverse_iterator
+  /// Generator function for reverse_iterator.
+  template<typename _Iterator>
+    inline reverse_iterator<_Iterator>
+    make_reverse_iterator(_Iterator __i)
+    { return reverse_iterator<_Iterator>(__i); }
+#endif
+
   // 24.4.2.2.1 back_insert_iterator
   /**
    *  @brief  Turns assignment into insertion.
@@ -736,21 +748,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		      _Container>::__type>& __i) _GLIBCXX_NOEXCEPT
         : _M_current(__i.base()) { }
 
-#if __cplusplus >= 201103L
-      __normal_iterator<typename _Container::pointer, _Container>
-      _M_const_cast() const noexcept
-      {
-	using _PTraits = std::pointer_traits<typename _Container::pointer>;
-	return __normal_iterator<typename _Container::pointer, _Container>
-	  (_PTraits::pointer_to(const_cast<typename _PTraits::element_type&>
-				(*_M_current)));
-      }
-#else
-      __normal_iterator
-      _M_const_cast() const
-      { return *this; }
-#endif
-
       // Forward iterator requirements
       reference
       operator*() const _GLIBCXX_NOEXCEPT
@@ -965,6 +962,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _Iterator _M_current;
 
       typedef iterator_traits<_Iterator>		__traits_type;
+      typedef typename __traits_type::reference		__base_ref;
 
     public:
       typedef _Iterator					iterator_type;
@@ -973,7 +971,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typedef typename __traits_type::difference_type	difference_type;
       // NB: DR 680.
       typedef _Iterator					pointer;
-      typedef value_type&&				reference;
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 2106. move_iterator wrapping iterators returning prvalues
+      typedef typename conditional<is_reference<__base_ref>::value,
+			 typename remove_reference<__base_ref>::type&&,
+			 __base_ref>::type		reference;
 
       move_iterator()
       : _M_current() { }
@@ -992,7 +994,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       reference
       operator*() const
-      { return std::move(*_M_current); }
+      { return static_cast<reference>(*_M_current); }
 
       pointer
       operator->() const

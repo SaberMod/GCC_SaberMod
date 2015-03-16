@@ -1,5 +1,5 @@
 /* Target machine subroutines for Altera Nios II.
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Jonah Graham (jgraham@altera.com), 
    Will Reece (wreece@altera.com), and Jeff DaSilva (jdasilva@altera.com).
    Contributed by Mentor Graphics, Inc.
@@ -25,7 +25,17 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
@@ -34,10 +44,30 @@
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "expr.h"
-#include "optabs.h"
+#include "hashtab.h"
 #include "function.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
+#include "expr.h"
+#include "insn-codes.h"
+#include "optabs.h"
 #include "ggc.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
@@ -47,11 +77,9 @@
 #include "langhooks.h"
 #include "df.h"
 #include "debug.h"
-#include "real.h"
 #include "reload.h"
 #include "stor-layout.h"
-#include "varasm.h"
-#include "calls.h"
+#include "builtins.h"
 
 /* Forward function declarations.  */
 static bool prologue_saved_reg_p (unsigned);
@@ -192,6 +220,7 @@ struct nios2_fpu_insn_info
 #define N2F_DFREQ         0x2
 #define N2F_UNSAFE        0x4
 #define N2F_FINITE        0x8
+#define N2F_NO_ERRNO      0x10
   unsigned int flags;
   enum insn_code icode;
   enum nios2_ftcode ftcode;
@@ -274,6 +303,7 @@ struct nios2_fpu_insn_info nios2_fpu_insn[] =
     N2FPU_INSN_DEF_BASE (floatus,  2, 0, floatunssisf2, (SF, UI)),
     N2FPU_INSN_DEF_BASE (floatid,  2, 0, floatsidf2,    (DF, SI)),
     N2FPU_INSN_DEF_BASE (floatud,  2, 0, floatunssidf2, (DF, UI)),
+    N2FPU_INSN_DEF_BASE (round,    2, N2F_NO_ERRNO, lroundsfsi2,   (SI, SF)),
     N2FPU_INSN_DEF_BASE (fixsi,    2, 0, fix_truncsfsi2,      (SI, SF)),
     N2FPU_INSN_DEF_BASE (fixsu,    2, 0, fixuns_truncsfsi2,   (UI, SF)),
     N2FPU_INSN_DEF_BASE (fixdi,    2, 0, fix_truncdfsi2,      (SI, DF)),
@@ -298,6 +328,7 @@ struct nios2_fpu_insn_info nios2_fpu_insn[] =
 #define N2FPU_FTCODE(code) (N2FPU(code).ftcode)
 #define N2FPU_FINITE_P(code) (N2FPU(code).flags & N2F_FINITE)
 #define N2FPU_UNSAFE_P(code) (N2FPU(code).flags & N2F_UNSAFE)
+#define N2FPU_NO_ERRNO_P(code) (N2FPU(code).flags & N2F_NO_ERRNO)
 #define N2FPU_DOUBLE_P(code) (N2FPU(code).flags & N2F_DF)
 #define N2FPU_DOUBLE_REQUIRED_P(code) (N2FPU(code).flags & N2F_DFREQ)
 
@@ -317,7 +348,7 @@ nios2_fpu_insn_enabled (enum n2fpu_code code)
    settings.  */
 
 static bool
-nios2_fpu_compare_enabled (enum rtx_code cond, enum machine_mode mode)
+nios2_fpu_compare_enabled (enum rtx_code cond, machine_mode mode)
 {
   if (mode == SFmode)
     switch (cond) 
@@ -844,8 +875,18 @@ nios2_custom_check_insns (void)
 	warning (0, "switch %<-mcustom-%s%> has no effect unless "
 		 "-ffinite-math-only is specified", N2FPU_NAME (i));
 
+  /* Warn if the user is trying to use a custom rounding instruction
+     that won't get used without -fno-math-errno.  See
+     expand_builtin_int_roundingfn_2 () in builtins.c.  */
+  if (flag_errno_math)
+    for (i = 0; i < ARRAY_SIZE (nios2_fpu_insn); i++)
+      if (N2FPU_ENABLED_P (i) && N2FPU_NO_ERRNO_P (i))
+	warning (0, "switch %<-mcustom-%s%> has no effect unless "
+		 "-fno-math-errno is specified", N2FPU_NAME (i));
+
   if (errors || custom_code_conflict)
-    fatal_error ("conflicting use of -mcustom switches, target attributes, "
+    fatal_error (input_location,
+		 "conflicting use of -mcustom switches, target attributes, "
 		 "and/or __builtin_custom_ functions");
 }
 
@@ -974,7 +1015,7 @@ nios2_handle_custom_fpu_insn_option (int fpu_insn_index)
 static struct machine_function *
 nios2_init_machine_status (void)
 {
-  return ggc_alloc_cleared_machine_function ();
+  return ggc_cleared_alloc<machine_function> ();
 }
 
 /* Implement TARGET_OPTION_OVERRIDE.  */
@@ -998,9 +1039,14 @@ nios2_option_override (void)
     = (global_options_set.x_g_switch_value
        ? g_switch_value : NIOS2_DEFAULT_GVALUE);
 
-  /* Default to -mgpopt unless -fpic or -fPIC.  */
-  if (TARGET_GPOPT == -1 && flag_pic)
-    TARGET_GPOPT = 0;
+  if (nios2_gpopt_option == gpopt_unspecified)
+    {
+      /* Default to -mgpopt unless -fpic or -fPIC.  */
+      if (flag_pic)
+	nios2_gpopt_option = gpopt_none;
+      else
+	nios2_gpopt_option = gpopt_local;
+    }
 
   /* If we don't have mul, we don't have mulx either!  */
   if (!TARGET_HAS_MUL && TARGET_HAS_MULX)
@@ -1287,11 +1333,11 @@ nios2_legitimize_tls_address (rtx loc)
    sdata section we can save even more cycles by doing things
    gp relative.  */
 void
-nios2_emit_expensive_div (rtx *operands, enum machine_mode mode)
+nios2_emit_expensive_div (rtx *operands, machine_mode mode)
 {
   rtx or_result, shift_left_result;
   rtx lookup_value;
-  rtx lab1, lab3;
+  rtx_code_label *lab1, *lab3;
   rtx insns;
   rtx libfunc;
   rtx final_result;
@@ -1354,7 +1400,7 @@ nios2_emit_expensive_div (rtx *operands, enum machine_mode mode)
 static void
 nios2_alternate_compare_const (enum rtx_code code, rtx op,
 			       enum rtx_code *alt_code, rtx *alt_op,
-			       enum machine_mode mode)
+			       machine_mode mode)
 {
   HOST_WIDE_INT opval = INTVAL (op);
   enum rtx_code scode = signed_condition (code);
@@ -1407,7 +1453,7 @@ nios2_valid_compare_const_p (enum rtx_code code, rtx op)
    Returns true if FPU compare can be done.  */
 
 bool
-nios2_validate_fpu_compare (enum machine_mode mode, rtx *cmp, rtx *op1, rtx *op2,
+nios2_validate_fpu_compare (machine_mode mode, rtx *cmp, rtx *op1, rtx *op2,
 			    bool modify_p)
 {
   bool rev_p = false;
@@ -1440,7 +1486,7 @@ nios2_validate_fpu_compare (enum machine_mode mode, rtx *cmp, rtx *op1, rtx *op2
 /* Checks and modifies the comparison in *CMP, *OP1, and *OP2 into valid
    nios2 supported form.  Returns true if success.  */
 bool
-nios2_validate_compare (enum machine_mode mode, rtx *cmp, rtx *op1, rtx *op2)
+nios2_validate_compare (machine_mode mode, rtx *cmp, rtx *op1, rtx *op2)
 {
   enum rtx_code code = GET_CODE (*cmp);
   enum rtx_code alt_code;
@@ -1499,7 +1545,7 @@ nios2_validate_compare (enum machine_mode mode, rtx *cmp, rtx *op1, rtx *op2)
 
 /* Implement TARGET_LEGITIMATE_CONSTANT_P.  */
 static bool
-nios2_legitimate_constant_p (enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
+nios2_legitimate_constant_p (machine_mode mode ATTRIBUTE_UNUSED, rtx x)
 {
   rtx base, offset;
   split_const (x, &base, &offset);
@@ -1508,7 +1554,7 @@ nios2_legitimate_constant_p (enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
 
 /* Implement TARGET_CANNOT_FORCE_CONST_MEM.  */
 static bool
-nios2_cannot_force_const_mem (enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
+nios2_cannot_force_const_mem (machine_mode mode ATTRIBUTE_UNUSED, rtx x)
 {
   return nios2_legitimate_constant_p (mode, x) == false;
 }
@@ -1554,7 +1600,7 @@ nios2_valid_addr_expr_p (rtx base, rtx offset, bool strict_p)
 
 /* Implement TARGET_LEGITIMATE_ADDRESS_P.  */
 static bool
-nios2_legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
+nios2_legitimate_address_p (machine_mode mode ATTRIBUTE_UNUSED,
 			    rtx operand, bool strict_p)
 {
   switch (GET_CODE (operand))
@@ -1616,9 +1662,8 @@ nios2_in_small_data_p (const_tree exp)
     {
       if (DECL_SECTION_NAME (exp))
 	{
-	  const char *section = TREE_STRING_POINTER (DECL_SECTION_NAME (exp));
-	  if (nios2_section_threshold > 0
-	      && nios2_small_section_name_p (section))
+	  const char *section = DECL_SECTION_NAME (exp);
+	  if (nios2_small_section_name_p (section))
 	    return true;
 	}
       else
@@ -1641,19 +1686,63 @@ nios2_in_small_data_p (const_tree exp)
 bool
 nios2_symbol_ref_in_small_data_p (rtx sym)
 {
-  gcc_assert (GET_CODE (sym) == SYMBOL_REF);
-  return
-    (TARGET_GPOPT
-     /* GP-relative access cannot be used for externally defined symbols,
-	because the compilation unit that defines the symbol may place it
-	in a section that cannot be reached from GP.  */
-     && !SYMBOL_REF_EXTERNAL_P (sym)
-     /* True if a symbol is both small and not weak.  */
-     && SYMBOL_REF_SMALL_P (sym)
-     && !(SYMBOL_REF_DECL (sym) && DECL_WEAK (SYMBOL_REF_DECL (sym)))
-     /* TLS variables are not accessed through the GP.  */
-     && SYMBOL_REF_TLS_MODEL (sym) == 0);
+  tree decl;
 
+  gcc_assert (GET_CODE (sym) == SYMBOL_REF);
+  decl = SYMBOL_REF_DECL (sym);
+
+  /* TLS variables are not accessed through the GP.  */
+  if (SYMBOL_REF_TLS_MODEL (sym) != 0)
+    return false;
+
+  /* If the user has explicitly placed the symbol in a small data section
+     via an attribute, generate gp-relative addressing even if the symbol
+     is external, weak, or larger than we'd automatically put in the
+     small data section.  OTOH, if the symbol is located in some
+     non-small-data section, we can't use gp-relative accesses on it
+     unless the user has requested gpopt_data or gpopt_all.  */
+
+  switch (nios2_gpopt_option)
+    {
+    case gpopt_none:
+      /* Don't generate a gp-relative addressing mode if that's been
+	 disabled.  */
+      return false;
+
+    case gpopt_local:
+      /* Use GP-relative addressing for small data symbols that are
+	 not external or weak, plus any symbols that have explicitly
+	 been placed in a small data section.  */
+      if (decl && DECL_SECTION_NAME (decl))
+	return nios2_small_section_name_p (DECL_SECTION_NAME (decl));
+      return (SYMBOL_REF_SMALL_P (sym)
+	      && !SYMBOL_REF_EXTERNAL_P (sym)
+	      && !(decl && DECL_WEAK (decl)));
+
+    case gpopt_global:
+      /* Use GP-relative addressing for small data symbols, even if
+	 they are external or weak.  Note that SYMBOL_REF_SMALL_P
+         is also true of symbols that have explicitly been placed
+         in a small data section.  */
+      return SYMBOL_REF_SMALL_P (sym);
+
+    case gpopt_data:
+      /* Use GP-relative addressing for all data symbols regardless
+	 of the object size, but not for code symbols.  This option
+	 is equivalent to the user asserting that the entire data
+	 section is accessible from the GP.  */
+      return !SYMBOL_REF_FUNCTION_P (sym);
+
+    case gpopt_all:
+      /* Use GP-relative addressing for everything, including code.
+	 Effectively, the user has asserted that the entire program
+	 fits within the 64K range of the GP offset.  */
+      return true;
+
+    default:
+      /* We shouldn't get here.  */
+      return false;
+    }
 }
 
 /* Implement TARGET_SECTION_TYPE_FLAGS.  */
@@ -1758,7 +1847,7 @@ nios2_legitimize_constant_address (rtx addr)
 /* Implement TARGET_LEGITIMIZE_ADDRESS.  */
 static rtx
 nios2_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
-			  enum machine_mode mode ATTRIBUTE_UNUSED)
+			  machine_mode mode ATTRIBUTE_UNUSED)
 {
   if (CONSTANT_P (x))
     return nios2_legitimize_constant_address (x);
@@ -1831,7 +1920,7 @@ nios2_delegitimize_address (rtx x)
 
 /* Main expander function for RTL moves.  */
 int
-nios2_emit_move_sequence (rtx *operands, enum machine_mode mode)
+nios2_emit_move_sequence (rtx *operands, machine_mode mode)
 {
   rtx to = operands[0];
   rtx from = operands[1];
@@ -2135,6 +2224,18 @@ nios2_output_dwarf_dtprel (FILE *file, int size, rtx x)
   fprintf (file, ")");
 }
 
+/* Implemet TARGET_ASM_FILE_END.  */
+
+static void
+nios2_asm_file_end (void)
+{
+  /* The Nios II Linux stack is mapped non-executable by default, so add a
+     .note.GNU-stack section for switching to executable stacks only when
+     trampolines are generated.  */
+  if (TARGET_LINUX_ABI && trampolines_created)
+    file_end_indicate_exec_stack ();
+}
+
 /* Implement TARGET_ASM_FUNCTION_PROLOGUE.  */
 static void
 nios2_asm_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
@@ -2158,8 +2259,8 @@ nios2_fpu_insn_asm (enum n2fpu_code code)
   int num_operands = N2FPU (code).num_operands;
   const char *insn_name = N2FPU_NAME (code);
   tree ftype = nios2_ftype (N2FPU_FTCODE (code));
-  enum machine_mode dst_mode = TYPE_MODE (TREE_TYPE (ftype));
-  enum machine_mode src_mode = TYPE_MODE (TREE_VALUE (TYPE_ARG_TYPES (ftype)));
+  machine_mode dst_mode = TYPE_MODE (TREE_TYPE (ftype));
+  machine_mode src_mode = TYPE_MODE (TREE_VALUE (TYPE_ARG_TYPES (ftype)));
 
   /* Prepare X register for DF input operands.  */
   if (GET_MODE_SIZE (src_mode) == 8 && num_operands == 3)
@@ -2248,7 +2349,7 @@ nios2_fpu_insn_asm (enum n2fpu_code code)
    (otherwise it is an extra parameter matching an ellipsis).  */
 
 static rtx
-nios2_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
+nios2_function_arg (cumulative_args_t cum_v, machine_mode mode,
 		    const_tree type ATTRIBUTE_UNUSED,
 		    bool named ATTRIBUTE_UNUSED)
 {
@@ -2267,7 +2368,7 @@ nios2_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 
 static int
 nios2_arg_partial_bytes (cumulative_args_t cum_v,
-                         enum machine_mode mode, tree type ATTRIBUTE_UNUSED,
+                         machine_mode mode, tree type ATTRIBUTE_UNUSED,
                          bool named ATTRIBUTE_UNUSED)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v); 
@@ -2296,7 +2397,7 @@ nios2_arg_partial_bytes (cumulative_args_t cum_v,
    may not be available.  */
 
 static void
-nios2_function_arg_advance (cumulative_args_t cum_v, enum machine_mode mode,
+nios2_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
 			    const_tree type ATTRIBUTE_UNUSED,
 			    bool named ATTRIBUTE_UNUSED)
 {
@@ -2321,7 +2422,7 @@ nios2_function_arg_advance (cumulative_args_t cum_v, enum machine_mode mode,
 }
 
 enum direction
-nios2_function_arg_padding (enum machine_mode mode, const_tree type)
+nios2_function_arg_padding (machine_mode mode, const_tree type)
 {
   /* On little-endian targets, the first byte of every stack argument
      is passed in the first byte of the stack slot.  */
@@ -2344,7 +2445,7 @@ nios2_function_arg_padding (enum machine_mode mode, const_tree type)
 }
 
 enum direction
-nios2_block_reg_padding (enum machine_mode mode, tree type,
+nios2_block_reg_padding (machine_mode mode, tree type,
                          int first ATTRIBUTE_UNUSED)
 {
   return nios2_function_arg_padding (mode, type);
@@ -2376,7 +2477,7 @@ nios2_function_value (const_tree ret_type, const_tree fn ATTRIBUTE_UNUSED,
 
 /* Implement TARGET_LIBCALL_VALUE.  */
 static rtx
-nios2_libcall_value (enum machine_mode mode, const_rtx fun ATTRIBUTE_UNUSED)
+nios2_libcall_value (machine_mode mode, const_rtx fun ATTRIBUTE_UNUSED)
 {
   return gen_rtx_REG (mode, FIRST_RETVAL_REGNO);
 }
@@ -2400,7 +2501,7 @@ nios2_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
    own va_arg type.  */
 static void
 nios2_setup_incoming_varargs (cumulative_args_t cum_v,
-                              enum machine_mode mode, tree type,
+                              machine_mode mode, tree type,
                               int *pretend_size, int second_time)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v); 
@@ -2458,11 +2559,12 @@ nios2_expand_fpu_builtin (tree exp, unsigned int code, rtx target)
   enum insn_code icode = N2FPU_ICODE (code);
   int nargs, argno, opno = 0;
   int num_operands = N2FPU (code).num_operands;
-  enum machine_mode dst_mode = TYPE_MODE (TREE_TYPE (exp));
+  machine_mode dst_mode = TYPE_MODE (TREE_TYPE (exp));
   bool has_target_p = (dst_mode != VOIDmode);
 
   if (N2FPU_N (code) < 0)
-    fatal_error ("Cannot call %<__builtin_custom_%s%> without specifying switch"
+    fatal_error (input_location,
+		 "Cannot call %<__builtin_custom_%s%> without specifying switch"
 		 " %<-mcustom-%s%>", N2FPU_NAME (code), N2FPU_NAME (code));
   if (has_target_p)
     create_output_operand (&ops[opno++], target, dst_mode);
@@ -2547,7 +2649,7 @@ static rtx
 nios2_expand_custom_builtin (tree exp, unsigned int index, rtx target)
 {
   bool has_target_p = (TREE_TYPE (exp) != void_type_node);
-  enum machine_mode tmode = VOIDmode;
+  machine_mode tmode = VOIDmode;
   int nargs, argno;
   rtx value, insn, unspec_args[3];
   tree arg;
@@ -2719,7 +2821,7 @@ nios2_expand_ldstio_builtin (tree exp, rtx target,
   bool has_target_p;
   rtx addr, mem, val;
   struct expand_operand ops[MAX_RECOG_OPERANDS];
-  enum machine_mode mode = insn_data[d->icode].operand[0].mode;
+  machine_mode mode = insn_data[d->icode].operand[0].mode;
 
   addr = expand_normal (CALL_EXPR_ARG (exp, 0));
   mem = gen_rtx_MEM (mode, addr);
@@ -2782,7 +2884,7 @@ nios2_expand_rdwrctl_builtin (tree exp, rtx target,
 
 static rtx
 nios2_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
-                      enum machine_mode mode ATTRIBUTE_UNUSED,
+                      machine_mode mode ATTRIBUTE_UNUSED,
 		      int ignore ATTRIBUTE_UNUSED)
 {
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
@@ -3312,6 +3414,9 @@ nios2_merge_decl_attributes (tree olddecl, tree newdecl)
 
 #undef TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA
 #define TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA nios2_output_addr_const_extra
+
+#undef TARGET_ASM_FILE_END
+#define TARGET_ASM_FILE_END nios2_asm_file_end
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE nios2_option_override
