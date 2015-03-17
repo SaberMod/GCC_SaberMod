@@ -1,3 +1,57 @@
+2014-03-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/59198
+	* gfortran.dg/proc_ptr_comp_44.f90 : New test
+	* gfortran.dg/proc_ptr_comp_45.f90 : New test
+
+2015-03-16 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/64432
+	* gfortran.dg/system_clock_3.f08: New test.
+
+2015-03-16  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR c++/64626
+	g++.dg/cpp1y/pr64626-1.C: New.
+	g++.dg/cpp1y/pr64626-2.C: New.
+	g++.dg/cpp1y/digit-sep-neg.C: Adjust errors and warnings.
+
+2015-03-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/65427
+	* gcc.c-torture/execute/pr65427.c: New test.
+
+2015-03-16  Marek Polacek  <polacek@redhat.com>
+
+	DR 1688
+	PR c++/65327
+	* g++.dg/cpp0x/constexpr-object1.C: Change dg-error to dg-bogus.
+	* g++.dg/cpp0x/pr65327.C: New test.
+
+2015-03-16  Max Ostapenko  <m.ostapenko@partner.samsung.com>
+
+	PR sanitizer/64820
+	* c-c++-common/asan/pr64820.c: New test.
+
+2015-03-16  Andre Vehreschild  <vehre@gmx.de>
+
+	* gfortran.dg/pointer_2.f90: New test.
+
+2015-03-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* testsuite/g++.dg/pr65049.C: New test.
+
+2015-03-16  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.target/i386/fuse-caller-save-rec.c: Add PR64895 xfail on scans.
+	* gcc.target/i386/fuse-caller-save-xmm.c: Same.
+	* gcc.target/i386/fuse-caller-save.c: Same.
+
+2015-03-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/loop_optimization18.ad[sb]: New test.
+	* gnat.dg/loop_optimization18_pkg.ads: New helper.
+
 2015-03-16  Alan Modra  <amodra@gmail.com>
 
 	* gcc.target/powerpc/pr53199.c: Add extra functions.  Revert
