@@ -1461,7 +1461,7 @@ emit_barrier_after_bb (basic_block bb)
           rtx footer_tail = BB_FOOTER (bb);
 
           while (NEXT_INSN (footer_tail))
-            footer_tail = NEXT_INSN (insn);
+            footer_tail = NEXT_INSN (footer_tail);
           if (!BARRIER_P (footer_tail))
             {
               NEXT_INSN (footer_tail) = insn;
