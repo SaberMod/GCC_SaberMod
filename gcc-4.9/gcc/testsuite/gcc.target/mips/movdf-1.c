@@ -1,4 +1,5 @@
 /* Check that we move DFmode values via memory between FP and GP.  */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-options "-mabi=32 -mfpxx isa=2" } */
 
 void bar (void);

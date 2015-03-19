@@ -24,7 +24,7 @@ along with GCC; see the file COPYING3.  If not see
      to write.  */							\
   MIPS_ISA_LEVEL_SPEC,							\
 									\
-  /* Infer the default float setting (hard or soft) from -march.  */	\
+  /* Infer the default float setting from -march.  */			\
   MIPS_ARCH_FLOAT_SPEC,							\
 									\
   /* Infer the -msynci setting from -march if not explicitly set.  */	\
@@ -34,12 +34,13 @@ along with GCC; see the file COPYING3.  If not see
      or -mgp setting.  */						\
   "%{!mabi=*: %{" MIPS_32BIT_OPTION_SPEC ": -mabi=32;: -mabi=64}}",	\
 									\
-  /* If no FP option is specified, infer one from the ABI/ISA level.  */\
-  "%{!mfp*: %{mabi=32: 							\
-              %{" MIPS_FPXX_OPTION_SPEC ": -mfpxx -mno-odd-spreg }}}",	\
+  /* If no FP ABI option is specified, infer one from the		\
+     ABI/ISA level unless there is a conflicting option.  */		\
+  "%{!msoft-float: %{!msingle-float: %{!mfp*: %{!mmsa: %{mabi=32: %{"	\
+  MIPS_FPXX_OPTION_SPEC ": -mfpxx}}}}}}",				\
 									\
   /* Base SPECs.  */							\
-  BASE_DRIVER_SELF_SPECS						\
+  BASE_DRIVER_SELF_SPECS,						\
 									\
   /* Use the standard linux specs for everything else.  */		\
-  LINUX64_DRIVER_SELF_SPECS
+  LINUX_DRIVER_SELF_SPECS

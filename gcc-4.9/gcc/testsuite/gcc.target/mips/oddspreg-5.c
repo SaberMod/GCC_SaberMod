@@ -1,10 +1,6 @@
-/* Check that we disable odd-numbered single precision registers and can
-   still generate code.  */
+/* Check that -mno-odd-spreg is not supported with -mabi=64.  */
 /* { dg-options "-mabi=64 -mno-odd-spreg -mhard-float" } */
-
-#if _MIPS_SPFPSET != 32
-#error "Incorrect number of single-precision registers reported"
-#endif
+/* { dg-error "unsupported combination" "" { target *-*-* } 0 } */
 
 float a;
 float

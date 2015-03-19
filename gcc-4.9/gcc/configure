@@ -26198,10 +26198,10 @@ fi
 
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for .module support" >&5
 $as_echo_n "checking assembler for .module support... " >&6; }
-if test "${gcc_cv_as_mips_module+set}" = set; then :
+if test "${gcc_cv_as_mips_dot_module+set}" = set; then :
   $as_echo_n "(cached) " >&6
 else
-  gcc_cv_as_mips_module=no
+  gcc_cv_as_mips_dot_module=no
   if test x$gcc_cv_as != x; then
     $as_echo '.module fp=32' > conftest.s
     if { ac_try='$gcc_cv_as $gcc_cv_as_flags  -o conftest.o conftest.s >&5'
@@ -26211,7 +26211,7 @@ else
   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
   test $ac_status = 0; }; }
     then
-	gcc_cv_as_mips_module=yes
+	gcc_cv_as_mips_dot_module=yes
     else
       echo "configure: failed program was" >&5
       cat conftest.s >&5
@@ -26219,16 +26219,16 @@ else
     rm -f conftest.o conftest.s
   fi
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_as_mips_module" >&5
-$as_echo "$gcc_cv_as_mips_module" >&6; }
-if test $gcc_cv_as_mips_module = yes; then
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_as_mips_dot_module" >&5
+$as_echo "$gcc_cv_as_mips_dot_module" >&6; }
+if test $gcc_cv_as_mips_dot_module = yes; then
 
-$as_echo "#define HAVE_AS_MODULE 1" >>confdefs.h
+$as_echo "#define HAVE_AS_DOT_MODULE 1" >>confdefs.h
 
 fi
-    if test x$gcc_cv_as_mips_module = xno \
-       && test x$with_fp != x; then
-      as_fn_error "Requesting --with-fp= requires assembler support for .module." "$LINENO" 5
+    if test x$gcc_cv_as_mips_dot_module = xno \
+       && test x$with_fp_32 != x; then
+      as_fn_error "Requesting --with-fp-32= requires assembler support for .module." "$LINENO" 5
     fi
 
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for .micromips support" >&5

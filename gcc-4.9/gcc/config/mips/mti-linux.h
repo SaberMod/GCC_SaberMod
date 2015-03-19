@@ -48,11 +48,13 @@ along with GCC; see the file COPYING3.  If not see
      or -mgp setting.  */						\
   "%{!mabi=*: %{" MIPS_32BIT_OPTION_SPEC ": -mabi=32;: -mabi=n32}}",	\
 									\
-  /* If no FP option is specified, infer one from the ABI/ISA level.  */\
-  "%{!mfp*: %{mabi=32: %{" MIPS_FPXX_OPTION_SPEC ": -mfpxx}}}",		\
+  /* If no FP ABI option is specified, infer one from the		\
+     ABI/ISA level unless there is a conflicting option.  */		\
+  "%{!msoft-float: %{!msingle-float: %{!mfp*: %{!mmsa: %{mabi=32: %{"	\
+  MIPS_FPXX_OPTION_SPEC ": -mfpxx}}}}}}",				\
 									\
   /* Base SPECs.  */							\
   BASE_DRIVER_SELF_SPECS						\
 									\
   /* Use the standard linux specs for everything else.  */		\
-  LINUX64_DRIVER_SELF_SPECS
+  LINUX_DRIVER_SELF_SPECS

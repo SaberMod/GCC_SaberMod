@@ -4273,14 +4273,14 @@ LCF0:
 	  [Define if your assembler supports .gnu_attribute.])])
 
     gcc_GAS_CHECK_FEATURE([.module support],
-      gcc_cv_as_mips_module,,,
+      gcc_cv_as_mips_dot_module,,,
       [.module fp=32],,
-      [AC_DEFINE(HAVE_AS_MODULE, 1,
-	  [Define if yout assembler supports .module.])])
-    if test x$gcc_cv_as_mips_module = xno \
-       && test x$with_fp != x; then
+      [AC_DEFINE(HAVE_AS_DOT_MODULE, 1,
+	  [Define if your assembler supports .module.])])
+    if test x$gcc_cv_as_mips_dot_module = xno \
+       && test x$with_fp_32 != x; then
       AC_MSG_ERROR(
-	[Requesting --with-fp= requires assembler support for .module.])
+	[Requesting --with-fp-32= requires assembler support for .module.])
     fi
 
     gcc_GAS_CHECK_FEATURE([.micromips support],

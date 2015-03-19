@@ -123,6 +123,10 @@ mdspr2
 Target Report Var(TARGET_DSPR2)
 Use MIPS-DSP REV 2 instructions
 
+mdspr3
+Target Report Var(TARGET_DSPR3)
+Use MIPS-DSP Rev 3 instructions
+
 mdebug
 Target Var(TARGET_DEBUG_MODE) Undocumented
 
@@ -199,7 +203,7 @@ Use 32-bit floating-point registers
 
 mfpxx
 Target Report RejectNegative Mask(FLOATXX)
-Follow the O32 FPXX ABI
+Conform to the o32 FPXX ABI
 
 mfp64
 Target Report RejectNegative Mask(FLOAT64)
@@ -431,25 +435,29 @@ Enable use of odd-numbered single-precision registers
 noasmopt
 Driver
 
-mclib=
-Target RejectNegative Joined Var(mips_c_lib) ToLower Enum(mips_lib_setting) Init(MIPS_LIB_NEWLIB)
-Specify the C library to use with this application
-newlib      Use newlib
-small       Use SmallLib
-tiny        Use SmallLib optimised for size
-
-Enum
-Name(mips_lib_setting) Type(enum mips_lib_setting)
-Known MIPS C libraries (for use with the -mclib= option):
-
-EnumValue
-Enum(mips_lib_setting) String(newlib) Value(MIPS_LIB_NEWLIB)
-
-EnumValue
-Enum(mips_lib_setting) String(small) Value(MIPS_LIB_SMALL)
-
-EnumValue
-Enum(mips_lib_setting) String(tiny) Value(MIPS_LIB_TINY)
+mload-store-pairs
+Target Report Var(TARGET_LOAD_STORE_PAIRS) Undocumented
+Enable load/store bonding.
 
 msched-weight
 Target Report Var(TARGET_SCHED_WEIGHT) Undocumented
+
+mcompact-branches=
+Target RejectNegative JoinedOrMissing Var(mips_cb) Report Enum(mips_cb_setting) Init(MIPS_CB_OPTIMAL)
+Specify the compact branch usage policy
+never	    Only use delay slot branches
+optimal	    Use compact branches where beneficial
+always	    Only use compact branches
+
+Enum
+Name(mips_cb_setting) Type(enum mips_cb_setting)
+Policies available for use with -mcompact-branches=
+
+EnumValue
+Enum(mips_cb_setting) String(never) Value(MIPS_CB_NEVER)
+
+EnumValue
+Enum(mips_cb_setting) String(optimal) Value(MIPS_CB_OPTIMAL)
+
+EnumValue
+Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)

@@ -252,10 +252,6 @@ init_return_column_size (enum machine_mode mode, rtx mem, unsigned int c)
 		  gen_int_mode (size, mode));
 }
 
-#ifndef DWARF_REG_MODE
-#define DWARF_REG_MODE(REGNO, MODE) (MODE)
-#endif
-
 /* Generate code to initialize the register size table.  */
 
 void
@@ -275,12 +271,9 @@ expand_builtin_init_dwarf_reg_sizes (tree address)
       if (rnum < DWARF_FRAME_REGISTERS)
 	{
 	  HOST_WIDE_INT offset = rnum * GET_MODE_SIZE (mode);
-	  enum machine_mode save_mode = reg_raw_mode[i];
 	  HOST_WIDE_INT size;
+	  enum machine_mode save_mode = targetm.dwarf_frame_reg_mode (i);
 
-	  if (HARD_REGNO_CALL_PART_CLOBBERED (i, save_mode))
-	    save_mode = choose_hard_reg_mode (i, 1, true);
-	  save_mode = DWARF_REG_MODE (i, save_mode);
 	  if (dnum == DWARF_FRAME_RETURN_COLUMN)
 	    {
 	      if (save_mode == VOIDmode)

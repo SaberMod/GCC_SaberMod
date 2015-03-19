@@ -25,7 +25,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #if defined(__mips_micromips) || defined(__mips_soft_float) \
     || __mips_isa_rev >= 6
-  /* DO NOTHING */
+  /* Do nothing because this code is only needed when linking
+     against mips16 hard-float objects.  Neither micromips code
+     nor soft-float nor MIPS R6 code can be linked against mips16
+     hard-float objects so we do not need these routines when
+     building libgcc for those cases.  */
 #else
 
 #if defined(HAVE_AS_MODULE)
@@ -773,4 +777,4 @@ CALL_STUB_RET (__mips16_call_stub_dc_10, 10, DC)
 #endif /* !__mips_single_float */
 
 #endif
-#endif /* __mips_micromips */
+#endif /* defined(__mips_micromips) || defined(__mips_soft_float) */

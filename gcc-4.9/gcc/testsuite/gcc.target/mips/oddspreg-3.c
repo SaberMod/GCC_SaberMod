@@ -1,6 +1,6 @@
 /* Check that we disable odd-numbered single precision registers.  */
 /* { dg-skip-if "needs asm output" { *-*-* } { "-fno-fat-lto-objects" } { "" } } */
-/* { dg-options "-mabi=32 -march=loongson3a -mhard-float" } */
+/* { dg-options "-mabi=32 -mfp32 -march=loongson3a -mhard-float" } */
 
 void
 foo ()

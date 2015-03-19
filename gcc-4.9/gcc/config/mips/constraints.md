@@ -373,14 +373,16 @@
        (if_then_else
 	 (match_test "TARGET_MICROMIPS")
 	 (match_test "umips_12bit_offset_address_p (XEXP (op, 0), mode)")
-	 (match_test "mips_address_insns (XEXP (op, 0), mode, false)"))))
+	 (if_then_else (match_test "ISA_HAS_PREF_LL_9BIT")
+	   (match_test "mips_9bit_offset_address_p (XEXP (op, 0), mode)")
+	   (match_test "mips_address_insns (XEXP (op, 0), mode, false)")))))
 
 (define_address_constraint "ZD"
   "An address suitable for a @code{prefetch} instruction, or for any other
    instruction with the same addressing mode as @code{prefetch}."
    (if_then_else (match_test "TARGET_MICROMIPS")
 		 (match_test "umips_12bit_offset_address_p (op, mode)")
-	  (if_then_else (match_test "ISA_HAS_PREFETCH_9BIT")
+	  (if_then_else (match_test "ISA_HAS_PREF_LL_9BIT")
 			(match_test "mips_9bit_offset_address_p (op, mode)")
 			(match_test "mips_address_insns (op, mode, false)"))))
 

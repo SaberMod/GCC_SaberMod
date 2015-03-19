@@ -11,11 +11,11 @@ foo ()
   bar();
   return b;
 }
-/* { dg-final { scan-assembler-times "lwc1" 2 } } */
-/* { dg-final { scan-assembler-not "swc1" } } */
-/* { dg-final { scan-assembler-times "sdc1" 2 } } */
-/* { dg-final { scan-assembler-times "ldc1" 2 } } */
+/* { dg-final { scan-assembler-times "lwc1" 4 } } */
+/* { dg-final { scan-assembler-times "swc1" 2 } } */
 /* { dg-final { scan-assembler-not "mtc" } } */
 /* { dg-final { scan-assembler-not "mfc" } } */
 /* { dg-final { scan-assembler-not "mthc" } } */
 /* { dg-final { scan-assembler-not "mfhc" } } */
+/* { dg-final { scan-assembler-not "sdc1" } } */
+/* { dg-final { scan-assembler-not "ldc1" } } */

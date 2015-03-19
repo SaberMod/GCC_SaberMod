@@ -455,7 +455,7 @@
 
 /* Define if the assembler understands .module. */
 #ifndef USED_FOR_TARGET
-#undef HAVE_AS_MODULE
+#undef HAVE_AS_DOT_MODULE
 #endif
 
 

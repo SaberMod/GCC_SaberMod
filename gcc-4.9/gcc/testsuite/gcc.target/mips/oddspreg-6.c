@@ -1,13 +1,10 @@
-/* Check that we enable odd-numbered single precision registers.  */
-/* { dg-options "-mabi=32 -march=octeon -mhard-float" } */
-
-#if _MIPS_SPFPSET != 32
-#error "Incorrect number of single-precision registers reported"
-#endif
+/* Check that we disable odd-numbered single precision registers for FPXX.  */
+/* { dg-skip-if "needs asm output" { *-*-* } { "-fno-fat-lto-objects" } { "" } } */
+/* { dg-options "-mabi=32 -mfpxx -mhard-float" } */
 
 void
 foo ()
 {
-  register float foo asm ("$f1");
+  register float foo asm ("$f1"); /* { dg-error "isn't suitable for" } */
   asm volatile ("" : "=f" (foo));
 }
