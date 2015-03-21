@@ -3033,9 +3033,15 @@ get_local_tls_init_fn (void)
 						  void_list_node));
       SET_DECL_LANGUAGE (fn, lang_c);
       TREE_PUBLIC (fn) = false;
+      TREE_STATIC (fn) = true;
       DECL_ARTIFICIAL (fn) = true;
       mark_used (fn);
       SET_IDENTIFIER_GLOBAL_VALUE (sname, fn);
+      /* In LIPO mode make sure we record the new global value so that it
+         is cleared before parsing the next aux module.  */
+      if (L_IPO_COMP_MODE && !is_parsing_done_p ())
+        add_decl_to_current_module_scope (fn,
+                                          NAMESPACE_LEVEL (global_namespace));
     }
   return fn;
 }
@@ -3100,6 +3106,11 @@ get_tls_init_fn (tree var)
       DECL_BEFRIENDING_CLASSES (fn) = var;
 
       SET_IDENTIFIER_GLOBAL_VALUE (sname, fn);
+      /* In LIPO mode make sure we record the new global value so that it
+         is cleared before parsing the next aux module.  */
+      if (L_IPO_COMP_MODE && !is_parsing_done_p ())
+        add_decl_to_current_module_scope (fn,
+                                          NAMESPACE_LEVEL (global_namespace));
     }
   return fn;
 }
@@ -3157,6 +3168,11 @@ get_tls_wrapper_fn (tree var)
       DECL_BEFRIENDING_CLASSES (fn) = var;
 
       SET_IDENTIFIER_GLOBAL_VALUE (sname, fn);
+      /* In LIPO mode make sure we record the new global value so that it
+         is cleared before parsing the next aux module.  */
+      if (L_IPO_COMP_MODE && !is_parsing_done_p ())
+        add_decl_to_current_module_scope (fn,
+                                          NAMESPACE_LEVEL (global_namespace));
     }
   return fn;
 }
@@ -4213,8 +4229,12 @@ handle_tls_init (void)
       one_static_initialization_or_destruction (var, init, true);
 
 #ifdef ASM_OUTPUT_DEF
-      /* Output init aliases even with -fno-extern-tls-init.  */
-      if (TREE_PUBLIC (var))
+      /* Output init aliases even with -fno-extern-tls-init.  Don't emit
+         aliases in LIPO aux modules, since the corresponding __tls_init
+         will be static promoted and deleted, so the variable's tls init
+         function will be resolved by its own primary module.  An alias
+         would prevent the promoted aux __tls_init from being deleted.  */
+      if (TREE_PUBLIC (var) && !L_IPO_IS_AUXILIARY_MODULE)
 	{
           tree single_init_fn = get_tls_init_fn (var);
 	  if (single_init_fn == NULL_TREE)

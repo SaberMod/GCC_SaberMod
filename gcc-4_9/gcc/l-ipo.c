@@ -1120,6 +1120,27 @@ cgraph_unify_type_alias_sets (void)
   htab_delete (type_hash_tab);
 }
 
+/* Return true if DECL is an artificial function that we do not want
+   to promote and which may not be available in the primary module.
+   The sole exception is currently __tls_init.  */
+
+static bool
+decl_artificial_nopromote (tree decl)
+{
+  if (!DECL_ARTIFICIAL (decl))
+    return false;
+
+  /* Handle the __tls_init function specially as we do want to promote it and
+     allow the aux module to be resolved to the version in the primary module.
+     We check if it is prefixed by __tls_init to catch it after promotion
+     as well from cgraph_is_aux_decl_external.  */
+  if (!strncmp (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)), "__tls_init",
+                10))
+    return false;
+
+  return true;
+}
+
 /* Return true if NODE->decl from an auxiliary module has external
    definition (and therefore is not needed for expansion).  */
 
@@ -1144,7 +1165,7 @@ cgraph_is_aux_decl_external (struct cgraph_node *node)
      Functions marked artificial (e.g. an implicitly instantiated virtual
      destructor) are also not guaranteed to be available in the primary module,
      as they are not promoted by process_module_scope_static_func.  */
-  if (DECL_COMDAT (decl) || DECL_WEAK (decl) || DECL_ARTIFICIAL (decl))
+  if (DECL_COMDAT (decl) || DECL_WEAK (decl) || decl_artificial_nopromote (decl))
     return false;
 
   /* virtual functions won't be deleted in the primary module.  */
@@ -2022,7 +2043,7 @@ process_module_scope_static_func (struct cgraph_node *cnode)
   if (TREE_PUBLIC (decl)
       || !TREE_STATIC (decl)
       || DECL_EXTERNAL (decl)
-      || DECL_ARTIFICIAL (decl))
+      || decl_artificial_nopromote (decl))
     return;
 
   if (flag_ripa_no_promote_always_inline
