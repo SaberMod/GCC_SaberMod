@@ -3233,6 +3233,17 @@ arm_option_override (void)
   if (TARGET_THUMB1)
     flag_ipa_ra = 0;
 
+  /* While warnings are actually quite good things, they aren't 
+     always helpful and occasionally make some users shy away from
+     using SaberMod. Let's fix that. */
+  global_options.x_warn_array_bounds = 0;
+  global_options.x_warn_clobbered = 0;
+  global_options.x_warn_unused = 0;
+  global_options.x_warn_unused_but_set_parameter = 0;
+  global_options.x_warn_unused_but_set_variable = 0;
+  global_options.x_warn_maybe_uninitialized = 0;
+  global_options.x_warn_strict_overflow = 0;
+
   /* Register global variables with the garbage collector.  */
   arm_add_gc_roots ();
 }
@@ -3243,7 +3254,7 @@ arm_add_gc_roots (void)
   gcc_obstack_init(&minipool_obstack);
   minipool_startobj = (char *) obstack_alloc (&minipool_obstack, 0);
 }
-
+
 /* A table of known ARM exception types.
    For use with the interrupt function attribute.  */
 
