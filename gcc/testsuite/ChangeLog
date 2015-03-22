@@ -1,3 +1,23 @@
+2015-03-21  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/61138
+	* gfortran.dg/pointer_remapping_9.f90: New.
+
+2015-03-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/59198
+	* gfortran.dg/proc_ptr_comp_44.f90 : New test
+	* gfortran.dg/proc_ptr_comp_45.f90 : New test
+
+2015-03-19  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2015-03-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/65235
+	* gcc.target/aarch64/pr65235_1.c: New test.
+
 2015-03-16  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* testsuite/g++.dg/pr65049.C: New test.
