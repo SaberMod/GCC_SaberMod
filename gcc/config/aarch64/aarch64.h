@@ -95,8 +95,6 @@
 	builtin_define ("__ARM_FEATURE_CRYPTO");	\
     } while (0)
 
-
-
 /* Target machine storage layout.  */
 
 #define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE)	\
@@ -441,7 +439,6 @@ extern unsigned long aarch64_tune_flags;
 #define FP_LO_REGNUM_P(REGNO)            \
   (((unsigned) (REGNO - V0_REGNUM)) <= (V15_REGNUM - V0_REGNUM))
 
-
 /* Register and constant classes.  */
 
 enum reg_class
@@ -536,7 +533,6 @@ extern enum aarch64_processor aarch64_tune;
 
 /* RTL generation support.  */
 #define INIT_EXPANDERS aarch64_init_expanders ()
-
 
 /* Stack layout; function entry, exit and calling.  */
 #define STACK_GROWS_DOWNWARD	1
@@ -669,7 +665,6 @@ typedef struct
 
 #define FUNCTION_ARG_REGNO_P(REGNO) \
   aarch64_function_arg_regno_p(REGNO)
-
 
 /* ISA Features.  */
 
@@ -824,7 +819,6 @@ do {									     \
 
 /* To start with.  */
 #define BRANCH_COST(SPEED_P, PREDICTABLE_P) 2
-
 
 /* Assembly output.  */
 

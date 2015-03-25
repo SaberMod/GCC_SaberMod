@@ -1,3 +1,27 @@
+2015-03-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65046
+	* cp-tree.h (NAMESPACE_IS_INLINE): Remove.
+	* parser.c (cp_parser_namespace_definition): Don't set it.
+	* name-lookup.c (handle_namespace_attrs): Check
+	DECL_NAMESPACE_ASSOCIATIONS instead.
+
+	PR c++/65498
+	* pt.c (get_mostly_instantiated_function_type): Just return the
+	type of the partially instantiated template in DECL_TI_TEMPLATE.
+
+2015-03-20  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65398
+	* constexpr.c (cxx_fold_indirect_ref): Transform *(&A[i] p+ j) into
+	A[i + j].
+
+2015-03-20  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65072
+	* typeck.c (lookup_anon_field): Make sure we're dealing with the main
+	variant.
+
 2015-03-19  Jason Merrill  <jason@redhat.com>
 
 	PR c++/65046
