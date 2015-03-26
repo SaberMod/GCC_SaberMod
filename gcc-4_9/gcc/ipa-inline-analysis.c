@@ -2169,6 +2169,8 @@ param_change_prob (gimple stmt, int i)
 	return 0;
       if (!bb->frequency)
 	return REG_BR_PROB_BASE;
+      if (!optimize)
+	return REG_BR_PROB_BASE;
       ao_ref_init (&refd, op);
       info.stmt = stmt;
       info.bb_set = BITMAP_ALLOC (NULL);
