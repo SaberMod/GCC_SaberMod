@@ -6884,21 +6884,21 @@ aarch64_override_options (void)
 	align_functions = aarch64_tune_params->function_align;
     }
 
+  /* While warnings are actually quite good things, they aren't 
+  always helpful and occasionally make some users shy away from
+  using SaberMod. Let's fix that. */
+  global_options.x_warn_array_bounds = 0;
+  global_options.x_warn_clobbered = 0;
+  global_options.x_warn_unused = 0;
+  global_options.x_warn_unused_but_set_parameter = 0;
+  global_options.x_warn_unused_but_set_variable = 0;
+  global_options.x_warn_maybe_uninitialized = 0;
+  global_options.x_warn_strict_overflow = 0;
+
   aarch64_override_options_after_change ();
 }
 
 /* Implement targetm.override_options_after_change.  */
-
-/* While warnings are actually quite good things, they aren't 
-always helpful and occasionally make some users shy away from
-using SaberMod. Let's fix that. */
-global_options.x_warn_array_bounds = 0;
-global_options.x_warn_clobbered = 0;
-global_options.x_warn_unused = 0;
-global_options.x_warn_unused_but_set_parameter = 0;
-global_options.x_warn_unused_but_set_variable = 0;
-global_options.x_warn_maybe_uninitialized = 0;
-global_options.x_warn_strict_overflow = 0;
 
 static void
 aarch64_override_options_after_change (void)
