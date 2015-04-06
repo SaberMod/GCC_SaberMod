@@ -5276,6 +5276,11 @@ aarch64_override_options (void)
 #endif
     }
 
+  if (aarch64_fix_a53_err843419 == 2)
+    {
+      aarch64_fix_a53_err843419 = 1;
+    }
+
   aarch64_override_options_after_change ();
 
   if (TARGET_ANDROID)
