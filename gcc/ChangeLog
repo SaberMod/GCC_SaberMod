@@ -1,3 +1,238 @@
+2015-04-07  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/65648
+	* lra-remat.c (do_remat): Process input and non-input insn
+	registers separately.
+
+2015-04-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/65678
+	* valtrack.c (debug_lowpart_subreg): New function.
+	(dead_debug_insert_temp): Use it.
+
+	PR middle-end/65680
+	* expr.c (get_inner_reference): Handle bit_offset that doesn't fit
+	into signed HOST_WIDE_INT the same as negative bit_offset.
+
+2015-04-07  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* ipa-comdats.c (ipa_comdats): Visit all thunks
+	to set proper comdat group.
+
+2015-04-07  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/65489
+	* config/arm/arm.c (arm_legitimate_constant_p_1): Remove restriction
+	on constants for NEON VSTRUCT modes.
+
+2015-04-07  Jakub Jelinek  <jakub@redhat.com>
+	    Iain Sandoe  <iain@codesourcery.com>
+
+	PR target/65351
+	* configure: Regenerate.
+
+2015-04-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/65614
+	* config/rs6000/rs6000.c (struct processor_costs): Add cost field
+	for SF->DF conversions to make FLOAT_EXTEND more expensive, so
+	that LFD is used to load double constants instead of LFS.  Add
+	defaults for all costs structures.  Add comments for missing
+	initialization fields.
+	(size32_cost): Likewise.
+	(size64_cost): Likewise.
+	(rs64a_cost): Likewise.
+	(mpccore_cost): Likewise.
+	(ppc403_cost): Likewise.
+	(ppc405_cost): Likewise.
+	(ppc440_cost): Likewise.
+	(ppc476_cost): Likewise.
+	(ppc601_cost): Likewise.
+	(ppc603_cost): Likewise.
+	(ppc604_cost): Likewise.
+	(ppc604e_cost): Likewise.
+	(ppc620_cost): Likewise.
+	(ppc630_cost): Likewise.
+	(ppccell_cost): Likewise.
+	(ppc750_cost): Likewise.
+	(ppc7450_cost): Likewise.
+	(ppc8540_cost): Likewise.
+	(ppce300c2c3_cost): Likewise.
+	(ppce500mc_cost): Likewise.
+	(ppce500mc64_cost): Likewise.
+	(ppce5500_cost): Likewise.
+	(ppce6500_cost): Likewise.
+	(titan_cost): Likewise.
+	(power4_cost): Likewise.
+	(power6_cost): Likewise.
+	(power7_cost): Likewise.
+	(power8_cost): Likewise.
+	(ppca2_cost): Likewise.
+	(rs6000_rtx_costs): Make FLOAT_EXTEND use SFDF_convert field.
+
+	* config/rs6000/rs6000.md (extendsfdf2_fpr): Generate XSCPSGNDP
+	instead of XXLOR to copy SFmode to clear out dirty bits created
+	when SFmode denormals are generated.
+	(mov<mode>_hardfloat, FMOVE32 case): Likewise.
+	(truncdfsf2_fpr): Add support for ISA 2.07 XSRSP instruction.
+
+2015-04-06  Evandro Menezes  <e.menezes@samsung.com>
+
+	* doc/invoke.texi (AARCH64/mtune): Add exynos-m1 as an option.
+	* config/aarch64/aarch64-cores.def (exynos-m1): New core.
+	* config/aarch64/aarch64-tune.md: Regenerate.
+
+2015-04-06  Evandro Menezes  <e.menezes@samsung.com>
+
+	* doc/invoke.texi (ARM/mtune): Add "exynos-m1" as an option.
+	* config/arm/arm.c (arm_issue_rate): Specify "3" for "exynosm1".
+	* config/arm/arm-cores.def (exynos-m1): New core.
+	* config/arm/arm-tune.md: Regenerate.
+	* config/arm/arm-tables.opt: Add entry for "exynos-m1".
+	* config/arm/bpabi.h: Likewise.
+
+2015-04-06  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* ipa-cp (set_single_call_flag): Remove too
+	restrictive assert.
+
+2015-04-06  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* config/i386/intelmic-mkoffload.c (generate_host_descr_file): Call
+	GOMP_offload_unregister from the destructor.
+
+2015-04-06  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* ipa-chkp.c (chkp_maybe_create_clone): Reset cdtor
+	flags for instrumentation thunk.
+	(chkp_produce_thunks): Likewise.
+
+2015-04-05  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/65665
+	* ipa-icf.c (sem_function::equals_wpa): Verify that IPA CP
+	has computed data structure.
+	(sem_item_optimizer::update_hash_by_addr_refs): Likewise.
+
+2015-04-04  Jan Hubicka  <hubicka@ucw.cz>
+
+	* invoke.texi (inline-unit-growth): Increase growth to 20%
+	* params.def (PARAM_INLINE_UNIT_GROWTH): Likewise.
+
+2015-04-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/65647
+	* lra-int.h (LRA_MAX_REMATERIALIZATION_PASSES): New.  Add its
+	value checking.
+	(lra_rematerialization_iter): New.
+	* lra.c (lra): Initialize lra_rematerialization_iter.
+	Stop updating lra_constraint_new_regno_start after switching of
+	inheritance and rematerialization.
+	* lra-remat.c (lra_rematerialization_iter): New.
+	(lra_remat): Add printing pass iteration.  Do rematerialization
+	only first LRA_MAX_REMATERIALIZATION_PASSES iterations.
+
+2015-04-04  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/64909
+	PR tree-optimization/65660
+	* tree-vectorizer.h (vect_get_known_peeling_cost): Adjust
+	to take a cost vector for scalar iteration cost.
+	(vect_get_single_scalar_iteration_cost): Likewise.
+	* tree-vect-loop.c (vect_get_single_scalar_iteration_cost):
+	Compute the scalar iteration cost into a cost vector.
+	(vect_get_known_peeling_cost): Use the scalar cost vector to
+	account for the cost of the peeled iterations.
+	(vect_estimate_min_profitable_iters): Likewise.
+	* tree-vect-data-refs.c (vect_peeling_hash_get_lowest_cost):
+	Likewise.
+
+2015-04-04  Alan Modra  <amodra@gmail.com>
+
+	PR target/65576
+	PR target/65240
+	* config/rs6000/predicates.md (zero_reg_mem_operand): Exclude
+	0.0 constant unless TARGET_VSX.
+	* config/rs6000/rs6000.md (extenddftf2_internal): Remove last
+	alternative.
+
+2015-04-03  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/65654
+	* ipa-inline-transform.c (inline_call): Skip sanity check to work
+	around the ICE
+
+2015-04-03  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/65655
+	* ipa-inline-analysis.c (edge_set_predicate): Do not redirect
+	speculative indirect edges to avoid ordering issue.
+
+2015-04-03  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/65076
+	* ipa-inline.c (edge_badness): Add combined size to the denominator.
+
+2015-04-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (scan_omp_parallel, scan_omp_task, scan_omp_target): Set
+	TYPE_ARTIFICIAL on the .omp_data* types.
+
+2015-04-02  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* cgraphunit.c (cgraph_node::expand_thunk): Don't expand
+	instrumentation thunks.
+
+2015-04-02  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* config/i386/i386.c (ix86_expand_call): Avoid nested
+	PARALLEL in returned call value.
+
+2015-04-02  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* lto-cgraph.c (input_cgraph_1): Always link instrumented
+	assembler name with original one.
+
+2015-04-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_register_priority): Use AX_REG.
+
+2015-04-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	Revert parts of r216820.
+	* config/i386/i386.md (movqi_internal): Correct type calculation
+	for alternatives 3 and 5.
+
+2015-04-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/61977
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Don't
+	predefine __vector/__bool/__pixel macros nor context sensitive
+	macros for CLK_ASM.
+	* config/spu/spu-c.c (spu_cpu_cpp_builtins): Similarly.
+
+2015-04-02  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_output_move_double): Directly handle register
+	indexed memory operand.  Simplify handling of scaled register indexed
+	memory operands.
+
+2015-04-02  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR driver/65444
+	* config/i386/linux-common.h (MPX_SPEC): New.
+	(CHKP_SPEC): Add MPX_SPEC.
+	* doc/invoke.texi (-fcheck-pointer-boudns): Document
+	possible issues with '-z bndplt' support in linker.
+
+2015-04-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sync.md (UNSPEC_FILD_ATOMIC, UNSPEC_FIST_ATOMIC): New.
+	(loaddi_via_fpu): Use UNSPEC_FILD_ATOMIC.
+	(storedi_via_fpu): Use UNSPEC_FIST_ATOMIC.
+	* reg-stack.c (get_true_reg): Change UNSPEC_LDA to UNSPEC_FILD_ATOMIC.
+	(subst_stack_regs_pat): Change UNSPEC_STA to UNSPEC_FIST_ATOMIC.
+
 2015-04-01  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/sync.md (UNSPEC_MOVA): Remove.
