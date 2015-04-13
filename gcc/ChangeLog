@@ -1,3 +1,271 @@
+2015-04-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-vrp.c (nonnull_arg_p): THIS pointers and references are non-zero.
+	(gimple_stmt_nonzero_warnv_p): Reference return values are non-zero.
+
+2015-04-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-profie.c (ipa_profile): Check number of parameters
+	and possible polymorphic call targets before
+	devirtualizing.
+
+2015-04-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*bmi2_umul<mode><dwi>3_1): Merge from
+	*bmi2_umulsidi3_1 and *bmi2_umulditi3_1 using DWIH mode iterator.
+
+2015-04-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/65204
+	* tree-ssa-ccp.c (evaluate_stmt): Always evaluate address
+	takens for bit-CCP.
+
+2015-04-13  Richard Biener  <rguenther@suse.de>
+
+	PR target/65660
+	* config/i386/i386.c (bdver1_cost): Double cond_taken_branch_cost
+	and cond_not_taken_branch_cost to 4 and 2.
+	(bdver2_cost): Likewise.
+	(bdver3_cost): Likewise.
+	(bdver4_cost): Likewise.
+
+2015-04-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	* hash-table.h (hash_table constructor): Add mem stats.
+	(alloc_entries): Likewise.
+
+2015-04-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-cp.c (ipcp_driver): Relase prev_edge.
+	* passes.c (execute_one_pass): Only add transform if pass has one.
+
+2015-04-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/i386/i386.c (ix86_option_override_internal): Don't set
+	-fprefetch-loop-arrays if optimizing for size.
+
+2015-04-12  Jan Hubicka  <hubicka@ucw.cz>
+	    Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/contrib.texi (Contributors): Add Martin Jambor and
+	Michael Matz.
+
+2015-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 6.0.0.
+
+	PR tree-optimization/65747
+	* ipa-icf-gimple.c (func_checker::compare_operand): Use compare_operand
+	rather than compare_ssa_name for OBJ_TYPE_REF_OBJECT.
+
+2015-04-12  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/invoke.texi (-Wmemset-transposed-args): Break a long
+	sentence.  Improve grammar.
+
+2015-04-12  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/contrib.texi (Contributors): Add Maxim Kuvyrkov.
+
+2015-04-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/65743
+	* ipa-inline-transform.c (speculation_removed): Remove static var.
+	(check_speculations): New function.
+	(clone_inlined_nodes): Do not check spculations.
+	(inline_call): Call check_speculations.
+	* ipa-prop.c (ipa_make_edge_direct_to_target): Do not
+	consider non-invariants.
+
+2015-04-11  Jan Hubicka  <hubicka@ucw.cz>
+	    Martin Liska  <mliska@suse.cz>
+
+	PR ipa/65722
+	* ipa-icf.c (sem_item::compare_cgraph_references): function and
+	variable can not match.
+	(sem_item::update_hash_by_addr_refs): Fix handling of virtual tables.
+	(sem_variable::equals_wpa): Fix checking of DECL_FINAL_P patch.
+
+2015-04-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/65735
+	* tree-ssa-threadedge.c (fsm_find_control_statement_thread_paths):
+	Remove visited_phis argument, add visited_bbs, avoid recursing into the
+	same bb rather than just into the same phi node.
+	(thread_through_normal_block): Adjust caller.
+
+2015-04-11  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/contrib.texi (Contributors): Add Ira Rosen.
+
+2015-04-11  Benno Schulenberg  <bensberg@justemail.net>
+
+	* gcov.c (find_source): Fix miswording in error message.
+	* config/i386/i386.c (ix86_handle_cconv_attribute): Likewise.
+	(ix86_expand_sse_comi_round): Fix typo in error message.
+
+2015-04-11  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/contrib.texi (Contributors): Add Laurynas Biveinis.
+
+2015-04-10  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/contrib.texi (Contributors): Update Joe Buck's entry.
+
+2015-04-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/65710
+	* lra-assigns.c (spill_for): Update smallest_bad_spills_num.
+	Print bad_spills_num and insn_pseudos_num.
+
+2015-04-10  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/65694
+	* config/arm/arm.c (arm_canonicalize_comparison): Use ARM_SIGN_EXTEND
+	when creating +1 values for SImode.
+
+2015-04-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/65729
+	* lra-constraints.c (prohibited_class_reg_set_mode_p): Comment the
+	assert.
+
+2015-04-10  Jakub Jelinek  <jakub@redhat.com>
+	    Iain Sandoe  <iain@codesourcery.com>
+
+	PR target/65351
+	* configure: Regenerate.
+
+2015-04-09  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/65671
+	* config/i386/sse.md: Generate vextract32x4 if AVX-512DQ is disabled.
+
+2015-04-09  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/contrib.texi (Contributors): Add John Marino.
+
+2015-04-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/65709
+	* ubsan.c (instrument_mem_ref): Use TREE_TYPE (base) instead of
+	TREE_TYPE (TREE_TYPE (t)).
+
+2015-04-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/65710
+	* lra-int.h (lra_bad_spill_regno_start): New.
+	* lra.c (lra_bad_spill_regno_start): New.
+	(lra): Set up lra_bad_spill_regno_start.  Set up
+	lra_constraint_new_regno_start unconditionally.
+	* lra-assigns.c (spill_for): Use lra_bad_spill_regno_start for
+	spill preferences.
+
+2015-04-09  Marek Polacek  <polacek@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/65554
+	* gimple-fold.c (gimple_fold_builtin_memory_op): Update comment.
+	(fold_ctor_reference): Use STRIP_USELESS_TYPE_CONVERSION instead
+	of STRIP_NOPS.
+
+2015-04-09  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/65693
+	* combine.c (is_parallel_of_n_reg_sets): Move outside of
+	#ifndef HAVE_cc0.
+
+2015-04-09  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/65296
+	* config/avr/driver-avr.c (avr_devicespecs_file): Don't specify a
+	device specs file if "device-specs%s" didn't resolve to a path.
+
+2015-04-09  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/65676
+	* config/i386/i386.c (fixup_modeless_constant): New.
+	(ix86_expand_args_builtin): Fixup modeless constant operand.
+	(ix86_expand_round_builtin): Ditto.
+	(ix86_expand_special_args_builtin): Ditto.
+	(ix86_expand_builtin): Ditto.
+
+2015-04-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/65693
+	* config/i386/i386.md (*udivmod<mode>4_pow2): Allow
+	any pow2 integer in between 2 and 0x80000000U inclusive.
+
+2015-04-08  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/65693
+	* combine.c (is_parallel_of_n_reg_sets): Change first argument
+	from an rtx_insn * to an rtx.
+	(try_combine): Adjust both callers.  Use it once more.
+
+2015-04-08  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-chkp.c (chkp_find_const_bounds_var): Remove.
+	(chkp_make_static_const_bounds): Search existing
+	symbol by assembler name.  Use make_decl_one_only.
+	(chkp_get_zero_bounds_var): Remove node	search which
+	is now performed in chkp_make_static_const_bounds.
+	(chkp_get_none_bounds_var): Likewise.
+
+2015-04-08  Michael Witten  <mfwitten@gmail.com>
+
+	* doc/extend.texi (Attribute Syntax): Add a trailing semicolon
+	to an example.
+
+2015-04-08  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	* tree.h (CONVERT_EXPR_P): Commentary typo fix.
+
+2015-04-08  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/extend.texi (__sync Builtins): Fix grammar.
+
+2015-04-08  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	* doc/cfg.texi (GIMPLE statement iterators): Fix typo.
+
+2015-04-08  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	* varasm.c (emit_local): Move definition of align.
+
+2015-04-08  Julian Brown  <julian@codesourcery.com>
+
+	* config/nvptx/mkoffload.c (process): Support variable mapping.
+
+2015-03-27  Trevor Saunders  <tbsaunde@tbsaunde.org>
+
+	* config/alpha/alpha.c (alpha_use_linkage): Change type of slot to
+	alpha_links **.
+	(alpha_write_one_linkage): Correct typo.
+
+2015-04-08  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* ipa-comdats.c (propagate_comdat_group): Walk through thunks.
+
+2015-04-08  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi (bootstrap-lto-noplugin): Rewrite.
+
+2015-04-08  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-chkp.h (chkp_insert_retbnd_call): New.
+	* tree-chkp.c (chkp_insert_retbnd_call): New.
+	* ipa-split.c (insert_bndret_call_after): Remove.
+	(split_function): Use chkp_insert_retbnd_call.
+	* cgraphunit.c (cgraph_node::expand_thunk): Build returned
+	bounds for instrumented functions.
+
+2015-04-07  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/65540
+	* calls.c (initialize_argument_information): When producing tail
+	call also turn SSA_NAMES passed by references to original PARM_DECLs
+
 2015-04-07  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR target/65648
@@ -423,8 +691,8 @@
 	memory_operand.
 
 	PR target/65052
-        * config/c6x/constraints.md (S3): New constraint.
-        * config/c6x/c6x.md (real_jump): Use it.
+	* config/c6x/constraints.md (S3): New constraint.
+	* config/c6x/c6x.md (real_jump): Use it.
 
 2015-03-26  Jan Hubicka  <hubicka@ucw.cz>
 
