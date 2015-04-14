@@ -18,6 +18,10 @@ FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 20)
 FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 21)
 FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 22)
 
+# Also xfailed in x86; Google b/20184248
+FAIL: 17_intro/headers/c++1998/complex.cc (test for excess errors)
+FAIL: 26_numerics/complex/c99.cc (test for excess errors)
+
 # AArch64-specific; appear to be missing "loop turned into non-loop; it never loops" output.
 FAIL: gcc.dg/unroll_1.c (test for warnings, line 14)
 FAIL: gcc.dg/unroll_1.c (test for warnings, line 24)

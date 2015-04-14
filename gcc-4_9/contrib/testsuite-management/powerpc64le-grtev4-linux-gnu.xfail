@@ -18,6 +18,10 @@ FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 20)
 FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 21)
 FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 22)
 
+# Also xfailed in x86; Google b/20184248
+FAIL: 17_intro/headers/c++1998/complex.cc (test for excess errors)
+FAIL: 26_numerics/complex/c99.cc (test for excess errors)
+
 # PPCle-specific.  From PR33512, still failing in truck despite resolved PR.
 FAIL: gcc.dg/and-1.c scan-assembler-not nand
 
