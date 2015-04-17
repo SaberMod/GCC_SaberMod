@@ -585,7 +585,8 @@ get_value_from_alignment (tree expr)
   val.mask = (POINTER_TYPE_P (type) || TYPE_UNSIGNED (type)
 	      ? wi::mask <widest_int> (TYPE_PRECISION (type), false)
 	      : -1).and_not (align / BITS_PER_UNIT - 1);
-  val.lattice_val = val.mask == -1 ? VARYING : CONSTANT;
+  val.lattice_val
+    = wi::sext (val.mask, TYPE_PRECISION (type)) == -1 ? VARYING : CONSTANT;
   if (val.lattice_val == CONSTANT)
     val.value = build_int_cstu (type, bitpos / BITS_PER_UNIT);
   else
@@ -645,6 +646,7 @@ static ccp_lattice_t
 likely_value (gimple stmt)
 {
   bool has_constant_operand, has_undefined_operand, all_undefined_operands;
+  bool has_nsa_operand;
   tree use;
   ssa_op_iter iter;
   unsigned i;
@@ -667,6 +669,7 @@ likely_value (gimple stmt)
   has_constant_operand = false;
   has_undefined_operand = false;
   all_undefined_operands = true;
+  has_nsa_operand = false;
   FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
     {
       ccp_prop_value_t *val = get_value (use);
@@ -678,6 +681,10 @@ likely_value (gimple stmt)
 
       if (val->lattice_val == CONSTANT)
 	has_constant_operand = true;
+
+      if (SSA_NAME_IS_DEFAULT_DEF (use)
+	  || !prop_simulate_again_p (SSA_NAME_DEF_STMT (use)))
+	has_nsa_operand = true;
     }
 
   /* There may be constants in regular rhs operands.  For calls we
@@ -750,8 +757,10 @@ likely_value (gimple stmt)
 
   /* We do not consider virtual operands here -- load from read-only
      memory may have only VARYING virtual operands, but still be
-     constant.  */
+     constant.  Also we can combine the stmt with definitions from
+     operands whose definitions are not simulated again.  */
   if (has_constant_operand
+      || has_nsa_operand
       || gimple_references_memory_p (stmt))
     return CONSTANT;
 
@@ -990,7 +999,7 @@ ccp_lattice_meet (ccp_prop_value_t *val1, ccp_prop_value_t *val2)
       val1->mask = (val1->mask | val2->mask
 		    | (wi::to_widest (val1->value)
 		       ^ wi::to_widest (val2->value)));
-      if (val1->mask == -1)
+      if (wi::sext (val1->mask, TYPE_PRECISION (TREE_TYPE (val1->value))) == -1)
 	{
 	  val1->lattice_val = VARYING;
 	  val1->value = NULL_TREE;
@@ -1499,10 +1508,10 @@ bit_value_unop (enum tree_code code, tree type, tree rhs)
 
   gcc_assert ((rval.lattice_val == CONSTANT
 	       && TREE_CODE (rval.value) == INTEGER_CST)
-	      || rval.mask == -1);
+	      || wi::sext (rval.mask, TYPE_PRECISION (TREE_TYPE (rhs))) == -1);
   bit_value_unop_1 (code, type, &value, &mask,
 		    TREE_TYPE (rhs), value_to_wide_int (rval), rval.mask);
-  if (mask != -1)
+  if (wi::sext (mask, TYPE_PRECISION (type)) != -1)
     {
       val.lattice_val = CONSTANT;
       val.mask = mask;
@@ -1540,14 +1549,16 @@ bit_value_binop (enum tree_code code, tree type, tree rhs1, tree rhs2)
 
   gcc_assert ((r1val.lattice_val == CONSTANT
 	       && TREE_CODE (r1val.value) == INTEGER_CST)
-	      || r1val.mask == -1);
+	      || wi::sext (r1val.mask,
+			   TYPE_PRECISION (TREE_TYPE (rhs1))) == -1);
   gcc_assert ((r2val.lattice_val == CONSTANT
 	       && TREE_CODE (r2val.value) == INTEGER_CST)
-	      || r2val.mask == -1);
+	      || wi::sext (r2val.mask,
+			   TYPE_PRECISION (TREE_TYPE (rhs2))) == -1);
   bit_value_binop_1 (code, type, &value, &mask,
 		     TREE_TYPE (rhs1), value_to_wide_int (r1val), r1val.mask,
 		     TREE_TYPE (rhs2), value_to_wide_int (r2val), r2val.mask);
-  if (mask != -1)
+  if (wi::sext (mask, TYPE_PRECISION (type)) != -1)
     {
       val.lattice_val = CONSTANT;
       val.mask = mask;
@@ -1596,7 +1607,7 @@ bit_value_assume_aligned (gimple stmt, tree attr, ccp_prop_value_t ptrval,
     return ptrval;
   gcc_assert ((ptrval.lattice_val == CONSTANT
 	       && TREE_CODE (ptrval.value) == INTEGER_CST)
-	      || ptrval.mask == -1);
+	      || wi::sext (ptrval.mask, TYPE_PRECISION (type)) == -1);
   if (attr == NULL_TREE)
     {
       /* Get aligni and misaligni from __builtin_assume_aligned.  */
@@ -1648,7 +1659,7 @@ bit_value_assume_aligned (gimple stmt, tree attr, ccp_prop_value_t ptrval,
   bit_value_binop_1 (BIT_AND_EXPR, type, &value, &mask,
 		     type, value_to_wide_int (ptrval), ptrval.mask,
 		     type, value_to_wide_int (alignval), alignval.mask);
-  if (mask != -1)
+  if (wi::sext (mask, TYPE_PRECISION (type)) != -1)
     {
       val.lattice_val = CONSTANT;
       val.mask = mask;
@@ -1761,35 +1772,28 @@ evaluate_stmt (gimple stmt)
 	{
 	  enum tree_code subcode = gimple_assign_rhs_code (stmt);
 	  tree rhs1 = gimple_assign_rhs1 (stmt);
-	  switch (get_gimple_rhs_class (subcode))
-	    {
-	    case GIMPLE_SINGLE_RHS:
-	      if (INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
-		  || POINTER_TYPE_P (TREE_TYPE (rhs1)))
-		val = get_value_for_expr (rhs1, true);
-	      break;
+	  tree lhs = gimple_assign_lhs (stmt);
+	  if ((INTEGRAL_TYPE_P (TREE_TYPE (lhs))
+	       || POINTER_TYPE_P (TREE_TYPE (lhs)))
+	      && (INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
+		  || POINTER_TYPE_P (TREE_TYPE (rhs1))))
+	    switch (get_gimple_rhs_class (subcode))
+	      {
+	      case GIMPLE_SINGLE_RHS:
+	        val = get_value_for_expr (rhs1, true);
+		break;
 
-	    case GIMPLE_UNARY_RHS:
-	      if ((INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
-		   || POINTER_TYPE_P (TREE_TYPE (rhs1)))
-		  && (INTEGRAL_TYPE_P (gimple_expr_type (stmt))
-		      || POINTER_TYPE_P (gimple_expr_type (stmt))))
-		val = bit_value_unop (subcode, gimple_expr_type (stmt), rhs1);
-	      break;
+	      case GIMPLE_UNARY_RHS:
+		val = bit_value_unop (subcode, TREE_TYPE (lhs), rhs1);
+		break;
 
-	    case GIMPLE_BINARY_RHS:
-	      if (INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
-		  || POINTER_TYPE_P (TREE_TYPE (rhs1)))
-		{
-		  tree lhs = gimple_assign_lhs (stmt);
-		  tree rhs2 = gimple_assign_rhs2 (stmt);
-		  val = bit_value_binop (subcode,
-					 TREE_TYPE (lhs), rhs1, rhs2);
-		}
-	      break;
+	      case GIMPLE_BINARY_RHS:
+		val = bit_value_binop (subcode, TREE_TYPE (lhs), rhs1,
+				       gimple_assign_rhs2 (stmt));
+		break;
 
-	    default:;
-	    }
+	      default:;
+	      }
 	}
       else if (code == GIMPLE_COND)
 	{
