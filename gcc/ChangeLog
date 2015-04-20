@@ -1,3 +1,84 @@
+2015-04-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/65805
+	* lra-eliminations.c (lra_eliminate_regs_1): Add new assert.
+	Don't use difference of offset and previous offset if
+	update_sp_offset is non-zero.
+	(eliminate_regs_in_insn): Ditto.
+	* lra-spills.c (remove_pseudos): Exchange 4th and 6th args in
+	lra_eliminate_regs_1 call.
+	* lra-constraints.c (get_equiv_with_elimination): Ditto.
+
+2015-04-18  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* hash-table.h: Remove version of hash_table that stored value_type *.
+	* asan.c, attribs.c, bitmap.c, cfg.c, cgraph.h, config/arm/arm.c,
+	config/i386/winnt.c, config/ia64/ia64.c, config/mips/mips.c,
+	config/sol2.c, coverage.c, cselib.c, dse.c, dwarf2cfi.c,
+	dwarf2out.c, except.c, gcse.c, genmatch.c, ggc-common.c,
+	gimple-ssa-strength-reduction.c, gimplify.c, haifa-sched.c,
+	hard-reg-set.h, hash-map.h, hash-set.h, ipa-devirt.c, ipa-icf.h,
+	ipa-profile.c, ira-color.c, ira-costs.c, loop-invariant.c,
+	loop-iv.c, loop-unroll.c, lto-streamer.h, plugin.c, postreload-gcse.c,
+	reginfo.c, statistics.c, store-motion.c, trans-mem.c, tree-cfg.c,
+	tree-eh.c, tree-hasher.h, tree-into-ssa.c, tree-parloops.c,
+	tree-sra.c, tree-ssa-coalesce.c, tree-ssa-dom.c, tree-ssa-live.c,
+	tree-ssa-loop-im.c, tree-ssa-loop-ivopts.c, tree-ssa-phiopt.c,
+	tree-ssa-pre.c, tree-ssa-reassoc.c, tree-ssa-sccvn.c,
+	tree-ssa-structalias.c, tree-ssa-tail-merge.c,
+	tree-ssa-threadupdate.c, tree-vectorizer.c, tree-vectorizer.h,
+	valtrack.h, var-tracking.c, vtable-verify.c, vtable-verify.h: Adjust.
+
+2015-04-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/65787
+	* config/rs6000/rs6000.c (rtx_is_swappable_p): Ensure that a
+	subsequent SH_NONE operand does not overwrite an existing *special
+	value.
+	(adjust_extract): Handle case where a vec_extract operation is
+	wrapped in a PARALLEL.
+
+2015-04-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/65780
+	* config/i386/i386.c (ix86_binds_local_p): Define only if
+	TARGET_MACHO and TARGET_DLLIMPORT_DECL_ATTRIBUTES are false.
+
+2015-04-17  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/47679
+	* Makefile.in (OBJS); Add tree-ssa-scopedtables.o.
+	* tree-ssa-scopedtables.c: New file.
+	* tree-ssa-scopedtables.h: New file.
+	* tree-ssa-dom.c: Include tree-ssa-scopedtables.h.
+	(const_and_copies): Change name/type.
+	(record_const_or_copy): Move into tree-ssa-scopedtables.c
+	(record_const_or_copy_1): Similarly.
+	(restore_vars_to_original_value): Similarly.
+	(pass_dominator::execute): Create and destroy const_and_copies table.
+	(thread_across_edge): Update passing of const_and_copies.
+	(record_temporary_equivalence): Use method calls rather than
+	manipulating const_and_copies directly.
+	(record_equality, cprop_into_successor_phis): Similarly.
+	(dom_opt_dom_walker::before_dom_children): Similarly.
+	(dom_opt_dom_walker::after_dom_children): Similarly.
+	(eliminate_redundant_computations): Similarly.
+	* tree-ssa-threadedge.c (remove_temporary_equivalences): Delete.
+	(record_temporary_equivalence): Likewise.
+	(invalidate_equivalences): Likewise.
+	(record_temporary_equivalences_from_phis): Update due to type
+	change of const_and_copies.  Use method calls rather than
+	manipulating the stack directly.
+	(record_temporary_equivalences_from_stmts_at_dest): Likewise.
+	(thread_through_normal_block, thread_across_edge): Likewise.
+	(thread_across_edge): Likewise.
+	* tree-ssa-threadedge.h (thread_across_edge): Update prototype.
+	* tree-vrp.c: Include tree-ssa-scopedtables.h.  Change type
+	of equiv_stack.
+	(identify_jump_threads): Update due to type change of equiv_stack.
+	(finalize_jump_threads): Delete the equiv_stack when complete.
+
 2015-04-17  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/i386.h (LEGITIMIZE_RELOAD_ADDRESS): Remove.
