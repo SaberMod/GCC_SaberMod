@@ -221,7 +221,7 @@ __gcov_indirect_call_profiler_atomic_v2 (gcov_type value, void* cur_func)
      the descriptors to see if they point to the same function.  */
   if (cur_func == __gcov_indirect_call_callee
       || (VTABLE_USES_DESCRIPTORS && __gcov_indirect_call_callee
-	  && *(void **) cur_func == *(void **) __gcov_indirect_call_callee))
+          && *(void **) cur_func == *(void **) __gcov_indirect_call_callee))
     __gcov_one_value_profiler_body_atomic (__gcov_indirect_call_counters, value);
 }
 
@@ -276,10 +276,10 @@ __gcov_topn_value_profiler_body (gcov_type *counters, gcov_type value,
    in_profiler = 1;
    __gthread_mutex_lock (&__indir_topn_val_mx);
 #endif
-   for ( i = 0; i < (topn_val << 2); i += 2)
+   for (i = 0; i < topn_val << 2; i += 2)
      {
        entry = &value_array[i];
-       if ( entry[0] == value)
+       if (entry[0] == value)
          {
            entry[1]++ ;
            found = 1;
@@ -310,50 +310,38 @@ __gcov_topn_value_profiler_body (gcov_type *counters, gcov_type value,
 
 #define GCOV_ICALL_COUNTER_CLEAR_THRESHOLD 3000
 
-   /* Too many evictions -- time to clear bottom entries to 
+   /* Too many evictions -- time to clear bottom entries to
       avoid hot values bumping each other out.  */
-   if ( !have_zero_count 
-        && ++*num_eviction >= GCOV_ICALL_COUNTER_CLEAR_THRESHOLD)
+   if (!have_zero_count
+       && ++*num_eviction >= GCOV_ICALL_COUNTER_CLEAR_THRESHOLD)
      {
        unsigned i, j;
-       gcov_type *p, minv;
-       gcov_type* tmp_cnts 
-           = (gcov_type *)alloca (topn_val * sizeof(gcov_type));
+       gcov_type **p;
+       gcov_type **tmp_cnts
+         = (gcov_type **)alloca (topn_val * sizeof(gcov_type *));
 
        *num_eviction = 0;
 
-       for ( i = 0; i < topn_val; i++ )
-         tmp_cnts[i] = 0;
-
        /* Find the largest topn_val values from the group of
-          2*topn_val values and put them into tmp_cnts. */
+          2*topn_val values and put the addresses into tmp_cnts.  */
+       for (i = 0; i < topn_val; i++)
+         tmp_cnts[i] = &value_array[i * 2 + 1];
 
-       for ( i = 0; i < 2 * topn_val; i += 2 ) 
+       for (i = topn_val * 2; i < topn_val << 2; i += 2)
          {
-           p = 0;
-           for ( j = 0; j < topn_val; j++ ) 
-             {
-               if ( !p || tmp_cnts[j] < *p ) 
-                  p = &tmp_cnts[j];
-             }
-            if ( value_array[i + 1] > *p )
-              *p = value_array[i + 1];
+           p = &tmp_cnts[0];
+           for (j = 1; j < topn_val; j++)
+             if (*tmp_cnts[j] > **p)
+               p = &tmp_cnts[j];
+           if (value_array[i + 1] < **p)
+             *p = &value_array[i + 1];
          }
 
-       minv = tmp_cnts[0];
-       for ( j = 1; j < topn_val; j++ )
+       /* Zero out low value entries.  */
+       for (i = 0; i < topn_val; i++)
          {
-           if (tmp_cnts[j] < minv)
-             minv = tmp_cnts[j];
-         }
-       /* Zero out low value entries  */
-       for ( i = 0; i < 2 * topn_val; i += 2 )
-         {
-           if (value_array[i + 1] < minv) 
-             {
-               value_array[i] = 0;
-               value_array[i + 1] = 0;
-             }
+           *tmp_cnts[i] = 0;
+           *(tmp_cnts[i] - 1) = 0;
          }
      }
 
@@ -364,7 +352,7 @@ __gcov_topn_value_profiler_body (gcov_type *counters, gcov_type value,
 }
 
 #if defined(HAVE_CC_TLS) && !defined (USE_EMUTLS)
-__thread 
+__thread
 #endif
 gcov_type *__gcov_indirect_call_topn_counters ATTRIBUTE_HIDDEN;
 
@@ -395,7 +383,7 @@ __gcov_indirect_call_topn_profiler (void *cur_func,
      the descriptors to see if they point to the same function.  */
   if (cur_func == callee_func
       || (VTABLE_USES_DESCRIPTORS && callee_func
-	  && *(void **) cur_func == *(void **) callee_func))
+         && *(void **) cur_func == *(void **) callee_func))
     {
       if (++__gcov_indirect_call_sampling_counter >= __gcov_lipo_sampling_period)
         {
