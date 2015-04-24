@@ -1,3 +1,22 @@
+2015-04-23  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65727
+	* lambda.c (maybe_resolve_dummy): Handle null return.
+
+2015-04-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65695
+	* cvt.c (cp_fold_convert): Avoid wrapping PTRMEM_CST in NOP_EXPR.
+
+	PR c++/65721
+	* name-lookup.c (do_class_using_decl): Complain about specifying
+	the current class even if there are dependent bases.
+
+2015-04-23  David Krauss  <david_work@me.com>
+
+	PR c++/59766
+	* decl.c (grokdeclarator): Do not flag friends with deduced return.
+
 2015-03-26  Mikhail Maltsev  <maltsevm@gmail.com>
 
 	PR c++/65154
