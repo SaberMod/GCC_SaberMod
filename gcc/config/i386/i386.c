@@ -3106,6 +3106,35 @@ set_ix86_tune_features (enum processor_type ix86_tune, bool dump)
 }
 
 
+/* Default align_* from the processor table.  */
+
+static void
+ix86_default_align (struct gcc_options *opts)
+{
+  if (opts->x_align_loops == 0)
+    {
+      opts->x_align_loops = processor_target_table[ix86_tune].align_loop;
+      align_loops_max_skip = processor_target_table[ix86_tune].align_loop_max_skip;
+    }
+  if (opts->x_align_jumps == 0)
+    {
+      opts->x_align_jumps = processor_target_table[ix86_tune].align_jump;
+      align_jumps_max_skip = processor_target_table[ix86_tune].align_jump_max_skip;
+    }
+  if (opts->x_align_functions == 0)
+    {
+      opts->x_align_functions = processor_target_table[ix86_tune].align_func;
+    }
+}
+
+/* Implement TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE hook.  */
+
+static void
+ix86_override_options_after_change (void)
+{
+  ix86_default_align (&global_options);
+}
+
 /* Override various settings based on options.  If MAIN_ARGS_P, the
    options are from the command line, otherwise they are from
    attributes.  */
@@ -3903,20 +3932,7 @@ ix86_option_override_internal (bool main_args_p,
     opts->x_ix86_regparm = REGPARM_MAX;
 
   /* Default align_* from the processor table.  */
-  if (opts->x_align_loops == 0)
-    {
-      opts->x_align_loops = processor_target_table[ix86_tune].align_loop;
-      align_loops_max_skip = processor_target_table[ix86_tune].align_loop_max_skip;
-    }
-  if (opts->x_align_jumps == 0)
-    {
-      opts->x_align_jumps = processor_target_table[ix86_tune].align_jump;
-      align_jumps_max_skip = processor_target_table[ix86_tune].align_jump_max_skip;
-    }
-  if (opts->x_align_functions == 0)
-    {
-      opts->x_align_functions = processor_target_table[ix86_tune].align_func;
-    }
+  ix86_default_align (opts);
 
   /* Provide default for -mbranch-cost= value.  */
   if (!opts_set->x_ix86_branch_cost)
@@ -51726,6 +51742,92 @@ ix86_binds_local_p (const_tree exp)
 }
 #endif
 
+/* If MEM is in the form of [base+offset], extract the two parts
+   of address and set to BASE and OFFSET, otherwise return false.  */
+
+static bool
+extract_base_offset_in_addr (rtx mem, rtx *base, rtx *offset)
+{
+  rtx addr;
+
+  gcc_assert (MEM_P (mem));
+
+  addr = XEXP (mem, 0);
+  
+  if (GET_CODE (addr) == CONST)
+    addr = XEXP (addr, 0);
+
+  if (REG_P (addr) || GET_CODE (addr) == SYMBOL_REF)
+    {
+      *base = addr;
+      *offset = const0_rtx;
+      return true;
+    }
+
+  if (GET_CODE (addr) == PLUS
+      && (REG_P (XEXP (addr, 0))
+	  || GET_CODE (XEXP (addr, 0)) == SYMBOL_REF)
+      && CONST_INT_P (XEXP (addr, 1)))
+    {
+      *base = XEXP (addr, 0);
+      *offset = XEXP (addr, 1);
+      return true;
+    }
+
+  return false;
+}
+
+/* Given OPERANDS of consecutive load/store, check if we can merge
+   them into move multiple.  LOAD is true if they are load instructions.
+   MODE is the mode of memory operands.  */
+
+bool
+ix86_operands_ok_for_move_multiple (rtx *operands, bool load,
+				    enum machine_mode mode)
+{
+  HOST_WIDE_INT offval_1, offval_2, msize;
+  rtx mem_1, mem_2, reg_1, reg_2, base_1, base_2, offset_1, offset_2;
+
+  if (load)
+    {
+      mem_1 = operands[1];
+      mem_2 = operands[3];
+      reg_1 = operands[0];
+      reg_2 = operands[2];
+    }
+  else
+    {
+      mem_1 = operands[0];
+      mem_2 = operands[2];
+      reg_1 = operands[1];
+      reg_2 = operands[3];
+    }
+
+  gcc_assert (REG_P (reg_1) && REG_P (reg_2));
+
+  if (REGNO (reg_1) != REGNO (reg_2))
+    return false;
+
+  /* Check if the addresses are in the form of [base+offset].  */
+  if (!extract_base_offset_in_addr (mem_1, &base_1, &offset_1))
+    return false;
+  if (!extract_base_offset_in_addr (mem_2, &base_2, &offset_2))
+    return false;
+
+  /* Check if the bases are the same.  */
+  if (!rtx_equal_p (base_1, base_2))
+    return false;
+
+  offval_1 = INTVAL (offset_1);
+  offval_2 = INTVAL (offset_2);
+  msize = GET_MODE_SIZE (mode);
+  /* Check if mem_1 is adjacent to mem_2 and mem_1 has lower address.  */
+  if (offval_1 + msize != offval_2)
+    return false;
+
+  return true;
+}
+
 /* Initialize the GCC target structure.  */
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY ix86_return_in_memory
@@ -52011,6 +52113,9 @@ ix86_binds_local_p (const_tree exp)
 
 #undef TARGET_PROMOTE_FUNCTION_MODE
 #define TARGET_PROMOTE_FUNCTION_MODE ix86_promote_function_mode
+
+#undef  TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE
+#define TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE ix86_override_options_after_change
 
 #undef TARGET_MEMBER_TYPE_FORCES_BLK
 #define TARGET_MEMBER_TYPE_FORCES_BLK ix86_member_type_forces_blk

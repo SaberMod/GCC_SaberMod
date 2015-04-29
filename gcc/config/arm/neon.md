@@ -1114,7 +1114,7 @@
 ;; lshrdi3_neon
 (define_insn_and_split "<shift>di3_neon"
   [(set (match_operand:DI 0 "s_register_operand"	     "= w, w,?&r,?r,?w,?w")
-	(rshifts:DI (match_operand:DI 1 "s_register_operand" " 0w, w, 0r, r,0w, w")
+	(RSHIFTS:DI (match_operand:DI 1 "s_register_operand" " 0w, w, 0r, r,0w, w")
 		    (match_operand:SI 2 "reg_or_int_operand" "  r, i,  r, i, r, i")))
    (clobber (match_scratch:SI 3				     "=2r, X, &r, X,2r, X"))
    (clobber (match_scratch:SI 4				     "= X, X, &r, X, X, X"))
@@ -1194,71 +1194,6 @@
   [(set_attr "type" "neon_add_widen")]
 )
 
-;; VEXT can be used to synthesize coarse whole-vector shifts with 8-bit
-;; shift-count granularity. That's good enough for the middle-end's current
-;; needs.
-
-;; Note that it's not safe to perform such an operation in big-endian mode,
-;; due to element-ordering issues.
-
-(define_expand "vec_shr_<mode>"
-  [(match_operand:VDQ 0 "s_register_operand" "")
-   (match_operand:VDQ 1 "s_register_operand" "")
-   (match_operand:SI 2 "const_multiple_of_8_operand" "")]
-  "TARGET_NEON && !BYTES_BIG_ENDIAN"
-{
-  rtx zero_reg;
-  HOST_WIDE_INT num_bits = INTVAL (operands[2]);
-  const int width = GET_MODE_BITSIZE (<MODE>mode);
-  const machine_mode bvecmode = (width == 128) ? V16QImode : V8QImode;
-  rtx (*gen_ext) (rtx, rtx, rtx, rtx) =
-    (width == 128) ? gen_neon_vextv16qi : gen_neon_vextv8qi;
-
-  if (num_bits == width)
-    {
-      emit_move_insn (operands[0], operands[1]);
-      DONE;
-    }
-
-  zero_reg = force_reg (bvecmode, CONST0_RTX (bvecmode));
-  operands[0] = gen_lowpart (bvecmode, operands[0]);
-  operands[1] = gen_lowpart (bvecmode, operands[1]);
-
-  emit_insn (gen_ext (operands[0], operands[1], zero_reg,
-		      GEN_INT (num_bits / BITS_PER_UNIT)));
-  DONE;
-})
-
-(define_expand "vec_shl_<mode>"
-  [(match_operand:VDQ 0 "s_register_operand" "")
-   (match_operand:VDQ 1 "s_register_operand" "")
-   (match_operand:SI 2 "const_multiple_of_8_operand" "")]
-  "TARGET_NEON && !BYTES_BIG_ENDIAN"
-{
-  rtx zero_reg;
-  HOST_WIDE_INT num_bits = INTVAL (operands[2]);
-  const int width = GET_MODE_BITSIZE (<MODE>mode);
-  const machine_mode bvecmode = (width == 128) ? V16QImode : V8QImode;
-  rtx (*gen_ext) (rtx, rtx, rtx, rtx) =
-    (width == 128) ? gen_neon_vextv16qi : gen_neon_vextv8qi;
-
-  if (num_bits == 0)
-    {
-      emit_move_insn (operands[0], CONST0_RTX (<MODE>mode));
-      DONE;
-    }
-
-  num_bits = width - num_bits;
-
-  zero_reg = force_reg (bvecmode, CONST0_RTX (bvecmode));
-  operands[0] = gen_lowpart (bvecmode, operands[0]);
-  operands[1] = gen_lowpart (bvecmode, operands[1]);
-
-  emit_insn (gen_ext (operands[0], zero_reg, operands[1],
-		      GEN_INT (num_bits / BITS_PER_UNIT)));
-  DONE;
-})
-
 ;; Helpers for quad-word reduction operations
 
 ; Add (or smin, smax...) the low N/2 elements of the N-element vector
@@ -1267,7 +1202,7 @@
 
 (define_insn "quad_halves_<code>v4si"
   [(set (match_operand:V2SI 0 "s_register_operand" "=w")
-        (vqh_ops:V2SI
+        (VQH_OPS:V2SI
           (vec_select:V2SI (match_operand:V4SI 1 "s_register_operand" "w")
                            (parallel [(const_int 0) (const_int 1)]))
           (vec_select:V2SI (match_dup 1)
@@ -1280,7 +1215,7 @@
 
 (define_insn "quad_halves_<code>v4sf"
   [(set (match_operand:V2SF 0 "s_register_operand" "=w")
-        (vqhs_ops:V2SF
+        (VQHS_OPS:V2SF
           (vec_select:V2SF (match_operand:V4SF 1 "s_register_operand" "w")
                            (parallel [(const_int 0) (const_int 1)]))
           (vec_select:V2SF (match_dup 1)
@@ -1293,7 +1228,7 @@
 
 (define_insn "quad_halves_<code>v8hi"
   [(set (match_operand:V4HI 0 "s_register_operand" "+w")
-        (vqh_ops:V4HI
+        (VQH_OPS:V4HI
           (vec_select:V4HI (match_operand:V8HI 1 "s_register_operand" "w")
                            (parallel [(const_int 0) (const_int 1)
 				      (const_int 2) (const_int 3)]))
@@ -1308,7 +1243,7 @@
 
 (define_insn "quad_halves_<code>v16qi"
   [(set (match_operand:V8QI 0 "s_register_operand" "+w")
-        (vqh_ops:V8QI
+        (VQH_OPS:V8QI
           (vec_select:V8QI (match_operand:V16QI 1 "s_register_operand" "w")
                            (parallel [(const_int 0) (const_int 1)
 				      (const_int 2) (const_int 3)

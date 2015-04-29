@@ -1989,14 +1989,23 @@ fixup_attribute_variants (tree t)
   if (!t)
     return;
 
+  tree attrs = TYPE_ATTRIBUTES (t);
+  unsigned align = TYPE_ALIGN (t);
+  bool user_align = TYPE_USER_ALIGN (t);
+
   for (variants = TYPE_NEXT_VARIANT (t);
        variants;
        variants = TYPE_NEXT_VARIANT (variants))
     {
       /* These are the two fields that check_qualified_type looks at and
 	 are affected by attributes.  */
-      TYPE_ATTRIBUTES (variants) = TYPE_ATTRIBUTES (t);
-      TYPE_ALIGN (variants) = TYPE_ALIGN (t);
+      TYPE_ATTRIBUTES (variants) = attrs;
+      unsigned valign = align;
+      if (TYPE_USER_ALIGN (variants))
+	valign = MAX (valign, TYPE_ALIGN (variants));
+      else
+	TYPE_USER_ALIGN (variants) = user_align;
+      TYPE_ALIGN (variants) = valign;
     }
 }
 
@@ -6258,7 +6267,7 @@ layout_class_type (tree t, tree *virtuals_p)
 		padding = size_binop (MINUS_EXPR, DECL_SIZE (field),
 				      TYPE_SIZE (integer_type));
 	    }
-#ifdef PCC_BITFIELD_TYPE_MATTERS
+
 	  /* An unnamed bitfield does not normally affect the
 	     alignment of the containing class on a target where
 	     PCC_BITFIELD_TYPE_MATTERS.  But, the C++ ABI does not
@@ -6270,7 +6279,7 @@ layout_class_type (tree t, tree *virtuals_p)
 	      was_unnamed_p = true;
 	      DECL_NAME (field) = make_anon_name ();
 	    }
-#endif
+
 	  DECL_SIZE (field) = TYPE_SIZE (integer_type);
 	  DECL_ALIGN (field) = TYPE_ALIGN (integer_type);
 	  DECL_USER_ALIGN (field) = TYPE_USER_ALIGN (integer_type);
