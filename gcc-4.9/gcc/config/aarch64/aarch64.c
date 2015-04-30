@@ -5120,6 +5120,7 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
 
           if (CONST_DOUBLE_P (op1) && aarch64_float_const_zero_rtx_p (op1))
             {
+              *cost += rtx_cost (op0, COMPARE, 0, speed);
               /* FCMP supports constant 0.0 for no extra cost. */
               return true;
             }
@@ -5134,6 +5135,8 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
 	op1 = XEXP (x, 1);
 
 cost_minus:
+	*cost += rtx_cost (op0, MINUS, 0, speed);
+
 	/* Detect valid immediates.  */
 	if ((GET_MODE_CLASS (mode) == MODE_INT
 	     || (GET_MODE_CLASS (mode) == MODE_CC
@@ -5141,13 +5144,10 @@ cost_minus:
 	    && CONST_INT_P (op1)
 	    && aarch64_uimm12_shift (INTVAL (op1)))
 	  {
-	    *cost += rtx_cost (op0, MINUS, 0, speed);
-
 	    if (speed)
 	      /* SUB(S) (immediate).  */
 	      *cost += extra_cost->alu.arith;
 	    return true;
-
 	  }
 
 	/* Look for SUB (extended register).  */
@@ -5172,7 +5172,6 @@ cost_minus:
 	    *cost += aarch64_rtx_mult_cost (new_op1, MULT,
 					    (enum rtx_code) code,
 					    speed);
-	    *cost += rtx_cost (op0, MINUS, 0, speed);
 	    return true;
 	  }
 
@@ -5219,6 +5218,8 @@ cost_plus:
 	    return true;
 	  }
 
+	*cost += rtx_cost (op1, PLUS, 1, speed);
+
 	/* Look for ADD (extended register).  */
         if (aarch64_rtx_arith_op_extract_p (op0, mode))
 	  {
@@ -5240,12 +5241,10 @@ cost_plus:
 	  {
 	    *cost += aarch64_rtx_mult_cost (new_op0, MULT, PLUS,
 					    speed);
-	    *cost += rtx_cost (op1, PLUS, 1, speed);
 	    return true;
 	  }
 
-	*cost += (rtx_cost (new_op0, PLUS, 0, speed)
-		  + rtx_cost (op1, PLUS, 1, speed));
+	*cost += rtx_cost (new_op0, PLUS, 0, speed);
 
 	if (speed)
 	  {
@@ -5331,13 +5330,45 @@ cost_plus:
       return false;
 
     case NOT:
+      x = XEXP (x, 0);
+      op0 = aarch64_strip_shift (x);
+
+      /* MVN-shifted-reg.  */
+      if (op0 != x)
+        {
+          *cost += rtx_cost (op0, (enum rtx_code) code, 0, speed);
+
+          if (speed)
+            *cost += extra_cost->alu.log_shift;
+
+          return true;
+        }
+      /* EON can have two forms: (xor (not a) b) but also (not (xor a b)).
+         Handle the second form here taking care that 'a' in the above can
+         be a shift.  */
+      else if (GET_CODE (op0) == XOR)
+        {
+          rtx newop0 = XEXP (op0, 0);
+          rtx newop1 = XEXP (op0, 1);
+          rtx op0_stripped = aarch64_strip_shift (newop0);
+
+          *cost += rtx_cost (newop1, (enum rtx_code) code, 1, speed)
+                   + rtx_cost (op0_stripped, XOR, 0, speed);
+
+          if (speed)
+            {
+              if (op0_stripped != newop0)
+                *cost += extra_cost->alu.log_shift;
+              else
+                *cost += extra_cost->alu.logical;
+            }
+
+          return true;
+        }
       /* MVN.  */
       if (speed)
 	*cost += extra_cost->alu.logical;
 
-      /* The logical instruction could have the shifted register form,
-         but the cost is the same if the shift is processed as a separate
-         instruction, so we don't bother with it here.  */
       return false;
 
     case ZERO_EXTEND:
@@ -5672,7 +5703,19 @@ cost_plus:
     case ABS:
       if (GET_MODE_CLASS (mode) == MODE_FLOAT)
 	{
-	  /* FABS and FNEG are analogous.  */
+	  op0 = XEXP (x, 0);
+
+	  /* FABD, which is analogous to FADD.  */
+	  if (GET_CODE (op0) == MINUS)
+	    {
+	      *cost += rtx_cost (XEXP (op0, 0), MINUS, 0, speed);
+			+ rtx_cost (XEXP (op0, 1), MINUS, 1, speed);
+	      if (speed)
+		*cost += extra_cost->fp[mode == DFmode].addsub;
+
+	      return true;
+	    }
+	  /* Simple FABS is analogous to FNEG.  */
 	  if (speed)
 	    *cost += extra_cost->fp[mode == DFmode].neg;
 	}
@@ -5867,15 +5910,9 @@ aarch64_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
 
       /* Statements in an inner loop relative to the loop being
 	 vectorized are weighted more heavily.  The value here is
-	 a function (linear for now) of the loop nest level.  */
+	 arbitrary and could potentially be improved with analysis.  */
       if (where == vect_body && stmt_info && stmt_in_inner_loop_p (stmt_info))
-	{
-	  loop_vec_info loop_info = STMT_VINFO_LOOP_VINFO (stmt_info);
-	  struct loop *loop =  LOOP_VINFO_LOOP (loop_info);
-	  unsigned nest_level = loop_depth (loop);
-
-	  count *= nest_level;
-	}
+	count *= 50; /*  FIXME  */
 
       retval = (unsigned) (count * stmt_cost);
       cost[where] += retval;

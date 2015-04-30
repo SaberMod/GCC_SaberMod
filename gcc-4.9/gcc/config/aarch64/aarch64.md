@@ -2571,6 +2571,32 @@
   [(set_attr "type" "logics_shift_imm")]
 )
 
+(define_insn "*eor_one_cmpl_<SHIFT:optab><mode>3_alt"
+  [(set (match_operand:GPI 0 "register_operand" "=r")
+	(not:GPI (xor:GPI
+		      (SHIFT:GPI
+		       (match_operand:GPI 1 "register_operand" "r")
+		       (match_operand:QI 2 "aarch64_shift_imm_<mode>" "n"))
+		     (match_operand:GPI 3 "register_operand" "r"))))]
+  ""
+  "eon\\t%<w>0, %<w>3, %<w>1, <SHIFT:shift> %2"
+  [(set_attr "type" "logic_shift_imm")]
+)
+
+;; Zero-extend version of the above.
+(define_insn "*eor_one_cmpl_<SHIFT:optab>sidi3_alt_ze"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(zero_extend:DI
+	  (not:SI (xor:SI
+		    (SHIFT:SI
+		      (match_operand:SI 1 "register_operand" "r")
+		      (match_operand:QI 2 "aarch64_shift_imm_si" "n"))
+		    (match_operand:SI 3 "register_operand" "r")))))]
+  ""
+  "eon\\t%w0, %w3, %w1, <SHIFT:shift> %2"
+  [(set_attr "type" "logic_shift_imm")]
+)
+
 (define_insn "*and_one_cmpl_<SHIFT:optab><mode>3_compare0"
   [(set (reg:CC_NZ CC_REGNUM)
 	(compare:CC_NZ
@@ -2771,32 +2797,33 @@
 
 ;; Logical left shift using SISD or Integer instruction
 (define_insn "*aarch64_ashl_sisd_or_int_<mode>3"
-  [(set (match_operand:GPI 0 "register_operand" "=w,w,r")
+  [(set (match_operand:GPI 0 "register_operand" "=r,w,w")
         (ashift:GPI
-          (match_operand:GPI 1 "register_operand" "w,w,r")
-          (match_operand:QI 2 "aarch64_reg_or_shift_imm_<mode>" "Us<cmode>,w,rUs<cmode>")))]
+          (match_operand:GPI 1 "register_operand" "r,w,w")
+          (match_operand:QI 2 "aarch64_reg_or_shift_imm_<mode>" "rUs<cmode>,Us<cmode>,w")))]
   ""
   "@
+   lsl\t%<w>0, %<w>1, %<w>2
    shl\t%<rtn>0<vas>, %<rtn>1<vas>, %2
-   ushl\t%<rtn>0<vas>, %<rtn>1<vas>, %<rtn>2<vas>
-   lsl\t%<w>0, %<w>1, %<w>2"
-  [(set_attr "simd" "yes,yes,no")
-   (set_attr "type" "neon_shift_imm<q>, neon_shift_reg<q>,shift_reg")]
+   ushl\t%<rtn>0<vas>, %<rtn>1<vas>, %<rtn>2<vas>"
+  [(set_attr "simd" "no,yes,yes")
+   (set_attr "type" "shift_reg,neon_shift_imm<q>, neon_shift_reg<q>")]
 )
 
 ;; Logical right shift using SISD or Integer instruction
 (define_insn "*aarch64_lshr_sisd_or_int_<mode>3"
-  [(set (match_operand:GPI 0 "register_operand" "=w,&w,r")
+  [(set (match_operand:GPI 0 "register_operand" "=r,w,&w,&w")
         (lshiftrt:GPI
-          (match_operand:GPI 1 "register_operand" "w,w,r")
-          (match_operand:QI 2 "aarch64_reg_or_shift_imm_<mode>" "Us<cmode>,w,rUs<cmode>")))]
+          (match_operand:GPI 1 "register_operand" "r,w,w,w")
+          (match_operand:QI 2 "aarch64_reg_or_shift_imm_<mode>" "rUs<cmode>,Us<cmode>,w,0")))]
   ""
   "@
+   lsr\t%<w>0, %<w>1, %<w>2
    ushr\t%<rtn>0<vas>, %<rtn>1<vas>, %2
    #
-   lsr\t%<w>0, %<w>1, %<w>2"
-  [(set_attr "simd" "yes,yes,no")
-   (set_attr "type" "neon_shift_imm<q>,neon_shift_reg<q>,shift_reg")]
+   #"
+  [(set_attr "simd" "no,yes,yes,yes")
+   (set_attr "type" "shift_reg,neon_shift_imm<q>,neon_shift_reg<q>,neon_shift_reg<q>")]
 )
 
 (define_split
@@ -2831,18 +2858,18 @@
 
 ;; Arithmetic right shift using SISD or Integer instruction
 (define_insn "*aarch64_ashr_sisd_or_int_<mode>3"
-  [(set (match_operand:GPI 0 "register_operand" "=w,&w,&w,r")
+  [(set (match_operand:GPI 0 "register_operand" "=r,w,&w,&w")
         (ashiftrt:GPI
-          (match_operand:GPI 1 "register_operand" "w,w,w,r")
-          (match_operand:QI 2 "aarch64_reg_or_shift_imm_di" "Us<cmode>,w,0,rUs<cmode>")))]
+          (match_operand:GPI 1 "register_operand" "r,w,w,w")
+          (match_operand:QI 2 "aarch64_reg_or_shift_imm_di" "rUs<cmode>,Us<cmode>,w,0")))]
   ""
   "@
+   asr\t%<w>0, %<w>1, %<w>2
    sshr\t%<rtn>0<vas>, %<rtn>1<vas>, %2
    #
-   #
-   asr\t%<w>0, %<w>1, %<w>2"
-  [(set_attr "simd" "yes,yes,yes,no")
-   (set_attr "type" "neon_shift_imm<q>,neon_shift_reg<q>,neon_shift_reg<q>,shift_reg")]
+   #"
+  [(set_attr "simd" "no,yes,yes,yes")
+   (set_attr "type" "shift_reg,neon_shift_imm<q>,neon_shift_reg<q>,neon_shift_reg<q>")]
 )
 
 (define_split
