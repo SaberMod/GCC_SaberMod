@@ -1,3 +1,29 @@
+2015-05-02  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/65976
+	* invoke.texi:  Remove 'no-' in '-fno-fixed-form'
+
+2015-05-01  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* simplify.c (simplify_bound_dim): Tighten the check for array fullness
+	by also checking for absence of subreference.
+	(simplify_bound): Don't skip simplification if the array
+	has subreferences.
+	(simplify_cobound): Same.
+
+2015-04-30  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/37131
+	* simplify.c (simplify_bound): Get constant lower bounds of one
+	from array spec for assumed and explicit shape shape arrays if
+	the lower bounds are indeed one.
+
+2015-04-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* options.c (gfc_init_options): Remove spurious second
+	semicolon.
+	* trans-stmt.c (gfc_trans_allocate): Likewise.
+
 2015-04-28  Andre Vehreschild  <vehre@gmx.de>
 
 	* interface.c (gfc_compare_types): Check for unlimited

@@ -4754,7 +4754,7 @@ expand_builtin_trap (void)
 #ifdef HAVE_trap
   if (HAVE_trap)
     {
-      rtx insn = emit_insn (gen_trap ());
+      rtx_insn *insn = emit_insn (gen_trap ());
       /* For trap insns when not accumulating outgoing args force
 	 REG_ARGS_SIZE note to prevent crossjumping of calls with
 	 different args sizes.  */
@@ -9964,7 +9964,7 @@ fold_builtin_1 (location_t loc, tree fndecl, tree arg0)
     CASE_FLT_FN (BUILT_IN_CREAL):
       if (validate_arg (arg0, COMPLEX_TYPE)
 	&& TREE_CODE (TREE_TYPE (TREE_TYPE (arg0))) == REAL_TYPE)
-	return non_lvalue_loc (loc, fold_build1_loc (loc, REALPART_EXPR, type, arg0));;
+	return non_lvalue_loc (loc, fold_build1_loc (loc, REALPART_EXPR, type, arg0));
     break;
 
     CASE_FLT_FN (BUILT_IN_CIMAG):

@@ -906,6 +906,8 @@ Build_connection_graphs::handle_composite_literal(Named_object* object,
 	continue;
       else if ((*p)->call_expression() != NULL)
 	this->handle_call(object, *p);
+      else if ((*p)->func_expression() != NULL)
+	composite_args.push_back((*p)->func_expression()->named_object());
       else if ((*p)->is_composite_literal()
 	       || (*p)->heap_expression() != NULL)
 	this->handle_composite_literal(object, *p);
@@ -949,21 +951,24 @@ Build_connection_graphs::variable(Named_object* var)
 	   p != defs->end();
 	   ++p)
 	{
-	  if (p->val == NULL)
+	  Expression* def = p->val;
+	  if (def == NULL)
 	    continue;
 
-	  if (p->val->func_expression() != NULL)
+	  if (def->conversion_expression() != NULL)
+	    def = def->conversion_expression()->expr();
+	  if (def->func_expression() != NULL)
 	    {
 	      // VAR is being defined as a function object.
-	      Named_object* fn = p->val->func_expression()->named_object();
+	      Named_object* fn = def->func_expression()->named_object();
 	      Node* fn_node = this->gogo_->add_connection_node(fn);
 	      var_node->add_edge(fn_node);
 	    }
-	  else if(p->val->is_composite_literal()
-		  || p->val->heap_expression() != NULL)
-	    this->handle_composite_literal(var, p->val);
+	  else if(def->is_composite_literal()
+		  || def->heap_expression() != NULL)
+	    this->handle_composite_literal(var, def);
 
-	  Named_object* ref = this->resolve_var_reference(p->val);
+	  Named_object* ref = this->resolve_var_reference(def);
 	  if (ref == NULL)
 	    continue;
 
@@ -989,21 +994,21 @@ Build_connection_graphs::variable(Named_object* var)
 	      Named_object* lhs_no = this->resolve_var_reference(assn->lhs());
 	      Named_object* rhs_no = this->resolve_var_reference(assn->rhs());
 
-	      if (assn->rhs()->is_composite_literal()
-		  || assn->rhs()->heap_expression() != NULL)
-		this->handle_composite_literal(var, assn->rhs());
-	      else if (assn->rhs()->call_result_expression() != NULL)
+	      Expression* rhs = assn->rhs();
+	      if (rhs->is_composite_literal()
+		  || rhs->heap_expression() != NULL)
+		this->handle_composite_literal(var, rhs);
+
+	      if (rhs->call_result_expression() != NULL)
 		{
 		  // V's initialization will be a call result if
 		  // V, V1 := call(VAR).
 		  // There are no useful edges to make from V, but we want
 		  // to make sure we handle the call that references VAR.
-		  Expression* call =
-		    assn->rhs()->call_result_expression()->call();
-		  this->handle_call(var, call);
+		  rhs = rhs->call_result_expression()->call();
 		}
-	      else if (assn->rhs()->call_expression() != NULL)
-		this->handle_call(var, assn->rhs());
+	      if (rhs->call_expression() != NULL)
+		this->handle_call(var, rhs);
 
 	      // If there is no standalone variable on the rhs, this could be a
 	      // binary expression, which isn't interesting for analysis or a
@@ -1038,8 +1043,12 @@ Build_connection_graphs::variable(Named_object* var)
 	    break;
 
 	  case Statement::STATEMENT_EXPRESSION:
-	    this->handle_call(var,
-	    		      p->statement->expression_statement()->expr());
+	    {
+	      Expression* call = p->statement->expression_statement()->expr();
+	      if (call->call_result_expression() != NULL)
+		call = call->call_result_expression()->call();
+	      this->handle_call(var, call);
+	    }
 	    break;
 
 	  case Statement::STATEMENT_GO:
@@ -1064,10 +1073,17 @@ Build_connection_graphs::variable(Named_object* var)
 	      else if (cond->binary_expression() != NULL)
 		{
 		  Binary_expression* comp = cond->binary_expression();
-		  if (comp->left()->call_expression() != NULL)
-		    this->handle_call(var, comp->left());
-		  if (comp->right()->call_expression() != NULL)
-		    this->handle_call(var, comp->right());
+		  Expression* left = comp->left();
+		  Expression* right = comp->right();
+
+		  if (left->call_result_expression() != NULL)
+		    left = left->call_result_expression()->call();
+		  if (left->call_expression() != NULL)
+		    this->handle_call(var, left);
+		  if (right->call_result_expression() != NULL)
+		    right = right->call_result_expression()->call();
+		  if (right->call_expression() != NULL)
+		    this->handle_call(var, right);
 		}
 	    }
 	    break;
@@ -1092,16 +1108,10 @@ Build_connection_graphs::variable(Named_object* var)
 		  // composite literal.
 		  this->handle_composite_literal(decl_no, init);
 		}
-	      else if (init->call_result_expression() != NULL)
-		{
-		  // V's initialization will be a call result if
-		  // V, V1 := call(VAR).
-		  // There's no useful edges to make from V or V1, but we want
-		  // to make sure we handle the call that references VAR.
-		  Expression* call = init->call_result_expression()->call();
-		  this->handle_call(var, call);
-		}
-	      else if (init->call_expression() != NULL)
+
+	      if (init->call_result_expression() != NULL)
+		init = init->call_result_expression()->call();
+	      if (init->call_expression() != NULL)
 		this->handle_call(var, init);
 	    }
 	    break;
@@ -1148,18 +1158,46 @@ Build_connection_graphs::statement(Block*, size_t*, Statement* s)
       if (lhs_no == NULL)
 	break;
 
-      if (assn->rhs()->func_expression() != NULL)
+      Expression* rhs = assn->rhs();
+      if (rhs->temporary_reference_expression() != NULL)
+	rhs = rhs->temporary_reference_expression()->statement()->init();
+      if (rhs == NULL)
+	break;
+
+      if (rhs->call_result_expression() != NULL)
+	rhs = rhs->call_result_expression()->call();
+      if (rhs->call_expression() != NULL)
+	{
+	  // It's not clear what variables we are trying to find references to
+	  // so just use the arguments to this call.
+	  Expression_list* args = rhs->call_expression()->args();
+	  if (args == NULL)
+	    break;
+
+	  for (Expression_list::const_iterator p = args->begin();
+	       p != args->end();
+	       ++p)
+	    {
+	      Named_object* no = this->resolve_var_reference(*p);
+	      if (no != NULL) {
+		Node* lhs_node = this->gogo_->add_connection_node(lhs_no);
+		Node* rhs_node = this->gogo_->add_connection_node(no);
+		lhs_node->add_edge(rhs_node);
+	      }
+	    }
+
+	  this->handle_call(lhs_no, rhs);
+	}
+      else if (rhs->func_expression() != NULL)
 	{
 	  Node* lhs_node = this->gogo_->add_connection_node(lhs_no);
-	  Named_object* fn = assn->rhs()->func_expression()->named_object();
+	  Named_object* fn = rhs->func_expression()->named_object();
 	  Node* fn_node = this->gogo_->add_connection_node(fn);
 	  lhs_node->add_edge(fn_node);
 	}
-      else if (assn->rhs()->call_expression() != NULL)
-	this->handle_call(lhs_no, assn->rhs()->call_expression());
       else
 	{
-	  Named_object* rhs_no = this->resolve_var_reference(assn->rhs());
+	  Named_object* rhs_no = this->resolve_var_reference(rhs);
 	  if (rhs_no != NULL)
 	    {
 	      Node* lhs_node = this->gogo_->add_connection_node(lhs_no);
@@ -1188,6 +1226,8 @@ Build_connection_graphs::statement(Block*, size_t*, Statement* s)
   case Statement::STATEMENT_EXPRESSION:
     {
       Expression* expr = s->expression_statement()->expr();
+      if (expr->call_result_expression() != NULL)
+	expr = expr->call_result_expression()->call();
       if (expr->call_expression() != NULL)
 	{
 	  // It's not clear what variables we are trying to find references to
@@ -1203,6 +1243,73 @@ Build_connection_graphs::statement(Block*, size_t*, Statement* s)
 	      Named_object* no = this->resolve_var_reference(*p);
 	      if (no != NULL)
 		this->handle_call(no, expr);
+	    }
+	}
+    }
+    break;
+
+  case Statement::STATEMENT_GO:
+  case Statement::STATEMENT_DEFER:
+    {
+      // Any variable referenced via a go or defer statement escapes to
+      // a different goroutine.
+      Expression* call = s->thunk_statement()->call();
+      if (call->call_expression() != NULL)
+	{
+	  // It's not clear what variables we are trying to find references to
+	  // so just use the arguments to this call.
+	  Expression_list* args = call->call_expression()->args();
+	  if (args == NULL)
+	    break;
+
+	  for (Expression_list::const_iterator p = args->begin();
+	       p != args->end();
+	       ++p)
+	    {
+	      Named_object* no = this->resolve_var_reference(*p);
+	      if (no != NULL)
+		this->handle_call(no, call);
+	    }
+	}
+    }
+    break;
+
+  case Statement::STATEMENT_VARIABLE_DECLARATION:
+    {
+      Variable_declaration_statement* decl =
+	s->variable_declaration_statement();
+      Named_object* decl_no = decl->var();
+      Variable* v = decl_no->var_value();
+
+      Expression* init = v->init();
+      if (init == NULL)
+	break;
+
+      if (init->is_composite_literal()
+	  || init->heap_expression() != NULL)
+	{
+	  // Create edges between DECL_NO and each named object in the
+	  // composite literal.
+	  this->handle_composite_literal(decl_no, init);
+	}
+
+      if (init->call_result_expression() != NULL)
+	init = init->call_result_expression()->call();
+      if (init->call_expression() != NULL)
+	{
+	  // It's not clear what variables we are trying to find references to
+	  // so just use the arguments to this call.
+	  Expression_list* args = init->call_expression()->args();
+	  if (args == NULL)
+	    break;
+
+	  for (Expression_list::const_iterator p = args->begin();
+	       p != args->end();
+	       ++p)
+	    {
+	      Named_object* no = this->resolve_var_reference(*p);
+	      if (no != NULL)
+		this->handle_call(no, init);
 	    }
 	}
     }
@@ -1276,8 +1383,22 @@ Gogo::analyze_reachability()
       Node* m = worklist.front();
       worklist.pop_front();
 
-      for (std::set<Node*>::iterator n = m->edges().begin();
-	   n != m->edges().end();
+      std::set<Node*> reachable = m->edges();
+      if (m->object()->is_function()
+	  && m->object()->func_value()->needs_closure())
+	{
+	  // If a closure escapes everything it closes over also escapes.
+	  Function* closure = m->object()->func_value();
+	  for (size_t i = 0; i < closure->closure_field_count(); i++)
+	    {
+	      Named_object* enclosed = closure->enclosing_var(i);
+	      Node* enclosed_node = this->lookup_connection_node(enclosed);
+	      go_assert(enclosed_node != NULL);
+	      reachable.insert(enclosed_node);
+	    }
+	}
+      for (std::set<Node*>::iterator n = reachable.begin();
+	   n != reachable.end();
 	   ++n)
 	{
 	  // If an object can be reached from a node with ESCAPE_GLOBAL,
@@ -1296,7 +1417,7 @@ Gogo::analyze_reachability()
        p != this->named_connection_nodes_.end();
        ++p)
     {
-      if (p->second->connection_node()->escape_state() == Node::ESCAPE_ARG)
+      if (p->second->connection_node()->escape_state() < Node::ESCAPE_NONE)
 	worklist.push_back(p->second);
     }
 
@@ -1305,15 +1426,30 @@ Gogo::analyze_reachability()
       Node* m = worklist.front();
       worklist.pop_front();
 
-      for (std::set<Node*>::iterator n = m->edges().begin();
-	   n != m->edges().end();
+      std::set<Node*> reachable = m->edges();
+      if (m->object()->is_function()
+	  && m->object()->func_value()->needs_closure())
+	{
+	  // If a closure escapes everything it closes over also escapes.
+	  Function* closure = m->object()->func_value();
+	  for (size_t i = 0; i < closure->closure_field_count(); i++)
+	    {
+	      Named_object* enclosed = closure->enclosing_var(i);
+	      Node* enclosed_node = this->lookup_connection_node(enclosed);
+	      go_assert(enclosed_node != NULL);
+	      reachable.insert(enclosed_node);
+	    }
+	}
+      for (std::set<Node*>::iterator n = reachable.begin();
+	   n != reachable.end();
 	   ++n)
 	{
 	  // If an object can be reached from a node with ESCAPE_ARG,
 	  // it is ESCAPE_ARG or ESCAPE_GLOBAL.
-	  if ((*n)->connection_node()->escape_state() > Node::ESCAPE_ARG)
+	  Node::Escapement_lattice e = m->connection_node()->escape_state();
+	  if ((*n)->connection_node()->escape_state() > e)
 	    {
-	      (*n)->connection_node()->set_escape_state(Node::ESCAPE_ARG);
+	      (*n)->connection_node()->set_escape_state(e);
 	      worklist.push_back(*n);
 	    }
 	}
@@ -1429,8 +1565,7 @@ Optimize_allocations::variable(Named_object* var)
 
   if (var->is_variable())
     {
-      if (var->var_value()->is_address_taken())
-      	var->var_value()->set_does_not_escape();
+      var->var_value()->set_does_not_escape();
       if (var->var_value()->init() != NULL
 	  && var->var_value()->init()->allocation_expression() != NULL)
 	{
@@ -1439,9 +1574,6 @@ Optimize_allocations::variable(Named_object* var)
 	  alloc->set_allocate_on_stack();
 	}
     }
-  else if (var->is_result_variable()
-	   && var->result_var_value()->is_address_taken())
-    var->result_var_value()->set_does_not_escape();
 
   return TRAVERSE_CONTINUE;
 }

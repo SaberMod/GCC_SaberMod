@@ -1,3 +1,19 @@
+2015-04-30  Marek Polacek  <polacek@redhat.com>
+
+	* c-common.c (maybe_warn_bool_compare): When comparing with 0/1,
+	require that the non-constant be of a boolean type.
+
+2015-04-29  Josh Triplett  <josh@joshtriplett.org>
+
+        * c-common.c (handle_section_attribute): Refactor to reduce
+        nesting and distinguish between error cases.
+
+2015-04-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64610
+	* c-common.c (maybe_warn_bool_compare): Warn when comparing a boolean
+	with 0/1.
+
 2015-04-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-common.h (omp_clause_mask): Unconditionally define as a class.

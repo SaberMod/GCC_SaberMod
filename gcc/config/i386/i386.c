@@ -6407,7 +6407,7 @@ ix86_init_pic_reg (void)
       rtx reg = crtl->profile
 		? gen_rtx_REG (Pmode, REAL_PIC_OFFSET_TABLE_REGNUM)
 		: pic_offset_table_rtx;
-      rtx insn = emit_insn (gen_set_got (reg));
+      rtx_insn *insn = emit_insn (gen_set_got (reg));
       RTX_FRAME_RELATED_P (insn) = 1;
       if (crtl->profile)
         emit_move_insn (pic_offset_table_rtx, reg);
@@ -10373,7 +10373,7 @@ static void
 ix86_emit_save_regs (void)
 {
   unsigned int regno;
-  rtx insn;
+  rtx_insn *insn;
 
   for (regno = FIRST_PSEUDO_REGISTER - 1; regno-- > 0; )
     if (!SSE_REGNO_P (regno) && ix86_save_reg (regno, true))
@@ -10488,7 +10488,7 @@ static GTY(()) rtx queued_cfa_restores;
    in the register and on the stack.  */
 
 static void
-ix86_add_cfa_restore_note (rtx insn, rtx reg, HOST_WIDE_INT cfa_offset)
+ix86_add_cfa_restore_note (rtx_insn *insn, rtx reg, HOST_WIDE_INT cfa_offset)
 {
   if (!crtl->shrink_wrapped
       && cfa_offset <= cfun->machine->fs.red_zone_offset)
@@ -10837,7 +10837,7 @@ get_scratch_register_on_entry (struct scratch_reg *sr)
   sr->reg = gen_rtx_REG (Pmode, regno);
   if (sr->saved)
     {
-      rtx insn = emit_insn (gen_push (sr->reg));
+      rtx_insn *insn = emit_insn (gen_push (sr->reg));
       RTX_FRAME_RELATED_P (insn) = 1;
     }
 }
@@ -11804,7 +11804,7 @@ static void
 ix86_emit_restore_reg_using_pop (rtx reg)
 {
   struct machine_function *m = cfun->machine;
-  rtx insn = emit_insn (gen_pop (reg));
+  rtx_insn *insn = emit_insn (gen_pop (reg));
 
   ix86_add_cfa_restore_note (insn, reg, m->fs.sp_offset);
   m->fs.sp_offset -= UNITS_PER_WORD;
@@ -11874,7 +11874,7 @@ static void
 ix86_emit_leave (void)
 {
   struct machine_function *m = cfun->machine;
-  rtx insn = emit_insn (ix86_gen_leave ());
+  rtx_insn *insn = emit_insn (ix86_gen_leave ());
 
   ix86_add_queued_cfa_restore_notes (insn);
 
@@ -11910,7 +11910,8 @@ ix86_emit_restore_regs_using_mov (HOST_WIDE_INT cfa_offset,
     if (!SSE_REGNO_P (regno) && ix86_save_reg (regno, maybe_eh_return))
       {
 	rtx reg = gen_rtx_REG (word_mode, regno);
-	rtx insn, mem;
+	rtx mem;
+	rtx_insn *insn;
 
 	mem = choose_baseaddr (cfa_offset);
 	mem = gen_frame_mem (word_mode, mem);
@@ -11930,7 +11931,7 @@ ix86_emit_restore_regs_using_mov (HOST_WIDE_INT cfa_offset,
 	    m->fs.drap_valid = true;
 	  }
 	else
-	  ix86_add_cfa_restore_note (NULL_RTX, reg, cfa_offset);
+	  ix86_add_cfa_restore_note (NULL, reg, cfa_offset);
 
 	cfa_offset -= UNITS_PER_WORD;
       }
@@ -11955,7 +11956,7 @@ ix86_emit_restore_sse_regs_using_mov (HOST_WIDE_INT cfa_offset,
 	set_mem_align (mem, 128);
 	emit_move_insn (reg, mem);
 
-	ix86_add_cfa_restore_note (NULL_RTX, reg, cfa_offset);
+	ix86_add_cfa_restore_note (NULL, reg, cfa_offset);
 
 	cfa_offset -= 16;
       }
@@ -12082,7 +12083,8 @@ ix86_expand_epilogue (int style)
       /* eh_return epilogues need %ecx added to the stack pointer.  */
       if (style == 2)
 	{
-	  rtx insn, sa = EH_RETURN_STACKADJ_RTX;
+	  rtx sa = EH_RETURN_STACKADJ_RTX;
+	  rtx_insn *insn;
 
 	  /* Stack align doesn't work with eh_return.  */
 	  gcc_assert (!stack_realign_drap);
@@ -12210,7 +12212,7 @@ ix86_expand_epilogue (int style)
   if (using_drap)
     {
       int param_ptr_offset = UNITS_PER_WORD;
-      rtx insn;
+      rtx_insn *insn;
 
       gcc_assert (stack_realign_drap);
 
@@ -12272,7 +12274,7 @@ ix86_expand_epilogue (int style)
       if (crtl->args.pops_args >= 65536)
 	{
 	  rtx ecx = gen_rtx_REG (SImode, CX_REG);
-	  rtx insn;
+	  rtx_insn *insn;
 
 	  /* There is no "pascal" calling convention in any 64bit ABI.  */
 	  gcc_assert (!TARGET_64BIT);
@@ -18272,7 +18274,7 @@ increase_distance (rtx_insn *prev, rtx_insn *next, unsigned int distance)
 
 static bool
 insn_defines_reg (unsigned int regno1, unsigned int regno2,
-		  rtx insn)
+		  rtx_insn *insn)
 {
   df_ref def;
 
@@ -50503,7 +50505,7 @@ dispatch_violation (void)
 /* Return true if insn is a branch instruction.  */
 
 static bool
-is_branch (rtx insn)
+is_branch (rtx_insn *insn)
 {
   return (CALL_P (insn) || JUMP_P (insn));
 }
@@ -50511,7 +50513,7 @@ is_branch (rtx insn)
 /* Return true if insn is a prefetch instruction.  */
 
 static bool
-is_prefetch (rtx insn)
+is_prefetch (rtx_insn *insn)
 {
   return NONJUMP_INSN_P (insn) && GET_CODE (PATTERN (insn)) == PREFETCH;
 }
@@ -50677,7 +50679,7 @@ find_constant (rtx in_rtx, imm_info *imm_values)
    bit immediates.  */
 
 static int
-get_num_immediates (rtx insn, int *imm, int *imm32, int *imm64)
+get_num_immediates (rtx_insn *insn, int *imm, int *imm32, int *imm64)
 {
   imm_info imm_values = {0, 0, 0};
 
@@ -50692,7 +50694,7 @@ get_num_immediates (rtx insn, int *imm, int *imm32, int *imm64)
    immediate.  */
 
 static bool
-has_immediate (rtx insn)
+has_immediate (rtx_insn *insn)
 {
   int num_imm_operand;
   int num_imm32_operand;
