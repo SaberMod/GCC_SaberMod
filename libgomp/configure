@@ -15080,6 +15080,9 @@ rm -f core conftest.err conftest.$ac_objext \
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
 esac
 
 # Plugins for offload execution, configure.ac fragment.  -*- mode: autoconf -*-
