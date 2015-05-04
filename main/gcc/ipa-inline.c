@@ -1766,7 +1766,10 @@ inline_small_functions (void)
 	    struct inline_summary *info = inline_summary (node);
 	    struct ipa_dfs_info *dfs = (struct ipa_dfs_info *) node->aux;
 
-	    if (!DECL_EXTERNAL (node->decl))
+	    /* Do not account external functions, they will be optimized out
+	       if not inlined.  Also only count the non-cold portion of program.  */
+	    if (!DECL_EXTERNAL (node->decl)
+		&& node->frequency != NODE_FREQUENCY_UNLIKELY_EXECUTED)
 	      initial_size += info->size;
 	    info->growth = estimate_growth (node);
 	    if (dfs && dfs->next_cycle)
@@ -2428,8 +2431,37 @@ early_inline_small_functions (struct cgraph_node *node)
 /* Do inlining of small functions.  Doing so early helps profiling and other
    passes to be somewhat more effective and avoids some code duplication in
    later real inlining pass for testcases with very many function calls.  */
-static unsigned int
-early_inliner (void)
+
+namespace {
+
+const pass_data pass_data_early_inline =
+{
+  GIMPLE_PASS, /* type */
+  "einline", /* name */
+  OPTGROUP_INLINE, /* optinfo_flags */
+  true, /* has_execute */
+  TV_EARLY_INLINING, /* tv_id */
+  PROP_ssa, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_early_inline : public gimple_opt_pass
+{
+public:
+  pass_early_inline (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_early_inline, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual unsigned int execute (function *);
+
+}; // class pass_early_inline
+
+unsigned int
+pass_early_inline::execute (function *fun)
 {
   struct cgraph_node *node = cgraph_get_node (current_function_decl);
   struct cgraph_edge *edge;
@@ -2528,39 +2560,10 @@ early_inliner (void)
       timevar_pop (TV_INTEGRATION);
     }
 
-  cfun->always_inline_functions_inlined = true;
+  fun->always_inline_functions_inlined = true;
 
   return todo;
 }
-
-namespace {
-
-const pass_data pass_data_early_inline =
-{
-  GIMPLE_PASS, /* type */
-  "einline", /* name */
-  OPTGROUP_INLINE, /* optinfo_flags */
-  false, /* has_gate */
-  true, /* has_execute */
-  TV_EARLY_INLINING, /* tv_id */
-  PROP_ssa, /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  0, /* todo_flags_finish */
-};
-
-class pass_early_inline : public gimple_opt_pass
-{
-public:
-  pass_early_inline (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_early_inline, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  unsigned int execute () { return early_inliner (); }
-
-}; // class pass_early_inline
 
 } // anon namespace
 
@@ -2577,7 +2580,6 @@ const pass_data pass_data_ipa_inline =
   IPA_PASS, /* type */
   "inline", /* name */
   OPTGROUP_INLINE, /* optinfo_flags */
-  false, /* has_gate */
   true, /* has_execute */
   TV_IPA_INLINING, /* tv_id */
   0, /* properties_required */
@@ -2604,7 +2606,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return ipa_inline (); }
+  virtual unsigned int execute (function *) { return ipa_inline (); }
 
 }; // class pass_ipa_inline
 

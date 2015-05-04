@@ -1,3 +1,84 @@
+2014-04-16  Marc Glisse  <marc.glisse@inria.fr>
+
+	* decl.c (reshape_init_r): Handle a single element of vector type.
+
+2014-04-16  Patrick Palka  <patrick@parcs.ath.cx>
+
+	PR c++/60765
+	* decl2.c (cplus_decl_attributes): Handle
+	pointer-to-member-function declarations.
+
+2014-04-16  Patrick Palka  <patrick@parcs.ath.cx>
+
+	PR c++/60764
+	* call.c (build_user_type_coversion): Use build_dummy_object
+	to create the placeholder object for a constructor method call.
+	(build_special_member_call): Likewise.
+	(build_over_call): Check for the placeholder object with
+	is_dummy_object.
+	(build_new_method_call_1): Likewise.  Don't attempt to resolve
+	a dummy object for a constructor method call.
+
+2014-04-16  Paul Pluzhnikov  <ppluzhnikov@google.com>
+
+	PR c++/59295
+	* friend.c (add_friend, make_friend_class): Move repeated friend
+	warning under Wredundant_decls.
+
+2014-04-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (duplicate_decls): Remove redundant TYPE_NAME use.
+	* name-lookup.c (pushdecl_maybe_friend_1): Likewise.
+	(do_class_using_decl): Likewise.
+	* mangle.c (dump_substitution_candidates): Use TYPE_NAME_STRING.
+
+2014-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR plugins/59335
+	* Make-lang.h (CP_PLUGIN_HEADERS): Add type-utils.h.
+
+2014-04-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* cp-tree.h (TYPE_IDENTIFIER): Remove declaration.
+
+2014-04-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* pt.c (mark_template_parm): Use template_parm_level_and_index.
+
+2014-04-11  Jason Merrill  <jason@redhat.com>
+
+	* parser.h (struct cp_token): Rename ambiguous_p to error_reported.
+	* parser.c: Adjust.
+	(cp_lexer_get_preprocessor_token): Always clear it.
+	(cp_parser_lambda_expression): Use it to avoid duplicate diagnostics.
+
+	DR 1467
+	PR c++/51747
+	* decl.c (reshape_init_r): Handle a single element of class type.
+
+	DR 1338
+	* decl.c (cxx_init_decl_processing): Set DECL_IS_MALLOC on
+	built-in operator new.
+
+2014-04-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58600
+	* name-lookup.c (parse_using_directive): Return early if the
+	attribs argument is error_mark_node; use get_attribute_name.
+
+2014-04-11  Jason Merrill  <jason@redhat.com>
+
+	DR 1030
+	PR c++/51253
+	* cp-tree.h (CALL_EXPR_LIST_INIT_P): New.
+	* call.c (struct z_candidate): Add flags field.
+	(add_candidate): Add flags parm.
+	(add_function_candidate, add_conv_candidate, build_builtin_candidate)
+	(add_template_candidate_real): Pass it.
+	(build_over_call): Set CALL_EXPR_LIST_INIT_P.
+	* tree.c (build_aggr_init_expr): Copy it.
+	* semantics.c (simplify_aggr_init_expr): Preevaluate args if it's set.
+
 2014-04-10  Richard Biener  <rguenther@suse.de>
 	    Jakub Jelinek  <jakub@redhat.com>
 

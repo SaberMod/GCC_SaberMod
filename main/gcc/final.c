@@ -778,6 +778,8 @@ compute_alignments (void)
       /* In case block is frequent and reached mostly by non-fallthru edge,
 	 align it.  It is most likely a first block of loop.  */
       if (has_fallthru
+	  && !(single_succ_p (bb)
+	       && single_succ (bb) == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	  && optimize_bb_for_speed_p (bb)
 	  && branch_frequency + fallthru_frequency > freq_threshold
 	  && (branch_frequency
@@ -855,7 +857,6 @@ const pass_data pass_data_compute_alignments =
   RTL_PASS, /* type */
   "alignments", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
   true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
@@ -873,7 +874,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return compute_alignments (); }
+  virtual unsigned int execute (function *) { return compute_alignments (); }
 
 }; // class pass_compute_alignments
 
@@ -4563,7 +4564,6 @@ const pass_data pass_data_final =
   RTL_PASS, /* type */
   "final", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
   true, /* has_execute */
   TV_FINAL, /* tv_id */
   0, /* properties_required */
@@ -4581,7 +4581,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return rest_of_handle_final (); }
+  virtual unsigned int execute (function *) { return rest_of_handle_final (); }
 
 }; // class pass_final
 
@@ -4609,7 +4609,6 @@ const pass_data pass_data_shorten_branches =
   RTL_PASS, /* type */
   "shorten", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
   true, /* has_execute */
   TV_SHORTEN_BRANCH, /* tv_id */
   0, /* properties_required */
@@ -4627,7 +4626,10 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return rest_of_handle_shorten_branches (); }
+  virtual unsigned int execute (function *)
+    {
+      return rest_of_handle_shorten_branches ();
+    }
 
 }; // class pass_shorten_branches
 
@@ -4773,7 +4775,6 @@ const pass_data pass_data_clean_state =
   RTL_PASS, /* type */
   "*clean_state", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
   true, /* has_execute */
   TV_FINAL, /* tv_id */
   0, /* properties_required */
@@ -4791,7 +4792,10 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return rest_of_clean_state (); }
+  virtual unsigned int execute (function *)
+    {
+      return rest_of_clean_state ();
+    }
 
 }; // class pass_clean_state
 

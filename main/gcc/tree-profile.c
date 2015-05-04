@@ -1443,7 +1443,6 @@ const pass_data pass_data_ipa_tree_profile =
   SIMPLE_IPA_PASS, /* type */
   "profile", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_IPA_PROFILE, /* tv_id */
   0, /* properties_required */
@@ -1461,8 +1460,8 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_tree_profile_ipa (); }
-  unsigned int execute () { return tree_profiling (); }
+  virtual bool gate (function *);
+  virtual unsigned int execute (function *) { return tree_profiling (); }
 
 }; // class pass_ipa_tree_profile
 
@@ -1471,7 +1470,6 @@ const pass_data pass_data_direct_call_profile =
   GIMPLE_PASS,
   "dc_profile",				/* name */
   OPTGROUP_NONE,                        /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_BRANCH_PROB,			/* tv_id */
   ( PROP_ssa | PROP_cfg),		/* properties_required */
@@ -1480,6 +1478,7 @@ const pass_data pass_data_direct_call_profile =
   0,					/* todo_flags_start */
   TODO_update_ssa                      	/* todo_flags_finish */
 };
+
 class pass_direct_call_profile : public gimple_opt_pass
 {
 public:
@@ -1489,11 +1488,20 @@ public:
 
   /* opt_pass methods: */
   opt_pass * clone () { return new pass_direct_call_profile (m_ctxt); }
-  bool gate () { return do_direct_call_profiling (); }
-  unsigned int execute () { return direct_call_profiling (); }
+  virtual bool gate () { return do_direct_call_profiling (); }
+  virtual unsigned int execute () { return direct_call_profiling (); }
 
 }; // class pass_direct_call_profiling
 
+
+bool
+pass_ipa_tree_profile::gate (function *)
+{
+  /* When profile instrumentation, use or test coverage shall be performed.  */
+  return (!in_lto_p
+	  && (flag_branch_probabilities || flag_test_coverage
+	      || profile_arc_flag));
+}
 
 } // anon namespace
 
