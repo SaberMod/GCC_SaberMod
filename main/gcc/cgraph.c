@@ -199,7 +199,7 @@ insert_new_cgraph_node_version (struct cgraph_node *node)
   void **slot;
   
   version_info_node = NULL;
-  version_info_node = ggc_alloc_cleared_cgraph_function_version_info ();
+  version_info_node = ggc_cleared_alloc<cgraph_function_version_info> ();
   version_info_node->this_node = node;
 
   if (cgraph_fnver_htab == NULL)
@@ -508,7 +508,7 @@ cgraph_allocate_node (void)
     }
   else
     {
-      node = ggc_alloc_cleared_cgraph_node ();
+      node = ggc_cleared_alloc<cgraph_node> ();
       node->uid = cgraph_max_uid++;
     }
 
@@ -870,7 +870,7 @@ cgraph_create_edge_1 (struct cgraph_node *caller, struct cgraph_node *callee,
     }
   else
     {
-      edge = ggc_alloc_cgraph_edge ();
+      edge = ggc_alloc<struct cgraph_edge> ();
       edge->uid = cgraph_edge_max_uid++;
     }
 
@@ -942,7 +942,7 @@ cgraph_allocate_init_indirect_info (void)
 {
   struct cgraph_indirect_call_info *ii;
 
-  ii = ggc_alloc_cleared_cgraph_indirect_call_info ();
+  ii = ggc_cleared_alloc<cgraph_indirect_call_info> ();
   ii->param_index = -1;
   return ii;
 }

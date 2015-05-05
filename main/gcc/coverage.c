@@ -1432,7 +1432,7 @@ coverage_end_function (unsigned lineno_checksum, unsigned cfg_checksum)
 	 list.  */
       if (!DECL_EXTERNAL (current_function_decl))
 	{
-	  item = ggc_alloc_coverage_data ();
+	  item = ggc_alloc<coverage_data> ();
 	  
 	  item->ident = FUNC_DECL_FUNC_ID (cfun);
 	  item->lineno_checksum = lineno_checksum;
@@ -1501,7 +1501,7 @@ coverage_dc_end_function (void)
 	{
           int cnt;
 
-	  item = ggc_alloc_coverage_data ();
+	  item = ggc_alloc <coverage_data> ();
 	  *functions_tail = item;
 	  functions_tail = &item->next;
 	  item->next = 0;

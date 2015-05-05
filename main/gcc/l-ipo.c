@@ -115,7 +115,7 @@ get_module_scope (unsigned mod_id)
   module_scope = *slot;
   if (!module_scope)
     {
-      module_scope = ggc_alloc_cleared_saved_module_scope ();
+      module_scope = ggc_cleared_alloc <saved_module_scope> ();
       module_scope->module_id = mod_id;
       *slot = module_scope;
     }
@@ -129,7 +129,7 @@ alloc_lang_decl (tree t)
 {
   size_t size;
   size = lang_hooks.l_ipo.get_lang_decl_size (t);
-  return ggc_alloc_cleared_lang_decl (size);
+  return (struct lang_decl *)ggc_internal_cleared_alloc (size);
 }
 
 /* Return a cloned copy of tree SRC.  */
@@ -153,7 +153,7 @@ lipo_save_decl (tree src)
       DECL_LANG_SPECIFIC (saved) = ls;
       if (tc == FUNCTION_DECL && DECL_STRUCT_FUNCTION (src))
         {
-          func = ggc_alloc_cleared_function ();
+          func = ggc_cleared_alloc <function> ();
           *func = *(DECL_STRUCT_FUNCTION (src));
           DECL_STRUCT_FUNCTION (saved) = func;
         }
@@ -214,7 +214,7 @@ lipo_restore_decl (tree dest, tree saved)
           if (DECL_STRUCT_FUNCTION (saved))
             {
               if (!oldfunc)
-                oldfunc = ggc_alloc_cleared_function ();
+                oldfunc = ggc_cleared_alloc <function> ();
               *oldfunc = *(DECL_STRUCT_FUNCTION (saved));
               DECL_STRUCT_FUNCTION (dest) = oldfunc;
             }
@@ -1035,7 +1035,7 @@ type_eq_process (void **slot, void *data ATTRIBUTE_UNUSED)
           htab_find_slot (l_ipo_type_tab, &key, INSERT);
       tent = *slot2;
       gcc_assert (!tent);
-      tent = ggc_alloc_cleared_type_ent ();
+      tent = ggc_cleared_alloc <type_ent> ();
       tent->type = key.type;
       tent->eq_id = l_ipo_eq_id;
       *slot2 = tent;
@@ -1208,7 +1208,7 @@ eq_assembler_name (const void *p1, const void *p2)
 /* Return the cgraph_sym for function declaration DECL.  */
 
 static struct cgraph_sym **
-cgraph_sym (tree decl)
+get_cgraph_sym (tree decl)
 {
   struct cgraph_sym **slot;
   tree name;
@@ -1263,7 +1263,7 @@ cgraph_is_promoted_static_func (tree decl)
   if (!cgraph_symtab)
     return false;
 
-  sym = cgraph_sym (decl);
+  sym = get_cgraph_sym (decl);
   if (!sym)
     return false;
   return (*sym)->is_promoted_static;
@@ -1316,7 +1316,7 @@ add_define_module (struct cgraph_sym *sym, tree decl)
                                                     &mi, INSERT);
   if (!*slot)
     {
-      *slot = ggc_alloc_cleared_cgraph_mod_info ();
+      *slot = ggc_cleared_alloc <cgraph_mod_info> ();
       (*slot)->module_id = module_id;
     }
   else
@@ -1333,7 +1333,7 @@ add_def_module (void **slot, void *data)
   new_slot = (struct cgraph_mod_info **)htab_find_slot (mod_set, *m, INSERT);
   if (!*new_slot)
     {
-      *new_slot = ggc_alloc_cleared_cgraph_mod_info ();
+      *new_slot = ggc_cleared_alloc <cgraph_mod_info> ();
       (*new_slot)->module_id = (*m)->module_id;
     }
   else
@@ -1348,8 +1348,8 @@ copy_defined_module_set (tree clone, tree orig)
 {
   struct cgraph_sym **orig_sym, **clone_sym;
 
-  orig_sym = cgraph_sym (orig);
-  clone_sym = cgraph_sym (clone);
+  orig_sym = get_cgraph_sym (orig);
+  clone_sym = get_cgraph_sym (clone);
   if (!orig_sym || !(*orig_sym)->def_module_hash)
     return;
   if (!(*clone_sym)->def_module_hash)
@@ -1383,7 +1383,7 @@ cgraph_is_inline_body_available_in_module (tree decl, unsigned module_id)
   if (cgraph_get_module_id (decl) == module_id)
     return true;
 
-  sym = cgraph_sym (decl);
+  sym = get_cgraph_sym (decl);
   if (!sym || !(*sym)->def_module_hash)
     return false;
 
@@ -1406,7 +1406,7 @@ cgraph_lipo_get_resolved_node_1 (tree decl, bool do_assert)
   struct cgraph_sym **slot;
 
   /* Handle alias decl. */
-  slot = cgraph_sym (decl);
+  slot = get_cgraph_sym (decl);
 
   if (!slot || !*slot)
     {
@@ -1618,7 +1618,7 @@ cgraph_link_node (struct cgraph_node *node)
     resolve_cgraph_node ((struct cgraph_sym **) slot, node);
   else
     {
-      struct cgraph_sym *sym = ggc_alloc_cleared_cgraph_sym ();
+      struct cgraph_sym *sym = ggc_cleared_alloc <cgraph_sym> ();
       sym->rep_node = node;
       sym->rep_decl = node->decl;
       sym->assembler_name = name;

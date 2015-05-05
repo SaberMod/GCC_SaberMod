@@ -236,7 +236,8 @@ cp_lipo_dup_lang_type (tree src, tree dest)
 {
   struct lang_type *lang_type_clone = 0;
   /* TODO check size.  */
-  lang_type_clone = ggc_alloc_cleared_lang_type (sizeof (struct lang_type));
+  lang_type_clone = 
+		(struct lang_type *) ggc_internal_cleared_alloc (sizeof (struct lang_type));
   *lang_type_clone = *TYPE_LANG_SPECIFIC (src);
   TYPE_LANG_SPECIFIC (dest) = lang_type_clone;
 
@@ -338,8 +339,7 @@ cmp_templ_arg (tree ta1, tree ta2)
       if (TREE_CODE (ta1) != TREE_CODE (ta2))
         return 0;
       if (TREE_CODE (ta1) == INTEGER_CST)
-        return (TREE_INT_CST_HIGH (ta1) == TREE_INT_CST_HIGH (ta2)
-                && TREE_INT_CST_LOW (ta1) == TREE_INT_CST_LOW (ta2));
+        return (wi::eq_p (ta1, ta2));
       else if (TREE_CODE (ta1) == ADDR_EXPR)
         {
           tree td1, td2;
@@ -671,7 +671,7 @@ decl_shadowed_for_var_insert (tree from, tree to)
   struct tree_decl_map *h;
   void **loc;
 
-  h = ggc_alloc_tree_decl_map ();
+  h = ggc_alloc<tree_decl_map> ();
   h->base.from = from;
   h->to = to;
   loc = htab_find_slot_with_hash (shadowed_var_for_decl, h, DECL_UID (from),

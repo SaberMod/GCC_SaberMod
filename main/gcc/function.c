@@ -308,7 +308,7 @@ try_fit_stack_local (HOST_WIDE_INT start, HOST_WIDE_INT length,
 static void
 add_frame_space (HOST_WIDE_INT start, HOST_WIDE_INT end)
 {
-  struct frame_space *space = ggc_alloc_frame_space ();
+  struct frame_space *space = ggc_alloc<frame_space> ();
   space->next = crtl->frame_space_list;
   crtl->frame_space_list = space;
   space->start = start;
@@ -656,7 +656,7 @@ static void
 insert_temp_slot_address (rtx address, struct temp_slot *temp_slot)
 {
   void **slot;
-  struct temp_slot_address_entry *t = ggc_alloc_temp_slot_address_entry ();
+  struct temp_slot_address_entry *t = ggc_alloc<temp_slot_address_entry> ();
   t->address = address;
   t->temp_slot = temp_slot;
   t->hash = temp_slot_address_compute_hash (t);
@@ -803,7 +803,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
 
 	  if (best_p->size - rounded_size >= alignment)
 	    {
-	      p = ggc_alloc_temp_slot ();
+	      p = ggc_alloc<temp_slot> ();
 	      p->in_use = 0;
 	      p->size = best_p->size - rounded_size;
 	      p->base_offset = best_p->base_offset + rounded_size;
@@ -827,7 +827,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
     {
       HOST_WIDE_INT frame_offset_old = frame_offset;
 
-      p = ggc_alloc_temp_slot ();
+      p = ggc_alloc<temp_slot> ();
 
       /* We are passing an explicit alignment request to assign_stack_local.
 	 One side effect of that is assign_stack_local will not round SIZE
@@ -1255,10 +1255,10 @@ get_hard_reg_initial_val (enum machine_mode mode, unsigned int regno)
   ivs = crtl->hard_reg_initial_vals;
   if (ivs == 0)
     {
-      ivs = ggc_alloc_initial_value_struct ();
+      ivs = ggc_alloc<initial_value_struct> ();
       ivs->num_entries = 0;
       ivs->max_entries = 5;
-      ivs->entries = ggc_alloc_vec_initial_value_pair (5);
+      ivs->entries = ggc_vec_alloc<initial_value_pair> (5);
       crtl->hard_reg_initial_vals = ivs;
     }
 
@@ -1460,8 +1460,8 @@ instantiate_virtual_regs_in_rtx (rtx *loc, void *data)
       new_rtx = instantiate_new_reg (XEXP (x, 0), &offset);
       if (new_rtx)
 	{
-	  new_rtx = plus_constant (GET_MODE (x), new_rtx, offset);
-	  *loc = simplify_gen_binary (PLUS, GET_MODE (x), new_rtx, XEXP (x, 1));
+	  XEXP (x, 0) = new_rtx;
+	  *loc = plus_constant (GET_MODE (x), x, offset, true);
 	  if (changed)
 	    *changed = true;
 	  return -1;
@@ -1623,7 +1623,7 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	      continue;
 
 	    start_sequence ();
-	    x = replace_equiv_address (x, addr);
+	    x = replace_equiv_address (x, addr, true);
 	    /* It may happen that the address with the virtual reg
 	       was valid (e.g. based on the virtual stack reg, which might
 	       be acceptable to the predicates with all offsets), whereas
@@ -1636,7 +1636,7 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	    if (!safe_insn_predicate (insn_code, i, x))
 	      {
 		addr = force_reg (GET_MODE (addr), addr);
-		x = replace_equiv_address (x, addr);
+		x = replace_equiv_address (x, addr, true);
 	      }
 	    seq = get_insns ();
 	    end_sequence ();
@@ -4517,7 +4517,7 @@ allocate_struct_function (tree fndecl, bool abstract_p)
 {
   tree fntype = fndecl ? TREE_TYPE (fndecl) : NULL_TREE;
 
-  cfun = ggc_alloc_cleared_function ();
+  cfun = ggc_cleared_alloc<function> ();
 
   init_eh_for_function ();
 
@@ -4592,7 +4592,7 @@ prepare_function_start (void)
 
   if (flag_stack_usage_info)
     {
-      cfun->su = ggc_alloc_cleared_stack_usage ();
+      cfun->su = ggc_cleared_alloc<stack_usage> ();
       cfun->su->static_stack_size = -1;
     }
 
@@ -6172,7 +6172,7 @@ types_used_by_var_decl_insert (tree type, tree var_decl)
       if (*slot == NULL)
 	{
 	  struct types_used_by_vars_entry *entry;
-	  entry = ggc_alloc_types_used_by_vars_entry ();
+	  entry = ggc_alloc<types_used_by_vars_entry> ();
 	  entry->type = type;
 	  entry->var_decl = var_decl;
 	  *slot = entry;
