@@ -25,7 +25,6 @@
 #include "system.h"
 #include "errors.h"		/* for fatal */
 #include "getopt.h"
-#include "double-int.h"
 #include "version.h"		/* for version_string & pkgversion_string.  */
 #include "hashtab.h"
 #include "xregex.h"
@@ -535,7 +534,7 @@ do_typedef (const char *s, type_p t, struct fileloc *pos)
   for (p = typedefs; p != NULL; p = p->next)
     if (strcmp (p->name, s) == 0)
       {
-	if (p->type != t)
+	if (p->type != t && strcmp (s, "result_type") != 0)
 	  {
 	    error_at_line (pos, "type `%s' previously defined", s);
 	    error_at_line (&p->line, "previously defined here");
@@ -1087,8 +1086,8 @@ gen_rtx_next (void)
       int k;
 
       rtx_next_new[i] = -1;
-      if (strncmp (rtx_format[i], "iuu", 3) == 0)
-	rtx_next_new[i] = 2;
+      if (strncmp (rtx_format[i], "uu", 2) == 0)
+	rtx_next_new[i] = 1;
       else if (i == COND_EXEC || i == SET || i == EXPR_LIST || i == INSN_LIST)
 	rtx_next_new[i] = 1;
       else
@@ -1228,19 +1227,19 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 	    case '0':
 	      if (i == MEM && aindex == 1)
 		t = mem_attrs_tp, subname = "rt_mem";
-	      else if (i == JUMP_INSN && aindex == 8)
+	      else if (i == JUMP_INSN && aindex == 7)
 		t = rtx_tp, subname = "rt_rtx";
-	      else if (i == CODE_LABEL && aindex == 5)
-		t = scalar_tp, subname = "rt_int";
 	      else if (i == CODE_LABEL && aindex == 4)
+		t = scalar_tp, subname = "rt_int";
+	      else if (i == CODE_LABEL && aindex == 3)
 		t = rtx_tp, subname = "rt_rtx";
 	      else if (i == LABEL_REF && (aindex == 1 || aindex == 2))
 		t = rtx_tp, subname = "rt_rtx";
-	      else if (i == NOTE && aindex == 4)
+	      else if (i == NOTE && aindex == 3)
 		t = note_union_tp, subname = "";
-	      else if (i == NOTE && aindex == 5)
+	      else if (i == NOTE && aindex == 4)
 		t = scalar_tp, subname = "rt_int";
-	      else if (i == NOTE && aindex >= 7)
+	      else if (i == NOTE && aindex >= 6)
 		t = scalar_tp, subname = "rt_int";
 	      else if (i == ADDR_DIFF_VEC && aindex == 4)
 		t = scalar_tp, subname = "rt_int";
@@ -1249,18 +1248,12 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 	      else if (i == DEBUG_EXPR && aindex == 0)
 		t = tree_tp, subname = "rt_tree";
 	      else if (i == REG && aindex == 1)
-		t = scalar_tp, subname = "rt_int";
-	      else if (i == REG && aindex == 2)
 		t = reg_attrs_tp, subname = "rt_reg";
-	      else if (i == SCRATCH && aindex == 0)
-		t = scalar_tp, subname = "rt_int";
 	      else if (i == SYMBOL_REF && aindex == 1)
-		t = scalar_tp, subname = "rt_int";
-	      else if (i == SYMBOL_REF && aindex == 2)
 		t = symbol_union_tp, subname = "";
-	      else if (i == JUMP_TABLE_DATA && aindex >= 5)
+	      else if (i == JUMP_TABLE_DATA && aindex >= 4)
 		t = scalar_tp, subname = "rt_int";
-	      else if (i == BARRIER && aindex >= 3)
+	      else if (i == BARRIER && aindex >= 2)
 		t = scalar_tp, subname = "rt_int";
 	      else if (i == ENTRY_VALUE && aindex == 0)
 		t = rtx_tp, subname = "rt_rtx";
@@ -1766,7 +1759,7 @@ open_base_files (void)
     static const char *const ifiles[] = {
       "config.h", "system.h", "coretypes.h", "tm.h",
       "hashtab.h", "splay-tree.h", "obstack.h", "bitmap.h", "input.h",
-      "tree.h", "rtl.h", "function.h", "insn-config.h", "expr.h",
+      "tree.h", "rtl.h", "wide-int.h", "function.h", "insn-config.h", "expr.h",
       "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
       "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
       "pointer-set.h", "hash-table.h", "vec.h", "ggc.h", "basic-block.h",
@@ -5670,6 +5663,8 @@ main (int argc, char **argv)
       POS_HERE (do_scalar_typedef ("REAL_VALUE_TYPE", &pos));
       POS_HERE (do_scalar_typedef ("FIXED_VALUE_TYPE", &pos));
       POS_HERE (do_scalar_typedef ("double_int", &pos));
+      POS_HERE (do_scalar_typedef ("offset_int", &pos));
+      POS_HERE (do_scalar_typedef ("widest_int", &pos));
       POS_HERE (do_scalar_typedef ("uint64_t", &pos));
       POS_HERE (do_scalar_typedef ("uint8", &pos));
       POS_HERE (do_scalar_typedef ("uintptr_t", &pos));

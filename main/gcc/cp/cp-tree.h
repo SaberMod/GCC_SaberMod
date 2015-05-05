@@ -5780,6 +5780,7 @@ extern bool is_sub_constant_expr (tree);
 extern bool reduced_constant_expression_p (tree);
 extern void explain_invalid_constexpr_fn (tree);
 extern vec<tree> cx_error_context (void);
+extern bool is_this_parameter (tree);
 
 enum {
   BCS_NO_SCOPE = 1,
@@ -5896,8 +5897,8 @@ extern void insert_pending_capture_proxies	(void);
 extern bool is_capture_proxy			(tree);
 extern bool is_normal_capture_proxy             (tree);
 extern void register_capture_members		(tree);
-extern tree lambda_expr_this_capture            (tree);
-extern tree maybe_resolve_dummy			(tree);
+extern tree lambda_expr_this_capture            (tree, bool);
+extern tree maybe_resolve_dummy			(tree, bool);
 extern tree nonlambda_method_basetype		(void);
 extern void maybe_add_lambda_conv_op            (tree);
 extern bool is_lambda_ignored_entity            (tree);

@@ -860,8 +860,7 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 	*walk_subtrees = 0;
 
       else if (TREE_CODE (*tp) == INTEGER_CST)
-	*tp = build_int_cst_wide (new_type, TREE_INT_CST_LOW (*tp),
-				  TREE_INT_CST_HIGH (*tp));
+	*tp = wide_int_to_tree (new_type, *tp);
       else
 	{
 	  *tp = copy_node (*tp);
@@ -1039,8 +1038,7 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 	*walk_subtrees = 0;
 
       else if (TREE_CODE (*tp) == INTEGER_CST)
-	*tp = build_int_cst_wide (new_type, TREE_INT_CST_LOW (*tp),
-				  TREE_INT_CST_HIGH (*tp));
+	*tp = wide_int_to_tree (new_type, *tp);
       else
 	{
 	  *tp = copy_node (*tp);
@@ -1486,6 +1484,11 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
       /* Create a new deep copy of the statement.  */
       copy = gimple_copy (stmt);
+
+      /* Clear flags that need revisiting.  */
+      if (is_gimple_call (copy)
+	  && gimple_call_tail_p (copy))
+	gimple_call_set_tail (copy, false);
 
       /* Remap the region numbers for __builtin_eh_{pointer,filter},
 	 RESX and EH_DISPATCH.  */

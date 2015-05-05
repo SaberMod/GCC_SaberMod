@@ -1907,6 +1907,7 @@ do_compile (void)
 	 predefined macros, such as __LDBL_MAX__, for targets using non
 	 default FP formats.  */
       init_adjust_machine_modes ();
+      init_derived_machine_modes ();
 
       /* Set up the back-end if requested.  */
       if (!no_backend)

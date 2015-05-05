@@ -2671,22 +2671,15 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 	    offset = -1;
 	}
 
-      if (offset >= 0
-	  && (GET_MODE_PRECISION (GET_MODE (SET_DEST (temp)))
-	      <= HOST_BITS_PER_DOUBLE_INT))
+      if (offset >= 0)
 	{
-	  double_int m, o, i;
 	  rtx inner = SET_SRC (PATTERN (i3));
 	  rtx outer = SET_SRC (temp);
 
-	  o = rtx_to_double_int (outer);
-	  i = rtx_to_double_int (inner);
-
-	  m = double_int::mask (width);
-	  i &= m;
-	  m = m.llshift (offset, HOST_BITS_PER_DOUBLE_INT);
-	  i = i.llshift (offset, HOST_BITS_PER_DOUBLE_INT);
-	  o = o.and_not (m) | i;
+	  wide_int o
+	    = wi::insert (std::make_pair (outer, GET_MODE (SET_DEST (temp))),
+			  std::make_pair (inner, GET_MODE (dest)),
+			  offset, width);
 
 	  combine_merges++;
 	  subst_insn = i3;
@@ -2699,7 +2692,7 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 	     resulting insn the new pattern for I3.  Then skip to where we
 	     validate the pattern.  Everything was set up above.  */
 	  SUBST (SET_SRC (temp),
-		 immed_double_int_const (o, GET_MODE (SET_DEST (temp))));
+		 immed_wide_int_const (o, GET_MODE (SET_DEST (temp))));
 
 	  newpat = PATTERN (i2);
 
@@ -2746,9 +2739,10 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 	     never appear in the insn stream so giving it the same INSN_UID
 	     as I2 will not cause a problem.  */
 
-	  i1 = gen_rtx_INSN (VOIDmode, INSN_UID (i2), NULL_RTX, i2,
-			     BLOCK_FOR_INSN (i2), XVECEXP (PATTERN (i2), 0, 1),
-			     INSN_LOCATION (i2), -1, NULL_RTX);
+	  i1 = gen_rtx_INSN (VOIDmode, NULL_RTX, i2, BLOCK_FOR_INSN (i2),
+			     XVECEXP (PATTERN (i2), 0, 1), INSN_LOCATION (i2),
+			     -1, NULL_RTX);
+	  INSN_UID (i1) = INSN_UID (i2);
 
 	  SUBST (PATTERN (i2), XVECEXP (PATTERN (i2), 0, 0));
 	  SUBST (XEXP (SET_SRC (PATTERN (i2)), 0),
@@ -5139,7 +5133,7 @@ subst (rtx x, rtx from, rtx to, int in_dest, int in_cond, int unique_copy)
 		  if (! x)
 		    x = gen_rtx_CLOBBER (mode, const0_rtx);
 		}
-	      else if (CONST_INT_P (new_rtx)
+	      else if (CONST_SCALAR_INT_P (new_rtx)
 		       && GET_CODE (x) == ZERO_EXTEND)
 		{
 		  x = simplify_unary_operation (ZERO_EXTEND, GET_MODE (x),
@@ -13898,7 +13892,7 @@ const pass_data pass_data_combine =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_df_finish | TODO_verify_rtl_sharing ), /* todo_flags_finish */
+  TODO_df_finish, /* todo_flags_finish */
 };
 
 class pass_combine : public rtl_opt_pass

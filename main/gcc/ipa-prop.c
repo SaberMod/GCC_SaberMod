@@ -1100,7 +1100,7 @@ compute_complex_assign_jump_func (struct ipa_node_params *info,
       || max_size == -1
       || max_size != size)
     return;
-  offset += mem_ref_offset (base).low * BITS_PER_UNIT;
+  offset += mem_ref_offset (base).to_short_addr () * BITS_PER_UNIT;
   ssa = TREE_OPERAND (base, 0);
   if (TREE_CODE (ssa) != SSA_NAME
       || !SSA_NAME_IS_DEFAULT_DEF (ssa)
@@ -1160,7 +1160,7 @@ get_ancestor_addr_info (gimple assign, tree *obj_p, HOST_WIDE_INT *offset)
       || TREE_CODE (SSA_NAME_VAR (parm)) != PARM_DECL)
     return NULL_TREE;
 
-  *offset += mem_ref_offset (expr).low * BITS_PER_UNIT;
+  *offset += mem_ref_offset (expr).to_short_addr () * BITS_PER_UNIT;
   *obj_p = obj;
   return expr;
 }
@@ -3804,8 +3804,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
 		  if (TYPE_ALIGN (type) > align)
 		    align = TYPE_ALIGN (type);
 		}
-	      misalign += (tree_to_double_int (off)
-			   .sext (TYPE_PRECISION (TREE_TYPE (off))).low
+	      misalign += (offset_int::from (off, SIGNED).to_short_addr ()
 			   * BITS_PER_UNIT);
 	      misalign = misalign & (align - 1);
 	      if (misalign != 0)
@@ -4011,7 +4010,7 @@ ipa_get_adjustment_candidate (tree **expr, bool *convert,
 
   if (TREE_CODE (base) == MEM_REF)
     {
-      offset += mem_ref_offset (base).low * BITS_PER_UNIT;
+      offset += mem_ref_offset (base).to_short_addr () * BITS_PER_UNIT;
       base = TREE_OPERAND (base, 0);
     }
 
