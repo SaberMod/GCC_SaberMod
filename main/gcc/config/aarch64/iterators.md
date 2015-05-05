@@ -150,6 +150,9 @@
 ;; Vector modes for H and S types.
 (define_mode_iterator VDQHS [V4HI V8HI V2SI V4SI])
 
+;; Vector modes for H, S and D types.
+(define_mode_iterator VDQHSD [V4HI V8HI V2SI V4SI V2DI])
+
 ;; Vector modes for Q, H and S types.
 (define_mode_iterator VDQQHS [V8QI V16QI V4HI V8HI V2SI V4SI])
 
@@ -356,6 +359,9 @@
                          (V2DI "2d") (V2SF "2s")
 			 (V4SF "4s") (V2DF "2d")])
 
+(define_mode_attr Vrevsuff [(V4HI "16") (V8HI "16") (V2SI "32")
+                            (V4SI "32") (V2DI "64")])
+
 (define_mode_attr Vmtype [(V8QI ".8b") (V16QI ".16b")
 			 (V4HI ".4h") (V8HI  ".8h")
 			 (V2SI ".2s") (V4SI  ".4s")
@@ -557,6 +563,32 @@
 			(V2DI "V8DI")  (V2DF "V8DF")])
 
 (define_mode_attr VSTRUCT_DREG [(OI "TI") (CI "EI") (XI "OI")])
+
+;; Mode of pair of elements for each vector mode, to define transfer
+;; size for structure lane/dup loads and stores.
+(define_mode_attr V_TWO_ELEM [(V8QI "HI")   (V16QI "HI")
+                              (V4HI "SI")   (V8HI "SI")
+                              (V2SI "V2SI") (V4SI "V2SI")
+                              (DI "V2DI")   (V2DI "V2DI")
+                              (V2SF "V2SF") (V4SF "V2SF")
+                              (DF "V2DI")   (V2DF "V2DI")])
+
+;; Similar, for three elements.
+(define_mode_attr V_THREE_ELEM [(V8QI "BLK") (V16QI "BLK")
+                                (V4HI "BLK") (V8HI "BLK")
+                                (V2SI "BLK") (V4SI "BLK")
+                                (DI "EI")    (V2DI "EI")
+                                (V2SF "BLK") (V4SF "BLK")
+                                (DF "EI")    (V2DF "EI")])
+
+;; Similar, for four elements.
+(define_mode_attr V_FOUR_ELEM [(V8QI "SI")   (V16QI "SI")
+                               (V4HI "V4HI") (V8HI "V4HI")
+                               (V2SI "V4SI") (V4SI "V4SI")
+                               (DI "OI")     (V2DI "OI")
+                               (V2SF "V4SF") (V4SF "V4SF")
+                               (DF "OI")     (V2DF "OI")])
+
 
 ;; Mode for atomic operation suffixes
 (define_mode_attr atomic_sfx

@@ -1848,11 +1848,13 @@ cp_parser_context_new (cp_parser_context* next)
   parser->unparsed_queues->last ().funs_with_definitions
 #define unparsed_nsdmis \
   parser->unparsed_queues->last ().nsdmis
+#define unparsed_classes \
+  parser->unparsed_queues->last ().classes
 
 static void
 push_unparsed_function_queues (cp_parser *parser)
 {
-  cp_unparsed_functions_entry e = {NULL, make_tree_vector (), NULL};
+  cp_unparsed_functions_entry e = {NULL, make_tree_vector (), NULL, NULL};
   vec_safe_push (parser->unparsed_queues, e);
 }
 
@@ -16165,15 +16167,8 @@ cp_parser_alias_declaration (cp_parser* parser)
   if (parser->num_template_parameter_lists)
     parser->type_definition_forbidden_message = saved_message;
 
-  if (type == error_mark_node)
-    {
-      cp_parser_skip_to_end_of_block_or_statement (parser);
-      return error_mark_node;
-    }
-
-  cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
-
-  if (cp_parser_error_occurred (parser))
+  if (type == error_mark_node
+      || !cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON))
     {
       cp_parser_skip_to_end_of_block_or_statement (parser);
       return error_mark_node;
@@ -17868,7 +17863,7 @@ cp_parser_virt_specifier_seq_opt (cp_parser* parser)
 /* Used by handling of trailing-return-types and NSDMI, in which 'this'
    is in scope even though it isn't real.  */
 
-static void
+void
 inject_this_parameter (tree ctype, cp_cv_quals quals)
 {
   tree this_parm;
@@ -19539,6 +19534,13 @@ cp_parser_class_specifier_1 (cp_parser* parser)
       current_class_ref = save_ccr;
       if (pushed_scope)
 	pop_scope (pushed_scope);
+
+      /* Now do some post-NSDMI bookkeeping.  */
+      FOR_EACH_VEC_SAFE_ELT (unparsed_classes, ix, class_type)
+	after_nsdmi_defaulted_late_checks (class_type);
+      vec_safe_truncate (unparsed_classes, 0);
+      after_nsdmi_defaulted_late_checks (type);
+
       /* Now parse the body of the functions.  */
       if (flag_openmp)
 	{
@@ -19555,6 +19557,8 @@ cp_parser_class_specifier_1 (cp_parser* parser)
 	  cp_parser_late_parsing_for_member (parser, decl);
       vec_safe_truncate (unparsed_funs_with_definitions, 0);
     }
+  else
+    vec_safe_push (unparsed_classes, type);
 
   /* Put back any saved access checks.  */
   pop_deferring_access_checks ();
@@ -28561,6 +28565,20 @@ cp_parser_omp_atomic (cp_parser *parser, cp_token *pragma_tok)
       tree id = cp_lexer_peek_token (parser->lexer)->u.value;
       const char *p = IDENTIFIER_POINTER (id);
 
+      if (!strcmp (p, "seq_cst"))
+	{
+	  seq_cst = true;
+	  cp_lexer_consume_token (parser->lexer);
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA)
+	      && cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_NAME)
+	    cp_lexer_consume_token (parser->lexer);
+	}
+    }
+  if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+    {
+      tree id = cp_lexer_peek_token (parser->lexer)->u.value;
+      const char *p = IDENTIFIER_POINTER (id);
+
       if (!strcmp (p, "read"))
 	code = OMP_ATOMIC_READ;
       else if (!strcmp (p, "write"))
@@ -28574,16 +28592,22 @@ cp_parser_omp_atomic (cp_parser *parser, cp_token *pragma_tok)
       if (p)
 	cp_lexer_consume_token (parser->lexer);
     }
-
-  if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+  if (!seq_cst)
     {
-      tree id = cp_lexer_peek_token (parser->lexer)->u.value;
-      const char *p = IDENTIFIER_POINTER (id);
+      if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA)
+	  && cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_NAME)
+	cp_lexer_consume_token (parser->lexer);
 
-      if (!strcmp (p, "seq_cst"))
+      if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
 	{
-	  seq_cst = true;
-	  cp_lexer_consume_token (parser->lexer);
+	  tree id = cp_lexer_peek_token (parser->lexer)->u.value;
+	  const char *p = IDENTIFIER_POINTER (id);
+
+	  if (!strcmp (p, "seq_cst"))
+	    {
+	      seq_cst = true;
+	      cp_lexer_consume_token (parser->lexer);
+	    }
 	}
     }
   cp_parser_require_pragma_eol (parser, pragma_tok);
@@ -29856,10 +29880,12 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok,
 	return cp_parser_omp_for (parser, pragma_tok, p_name, mask, cclauses);
       block = begin_omp_parallel ();
       save = cp_parser_begin_omp_structured_block (parser);
-      cp_parser_omp_for (parser, pragma_tok, p_name, mask, cclauses);
+      tree ret = cp_parser_omp_for (parser, pragma_tok, p_name, mask, cclauses);
       cp_parser_end_omp_structured_block (parser, save);
       stmt = finish_omp_parallel (cclauses[C_OMP_CLAUSE_SPLIT_PARALLEL],
 				  block);
+      if (ret == NULL_TREE)
+	return ret;
       OMP_PARALLEL_COMBINED (stmt) = 1;
       return stmt;
     }

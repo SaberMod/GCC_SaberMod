@@ -2308,7 +2308,7 @@ fixup_reference_list (struct varpool_node *node)
   new_refered_type.create (10);
   for (i = 0; ipa_ref_list_reference_iterate (list, i, ref); i++)
     {
-      if (!is_a <cgraph_node> (ref->referred))
+      if (!is_a <cgraph_node *> (ref->referred))
         continue;
 
       struct cgraph_node *cnode = ipa_ref_node (ref);

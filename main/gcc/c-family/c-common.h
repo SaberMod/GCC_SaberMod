@@ -1014,6 +1014,10 @@ extern vec<tree, va_gc> *make_tree_vector_from_list (tree);
 extern vec<tree, va_gc> *make_tree_vector_copy (const vec<tree, va_gc> *);
 extern void check_for_self_assign (location_t, tree, tree);
 
+/* Used for communication between c_common_type_for_mode and
+   c_register_builtin_type.  */
+extern GTY(()) tree registered_builtin_types;
+
 /* In c-gimplify.c  */
 extern void c_genericize (tree);
 extern int c_gimplify_expr (tree *, gimple_seq *, gimple_seq *);

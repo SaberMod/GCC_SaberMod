@@ -372,7 +372,7 @@ record_reference_to_real_target_from_alias (struct cgraph_node *alias)
     {
       struct cgraph_node *target, *real_target;
 
-      target = dyn_cast<cgraph_node> (symtab_alias_target (alias));
+      target = dyn_cast <cgraph_node*> (symtab_alias_target (alias));
       real_target = cgraph_lipo_get_resolved_node (target->decl);
       /* TODO: this make create duplicate entries in the reference list.  */
       if (real_target != target)

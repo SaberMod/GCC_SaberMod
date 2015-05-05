@@ -1688,7 +1688,19 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	  if (c_parser_next_token_is_keyword (parser, RID_ASM))
 	    asm_name = c_parser_simple_asm_expr (parser);
 	  if (c_parser_next_token_is_keyword (parser, RID_ATTRIBUTE))
-	    postfix_attrs = c_parser_attributes (parser);
+	    {
+	      postfix_attrs = c_parser_attributes (parser);
+	      if (c_parser_next_token_is (parser, CPP_OPEN_BRACE))
+		{
+		  /* This means there is an attribute specifier after
+		     the declarator in a function definition.  Provide
+		     some more information for the user.  */
+		  error_at (here, "attributes should be specified before the "
+			    "declarator in a function definition");
+		  c_parser_skip_to_end_of_block_or_statement (parser);
+		  return;
+		}
+	    }
 	  if (c_parser_next_token_is (parser, CPP_EQ))
 	    {
 	      tree d;
@@ -4219,7 +4231,8 @@ c_parser_initelt (c_parser *parser, struct obstack * braced_init_obstack)
 		  init.original_type = NULL;
 		  c_parser_error (parser, "expected identifier");
 		  c_parser_skip_until_found (parser, CPP_COMMA, NULL);
-		  process_init_element (init, false, braced_init_obstack);
+		  process_init_element (input_location, init, false,
+					braced_init_obstack);
 		  return;
 		}
 	    }
@@ -4351,7 +4364,8 @@ c_parser_initelt (c_parser *parser, struct obstack * braced_init_obstack)
 		  init.original_type = NULL;
 		  c_parser_error (parser, "expected %<=%>");
 		  c_parser_skip_until_found (parser, CPP_COMMA, NULL);
-		  process_init_element (init, false, braced_init_obstack);
+		  process_init_element (input_location, init, false,
+					braced_init_obstack);
 		  return;
 		}
 	    }
@@ -4372,18 +4386,19 @@ c_parser_initval (c_parser *parser, struct c_expr *after,
 {
   struct c_expr init;
   gcc_assert (!after || c_dialect_objc ());
+  location_t loc = c_parser_peek_token (parser)->location;
+
   if (c_parser_next_token_is (parser, CPP_OPEN_BRACE) && !after)
     init = c_parser_braced_init (parser, NULL_TREE, true);
   else
     {
-      location_t loc = c_parser_peek_token (parser)->location;
       init = c_parser_expr_no_commas (parser, after);
       if (init.value != NULL_TREE
 	  && TREE_CODE (init.value) != STRING_CST
 	  && TREE_CODE (init.value) != COMPOUND_LITERAL_EXPR)
 	init = convert_lvalue_to_rvalue (loc, init, true, true);
     }
-  process_init_element (init, false, braced_init_obstack);
+  process_init_element (loc, init, false, braced_init_obstack);
 }
 
 /* Parse a compound statement (possibly a function body) (C90 6.6.2,
@@ -11198,6 +11213,18 @@ c_parser_omp_atomic (location_t loc, c_parser *parser)
   if (c_parser_next_token_is (parser, CPP_NAME))
     {
       const char *p = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
+      if (!strcmp (p, "seq_cst"))
+	{
+	  seq_cst = true;
+	  c_parser_consume_token (parser);
+	  if (c_parser_next_token_is (parser, CPP_COMMA)
+	      && c_parser_peek_2nd_token (parser)->type == CPP_NAME)
+	    c_parser_consume_token (parser);
+	}
+    }
+  if (c_parser_next_token_is (parser, CPP_NAME))
+    {
+      const char *p = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
 
       if (!strcmp (p, "read"))
 	code = OMP_ATOMIC_READ;
@@ -11212,13 +11239,21 @@ c_parser_omp_atomic (location_t loc, c_parser *parser)
       if (p)
 	c_parser_consume_token (parser);
     }
-  if (c_parser_next_token_is (parser, CPP_NAME))
+  if (!seq_cst)
     {
-      const char *p = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
-      if (!strcmp (p, "seq_cst"))
+      if (c_parser_next_token_is (parser, CPP_COMMA)
+	  && c_parser_peek_2nd_token (parser)->type == CPP_NAME)
+	c_parser_consume_token (parser);
+
+      if (c_parser_next_token_is (parser, CPP_NAME))
 	{
-	  seq_cst = true;
-	  c_parser_consume_token (parser);
+	  const char *p
+	    = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
+	  if (!strcmp (p, "seq_cst"))
+	    {
+	      seq_cst = true;
+	      c_parser_consume_token (parser);
+	    }
 	}
     }
   c_parser_skip_to_pragma_eol (parser);
@@ -12208,10 +12243,12 @@ c_parser_omp_parallel (location_t loc, c_parser *parser,
       if (!flag_openmp)  /* flag_openmp_simd  */
 	return c_parser_omp_for (loc, parser, p_name, mask, cclauses);
       block = c_begin_omp_parallel ();
-      c_parser_omp_for (loc, parser, p_name, mask, cclauses);
+      tree ret = c_parser_omp_for (loc, parser, p_name, mask, cclauses);
       stmt
 	= c_finish_omp_parallel (loc, cclauses[C_OMP_CLAUSE_SPLIT_PARALLEL],
 				 block);
+      if (ret == NULL_TREE)
+	return ret;
       OMP_PARALLEL_COMBINED (stmt) = 1;
       return stmt;
     }

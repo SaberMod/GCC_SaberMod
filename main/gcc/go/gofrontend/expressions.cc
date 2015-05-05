@@ -3578,127 +3578,7 @@ Expression::make_unsafe_cast(Type* type, Expression* expr,
   return new Unsafe_type_conversion_expression(type, expr, location);
 }
 
-// Unary expressions.
-
-class Unary_expression : public Expression
-{
- public:
-  Unary_expression(Operator op, Expression* expr, Location location)
-    : Expression(EXPRESSION_UNARY, location),
-      op_(op), escapes_(true), create_temp_(false), expr_(expr),
-      issue_nil_check_(false)
-  { }
-
-  // Return the operator.
-  Operator
-  op() const
-  { return this->op_; }
-
-  // Return the operand.
-  Expression*
-  operand() const
-  { return this->expr_; }
-
-  // Record that an address expression does not escape.
-  void
-  set_does_not_escape()
-  {
-    go_assert(this->op_ == OPERATOR_AND);
-    this->escapes_ = false;
-  }
-
-  // Record that this is an address expression which should create a
-  // temporary variable if necessary.  This is used for method calls.
-  void
-  set_create_temp()
-  {
-    go_assert(this->op_ == OPERATOR_AND);
-    this->create_temp_ = true;
-  }
-
-  // Apply unary opcode OP to UNC, setting NC.  Return true if this
-  // could be done, false if not.  Issue errors for overflow.
-  static bool
-  eval_constant(Operator op, const Numeric_constant* unc,
-		Location, Numeric_constant* nc);
-
-  static Expression*
-  do_import(Import*);
-
- protected:
-  int
-  do_traverse(Traverse* traverse)
-  { return Expression::traverse(&this->expr_, traverse); }
-
-  Expression*
-  do_lower(Gogo*, Named_object*, Statement_inserter*, int);
-
-  Expression*
-  do_flatten(Gogo*, Named_object*, Statement_inserter*);
-
-  bool
-  do_is_constant() const;
-
-  bool
-  do_is_immutable() const
-  { return this->expr_->is_immutable()
-      || (this->op_ == OPERATOR_AND && this->expr_->is_variable()); }
-
-  bool
-  do_numeric_constant_value(Numeric_constant*) const;
-
-  Type*
-  do_type();
-
-  void
-  do_determine_type(const Type_context*);
-
-  void
-  do_check_types(Gogo*);
-
-  Expression*
-  do_copy()
-  {
-    return Expression::make_unary(this->op_, this->expr_->copy(),
-				  this->location());
-  }
-
-  bool
-  do_must_eval_subexpressions_in_order(int*) const
-  { return this->op_ == OPERATOR_MULT; }
-
-  bool
-  do_is_addressable() const
-  { return this->op_ == OPERATOR_MULT; }
-
-  tree
-  do_get_tree(Translate_context*);
-
-  void
-  do_export(Export*) const;
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
-  void
-  do_issue_nil_check()
-  { this->issue_nil_check_ = (this->op_ == OPERATOR_MULT); }
-
- private:
-  // The unary operator to apply.
-  Operator op_;
-  // Normally true.  False if this is an address expression which does
-  // not escape the current function.
-  bool escapes_;
-  // True if this is an address expression which should create a
-  // temporary variable if necessary.
-  bool create_temp_;
-  // The operand.
-  Expression* expr_;
-  // Whether or not to issue a nil check for this expression if its address
-  // is being taken.
-  bool issue_nil_check_;
-};
+// Class Unary_expression.
 
 // If we are taking the address of a composite literal, and the
 // contents are not constant, then we want to make a heap expression
@@ -4214,11 +4094,18 @@ Unary_expression::do_get_tree(Translate_context* context)
 	    }
 	}
 
-      // Build a decl for a constant constructor.
-      if ((this->expr_->is_composite_literal()
+      if (this->is_gc_root_)
+	{
+	  // Build a decl for a GC root variable.  GC roots are mutable, so they
+	  // cannot be represented as an immutable_struct in the backend.
+	  Bvariable* gc_root = gogo->backend()->gc_root_variable(btype, bexpr);
+	  bexpr = gogo->backend()->var_expression(gc_root, loc);
+	}
+      else if ((this->expr_->is_composite_literal()
            || this->expr_->string_expression() != NULL)
           && this->expr_->is_immutable())
         {
+	  // Build a decl for a constant constructor.
           static unsigned int counter;
           char buf[100];
           snprintf(buf, sizeof buf, "C%u", counter);
@@ -12508,6 +12395,14 @@ Fixed_array_construction_expression::do_get_tree(Translate_context* context)
   return expr_to_tree(this->get_constructor(context, btype));
 }
 
+Expression*
+Expression::make_array_composite_literal(Type* type, Expression_list* vals,
+                                         Location location)
+{
+  go_assert(type->array_type() != NULL && !type->is_slice_type());
+  return new Fixed_array_construction_expression(type, NULL, vals, location);
+}
+
 // Construct a slice.
 
 class Slice_construction_expression : public Array_construction_expression
@@ -13903,30 +13798,31 @@ class Heap_expression : public Expression
 tree
 Heap_expression::do_get_tree(Translate_context* context)
 {
-  tree expr_tree = this->expr_->get_tree(context);
-  if (expr_tree == error_mark_node || TREE_TYPE(expr_tree) == error_mark_node)
+  if (this->expr_->is_error_expression() || this->expr_->type()->is_error())
     return error_mark_node;
 
-  Expression* alloc =
-      Expression::make_allocation(this->expr_->type(), this->location());
-
+  Location loc = this->location();
   Gogo* gogo = context->gogo();
-  Btype* btype = this->expr_->type()->get_backend(gogo);
-  size_t expr_size = gogo->backend()->type_size(btype);
-  tree space = alloc->get_tree(context);
-  if (expr_size == 0)
-    return space;
+  Btype* btype = this->type()->get_backend(gogo);
+  Expression* alloc = Expression::make_allocation(this->expr_->type(), loc);
+  Bexpression* space = tree_to_expr(alloc->get_tree(context));
 
-  space = save_expr(space);
-  tree ref = build_fold_indirect_ref_loc(this->location().gcc_location(),
-                                         space);
-  TREE_THIS_NOTRAP(ref) = 1;
-  tree ret = build2(COMPOUND_EXPR,
-                    type_to_tree(this->type()->get_backend(gogo)),
-		    build2(MODIFY_EXPR, void_type_node, ref, expr_tree),
-		    space);
-  SET_EXPR_LOCATION(ret, this->location().gcc_location());
-  return ret;
+  Bstatement* decl;
+  Named_object* fn = context->function();
+  go_assert(fn != NULL);
+  Bfunction* fndecl = fn->func_value()->get_or_make_decl(gogo, fn);
+  Bvariable* space_temp =
+    gogo->backend()->temporary_variable(fndecl, context->bblock(), btype,
+					space, true, loc, &decl);
+  space = gogo->backend()->var_expression(space_temp, loc);
+  Bexpression* ref = gogo->backend()->indirect_expression(space, true, loc);
+
+  Bexpression* bexpr = tree_to_expr(this->expr_->get_tree(context));
+  Bstatement* assn = gogo->backend()->assignment_statement(ref, bexpr, loc);
+  decl = gogo->backend()->compound_statement(decl, assn);
+  space = gogo->backend()->var_expression(space_temp, loc);
+  Bexpression* ret = gogo->backend()->compound_expression(decl, space, loc);
+  return expr_to_tree(ret);
 }
 
 // Dump ast representation for a heap expression.

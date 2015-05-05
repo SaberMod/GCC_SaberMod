@@ -242,6 +242,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wchar-subscripts -Wclobbered  -Wcomment -Wconditionally-supported  @gol
 -Wconversion -Wcoverage-mismatch -Wdate-time -Wdelete-incomplete -Wno-cpp  @gol
 -Wno-deprecated -Wno-deprecated-declarations -Wdisabled-optimization  @gol
+-Wno-discarded-qualifiers @gol
 -Wno-div-by-zero -Wdouble-promotion -Wempty-body  -Wenum-compare @gol
 -Wno-endif-labels -Werror  -Werror=* @gol
 -Wfatal-errors  -Wfloat-equal -Wforce-warnings -Wformat  -Wformat=2 @gol
@@ -289,7 +290,8 @@ Objective-C and Objective-C++ Dialects}.
 @item Debugging Options
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
 @gccoptlist{-d@var{letters}  -dumpspecs  -dumpmachine  -dumpversion @gol
--fsanitize=@var{style} @gol
+-fsanitize=@var{style} -fsanitize-recover @gol
+-fsanitize-undefined-trap-on-error @gol
 -fdbg-cnt-list -fdbg-cnt=@var{counter-value-list} @gol
 -fdisable-ipa-@var{pass_name} @gol
 -fdisable-rtl-@var{pass_name} @gol
@@ -834,7 +836,8 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-meb -mel -mno-crt0}
 
 @emph{MSP430 Options}
-@gccoptlist{-msim -masm-hex -mmcu= -mcpu= -mlarge -msmall -mrelax}
+@gccoptlist{-msim -masm-hex -mmcu= -mcpu= -mlarge -msmall -mrelax @gol
+-mhwmult=}
 
 @emph{NDS32 Options}
 @gccoptlist{-mbig-endian -mlittle-endian @gol
@@ -1000,6 +1003,7 @@ See RS/6000 and PowerPC Options.
 -mhard-quad-float  -msoft-quad-float @gol
 -mstack-bias  -mno-stack-bias @gol
 -munaligned-doubles  -mno-unaligned-doubles @gol
+-muser-mode  -mno-user-mode @gol
 -mv8plus  -mno-v8plus  -mvis  -mno-vis @gol
 -mvis2  -mno-vis2  -mvis3  -mno-vis3 @gol
 -mcbcond -mno-cbcond @gol
@@ -4272,6 +4276,15 @@ This option is only active when @option{-ftree-vrp} is active
 (default for @option{-O2} and above). It warns about subscripts to arrays
 that are always out of bounds. This warning is enabled by @option{-Wall}.
 
+@item -Wno-discarded-qualifiers
+@opindex Wno-discarded-qualifiers
+@opindex Wdiscarded-qualifiers
+Do not warn if type qualifiers on pointers are being discarded.
+Typically, the compiler will warn if a @code{const char *} variable is
+passed to a function that takes @code{char *} parameter.  This option
+can be used to suppress such a warning.  This warning is only supported
+for C.
+
 @item -Wno-div-by-zero
 @opindex Wno-div-by-zero
 @opindex Wdiv-by-zero
@@ -4859,7 +4872,7 @@ Warn if a global function is defined without a previous declaration.
 Do so even if the definition itself provides a prototype.
 Use this option to detect global functions that are not declared in
 header files.  In C, no warnings are issued for functions with previous
-non-prototype declarations; use @option{-Wmissing-prototype} to detect
+non-prototype declarations; use @option{-Wmissing-prototypes} to detect
 missing prototypes.  In C++, no warnings are issued for function templates,
 or for inline functions, or for functions in anonymous namespaces.
 
@@ -5515,6 +5528,34 @@ a++;
 While @option{-ftrapv} causes traps for signed overflows to be emitted,
 @option{-fsanitize=undefined} gives a diagnostic message.
 This currently works only for the C family of languages.
+
+@item -fsanitize=float-divide-by-zero
+@opindex fsanitize=float-divide-by-zero
+
+Detect floating-point division by zero.  Unlike other similar options,
+@option{-fsanitize=float-divide-by-zero} is not enabled by
+@option{-fsanitize=undefined}, since floating-point division by zero can
+be a legitimate way of obtaining infinities and NaNs.
+
+@item -fsanitize-recover
+@opindex fsanitize-recover
+By default @option{-fsanitize=undefined} sanitization (and its suboptions
+except for @option{-fsanitize=unreachable} and @option{-fsanitize=return})
+after reporting undefined behavior attempts to continue running the
+program as if no undefined behavior happened.  This means multiple undefined
+behavior runtime errors can be reported in a single program run, and the exit
+code of the program may indicate success even when undefined behavior
+has been reported.  The @option{-fno-sanitize-recover} can be used to alter
+this behavior, only the first detected undefined behavior will be reported
+and program will exit after that with non-zero exit code.
+
+@item -fsanitize-undefined-trap-on-error
+@opindex fsanitize-undefined-trap-on-error
+The @option{-fsanitize-undefined-trap-on-error} instructs the compiler to
+report undefined behavior using @code{__builtin_trap ()} rather than
+a @code{libubsan} library routine.  The advantage of this is that the
+@code{libubsan} library is not needed and will not be linked in, so this
+is usable even for use in freestanding environments.
 
 @item -fdump-final-insns@r{[}=@var{file}@r{]}
 @opindex fdump-final-insns
@@ -18487,6 +18528,28 @@ This option is passed to the assembler and linker, and allows the
 linker to perform certain optimizations that cannot be done until
 the final link.
 
+@item mhwmult=
+@opindex mhwmult=
+Describes the type of hardware multiply supported by the target.
+Accepted values are @code{none} for no hardware multiply, @code{16bit}
+for the original 16-bit-only multiply supported by early MCUs.
+@code{32bit} for the 16/32-bit multiply supported by later MCUs and
+@code{f5series} for the 16/32-bit multiply supported by F5-series MCUs.
+A value of @code{auto} can also be given.  This tells GCC to deduce
+the hardware multiply support based upon the MCU name provided by the
+@option{-mmcu} option.  If no @option{-mmcu} option is specified then
+@code{32bit} hardware multiply support is assumed.  @code{auto} is the
+default setting.
+
+Hardware multiplies are normally performed by calling a library
+routine.  This saves space in the generated code.  When compiling at
+@code{-O3} or higher however the hardware multiplier is invoked
+inline.  This makes for bigger, but faster code.
+
+The hardware multiply routines disable interrupts whilst running and
+restore the previous interrupt state when they finish.  This makes
+them safe to use inside interrupt handlers as well as in normal code.
+
 @end table
 
 @node NDS32 Options
@@ -18750,6 +18813,12 @@ Conversion from double precision to single precision.
 @item @samp{fixsi}, @samp{fixsu}, @samp{fixdi}, @samp{fixdu}
 Conversion from floating point to signed or unsigned integer types, with
 truncation towards zero.
+
+@item @samp{round}
+Conversion from single-precision floating point to signed integer,
+rounding to the nearest integer and ties away from zero.
+This corresponds to the @code{__builtin_lroundf} function when
+@option{-fno-math-errno} is used.
 
 @item @samp{floatis}, @samp{floatus}, @samp{floatid}, @samp{floatud}
 Conversion from signed or unsigned integer types to floating-point types.
@@ -21176,6 +21245,14 @@ absolute address.  Otherwise, it assumes they have 4-byte alignment.
 Specifying this option avoids some rare compatibility problems with code
 generated by other compilers.  It is not the default because it results
 in a performance loss, especially for floating-point code.
+
+@item -muser-mode
+@itemx -mno-user-mode
+@opindex muser-mode
+@opindex mno-user-mode
+Do not generate code that can only run in supervisor mode.  This is relevant
+only for the @code{casa} instruction emitted for the LEON3 processor.  The
+default is @option{-mno-user-mode}.
 
 @item -mno-faster-structs
 @itemx -mfaster-structs

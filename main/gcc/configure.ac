@@ -514,27 +514,36 @@ dnl # an if statement.  This was the source of very frustrating bugs
 dnl # in converting to autoconf 2.5x!
 AC_CHECK_HEADER(valgrind.h, have_valgrind_h=yes, have_valgrind_h=no)
 
-if test x$ac_valgrind_checking != x ; then
-  # It is certainly possible that there's valgrind but no valgrind.h.
-  # GCC relies on making annotations so we must have both.
-  AC_MSG_CHECKING(for VALGRIND_DISCARD in <valgrind/memcheck.h>)
-  AC_PREPROC_IFELSE([AC_LANG_SOURCE(
-    [[#include <valgrind/memcheck.h>
+# It is certainly possible that there's valgrind but no valgrind.h.
+# GCC relies on making annotations so we must have both.
+AC_MSG_CHECKING(for VALGRIND_DISCARD in <valgrind/memcheck.h>)
+AC_PREPROC_IFELSE([AC_LANG_SOURCE(
+  [[#include <valgrind/memcheck.h>
 #ifndef VALGRIND_DISCARD
 #error VALGRIND_DISCARD not defined
 #endif]])],
   [gcc_cv_header_valgrind_memcheck_h=yes],
   [gcc_cv_header_valgrind_memcheck_h=no])
-  AC_MSG_RESULT($gcc_cv_header_valgrind_memcheck_h)
-  AC_MSG_CHECKING(for VALGRIND_DISCARD in <memcheck.h>)
-  AC_PREPROC_IFELSE([AC_LANG_SOURCE(
-    [[#include <memcheck.h>
+AC_MSG_RESULT($gcc_cv_header_valgrind_memcheck_h)
+AC_MSG_CHECKING(for VALGRIND_DISCARD in <memcheck.h>)
+AC_PREPROC_IFELSE([AC_LANG_SOURCE(
+  [[#include <memcheck.h>
 #ifndef VALGRIND_DISCARD
 #error VALGRIND_DISCARD not defined
 #endif]])],
   [gcc_cv_header_memcheck_h=yes],
   [gcc_cv_header_memcheck_h=no])
-  AC_MSG_RESULT($gcc_cv_header_memcheck_h)
+AC_MSG_RESULT($gcc_cv_header_memcheck_h)
+if test $gcc_cv_header_valgrind_memcheck_h = yes; then
+  AC_DEFINE(HAVE_VALGRIND_MEMCHECK_H, 1,
+	[Define if valgrind's valgrind/memcheck.h header is installed.])
+fi
+if test $gcc_cv_header_memcheck_h = yes; then
+  AC_DEFINE(HAVE_MEMCHECK_H, 1,
+	[Define if valgrind's memcheck.h header is installed.])
+fi
+
+if test x$ac_valgrind_checking != x ; then
   AM_PATH_PROG_WITH_TEST(valgrind_path, valgrind,
 	[$ac_dir/$ac_word --version | grep valgrind- >/dev/null 2>&1])
   if test "x$valgrind_path" = "x" \
@@ -548,14 +557,6 @@ if test x$ac_valgrind_checking != x ; then
   AC_DEFINE(ENABLE_VALGRIND_CHECKING, 1,
 [Define if you want to run subprograms and generated programs
    through valgrind (a memory checker).  This is extremely expensive.])
-  if test $gcc_cv_header_valgrind_memcheck_h = yes; then
-    AC_DEFINE(HAVE_VALGRIND_MEMCHECK_H, 1,
-	[Define if valgrind's valgrind/memcheck.h header is installed.])
-  fi
-  if test $gcc_cv_header_memcheck_h = yes; then
-    AC_DEFINE(HAVE_MEMCHECK_H, 1,
-	[Define if valgrind's memcheck.h header is installed.])
-  fi
 fi
 AC_SUBST(valgrind_path_defines)
 AC_SUBST(valgrind_command)
@@ -593,6 +594,21 @@ AC_ARG_ENABLE(gather-detailed-mem-stats,
 gather_stats=`if test $enable_gather_detailed_mem_stats != no; then echo 1; else echo 0; fi`
 AC_DEFINE_UNQUOTED(GATHER_STATISTICS, $gather_stats,
 [Define to enable detailed memory allocation stats gathering.])
+
+AC_ARG_ENABLE(valgrind-annotations,
+[AS_HELP_STRING([--enable-valgrind-annotations],
+		[enable valgrind runtime interaction])], [],
+[enable_valgrind_annotations=no])
+if test x$enable_valgrind_annotations != xno \
+    || test x$ac_valgrind_checking != x; then
+  if (test $have_valgrind_h = no \
+      && test $gcc_cv_header_memcheck_h = no \
+      && test $gcc_cv_header_valgrind_memcheck_h = no); then
+    AC_MSG_ERROR([*** Can't find valgrind/memcheck.h, memcheck.h or valgrind.h])
+  fi
+  AC_DEFINE(ENABLE_VALGRIND_ANNOTATIONS, 1,
+[Define to get calls to the valgrind runtime enabled.])
+fi
 
 # -------------------------------
 # Miscenalleous configure options
@@ -2563,9 +2579,14 @@ gcc_GAS_CHECK_FEATURE([cfi directives], gcc_cv_as_cfi_directive,
 	else
 	  case "$target" in
 	    i?86-*-solaris2.1[[0-9]]* | x86_64-*-solaris2.1[[0-9]]*)
-	      # On Solaris/x86, make sure that GCC and gas agree on using
+	      # On Solaris/x86, make sure that GCC and assembler agree on using
 	      # read-only .eh_frame sections for 64-bit.
-	      if $gcc_cv_as --64 -o conftest.o conftest.s > /dev/null 2>&1 && \
+	      if test x$gas = xyes; then
+	         as_ix86_64_opt="--64"
+	      else
+	         as_ix86_64_opt="-xarch=amd64"
+	      fi
+	      if $gcc_cv_as $as_ix86_64_opt -o conftest.o conftest.s > /dev/null 2>&1 && \
 		$gcc_cv_objdump -h conftest.o 2>/dev/null | \
 			sed -e /.eh_frame/!d -e N | \
 			grep READONLY > /dev/null; then
@@ -2949,13 +2970,8 @@ foo:	.long	25
 	;;
   i[34567]86-*-* | x86_64-*-*)
     case "$target" in
-      i[34567]86-*-solaris2.*)
+      i[34567]86-*-solaris2.* | x86_64-*-solaris2.1[0-9]*)
 	on_solaris=yes
-	tga_func=___tls_get_addr
-	;;
-      x86_64-*-solaris2.1[0-9]*)
-	on_solaris=yes
-	tga_func=__tls_get_addr
         ;;
       *)
 	on_solaris=no
@@ -3231,7 +3247,6 @@ foo:	.long	25
     case "$target" in
       sparc*-sun-solaris2.*)
 	on_solaris=yes
-	tga_func=__tls_get_addr
 	;;
       *)
 	on_solaris=no
@@ -3327,37 +3342,6 @@ else
   [$tls_first_major,$tls_first_minor,0], [$tls_as_opt], [$conftest_s],,
   [set_have_as_tls=yes])
 fi
-case "$target" in
-  # TLS was introduced in the Solaris 9 FCS release.  Support for GNU-style
-  # TLS on x86 was only introduced in Solaris 9 4/04, replacing the earlier
-  # Sun style that Sun ld and GCC don't support any longer.
-  *-*-solaris2.*)
-    ld_tls_support=yes
-
-    save_LIBS="$LIBS"
-    save_LDFLAGS="$LDFLAGS"
-    LIBS=
-    LDFLAGS=
-
-    AC_MSG_CHECKING(library containing $tga_func)
-    # Before Solaris 10, __tls_get_addr (SPARC/x64) resp. ___tls_get_addr
-    # (32-bit x86) only lived in libthread, so check for that.  Keep
-    # set_have_as_tls if found, disable if not.
-    AC_SEARCH_LIBS([$tga_func], [thread],, [set_have_as_tls=no])
-    ld_tls_libs="$LIBS"
-    # Clear LIBS if we cannot support TLS.
-    if test $set_have_as_tls = no; then
-      LIBS=
-    fi
-    # Always define LIB_TLS_SPEC, even without TLS support.
-    AC_DEFINE_UNQUOTED(LIB_TLS_SPEC, "$LIBS",
-        [Define to the library containing __tls_get_addr/___tls_get_addr.])
-    AC_MSG_RESULT($LIBS)
-
-    LIBS="$save_LIBS"
-    LDFLAGS="$save_LDFLAGS"
-    ;;
-esac
 if test $set_have_as_tls = yes ; then
   AC_DEFINE(HAVE_AS_TLS, 1,
 	    [Define if your assembler and linker support thread-local storage.])
@@ -3698,7 +3682,7 @@ foo:
        .align 4
        smac %g2, %g3, %g1
        umac %g2, %g3, %g1
-       cas [[%g2]], %g3, %g1],,
+       casa [[%g2]] 0xb, %g3, %g1],,
       [AC_DEFINE(HAVE_AS_LEON, 1,
                 [Define if your assembler supports LEON instructions.])])
     ;;

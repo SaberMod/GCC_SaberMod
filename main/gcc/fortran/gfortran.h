@@ -2948,7 +2948,6 @@ bool gfc_convert_to_structure_constructor (gfc_expr *, gfc_symbol *,
 /* trans.c */
 void gfc_generate_code (gfc_namespace *);
 void gfc_generate_module_code (gfc_namespace *);
-void gfc_init_coarray_decl (bool);
 
 /* trans-intrinsic.c */
 bool gfc_inline_intrinsic_function_p (gfc_expr *);
@@ -3021,5 +3020,9 @@ typedef int (*walk_expr_fn_t) (gfc_expr **, int *, void *);
 
 int gfc_expr_walker (gfc_expr **, walk_expr_fn_t, void *);
 int gfc_code_walker (gfc_code **, walk_code_fn_t, walk_expr_fn_t, void *);
+
+/* simplify.c */
+
+void gfc_convert_mpz_to_signed (mpz_t, int);
 
 #endif /* GCC_GFORTRAN_H  */

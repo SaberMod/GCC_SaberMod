@@ -1,3 +1,90 @@
+2014-05-01  Marek Polacek  <polacek@redhat.com>
+
+	PR c/43395
+	* typeck.c (maybe_warn_about_returning_address_of_local): Distinguish
+	between label and variable when warning about returning local address.
+
+2014-04-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/60980
+	* init.c (build_value_init): Don't try to call an array constructor.
+
+	PR c++/60951
+	* typeck2.c (massage_init_elt): Use maybe_constant_init.
+
+2014-04-30  Marek Polacek  <polacek@redhat.com>
+
+	* typeck.c (cp_build_binary_op): Call ubsan_instrument_division
+	even when SANITIZE_FLOAT_DIVIDE is on.  Set doing_div_or_mod even
+	for non-integer types.
+
+2014-04-29  Jason Merrill  <jason@redhat.com>
+
+	DR 1351
+	Represent the unevaluated exception specification of an implicitly
+	declared or deleted function with a simple placeholder, not a list
+	of functions.
+	* cp-tree.h (UNEVALUATED_NOEXCEPT_SPEC_P): New.
+	* except.c (unevaluated_noexcept_spec): New.
+	* class.c (deduce_noexcept_on_destructor): Use it.
+	* decl.c (check_redeclaration_exception_specification): Call
+	maybe_instantiate_noexcept.
+	(duplicate_decls): Call it before merge_types.
+	(start_preparsed_function): Call maybe_instantiate_noexcept.
+	* decl2.c (mark_used): Call maybe_instantiate_noexcept earlier.
+	* init.c (get_nsdmi): Factor out of perform_member_init.
+	* method.c (process_subob_fn): Call maybe_instantiate_noexcept.
+	(walk_field_subobs): Consider NSDMI for EH spec.
+	(get_defaulted_eh_spec): New.
+	(implicitly_declare_fn): Use unevaluated_noexcept_spec.
+	(defaulted_late_check): Defer EH checking in non-template classes.
+	(after_nsdmi_defaulted_late_checks): New.
+	* parser.c (cp_parser_class_specifier_1): Use it.
+	(unparsed_classes): New macro.
+	* parser.h (cp_unparsed_functions_entry_d): Add classes field.
+	* pt.c (maybe_instantiate_noexcept): Use get_defaulted_eh_spec.
+	Remove list-of-functions handling.
+	* typeck2.c (merge_exception_specifiers): Remove list-of-functions
+	handling and FN parameter.
+	* typeck.c (merge_types): Adjust.
+
+2014-04-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/59120
+	* parser.c (cp_parser_alias_declaration): Check return value of
+	cp_parser_require.
+
+2014-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_atomic): Allow seq_cst before
+	atomic-clause, allow comma in between atomic-clause and
+	seq_cst.
+
+2014-04-24  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR libstdc++/43622
+	* rtti.c (emit_support_tinfos): Do not iterate on
+	registered_builtin_types (partial revert).
+
+2014-04-23 Dinar Temirbulatov  <dtemirbulatov@gmail.com>
+
+	PR c++/57958
+	* semantics.c (apply_deduced_return_type): Complete non-void type
+	before estimating whether the type is aggregate.
+
+2014-04-22  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR libstdc++/43622
+	* rtti.c (emit_support_tinfo_1): New function, extracted from
+	emit_support_tinfos.
+	(emit_support_tinfos): Call it and iterate on registered_builtin_types.
+
+2014-04-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/59073
+	* parser.c (cp_parser_omp_parallel): If cp_parser_omp_for
+	fails, don't set OM_PARALLEL_COMBINED and return NULL.
+
 2014-04-18  Jason Merrill  <jason@redhat.com>
 
 	DR 1571
