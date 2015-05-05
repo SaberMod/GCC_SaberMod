@@ -1387,11 +1387,6 @@ else
 	done
 fi
 
-if test x$need_64bit_hwint = xyes; then
-	AC_DEFINE(NEED_64BIT_HOST_WIDE_INT, 1,
-[Define to 1 if HOST_WIDE_INT must be 64 bits wide (see hwint.h).])
-fi
-
 if test x$use_long_long_for_widest_fast_int = xyes; then
 	AC_DEFINE(USE_LONG_LONG_FOR_WIDEST_FAST_INT, 1,
 [Define to 1 if the 'long long' (or '__int64') is wider than 'long' but still
@@ -5038,6 +5033,13 @@ case "$target" in
     # compilation with largefile support.
     if grep dl_iterate_phdr $target_header_dir/link.h > /dev/null 2>&1 \
       && grep 'large file capable' $target_header_dir/link.h > /dev/null 2>&1; then
+      gcc_cv_target_dl_iterate_phdr=yes
+    else
+      gcc_cv_target_dl_iterate_phdr=no
+    fi
+    ;;
+  *-*-dragonfly* | *-*-freebsd*)
+    if grep dl_iterate_phdr $target_header_dir/sys/link_elf.h > /dev/null 2>&1; then
       gcc_cv_target_dl_iterate_phdr=yes
     else
       gcc_cv_target_dl_iterate_phdr=no

@@ -5845,20 +5845,6 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	  }
 	break;
       }
-      
-    case RID_CILK_SYNC:
-      if (flag_cilkplus)
-	{ 
-	  tree sync_expr = build_cilk_sync ();
-	  SET_EXPR_LOCATION (sync_expr, 
-			     cp_lexer_peek_token (parser->lexer)->location);
-	  finish_expr_stmt (sync_expr);
-	}
-      else
-	error_at (token->location, "-fcilkplus must be enabled to use" 
-		  " %<_Cilk_sync%>");
-      cp_lexer_consume_token (parser->lexer);
-      break;
 
     case RID_BUILTIN_SHUFFLE:
       {
@@ -9432,6 +9418,24 @@ cp_parser_statement (cp_parser* parser, tree in_statement_expr,
 	case RID_RETURN:
 	case RID_GOTO:
 	  statement = cp_parser_jump_statement (parser);
+	  break;
+
+	case RID_CILK_SYNC:
+	  cp_lexer_consume_token (parser->lexer);
+	  if (flag_cilkplus)
+	    {
+	      tree sync_expr = build_cilk_sync ();
+	      SET_EXPR_LOCATION (sync_expr,
+				 token->location);
+	      statement = finish_expr_stmt (sync_expr);
+	    }
+	  else
+	    {
+	      error_at (token->location, "-fcilkplus must be enabled to use"
+			" %<_Cilk_sync%>");
+	      statement = error_mark_node;
+	    }
+	  cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
 	  break;
 
 	  /* Objective-C++ exception-handling constructs.  */
@@ -15564,9 +15568,10 @@ cp_parser_enum_specifier (cp_parser* parser)
 	}
       else
 	{
-	  error_at (type_start_token->location, "multiple definition of %q#T", type);
-	  error_at (DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (type)),
-		    "previous definition here");
+	  error_at (type_start_token->location,
+		    "multiple definition of %q#T", type);
+	  inform (DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (type)),
+		  "previous definition here");
 	  type = error_mark_node;
 	}
 
@@ -23707,15 +23712,7 @@ cp_parser_late_parse_one_default_arg (cp_parser *parser, tree decl,
 	parsed_arg = check_default_argument (parmtype, parsed_arg,
 					     tf_warning_or_error);
       else
-	{
-	  int flags = LOOKUP_IMPLICIT;
-	  if (DIRECT_LIST_INIT_P (parsed_arg))
-	    flags = LOOKUP_NORMAL;
-	  parsed_arg = digest_init_flags (TREE_TYPE (decl), parsed_arg, flags);
-	  if (TREE_CODE (parsed_arg) == TARGET_EXPR)
-	    /* This represents the whole initialization.  */
-	    TARGET_EXPR_DIRECT_INIT_P (parsed_arg) = true;
-	}
+	parsed_arg = digest_nsdmi_init (decl, parsed_arg);
     }
 
   /* If the token stream has not been completely used up, then

@@ -2599,6 +2599,8 @@ as_fn_append ac_func_list " getegid"
 as_fn_append ac_func_list " secure_getenv"
 as_fn_append ac_func_list " __secure_getenv"
 as_fn_append ac_func_list " mkostemp"
+as_fn_append ac_func_list " strnlen"
+as_fn_append ac_func_list " strndup"
 as_fn_append ac_header_list " math.h"
 # Check that the precious variables saved in the cache have kept the same
 # value.
@@ -16513,6 +16515,10 @@ _ACEOF
 
 fi
 done
+
+
+
+
 
 
 

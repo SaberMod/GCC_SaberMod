@@ -1271,6 +1271,7 @@ OBJS = \
 	ipa-devirt.o \
 	ipa-split.o \
 	ipa-inline.o \
+	ipa-comdats.o \
 	ipa-inline-analysis.o \
 	ipa-inline-transform.o \
 	ipa-profile.o \

@@ -1,3 +1,180 @@
+2014-05-21  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/61272
+	* g++.dg/ubsan/pr61272.C: New test.
+
+2014-05-21  Cesar Philippidis  <cesar@codesourcery.com>
+	    Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR lto/60179
+	* lib/scanasm.exp (scan-lto-assembler): New procedure.
+	* gcc.target/nios2/custom-fp-lto.c: New test.
+
+2014-05-21  Andreas Schwab  <schwab@suse.de>
+
+	* g++.dg/cpp0x/pr61038.C (operator "" _s): Use size_t.
+
+2014-05-21  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/54236
+	* gcc.target/sh/pr54236-3.c: New.
+
+2014-05-21  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR c++/60189
+	* c-c++-common/cilk-plus/CK/invalid_sync.c: New test.
+
+2014-05-20  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR tree-optimization/60899
+	g++.dg/ipa/devirt-11.C: Update template.
+
+2014-05-20  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR C++/61038
+	* g++.dg/cpp0x/pr61038.C: New.
+
+2014-05-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58753
+	PR c++/58930
+	PR c++/58704
+	* g++.dg/cpp0x/nsdmi-template11.C: New.
+	* g++.dg/cpp0x/nsdmi-template12.C: Likewise.
+	* g++.dg/cpp0x/nsdmi-template13.C: Likewise.
+
+2014-05-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt35.adb: New test.
+	* gnat.dg/opt36.adb: Likewise.
+	* gnat.dg/opt35_pkg.ad[sb]: New helper.
+
+2014-05-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60373
+	* g++.dg/cpp0x/Wattributes1.C: New.
+	* g++.dg/ext/visibility/redecl1.C: Adjust.
+	* g++.dg/ext/visibility/visibility-7.C: Likewise.
+
+2014-05-20  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vsxcopy.c: New test.
+
+2014-05-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58664
+	* g++.dg/cpp0x/nsdmi-union6.C: New.
+	* g++.dg/parse/pr58664.C: Likewise.
+	* g++.dg/cpp0x/nsdmi6.C: Tweak.
+	* g++.dg/parse/crash31.C: Likewise.
+	* g++.dg/template/error2.C: Likewise.
+	* g++.dg/template/inherit8.C: Likewise.
+	* g++.dg/template/offsetof2.C: Likewise.
+
+2014-05-19  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* c-c++-common/gomp/simd4.c: Adjust for inform.
+	* g++.dg/cpp0x/decltype-call1.C: Likewise.
+	* g++.dg/cpp0x/forw_enum6.C: Likewise.
+	* g++.dg/cpp0x/lambda/lambda-ice7.C: Likewise.
+	* g++.dg/cpp0x/noexcept15.C: Likewise.
+	* g++.dg/cpp0x/variadic-ex2.C: Likewise.
+	* g++.dg/eh/spec6.C: Likewise.
+	* g++.dg/expr/cast1.C: Likewise.
+	* g++.dg/expr/dtor1.C: Likewise.
+	* g++.dg/ext/is_base_of_diagnostic.C: Likewise.
+	* g++.dg/ext/unary_trait_incomplete.C: Likewise.
+	* g++.dg/gomp/pr49223-2.C: Likewise.
+	* g++.dg/gomp/udr-4.C: Likewise.
+	* g++.dg/init/delete1.C: Likewise.
+	* g++.dg/other/crash-2.C: Likewise.
+	* g++.dg/parse/crash24.C: Likewise.
+	* g++.dg/parse/crash25.C: Likewise.
+	* g++.dg/parse/crash31.C: Likewise.
+	* g++.dg/parse/crash49.C: Likewise.
+	* g++.dg/parse/crash50.C: Likewise.
+	* g++.dg/parse/crash54.C: Likewise.
+	* g++.dg/parse/dtor7.C: Likewise.
+	* g++.dg/parse/error40.C: Likewise.
+	* g++.dg/parse/fused-params1.C: Likewise.
+	* g++.dg/parse/new1.C: Likewise.
+	* g++.dg/template/crash35.C: Likewise.
+	* g++.dg/template/crash59.C: Likewise.
+	* g++.dg/template/crash77.C: Likewise.
+	* g++.dg/template/error51.C: Likewise.
+	* g++.dg/template/incomplete1.C: Likewise.
+	* g++.dg/template/incomplete3.C: Likewise.
+	* g++.dg/template/incomplete4.C: Likewise.
+	* g++.dg/template/incomplete5.C: Likewise.
+	* g++.dg/template/inherit8.C: Likewise.
+	* g++.dg/template/instantiate1.C: Likewise.
+	* g++.dg/template/instantiate3.C: Likewis: Likewise.
+	* g++.dg/template/offsetof2.C: Likewise.
+	* g++.dg/tm/pr51928.C: Likewise.
+	* g++.dg/warn/Wdelete-incomplete-1.C: Likewise.
+	* g++.dg/warn/incomplete1.C: Likewise.
+	* g++.dg/warn/incomplete2.C: Likewise.
+	* g++.old-deja/g++.brendan/friend4.C: Likewise.
+	* g++.old-deja/g++.bugs/900121_01.C: Likewise.
+	* g++.old-deja/g++.bugs/900214_01.C: Likewise.
+	* g++.old-deja/g++.eh/catch1.C: Likewise.
+	* g++.old-deja/g++.eh/spec6.C: Likewise.
+	* g++.old-deja/g++.mike/p7868.C: Likewise.
+	* g++.old-deja/g++.other/crash38.C: Likewise.
+	* g++.old-deja/g++.other/enum2.C: Likewise.
+	* g++.old-deja/g++.other/incomplete.C: Likewise.
+	* g++.old-deja/g++.other/vaarg3.C: Likewise.
+	* g++.old-deja/g++.pt/crash9.C: Likewise.
+	* g++.old-deja/g++.pt/niklas01a.C: Likewise.
+	* g++.old-deja/g++.pt/typename8.C: Likewise.
+	* g++.old-deja/g++.robertl/ice990323-1.C: Likewise.
+
+2014-05-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_vect_sizes_32B_16B): Return false if
+	128-bit AVX vectors preferred.
+
+2014-05-19  Mike Stump  <mikestump@comcast.net>
+
+	* lib/target-supports.exp (check_effective_target_avx): Early out
+	if not x86 to prevent x86 flags on non-x86 targets.
+
+2014-05-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61221
+	* gcc.dg/torture/pr61221.c: New testcase.
+
+2014-05-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61209
+	* gfortran.dg/pr61209.f90: New testcase.
+
+2014-05-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61184
+	* c-c++-common/torture/pr61184.c: New testcase.
+
+2014-05-19  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/61195
+	* gcc.target/sh/pr61195.c: New test.
+
+2014-05-18  Wei Mi  <wmi@google.com>
+
+	PR target/58066
+	* gcc.target/i386/pr58066.c: Replace pattern matching of .cfi
+	directive with rtl insns. Add effective-target of fpic and
+	tls_native.
+
+2014-05-17  Xinliang David Li  <davidxl@google.com>
+
+	* g++.dg/ipa/devirt-33.C: New testcase.
+
+2014-05-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	* g++.dg/ipa/comdat.C: New file.
+
 2014-05-18  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gnat.dg/volatile12.ad[sb]: New test.

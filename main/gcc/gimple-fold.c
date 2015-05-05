@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-address.h"
 #include "langhooks.h"
 #include "gimplify-me.h"
+#include "dbgcnt.h"
 
 /* Return true when DECL can be referenced from current unit.
    FROM_DECL (if non-null) specify constructor of variable DECL was taken from.
@@ -93,8 +94,12 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
   /* Static objects can be referred only if they was not optimized out yet.  */
   if (!TREE_PUBLIC (decl) && !DECL_EXTERNAL (decl))
     {
+      /* Before we start optimizing unreachable code we can be sure all
+	 static objects are defined.  */
+      if (cgraph_function_flags_ready)
+	return true;
       snode = symtab_get_node (decl);
-      if (!snode)
+      if (!snode || !snode->definition)
 	return false;
       node = dyn_cast <cgraph_node *> (snode);
       return !node || !node->global.inlined_to;
@@ -102,10 +107,12 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
 
   /* We will later output the initializer, so we can refer to it.
      So we are concerned only when DECL comes from initializer of
-     external var.  */
+     external var or var that has been optimized out.  */
   if (!from_decl
       || TREE_CODE (from_decl) != VAR_DECL
-      || !DECL_EXTERNAL (from_decl)
+      || (!DECL_EXTERNAL (from_decl)
+	  && (vnode = varpool_get_node (from_decl)) != NULL
+	  && vnode->definition)
       || (flag_ltrans
 	  && symtab_get_node (from_decl)->in_other_partition))
     return true;
@@ -122,9 +129,9 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
      reference imply need to include function body in the curren tunit.  */
   if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl))
     return true;
-  /* We are not at ltrans stage; so don't worry about WHOPR.
-     Also when still gimplifying all referred comdat functions will be
-     produced.
+  /* We have COMDAT.  We are going to check if we still have definition
+     or if the definition is going to be output in other partition.
+     Bypass this when gimplifying; all needed functions will be produced.
 
      As observed in PR20991 for already optimized out comdat virtual functions
      it may be tempting to not necessarily give up because the copy will be
@@ -133,35 +140,17 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
      units where they are used and when the other unit was compiled with LTO
      it is possible that vtable was kept public while the function itself
      was privatized. */
-  if (!flag_ltrans && (!DECL_COMDAT (decl) || !cgraph_function_flags_ready))
+  if (!cgraph_function_flags_ready)
     return true;
 
-  /* OK we are seeing either COMDAT or static variable.  In this case we must
-     check that the definition is still around so we can refer it.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL)
-    {
-      node = cgraph_get_node (decl);
-      /* Check that we still have function body and that we didn't took
-         the decision to eliminate offline copy of the function yet.
-         The second is important when devirtualization happens during final
-         compilation stage when making a new reference no longer makes callee
-         to be compiled.  */
-      if (!node || !node->definition || node->global.inlined_to)
-	{
-	  gcc_checking_assert (!TREE_ASM_WRITTEN (decl));
-	  return false;
-	}
-    }
-  else if (TREE_CODE (decl) == VAR_DECL)
-    {
-      vnode = varpool_get_node (decl);
-      if (!vnode || !vnode->definition)
-	{
-	  gcc_checking_assert (!TREE_ASM_WRITTEN (decl));
-	  return false;
-	}
-    }
-  return true;
+  snode = symtab_get_node (decl);
+  if (!snode
+      || ((!snode->definition || DECL_EXTERNAL (decl))
+	  && (!snode->in_other_partition
+	      || (!snode->forced_by_abi && !snode->force_output))))
+    return false;
+  node = dyn_cast <cgraph_node *> (snode);
+  return !node || !node->global.inlined_to;
 }
 
 /* CVAL is value taken from DECL_INITIAL of variable.  Try to transform it into
@@ -386,13 +375,24 @@ fold_gimple_assign (gimple_stmt_iterator *si)
 		bool final;
 		vec <cgraph_node *>targets
 		  = possible_polymorphic_call_targets (val, &final);
-		if (final && targets.length () <= 1)
+		if (final && targets.length () <= 1 && dbg_cnt (devirt))
 		  {
 		    tree fndecl;
+
 		    if (targets.length () == 1)
 		      fndecl = targets[0]->decl;
 		    else
 		      fndecl = builtin_decl_implicit (BUILT_IN_UNREACHABLE);
+		    if (dump_enabled_p ())
+		      {
+			location_t loc = gimple_location (stmt);
+			dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, loc,
+					 "resolving virtual function address "
+					 "reference to function %s\n",
+					 targets.length () == 1
+					 ? targets[0]->name ()
+					 : "__builtin_unreachable");
+		      }
 		    val = fold_convert (TREE_TYPE (val), fndecl);
 		    STRIP_USELESS_TYPE_CONVERSION (val);
 		    return val;
@@ -1124,9 +1124,18 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 	  bool final;
 	  vec <cgraph_node *>targets
 	    = possible_polymorphic_call_targets (callee, &final);
-	  if (final && targets.length () <= 1)
+	  if (final && targets.length () <= 1 && dbg_cnt (devirt))
 	    {
 	      tree lhs = gimple_call_lhs (stmt);
+	      if (dump_enabled_p ())
+		{
+		  location_t loc = gimple_location (stmt);
+		  dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, loc,
+				   "folding virtual function call to %s\n",
+		 		   targets.length () == 1
+		  		   ? targets[0]->name ()
+		  		   : "__builtin_unreachable");
+		}
 	      if (targets.length () == 1)
 		{
 		  gimple_call_set_fndecl (stmt, targets[0]->decl);

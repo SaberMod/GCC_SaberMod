@@ -318,6 +318,25 @@ static int *rpo_numbers;
 
 #define SSA_VAL(x) (VN_INFO ((x))->valnum)
 
+/* Return the SSA value of the VUSE x, supporting released VDEFs
+   during elimination which will value-number the VDEF to the
+   associated VUSE (but not substitute in the whole lattice).  */
+
+static inline tree
+vuse_ssa_val (tree x)
+{
+  if (!x)
+    return NULL_TREE;
+
+  do
+    {
+      x = SSA_VAL (x);
+    }
+  while (SSA_NAME_IN_FREE_LIST (x));
+
+  return x;
+}
+
 /* This represents the top of the VN lattice, which is the universal
    value.  */
 
@@ -643,9 +662,6 @@ bool
 vn_reference_eq (const_vn_reference_t const vr1, const_vn_reference_t const vr2)
 {
   unsigned i, j;
-
-  if (vr1->hashcode != vr2->hashcode)
-    return false;
 
   /* Early out if this is not a hash collision.  */
   if (vr1->hashcode != vr2->hashcode)
@@ -1106,6 +1122,7 @@ copy_reference_ops_from_call (gimple call,
   vn_reference_op_s temp;
   unsigned i;
   tree lhs = gimple_call_lhs (call);
+  int lr;
 
   /* If 2 calls have a different non-ssa lhs, vdef value numbers should be
      different.  By adding the lhs here in the vector, we ensure that the
@@ -1120,12 +1137,14 @@ copy_reference_ops_from_call (gimple call,
       result->safe_push (temp);
     }
 
-  /* Copy the type, opcode, function being called and static chain.  */
+  /* Copy the type, opcode, function, static chain and EH region, if any.  */
   memset (&temp, 0, sizeof (temp));
   temp.type = gimple_call_return_type (call);
   temp.opcode = CALL_EXPR;
   temp.op0 = gimple_call_fn (call);
   temp.op1 = gimple_call_chain (call);
+  if (stmt_could_throw_p (call) && (lr = lookup_stmt_eh_lp (call)) > 0)
+    temp.op2 = size_int (lr);
   temp.off = -1;
   result->safe_push (temp);
 
@@ -1495,7 +1514,7 @@ vn_reference_lookup_2 (ao_ref *op ATTRIBUTE_UNUSED, tree vuse,
   /* Fixup vuse and hash.  */
   if (vr->vuse)
     vr->hashcode = vr->hashcode - SSA_NAME_VERSION (vr->vuse);
-  vr->vuse = SSA_VAL (vuse);
+  vr->vuse = vuse_ssa_val (vuse);
   if (vr->vuse)
     vr->hashcode = vr->hashcode + SSA_NAME_VERSION (vr->vuse);
 
@@ -2035,7 +2054,7 @@ vn_reference_lookup_pieces (tree vuse, alias_set_type set, tree type,
     vnresult = &tmp;
   *vnresult = NULL;
 
-  vr1.vuse = vuse ? SSA_VAL (vuse) : NULL_TREE;
+  vr1.vuse = vuse_ssa_val (vuse);
   shared_lookup_references.truncate (0);
   shared_lookup_references.safe_grow (operands.length ());
   memcpy (shared_lookup_references.address (),
@@ -2090,7 +2109,7 @@ vn_reference_lookup (tree op, tree vuse, vn_lookup_kind kind,
   if (vnresult)
     *vnresult = NULL;
 
-  vr1.vuse = vuse ? SSA_VAL (vuse) : NULL_TREE;
+  vr1.vuse = vuse_ssa_val (vuse);
   vr1.operands = operands
     = valueize_shared_reference_ops_from_ref (op, &valuezied_anything);
   vr1.type = TREE_TYPE (op);
@@ -3125,12 +3144,14 @@ visit_phi (gimple phi)
       if (is_gimple_min_invariant (sameval))
 	{
 	  VN_INFO (PHI_RESULT (phi))->has_constants = true;
-	  VN_INFO (PHI_RESULT (phi))->expr = sameval;
+	  if (sameval != VN_TOP)
+	    VN_INFO (PHI_RESULT (phi))->expr = sameval;
 	}
       else
 	{
 	  VN_INFO (PHI_RESULT (phi))->has_constants = false;
-	  VN_INFO (PHI_RESULT (phi))->expr = sameval;
+	  if (sameval != VN_TOP)
+	    VN_INFO (PHI_RESULT (phi))->expr = sameval;
 	}
 
       if (TREE_CODE (sameval) == SSA_NAME)
@@ -3812,6 +3833,9 @@ process_scc (vec<tree> scc)
 	}
     }
 
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    print_scc (dump_file, scc);
+
   /* Iterate over the SCC with the optimistic table until it stops
      changing.  */
   current_info = optimistic_info;
@@ -3837,6 +3861,8 @@ process_scc (vec<tree> scc)
 	changed |= visit_use (var);
     }
 
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Processing SCC needed %d iterations\n", iterations);
   statistics_histogram_event (cfun, "SCC iterations", iterations);
 
   /* Finally, copy the contents of the no longer used optimistic
@@ -3887,9 +3913,6 @@ extract_and_process_scc_for_name (tree name)
 
   if (scc.length () > 1)
     sort_scc (scc);
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    print_scc (dump_file, scc);
 
   process_scc (scc);
 
@@ -4175,11 +4198,13 @@ cond_dom_walker::before_dom_children (basic_block bb)
   if (fail)
     return;
 
-  /* If any of the predecessor edges are still marked as possibly
-     executable consider this block reachable.  */
+  /* If any of the predecessor edges that do not come from blocks dominated
+     by us are still marked as possibly executable consider this block
+     reachable.  */
   bool reachable = bb == ENTRY_BLOCK_PTR_FOR_FN (cfun);
   FOR_EACH_EDGE (e, ei, bb->preds)
-    reachable |= (e->flags & EDGE_EXECUTABLE);
+    if (!dominated_by_p (CDI_DOMINATORS, e->src, bb))
+      reachable |= (e->flags & EDGE_EXECUTABLE);
 
   /* If the block is not reachable all outgoing edges are not
      executable.  */
@@ -4198,6 +4223,19 @@ cond_dom_walker::before_dom_children (basic_block bb)
   if (!stmt)
     return;
 
+  enum gimple_code code = gimple_code (stmt);
+  if (code != GIMPLE_COND
+      && code != GIMPLE_SWITCH
+      && code != GIMPLE_GOTO)
+    return;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Value-numbering operands of stmt ending BB %d: ",
+	       bb->index);
+      print_gimple_stmt (dump_file, stmt, 0, 0);
+    }
+
   /* Value-number the last stmts SSA uses.  */
   ssa_op_iter i;
   tree op;
@@ -4213,7 +4251,7 @@ cond_dom_walker::before_dom_children (basic_block bb)
      if value-numbering can prove they are not reachable.  Handling
      computed gotos is also possible.  */
   tree val;
-  switch (gimple_code (stmt))
+  switch (code)
     {
     case GIMPLE_COND:
       {
@@ -4236,8 +4274,7 @@ cond_dom_walker::before_dom_children (basic_block bb)
       val = gimple_goto_dest (stmt);
       break;
     default:
-      val = NULL_TREE;
-      break;
+      gcc_unreachable ();
     }
   if (!val)
     return;
@@ -4277,7 +4314,10 @@ run_scc_vn (vn_lookup_kind default_vn_walk_kind_)
     {
       tree def = ssa_default_def (cfun, param);
       if (def)
-	VN_INFO (def)->valnum = def;
+	{
+	  VN_INFO (def)->visited = true;
+	  VN_INFO (def)->valnum = def;
+	}
     }
 
   /* Mark all edges as possibly executable.  */

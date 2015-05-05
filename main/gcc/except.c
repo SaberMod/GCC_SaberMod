@@ -286,9 +286,22 @@ init_eh (void)
       tmp = size_int (FIRST_PSEUDO_REGISTER + 2 - 1);
 #endif
 #else
-      /* builtin_setjmp takes a pointer to 5 words.  */
-      tmp = size_int (5 * BITS_PER_WORD / POINTER_SIZE - 1);
+      /* Compute a minimally sized jump buffer.  We need room to store at
+	 least 3 pointers - stack pointer, frame pointer and return address.
+	 Plus for some targets we need room for an extra pointer - in the
+	 case of MIPS this is the global pointer.  This makes a total of four
+	 pointers, but to be safe we actually allocate room for 5.
+
+	 If pointers are smaller than words then we allocate enough room for
+	 5 words, just in case the backend needs this much room.  For more
+	 discussion on this issue see:
+	 http://gcc.gnu.org/ml/gcc-patches/2014-05/msg00313.html.  */
+      if (POINTER_SIZE > BITS_PER_WORD)
+	tmp = size_int (5 - 1);
+      else
+	tmp = size_int ((5 * BITS_PER_WORD / POINTER_SIZE) - 1);
 #endif
+
       tmp = build_index_type (tmp);
       tmp = build_array_type (ptr_type_node, tmp);
       f_jbuf = build_decl (BUILTINS_LOCATION,
@@ -2854,12 +2867,12 @@ switch_to_exception_section (const char * ARG_UNUSED (fnname))
 
 #ifdef HAVE_LD_EH_GC_SECTIONS
 	  if (flag_function_sections
-	      || (DECL_ONE_ONLY (current_function_decl) && HAVE_COMDAT_GROUP))
+	      || (DECL_COMDAT_GROUP (current_function_decl) && HAVE_COMDAT_GROUP))
 	    {
 	      char *section_name = XNEWVEC (char, strlen (fnname) + 32);
 	      /* The EH table must match the code section, so only mark
 		 it linkonce if we have COMDAT groups to tie them together.  */
-	      if (DECL_ONE_ONLY (current_function_decl) && HAVE_COMDAT_GROUP)
+	      if (DECL_COMDAT_GROUP (current_function_decl) && HAVE_COMDAT_GROUP)
 		flags |= SECTION_LINKONCE;
 	      sprintf (section_name, ".gcc_except_table.%s", fnname);
 	      s = get_section (section_name, flags, current_function_decl);

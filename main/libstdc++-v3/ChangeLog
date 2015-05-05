@@ -1,3 +1,71 @@
+2014-05-21  François Dumont  <fdumont@gcc.gnu.org>
+
+	PR libstdc++/61143
+	* include/bits/hashtable.h: Fix move semantic to leave hashtable in a
+	usable state.
+	* testsuite/23_containers/unordered_set/61143.cc: New.
+	* testsuite/23_containers/unordered_set/modifiers/swap.cc: New.
+
+2014-05-21  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/61269
+	* include/std/type_traits: Move include outside namespace std.
+	* testsuite/20_util/declval/requirements/1_neg.cc: Adjust dg-error.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc: Likewise.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Likewise.
+
+	* config/locale/dragonfly/c_locale.cc (facet::_S_create_c_locale):
+	Fix warning.
+
+2014-05-21  John Marino  <gnugcc@marino.st>
+
+	* acinclude.m4 (*-*-dragonfly*): New target.
+	* configure: Regenerate.
+	* configure.host (*-*-dragonfly*): New target.
+	* config/locale/dragonfly/c_locale.cc: New.
+	* config/locale/dragonfly/ctype_members.cc: New.
+	* config/os/bsd/dragonfly/ctype_base.h: New.
+	* config/os/bsd/dragonfly/ctype_configure_char.cc: New.
+	* config/os/bsd/dragonfly/ctype_inline.h: New.
+	* config/os/bsd/dragonfly/os_defines.h: New.
+
+2014-05-20  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* scripts/testsuite_flags.in (cxxflags): Remove @CXXFLAGS@ since 
+	libstdc++.exp imports those flags via getenv.
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Ensure that 
+	CXXFLAGS contains a '-O' flag. 
+
+2014-05-20  Alexey Merzlyakov  <alexey.merzlyakov@samsung.com>
+
+	PR libstdc++/61223
+	Revert:
+	2014-05-16  Alexey Merzlyakov  <alexey.merzlyakov@samsung.com>
+
+	PR libstdc++/60758
+	* libsupc++/eh_arm.cc (__cxa_end_cleanup): Change r4 to lr in save/restore
+	and add unwind directives.
+
+2014-05-20  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* testsuite/lib/libstdc++.exp (load_gcc_lib): Register loaded libs.
+
+2014-05-20  Tim Shen  <timshen91@gmail.com>
+
+	PR libstdc++/61227
+	* include/bits/regex_compiler.h
+	(_BracketMatcher<>::_M_add_character_class): Add negative character
+	class support.
+	* include/bits/regex_compiler.tcc (_BracketMatcher<>::_M_apply):
+	Likewise.
+	* testsuite/28_regex/algorithms/regex_match/ecma/char/quoted_char.cc:
+	Add more testcases.
+
+2014-05-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	* python/libstdcxx/v6/printers.py: Use Python3 raise syntax.
+
 2014-05-17  Marc Glisse  <marc.glisse@inria.fr>
 
 	* libsupc++/new_op.cc: Factor the calls to malloc, use __builtin_expect.

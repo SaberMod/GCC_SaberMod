@@ -11179,12 +11179,6 @@ else
 	done
 fi
 
-if test x$need_64bit_hwint = xyes; then
-
-$as_echo "#define NEED_64BIT_HOST_WIDE_INT 1" >>confdefs.h
-
-fi
-
 if test x$use_long_long_for_widest_fast_int = xyes; then
 
 $as_echo "#define USE_LONG_LONG_FOR_WIDEST_FAST_INT 1" >>confdefs.h
@@ -18044,7 +18038,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 17997 "configure"
+#line 17991 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18150,7 +18144,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18103 "configure"
+#line 18097 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -27376,6 +27370,13 @@ case "$target" in
     # compilation with largefile support.
     if grep dl_iterate_phdr $target_header_dir/link.h > /dev/null 2>&1 \
       && grep 'large file capable' $target_header_dir/link.h > /dev/null 2>&1; then
+      gcc_cv_target_dl_iterate_phdr=yes
+    else
+      gcc_cv_target_dl_iterate_phdr=no
+    fi
+    ;;
+  *-*-dragonfly* | *-*-freebsd*)
+    if grep dl_iterate_phdr $target_header_dir/sys/link_elf.h > /dev/null 2>&1; then
       gcc_cv_target_dl_iterate_phdr=yes
     else
       gcc_cv_target_dl_iterate_phdr=no

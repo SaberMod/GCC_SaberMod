@@ -39,6 +39,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "profile.h"
 #include "params.h"
+#include "internal-fn.h"
+#include "tree-ssa-alias.h"
+#include "gimple.h"
+#include "dbgcnt.h"
 
 /* Return true when NODE can not be local. Worker for cgraph_local_node_p.  */
 
@@ -225,7 +229,7 @@ walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
      make the edge direct.  */
   if (final)
     {
-      if (targets.length () <= 1)
+      if (targets.length () <= 1 && dbg_cnt (devirt))
 	{
 	  cgraph_node *target, *node = edge->caller;
 	  if (targets.length () == 1)
@@ -234,12 +238,15 @@ walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
 	    target = cgraph_get_create_node
 		       (builtin_decl_implicit (BUILT_IN_UNREACHABLE));
 
-	  if (dump_file)
-	    fprintf (dump_file,
-		     "Devirtualizing call in %s/%i to %s/%i\n",
-		     edge->caller->name (),
-		     edge->caller->order,
-		     target->name (), target->order);
+	  if (dump_enabled_p ())
+            {
+              location_t locus = gimple_location (edge->call_stmt);
+              dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, locus,
+                               "devirtualizing call in %s/%i to %s/%i\n",
+                               edge->caller->name (), edge->caller->order,
+                               target->name (),
+                               target->order);
+	    }
 	  edge = cgraph_make_edge_direct (edge, target);
 	  if (inline_summary_vec)
 	    inline_update_overall_summary (node);
@@ -542,6 +549,7 @@ error " Check the following code "
 #endif
               if (!cgraph_is_aux_decl_external (node)) {
 	      cgraph_node_remove_callees (node);
+	      symtab_remove_from_same_comdat_group (node);
 	      ipa_remove_all_references (&node->ref_list);
               }
 	      changed = true;
@@ -614,6 +622,8 @@ error " Check the following code "
 	  vnode->definition = false;
 	  vnode->analyzed = false;
 	  vnode->aux = NULL;
+
+	  symtab_remove_from_same_comdat_group (vnode);
 
 	  /* Keep body if it may be useful for constant folding.  */
 	  if ((init = ctor_for_folding (vnode->decl)) == error_mark_node)
@@ -770,7 +780,7 @@ ipa_discover_readonly_nonaddressable_vars (void)
 	if (!address_taken)
 	  {
 	    if (TREE_ADDRESSABLE (vnode->decl) && dump_file)
-	      fprintf (dump_file, " %s (addressable)", vnode->name ());
+	      fprintf (dump_file, " %s (non-addressable)", vnode->name ());
 	    varpool_for_node_and_aliases (vnode, clear_addressable_bit, NULL, true);
 	  }
 	if (!address_taken && !written
@@ -783,7 +793,7 @@ ipa_discover_readonly_nonaddressable_vars (void)
 	      fprintf (dump_file, " %s (read-only)", vnode->name ());
 	    varpool_for_node_and_aliases (vnode, set_readonly_bit, NULL, true);
 	  }
-	if (!vnode->writeonly && !read && !address_taken)
+	if (!vnode->writeonly && !read && !address_taken && written)
 	  {
 	    if (dump_file)
 	      fprintf (dump_file, " %s (write-only)", vnode->name ());
@@ -819,6 +829,8 @@ address_taken_from_non_vtable_p (symtab_node *node)
 static bool
 comdat_can_be_unshared_p_1 (symtab_node *node)
 {
+  if (!node->externally_visible)
+    return true;
   /* When address is taken, we don't know if equality comparison won't
      break eventually. Exception are virutal functions, C++
      constructors/destructors and vtables, where this is not possible by

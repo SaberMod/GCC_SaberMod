@@ -1,3 +1,342 @@
+2014-05-22  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* config/aarch64/aarch64.c (aarch64_regno_regclass) : Change CORE_REGS
+	to GENERAL_REGS.
+	(aarch64_secondary_reload) : LikeWise.
+	(aarch64_class_max_nregs) : Remove CORE_REGS.
+	* config/aarch64/aarch64.h (enum reg_class) : Remove CORE_REGS.
+	(REG_CLASS_NAMES) : Likewise.
+	(REG_CLASS_CONTENTS) : LikeWise.
+	(INDEX_REG_CLASS) : Change CORE_REGS to GENERAL_REGS.
+
+2014-05-21  Guozhi Wei  <carrot@google.com>
+
+	PR target/61202
+	* config/aarch64/arm_neon.h (vqdmulh_n_s16): Change the last operand's
+	constraint.
+	(vqdmulhq_n_s16): Likewise.
+
+2014-05-21  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/predicates.md (update_indexed_address_mem): Delete.
+
+2014-05-21  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/61272
+	* ubsan.c (is_ubsan_builtin_p): Turn assert into a condition.
+
+2014-05-21  Martin Jambor  <mjambor@suse.cz>
+
+	* doc/invoke.texi (Optimize Options): Document parameters
+	ipa-cp-eval-threshold, ipa-max-agg-items, ipa-cp-loop-hint-bonus and
+	ipa-cp-array-index-hint-bonus.
+
+2014-05-21  Mark Wielaard  <mjw@redhat.com>
+
+	PR debug/16063
+	* dwarf2out.c (gen_enumeration_type_die): Add DW_AT_type if DWARF
+	version >= 3 or not strict DWARF.
+	* langhooks.h (struct lang_hooks_for_types): Add
+	enum_underlying_base_type.
+	* langhooks.c (lhd_enum_underlying_base_type): New function.
+	* gcc/langhooks.h (struct lang_hooks_for_types): Add
+	enum_underlying_base_type.
+	* langhooks-def.h (lhd_enum_underlying_base_type): New declaration.
+	(LANG_HOOKS_ENUM_UNDERLYING_BASE_TYPE): New define.
+	(LANG_HOOKS_FOR_TYPES_INITIALIZER): Add new lang hook.
+
+2014-05-21  Richard Biener  <rguenther@suse.de>
+
+	* doc/invoke.texi (-flto-partition=): Document one and
+	none algorithms.
+
+2014-05-21  John Marino  <gnugcc@marino.st>
+
+	* config.gcc (*-*-dragonfly*): New target.
+	* configure.ac: Detect dl_iterate_phdr (*freebsd*, *dragonfly*).
+	* configure: Regenerate.
+	* config/dragonfly-stdint.h: New.
+	* config/dragonfly.h: New.
+	* config/dragonfly.opt: New.
+	* config/i386/dragonfly.h: New.
+	* ginclude/stddef.h: Detect _PTRDIFF_T_DECLARED for DragonFly.
+
+2014-05-21  Richard Sandiford  <rsandifo@linux.vnet.ibm.com>
+
+	* tree.def (VOID_CST): New.
+	* tree-core.h (TI_VOID): New.
+	* tree.h (void_node): New.
+	* tree.c (tree_node_structure_for_code, tree_code_size)
+	(iterative_hash_expr): Handle VOID_CST.
+	(build_common_tree_nodes): Initialize void_node.
+
+2014-05-21  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* reload1.c (remove_init_insns, will_delete_init_insn_p): New static
+	functions.
+	(reload, calculate_needs_all_insns, reload_as_needed): Use them.
+
+	* config/bfin/bfin.c (split_load_immediate): Use gen_int_mode in a few
+	more places.
+
+	* cfgrtl.c (cfg_layout_initialize): Weaken assert to only trigger if
+	flag_reorder_blocks_and_partition.
+	* hw-doloop.c (reorg_loops): Avoid reordering if that flag is set.
+
+2014-05-21  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/54236
+	* config/sh/sh.md (*addc_r_1): Rename to addc_t_r.  Remove empty
+	constraints.
+	(*addc_r_t): Add new insn_and_split.
+
+2014-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/61252
+	* omp-low.c (handle_simd_reference): New function.
+	(lower_rec_input_clauses): Use it.  Defer adding reference
+	initialization even for reduction without placeholder if in simd,
+	handle it properly later on.
+
+2014-05-20  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR tree-optimization/60899
+	* gimple-fold.c (can_refer_decl_in_current_unit_p): Cleanup;
+	assume all static symbols will have definition wile parsing and
+	check the do have definition later in compilation; check that
+	variable referring symbol will be output before concluding that
+	reference is safe; be conservative for referring local statics;
+	be more precise about when comdat is output in other partition.
+
+2014-05-20  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR bootstrap/60984
+	* ipa-inline-transform.c (inline_call): Use add CALLEE_REMOVED parameter.
+	* ipa-inline.c (inline_to_all_callers): If callee was removed; return.
+	(ipa_inline): Loop inline_to_all_callers until no more aliases are removed.
+
+2014-05-20  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa.c (ipa_discover_readonly_nonaddressable_var): Fix dumping;
+	set writeonly flag only for vars actually written to.
+
+2014-05-20  Dehao Chen  <dehao@google.com>
+
+	* ipa-inline-transform.c (clone_inlined_nodes): Use min of edge count
+	and callee count to get clone count.
+	* tree-inline.c (expand_call_inline): Use callee count instead of bb
+	count in copy_body.
+
+2014-05-20  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR rtl-optimization/61243
+	* emit-rtl.c (emit_copy_of_insn_after): Copy CROSSING_JUMP_P.
+
+2014-05-20  Xinliang David Li  <davidxl@google.com>
+
+	* cgraphunit.c (walk_polymorphic_call_targets): Add
+	dbgcnt and fopt-info support.
+	* ipa-prop.c (ipa_make_edge_direct_to_target): Ditto.
+	* ipa-devirt.c (ipa_devirt): Ditto.
+	* tree-ssa-pre.c (eliminate_dom_walker::before_dom_children):
+	Ditto.
+	* ipa.c (walk_polymorphic_call_targets): Ditto.
+	* gimple-fold.c (fold_gimple_assign): Ditto.
+	(gimple_fold_call): Ditto.
+	* dbgcnt.def: New counter.
+
+2014-05-20  DJ Delorie  <dj@redhat.com>
+
+	* config/msp430/msp430.md (split): Don't allow subregs when
+	splitting SImode adds.
+	(andneghi): Fix subtraction logic.
+	* config/msp430/predicates.md (msp430_nonsubreg_or_imm_operand): New.
+
+2014-05-20  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree.h (DECL_ONE_ONLY): Return true only for externally visible
+	symbols.
+	* except.c (switch_to_exception_section, resolve_unique_section,
+	get_named_text_section, default_function_rodata_section, 
+	align_variable, get_block_for_decl, default_section_type_flags):
+	Use DECL_COMDAT_GROUP instead of DECL_ONE_ONLY.
+	* symtab.c (symtab_add_to_same_comdat_group,
+	symtab_make_decl_local, fixup_same_cpp_alias_visibility,
+	symtab_nonoverwritable_alias, symtab_get_symbol_partitioning_class):
+	Likewise.
+	* cgraphclones.c (cgraph_create_virtual_clone): Likewise.
+	* bb-reorder.c (pass_partition_blocks::gate): Likewise.
+	* config/c6x/c6x.c (c6x_elf_unique_section): Likewise.
+	(c6x_function_in_section_p): Likewise.
+	* config/darwin.c (machopic_select_section): Likewise.
+	* config/arm/arm.c (arm_function_in_section_p): Likewise.
+	* config/mips/mips.c (mips_function_rodata_section): Likewise.
+	* config/mep/mep.c (mep_select_section): LIkewise.
+	* config/i386/i386.c (x86_64_elf_unique_section): Likewise.
+
+2014-05-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-dom.c (hashable_expr_equal_p) <EXPR_CALL>: Also compare the
+	EH region of calls to pure functions that can throw an exception.
+	* tree-ssa-sccvn.c (vn_reference_eq): Remove duplicated test.
+	(copy_reference_ops_from_call): Also copy the EH region of the call if
+	it can throw an exception.
+
+2014-05-20  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* simplify-rtx.c (simplify_binary_operation_1): Optimize case of
+	nested VEC_SELECTs that are inverses of each other.
+
+2014-05-20  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (process_scc): Dump SCC here, when
+	iterating,
+	(extract_and_process_scc_for_name): not here.
+	(cond_dom_walker::before_dom_children): Only process
+	stmts that end the BB in interesting ways.
+	(run_scc_vn): Mark param uses as visited.
+
+2014-05-20  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.md (arith_shiftsi): Do not predicate for
+	arm_restrict_it.
+
+2014-05-20  Nick Clifton  <nickc@redhat.com>
+
+	* config/msp430/msp430.c (TARGET_GIMPLIFY_VA_ARG_EXPR): Define.
+	(msp430_gimplify_va_arg_expr): New function.
+	(msp430_print_operand): Handle (CONST (ZERO_EXTRACT)).
+
+	* config/msp430/msp430.md (zero_extendpsisi2): Use + constraint on
+	operand 0 in order to prevent confusion about the number of
+	registers involved.
+
+2014-05-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61221
+	* tree-ssa-pre.c (el_to_update): Remove.
+	(eliminate_dom_walker::before_dom_children): Handle released
+	VDEFs by value-numbering them to the associated VUSE.  Update
+	stmt immediately for substituted call address.
+	(eliminate): Remove delayed stmt updating code.
+	* tree-ssa-sccvn.c (vuse_ssa_val): New function valueizing
+	possibly late re-numbered vuses.
+	(vn_reference_lookup_2): Adjust.
+	(vn_reference_lookup_pieces): Likewise.
+	(vn_reference_lookup): Likewise.
+
+2014-05-20  Richard Biener  <rguenther@suse.de>
+
+	* config.gcc: Remove need_64bit_hwint.
+	* configure.ac: Do not define NEED_64BIT_HOST_WIDE_INT.
+	* hwint.h: Do not check NEED_64BIT_HOST_WIDE_INT but assume
+	it to be true.
+	* config.in: Regenerate.
+	* configure: Likewise.
+
+2014-05-19  David Wohlferd <dw@LimeGreenSocks.com>
+
+	* doc/extend.texi: Create Label Attributes section,
+	move all label attributes into it and reference it.
+
+2014-05-19  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (thumb1_reorg): When scanning backwards skip anything
+	that's not a proper insn.
+
+2014-05-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61221
+	* tree-ssa-pre.c (eliminate_dom_walker::before_dom_children):
+	Do nothing for unreachable blocks.
+	* tree-ssa-sccvn.c (cond_dom_walker::before_dom_children):
+	Improve unreachability detection.
+
+2014-05-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61209
+	* tree-ssa-sccvn.c (visit_phi): Avoid setting expr to VN_TOP.
+
+2014-05-19  Nick Clifton  <nickc@redhat.com>
+
+	* except.c (init_eh): Fix computation of builtin setjmp buffer
+	size to allow for targets where POINTER_SIZE > BITS_PER_WORD.
+
+2014-05-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61184
+	* tree-vrp.c (is_negative_overflow_infinity): Use
+	TREE_OVERFLOW_P and do that check first.
+	(is_positive_overflow_infinity): Likewise.
+	(is_overflow_infinity): Likewise.
+	(vrp_operand_equal_p): Properly treat operands with
+	differing overflow as not equal.
+
+2014-05-19  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* simplify-rtx.c (simplify_unary_operation_1): Use CONST_INT_P in
+	shift simplification where it was intended.
+
+2014-05-19  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/61195
+	* config/sh/sh.md (movsf_ie): Unset fp_mode for fmov.
+
+2014-05-19  Richard Sandiford  <r.sandiford@uk.ibm.com>
+
+	PR target/61084
+	* config/sparc/sparc.c (sparc_fold_builtin): Use widest_int rather
+	than wide_int.
+
+2014-05-19  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* reg-notes.def (CROSSING_JUMP): Likewise.
+	* rtl.h (rtx_def): Update comment for jump flag.
+	(CROSSING_JUMP_P): Define.
+	* cfgcleanup.c (try_forward_edges, try_optimize_cfg): Use it instead
+	of a REG_CROSSING_JUMP note.
+	* cfghooks.c (tidy_fallthru_edges): Likewise.
+	* cfgrtl.c (fixup_partition_crossing, rtl_verify_edges): Likewise.
+	* emit-rtl.c (try_split): Likewise.
+	* haifa-sched.c (sched_create_recovery_edges): Likewise.
+	* ifcvt.c (find_if_case_1, find_if_case_2): Likewise.
+	* jump.c (redirect_jump_2): Likewise.
+	* reorg.c (follow_jumps, fill_slots_from_thread): Likewise.
+	(relax_delay_slots): Likewise.
+	* config/arc/arc.md (jump_i, cbranchsi4_scratch, *bbit): Likewise.
+	(bbit_di): Likewise.
+	* config/arc/arc.c (arc_reorg, arc_can_follow_jump): Likewise.
+	* config/sh/sh.md (jump_compact): Likewise.
+	* bb-reorder.c (rotate_loop): Likewise.
+	(pass_duplicate_computed_gotos::execute): Likewise.
+	(add_reg_crossing_jump_notes): Rename to...
+	(update_crossing_jump_flags): ...this.
+	(pass_partition_blocks::execute): Update accordingly.
+
+2014-05-19  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* tree.h: Remove extraneous template <>.
+
+2014-05-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa.c (symtab_remove_unreachable_nodes): Remove
+	symbol from comdat group if its body was eliminated.
+	(comdat_can_be_unshared_p_1): Static symbols can always
+	be privatized.
+	* symtab.c (symtab_remove_from_same_comdat_group): Break out
+	from ...
+	(symtab_unregister_node): ... this one.
+	(verify_symtab_base): More strict checking of comdats.
+	* cgraph.h (symtab_remove_from_same_comdat_group): Declare.
+
+2014-05-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-pass.h (make_pass_ipa_comdats): New pass.
+	* timevar.def (TV_IPA_COMDATS): New timevar.
+	* passes.def (pass_ipa_comdats): Add.
+	* Makefile.in (OBJS): Add ipa-comdats.o
+	* ipa-comdats.c: New file.
+
 2014-05-17  Jan Hubicka  <hubicka@ucw.cz>
 
 	* ipa.c (update_visibility_by_resolution_info): New function.

@@ -1,3 +1,17 @@
+2014-05-20  John Marino  <gnugcc@marino.st>
+
+	* config.host (*-*-dragonfly*): New target.
+	* crtstuff.c: Make dl_iterate_support generic on *bsd.
+	* enable-execute-stack-mprotect.c: Always mprotect on FreeBSD.
+	* unwind-dw2-fde-dip.c: Add dl_iterate_phr support for DragonFly.
+	* config/i386/dragonfly-unwind.h: New.
+
+2014-05-21  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	PR libgcc/60166
+	* config/arm/sfp-machine.h (_FP_NANFRAC_H, _FP_NANFRAC_S)
+	(_FP_NANFRAC_D, _FP_NANSIGN_Q): Set the quiet bit.
+
 2014-05-13  Bernd Edlinger  <bernd.edlinger@hotmail.de>
 
 	* unwind-seh.c (_Unwind_Backtrace): Uncommented, finished
