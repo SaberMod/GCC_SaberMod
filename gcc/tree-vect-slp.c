@@ -1081,13 +1081,25 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo,
 		dump_printf (MSG_NOTE, "%d ", j);
 	      }
 	  dump_printf (MSG_NOTE, "\n");
-	  /* And try again ... */
+	  /* And try again with scratch 'matches' ... */
+	  bool *tem = XALLOCAVEC (bool, group_size);
 	  if (vect_build_slp_tree (loop_vinfo, bb_vinfo, &child,
 				   group_size, max_nunits, loads,
 				   vectorization_factor,
-				   matches, npermutes, &this_tree_size,
+				   tem, npermutes, &this_tree_size,
 				   max_tree_size))
 	    {
+	      /* ... so if successful we can apply the operand swapping
+		 to the GIMPLE IL.  This is necessary because for example
+		 vect_get_slp_defs uses operand indexes and thus expects
+		 canonical operand order.  */
+	      for (j = 0; j < group_size; ++j)
+		if (!matches[j])
+		  {
+		    gimple stmt = SLP_TREE_SCALAR_STMTS (*node)[j];
+		    swap_ssa_operands (stmt, gimple_assign_rhs1_ptr (stmt),
+				       gimple_assign_rhs2_ptr (stmt));
+		  }
 	      oprnd_info->def_stmts = vNULL;
 	      SLP_TREE_CHILDREN (*node).quick_push (child);
 	      continue;
@@ -3167,7 +3179,7 @@ vect_transform_slp_perm_load (slp_tree node, vec<tree> dr_chain,
      we need the second and the third vectors: {b1,c1,a2,b2} and
      {c2,a3,b3,c3}.  */
 
-    {
+  {
       scalar_index = 0;
       index = 0;
       vect_stmts_counter = 0;

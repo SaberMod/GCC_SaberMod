@@ -2602,6 +2602,15 @@ vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
 	  if ((init_b - init_a) % type_size_a != 0)
 	    break;
 
+	  /* If we have a store, the accesses are adjacent.  This splits
+	     groups into chunks we support (we don't support vectorization
+	     of stores with gaps).  */
+	  if (!DR_IS_READ (dra)
+	      && (init_b - (HOST_WIDE_INT) TREE_INT_CST_LOW
+					     (DR_INIT (datarefs_copy[i-1]))
+		  != type_size_a))
+	    break;
+
 	  /* The step (if not zero) is greater than the difference between
 	     data-refs' inits.  This splits groups into suitable sizes.  */
 	  HOST_WIDE_INT step = tree_to_shwi (DR_STEP (dra));
@@ -5019,7 +5028,7 @@ vect_grouped_load_supported (tree vectype, unsigned HOST_WIDE_INT count)
 		    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 				     "shuffle of 3 loads is not supported by"
 				     " target\n");
-		    return false;
+		  return false;
 		}
 	      for (i = 0, j = 0; i < nelt; i++)
 		if (3 * i + k < 2 * nelt)

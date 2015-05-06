@@ -303,13 +303,13 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
 	  for (j = 0; j < *decoded_options_count; ++j)
 	    if ((*decoded_options)[j].opt_index == foption->opt_index)
 	      break;
-	    if (j == *decoded_options_count)
-	      append_option (decoded_options, decoded_options_count, foption);
-	    else if (foption->value != (*decoded_options)[j].value)
-	      fatal_error (input_location,
-			   "Option %s not used consistently in all LTO input"
-			   " files", foption->orig_option_with_args_text);
-	    break;
+	  if (j == *decoded_options_count)
+	    append_option (decoded_options, decoded_options_count, foption);
+	  else if (foption->value != (*decoded_options)[j].value)
+	    fatal_error (input_location,
+			 "Option %s not used consistently in all LTO input"
+			 " files", foption->orig_option_with_args_text);
+	  break;
 
 	case OPT_O:
 	case OPT_Ofast:
@@ -934,7 +934,7 @@ run_gcc (unsigned argc, char *argv[])
 	  filename[p - argv[i]] = '\0';
 	  file_offset = (off_t) loffset;
 	}
-      fd = open (argv[i], O_RDONLY);
+      fd = open (filename, O_RDONLY | O_BINARY);
       if (fd == -1)
 	{
 	  lto_argv[lto_argc++] = argv[i];

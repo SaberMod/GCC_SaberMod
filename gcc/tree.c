@@ -8948,7 +8948,7 @@ variably_modified_type_p (tree type, tree fn)
 	    if (TREE_CODE (type) == QUAL_UNION_TYPE)
 	      RETURN_TRUE_IF_VAR (DECL_QUALIFIER (t));
 	  }
-	break;
+      break;
 
     case ARRAY_TYPE:
       /* Do not call ourselves to avoid infinite recursion.  This is
@@ -12584,15 +12584,111 @@ verify_type (const_tree t)
     }
   else if (t != mv && !verify_type_variant (t, mv))
     error_found = true;
-  /* FIXME: C FE uses TYPE_VFIELD to record C_TYPE_INCOMPLETE_VARS
-     and danagle the pointer from time to time.  */
-  if (RECORD_OR_UNION_TYPE_P (t) && TYPE_VFIELD (t)
-      && TREE_CODE (TYPE_VFIELD (t)) != FIELD_DECL
-      && TREE_CODE (TYPE_VFIELD (t)) != TREE_LIST)
+
+  /* Check various uses of TYPE_MINVAL.  */
+  if (RECORD_OR_UNION_TYPE_P (t))
     {
-      error ("TYPE_VFIELD is not FIELD_DECL nor TREE_LIST");
-      debug_tree (TYPE_VFIELD (t));
+      /* FIXME: C FE uses TYPE_VFIELD to record C_TYPE_INCOMPLETE_VARS
+	 and danagle the pointer from time to time.  */
+      if (TYPE_VFIELD (t)
+	  && TREE_CODE (TYPE_VFIELD (t)) != FIELD_DECL
+	  && TREE_CODE (TYPE_VFIELD (t)) != TREE_LIST)
+	{
+	  error ("TYPE_VFIELD is not FIELD_DECL nor TREE_LIST");
+	  debug_tree (TYPE_VFIELD (t));
+	  error_found = true;
+	}
     }
+  else if (TREE_CODE (t) == POINTER_TYPE)
+    {
+      if (TYPE_NEXT_PTR_TO (t)
+	  && TREE_CODE (TYPE_NEXT_PTR_TO (t)) != POINTER_TYPE)
+	{
+	  error ("TYPE_NEXT_PTR_TO is not POINTER_TYPE");
+	  debug_tree (TYPE_NEXT_PTR_TO (t));
+	  error_found = true;
+	}
+    }
+  else if (TREE_CODE (t) == REFERENCE_TYPE)
+    {
+      if (TYPE_NEXT_REF_TO (t)
+	  && TREE_CODE (TYPE_NEXT_REF_TO (t)) != REFERENCE_TYPE)
+	{
+	  error ("TYPE_NEXT_REF_TO is not REFERENCE_TYPE");
+	  debug_tree (TYPE_NEXT_REF_TO (t));
+	  error_found = true;
+	}
+    }
+  else if (INTEGRAL_TYPE_P (t) || TREE_CODE (t) == REAL_TYPE || TREE_CODE (t) == FIXED_POINT_TYPE)
+    {
+      /* FIXME: The following check should pass:
+	  useless_type_conversion_p (const_cast <tree> (t), TREE_TYPE (TYPE_MIN_VALUE (t))
+	 bud does not for C sizetypes in LTO.  */
+    }
+  else if (TYPE_MINVAL (t))
+    {
+      error ("TYPE_MINVAL non-NULL");
+      debug_tree (TYPE_MINVAL (t));
+      error_found = true;
+    }
+
+  /* Check various uses of TYPE_MAXVAL.  */
+  if (RECORD_OR_UNION_TYPE_P (t))
+    {
+      if (TYPE_METHODS (t) && TREE_CODE (TYPE_METHODS (t)) != FUNCTION_DECL
+	  && TREE_CODE (TYPE_METHODS (t)) != TEMPLATE_DECL)
+	{
+	  error ("TYPE_METHODS is not FUNCTION_DECL nor TEMPLATE_DECL");
+	  debug_tree (TYPE_METHODS (t));
+	  error_found = true;
+	}
+    }
+  else if (TREE_CODE (t) == FUNCTION_TYPE || TREE_CODE (t) == METHOD_TYPE)
+    {
+      if (TYPE_METHOD_BASETYPE (t)
+	  && TREE_CODE (TYPE_METHOD_BASETYPE (t)) != RECORD_TYPE
+	  && TREE_CODE (TYPE_METHOD_BASETYPE (t)) != UNION_TYPE)
+	{
+	  error ("TYPE_METHOD_BASETYPE is not record nor union");
+	  debug_tree (TYPE_METHOD_BASETYPE (t));
+	  error_found = true;
+	}
+    }
+  else if (TREE_CODE (t) == OFFSET_TYPE)
+    {
+      if (TYPE_OFFSET_BASETYPE (t)
+	  && TREE_CODE (TYPE_OFFSET_BASETYPE (t)) != RECORD_TYPE
+	  && TREE_CODE (TYPE_OFFSET_BASETYPE (t)) != UNION_TYPE)
+	{
+	  error ("TYPE_OFFSET_BASETYPE is not record nor union");
+	  debug_tree (TYPE_OFFSET_BASETYPE (t));
+	  error_found = true;
+	}
+    }
+  else if (INTEGRAL_TYPE_P (t) || TREE_CODE (t) == REAL_TYPE || TREE_CODE (t) == FIXED_POINT_TYPE)
+    {
+      /* FIXME: The following check should pass:
+	  useless_type_conversion_p (const_cast <tree> (t), TREE_TYPE (TYPE_MAX_VALUE (t))
+	 bud does not for C sizetypes in LTO.  */
+    }
+  else if (TREE_CODE (t) == ARRAY_TYPE)
+    {
+      if (TYPE_ARRAY_MAX_SIZE (t)
+	  && TREE_CODE (TYPE_ARRAY_MAX_SIZE (t)) != INTEGER_CST)
+        {
+	  error ("TYPE_ARRAY_MAX_SIZE not INTEGER_CST");
+	  debug_tree (TYPE_ARRAY_MAX_SIZE (t));
+	  error_found = true;
+        } 
+    }
+  else if (TYPE_MAXVAL (t))
+    {
+      error ("TYPE_MAXVAL non-NULL");
+      debug_tree (TYPE_MAXVAL (t));
+      error_found = true;
+    }
+
+
   if (error_found)
     {
       debug_tree (const_cast <tree> (t));

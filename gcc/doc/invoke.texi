@@ -512,6 +512,7 @@ Objective-C and Objective-C++ Dialects}.
 -momit-leaf-frame-pointer  -mno-omit-leaf-frame-pointer @gol
 -mtls-dialect=desc  -mtls-dialect=traditional @gol
 -mfix-cortex-a53-835769  -mno-fix-cortex-a53-835769 @gol
+-mfix-cortex-a53-843419  -mno-fix-cortex-a53-843419 @gol
 -march=@var{name}  -mcpu=@var{name}  -mtune=@var{name}}
 
 @emph{Adapteva Epiphany Options}
@@ -826,6 +827,7 @@ Objective-C and Objective-C++ Dialects}.
 
 @emph{MSP430 Options}
 @gccoptlist{-msim -masm-hex -mmcu= -mcpu= -mlarge -msmall -mrelax @gol
+-mcode-region= -mdata-region= @gol
 -mhwmult= -minrt}
 
 @emph{NDS32 Options}
@@ -2880,6 +2882,12 @@ Warn when overload resolution chooses a promotion from unsigned or
 enumerated type to a signed type, over a conversion to an unsigned type of
 the same size.  Previous versions of G++ tried to preserve
 unsignedness, but the standard mandates the current behavior.
+
+@item -Wno-terminate @r{(C++ and Objective-C++ only)}
+@opindex Wterminate
+@opindex Wno-terminate
+Disable the warning about a throw-expression that will immediately
+result in a call to @code{terminate}.
 @end table
 
 @node Objective-C and Objective-C++ Dialect Options
@@ -8014,10 +8022,12 @@ Enabled by @option{-Os}.
 @item -fdelete-null-pointer-checks
 @opindex fdelete-null-pointer-checks
 Assume that programs cannot safely dereference null pointers, and that
-no code or data element resides there.  This enables simple constant
+no code or data element resides at address zero.
+This option enables simple constant
 folding optimizations at all optimization levels.  In addition, other
 optimization passes in GCC use this flag to control global dataflow
 analyses that eliminate useless checks for null pointers; these assume
+that a memory access to address zero always results in a trap, so
 that if a pointer is checked after it has already been dereferenced,
 it cannot be null.
 
@@ -8025,9 +8035,10 @@ Note however that in some environments this assumption is not true.
 Use @option{-fno-delete-null-pointer-checks} to disable this optimization
 for programs that depend on that behavior.
 
-Some targets, especially embedded ones, disable this option at all levels.
-Otherwise it is enabled at all levels: @option{-O0}, @option{-O1},
-@option{-O2}, @option{-O3}, @option{-Os}.  Passes that use the information
+This option is enabled by default on most targets.  On Nios II ELF, it
+defaults to off.  On AVR and CR16, this option is completely disabled.  
+
+Passes that use the dataflow information
 are enabled independently at different optimization levels.
 
 @item -fdevirtualize
@@ -8510,7 +8521,8 @@ This flag is enabled by default at @option{-O2} and @option{-Os}.
 Detect paths that trigger erroneous or undefined behavior due to
 dereferencing a null pointer.  Isolate those paths from the main control
 flow and turn the statement with erroneous or undefined behavior into a trap.
-This flag is enabled by default at @option{-O2} and higher.
+This flag is enabled by default at @option{-O2} and higher and depends on
+@option{-fdelete-null-pointer-checks} also being enabled.
 
 @item -fisolate-erroneous-paths-attribute
 @opindex fisolate-erroneous-paths-attribute
@@ -12323,6 +12335,14 @@ of TLS variables.
 Enable or disable the workaround for the ARM Cortex-A53 erratum number 835769.
 This involves inserting a NOP instruction between memory instructions and
 64-bit integer multiply-accumulate instructions.
+
+@item -mfix-cortex-a53-843419
+@itemx -mno-fix-cortex-a53-843419
+@opindex mfix-cortex-a53-843419
+@opindex mno-fix-cortex-a53-843419
+Enable or disable the workaround for the ARM Cortex-A53 erratum number 843419.
+This erratum workaround is made at link time and this will only pass the
+corresponding flag to the linker.
 
 @item -march=@var{name}
 @opindex march
@@ -18150,6 +18170,19 @@ Enable the use of a minimum runtime environment - no static
 initializers or constructors.  This is intended for memory-constrained
 devices.  The compiler includes special symbols in some objects
 that tell the linker and runtime which code fragments are required.
+
+@item -mcode-region=
+@itemx -mdata-region=
+@opindex mcode-region
+@opindex mdata-region
+These options tell the compiler where to place functions and data that
+do not have one of the @code{lower}, @code{upper}, @code{either} or
+@code{section} attributes.  Possible values are @code{lower},
+@code{upper}, @code{either} or @code{any}.  The first three behave
+like the corresponding attribute.  The fourth possible value -
+@code{any} - is the default.  It leaves placement entirely up to the
+linker script and how it assigns the standard sections (.text, .data
+etc) to the memory regions.
 
 @end table
 
