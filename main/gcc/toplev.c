@@ -1599,14 +1599,6 @@ backend_init_target (void)
   /* Initialize alignment variables.  */
   init_alignments ();
 
-  /* This reinitializes hard_frame_pointer, and calls init_reg_modes_target()
-     to initialize reg_raw_mode[].  */
-  init_emit_regs ();
-
-  /* This invokes target hooks to set fixed_reg[] etc, which is
-     mode-dependent.  */
-  init_regs ();
-
   /* This depends on stack_pointer_rtx.  */
   init_fake_stack_mems ();
 
@@ -1648,9 +1640,13 @@ backend_init (void)
   init_varasm_once ();
   save_register_info ();
 
-  /* Initialize the target-specific back end pieces.  */
-  ira_init_once ();
-  backend_init_target ();
+  /* Middle end needs this initialization for default mem attributes
+     used by early calls to make_decl_rtl.  */
+  init_emit_regs ();
+
+  /* Middle end needs this initialization for mode tables used to assign
+     modes to vector variables.  */
+  init_regs ();
 }
 
 /* Initialize excess precision settings.  */
@@ -1702,6 +1698,31 @@ lang_dependent_init_target (void)
      front end is initialized.  It also depends on the HAVE_xxx macros
      generated from the target machine description.  */
   init_optabs ();
+  this_target_rtl->lang_dependent_initialized = false;
+}
+
+/* Perform initializations that are lang-dependent or target-dependent.
+   but matters only for late optimizations and RTL generation.  */
+
+void
+initialize_rtl (void)
+{
+  static int initialized_once;
+
+  /* Initialization done just once per compilation, but delayed
+     till code generation.  */
+  if (!initialized_once)
+    ira_init_once ();
+  initialized_once = true;
+
+  /* Target specific RTL backend initialization.  */
+  if (!this_target_rtl->target_specific_initialized)
+    backend_init_target ();
+  this_target_rtl->target_specific_initialized = true;
+
+  if (this_target_rtl->lang_dependent_initialized)
+    return;
+  this_target_rtl->lang_dependent_initialized = true;
 
   /* The following initialization functions need to generate rtl, so
      provide a dummy function context for them.  */
@@ -1800,8 +1821,15 @@ target_reinit (void)
       regno_reg_rtx = NULL;
     }
 
-  /* Reinitialize RTL backend.  */
-  backend_init_target ();
+  this_target_rtl->target_specific_initialized = false;
+
+  /* This initializes hard_frame_pointer, and calls init_reg_modes_target()
+     to initialize reg_raw_mode[].  */
+  init_emit_regs ();
+
+  /* This invokes target hooks to set fixed_reg[] etc, which is
+     mode-dependent.  */
+  init_regs ();
 
   /* Reinitialize lang-dependent parts.  */
   lang_dependent_init_target ();

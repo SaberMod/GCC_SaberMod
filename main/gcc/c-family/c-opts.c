@@ -47,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "l-ipo.h"
 #include "dumpfile.h"
+#include "dumpfile.h"
 
 #ifndef DOLLARS_IN_IDENTIFIERS
 # define DOLLARS_IN_IDENTIFIERS true
@@ -108,6 +109,12 @@ static size_t include_cursor;
 
 static bool parsing_done_p = false;
 
+/* Dump files/flags to use during parsing.  */
+static FILE *original_dump_file = NULL;
+static int original_dump_flags;
+static FILE *class_dump_file = NULL;
+static int class_dump_flags;
+
 /* Whether any standard preincluded header has been preincluded.  */
 static bool done_preinclude;
 
@@ -115,6 +122,7 @@ static void handle_OPT_d (const char *);
 static void set_std_cxx98 (int);
 static void set_std_cxx11 (int);
 static void set_std_cxx1y (int);
+static void set_std_cxx1z (int);
 static void set_std_c89 (int, int);
 static void set_std_c99 (int);
 static void set_std_c11 (int);
@@ -703,6 +711,16 @@ c_common_handle_option (size_t scode, const char *arg, int value,
 	}
       break;
 
+    case OPT_std_c__1z:
+    case OPT_std_gnu__1z:
+      if (!preprocessing_asm_p)
+	{
+	  set_std_cxx1z (code == OPT_std_c__1z /* ISO */);
+	  if (code == OPT_std_c__1z)
+	    cpp_opts->ext_numeric_literals = 0;
+	}
+      break;
+
     case OPT_std_c90:
     case OPT_std_iso9899_199409:
       if (!preprocessing_asm_p)
@@ -1130,6 +1148,10 @@ c_common_parse_file (void)
       c_finish_options ();
       if (flag_record_gcc_switches_in_elf && i == 0)
 	write_opts_to_asm ();
+      /* Open the dump files to use for the original and class dump output
+         here, to be used during parsing for the current file.  */
+      original_dump_file = dump_begin (TDI_original, &original_dump_flags);
+      class_dump_file = dump_begin (TDI_class, &class_dump_flags);
       pch_init ();
       set_lipo_c_parsing_context (parse_in, i, verbose);
       push_file_scope ();
@@ -1151,6 +1173,16 @@ c_common_parse_file (void)
       deferred_count = 0;
       this_input_filename
 	= cpp_read_main_file (parse_in, in_fnames[i]);
+      if (original_dump_file)
+        {
+          dump_end (TDI_original, original_dump_file);
+          original_dump_file = NULL;
+        }
+      if (class_dump_file)
+        {
+          dump_end (TDI_class, class_dump_file);
+          class_dump_file = NULL;
+        }
       /* If an input file is missing, abandon further compilation.
 	 cpplib has issued a diagnostic.  */
       if (!this_input_filename)
@@ -1160,12 +1192,28 @@ c_common_parse_file (void)
     parsing_done_p = true;
 }
 
-/* Returns true if parsing is done  */
 
 bool
 is_parsing_done_p (void)
 {
   return parsing_done_p;
+}
+
+/* Returns the appropriate dump file for PHASE to dump with FLAGS.  */
+FILE *
+get_dump_info (int phase, int *flags)
+{
+  gcc_assert (phase == TDI_original || phase == TDI_class);
+  if (phase == TDI_original)
+    {
+      *flags = original_dump_flags;
+      return original_dump_file;
+    }
+  else
+    {
+      *flags = class_dump_flags;
+      return class_dump_file;
+    }
 }
 
 /* Common finish hook for the C, ObjC and C++ front ends.  */
@@ -1613,6 +1661,20 @@ set_std_cxx1y (int iso)
   flag_isoc94 = 1;
   flag_isoc99 = 1;
   cxx_dialect = cxx1y;
+}
+
+/* Set the C++ 201z draft standard (without GNU extensions if ISO).  */
+static void
+set_std_cxx1z (int iso)
+{
+  cpp_set_lang (parse_in, iso ? CLK_CXX1Y: CLK_GNUCXX1Y);
+  flag_no_gnu_keywords = iso;
+  flag_no_nonansi_builtin = iso;
+  flag_iso = iso;
+  /* C++11 includes the C99 standard library.  */
+  flag_isoc94 = 1;
+  flag_isoc99 = 1;
+  cxx_dialect = cxx1z;
 }
 
 /* Args to -d specify what to dump.  Silently ignore

@@ -6189,7 +6189,8 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
       else
 	/* Avoid warning about the volatile ObjC EH puts on decls.  */
 	if (!objc_ok)
-	  WARN_FOR_ASSIGNMENT (location, expr_loc, 0,
+	  WARN_FOR_ASSIGNMENT (location, expr_loc,
+			       OPT_Wincompatible_pointer_types,
 			       G_("passing argument %d of %qE from "
 				  "incompatible pointer type"),
 			       G_("assignment from incompatible pointer type"),
@@ -6212,7 +6213,8 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
 	 or one that results from arithmetic, even including
 	 a cast to integer type.  */
       if (!null_pointer_constant)
-	WARN_FOR_ASSIGNMENT (location, expr_loc, 0,
+	WARN_FOR_ASSIGNMENT (location, expr_loc,
+			     OPT_Wint_conversion,
 			     G_("passing argument %d of %qE makes "
 				"pointer from integer without a cast"),
 			     G_("assignment makes pointer from integer "
@@ -6226,7 +6228,8 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
     }
   else if (codel == INTEGER_TYPE && coder == POINTER_TYPE)
     {
-      WARN_FOR_ASSIGNMENT (location, expr_loc, 0,
+      WARN_FOR_ASSIGNMENT (location, expr_loc,
+			   OPT_Wint_conversion,
 			   G_("passing argument %d of %qE makes integer "
 			      "from pointer without a cast"),
 			   G_("assignment makes integer from pointer "
