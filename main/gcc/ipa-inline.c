@@ -126,6 +126,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "sreal.h"
 #include "cilk.h"
+#include "builtins.h"
 
 /* Statistics we collect about inlining algorithm.  */
 static int overall_size;
@@ -1270,7 +1271,7 @@ reset_edge_caches (struct cgraph_node *node)
   struct cgraph_edge *e = node->callees;
   struct cgraph_node *where = node;
   int i;
-  struct ipa_ref *ref;
+  struct ipa_ref *ref = NULL;
 
   if (where->global.inlined_to)
     where = where->global.inlined_to;
@@ -1281,10 +1282,9 @@ reset_edge_caches (struct cgraph_node *node)
   for (edge = where->callers; edge; edge = edge->next_caller)
     if (edge->inline_failed)
       reset_edge_growth_cache (edge);
-  for (i = 0; ipa_ref_list_referring_iterate (&where->ref_list,
-					      i, ref); i++)
+  for (i = 0; where->iterate_referring (i, ref); i++)
     if (ref->use == IPA_REF_ALIAS)
-      reset_edge_caches (ipa_ref_referring_node (ref));
+      reset_edge_caches (dyn_cast <cgraph_node *> (ref->referring));
 
   if (!e)
     return;
@@ -1324,7 +1324,7 @@ update_caller_keys (fibheap_t heap, struct cgraph_node *node,
 {
   struct cgraph_edge *edge;
   int i;
-  struct ipa_ref *ref;
+  struct ipa_ref *ref = NULL;
 
   if ((!node->alias && !inline_summary (node)->inlinable)
       || node->global.inlined_to)
@@ -1332,11 +1332,10 @@ update_caller_keys (fibheap_t heap, struct cgraph_node *node,
   if (!bitmap_set_bit (updated_nodes, node->uid))
     return;
 
-  for (i = 0; ipa_ref_list_referring_iterate (&node->ref_list,
-					      i, ref); i++)
+  for (i = 0; node->iterate_referring (i, ref); i++)
     if (ref->use == IPA_REF_ALIAS)
       {
-	struct cgraph_node *alias = ipa_ref_referring_node (ref);
+	struct cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
         update_caller_keys (heap, alias, updated_nodes, check_inlinablity_for);
       }
 
@@ -1620,7 +1619,7 @@ compute_max_insns (int insns)
   if (max_insns < PARAM_VALUE (PARAM_LARGE_UNIT_INSNS))
     max_insns = PARAM_VALUE (PARAM_LARGE_UNIT_INSNS);
 
-  return ((HOST_WIDEST_INT) max_insns
+  return ((int64_t) max_insns
 	  * (100 + PARAM_VALUE (PARAM_INLINE_UNIT_GROWTH)) / 100);
 }
 
@@ -1925,7 +1924,7 @@ inline_small_functions (void)
 		   badness,
 		   edge->frequency / (double)CGRAPH_FREQ_BASE);
 	  if (edge->count)
-	    fprintf (dump_file," Called "HOST_WIDEST_INT_PRINT_DEC"x\n",
+	    fprintf (dump_file," Called %"PRId64"x\n",
 		     edge->count);
 	  if (dump_flags & TDF_DETAILS)
 	    edge_badness (edge, true);
@@ -2207,7 +2206,7 @@ inline_to_all_callers (struct cgraph_node *node, void *data)
 static void
 dump_overall_stats (void)
 {
-  HOST_WIDEST_INT sum_weighted = 0, sum = 0;
+  int64_t sum_weighted = 0, sum = 0;
   struct cgraph_node *node;
 
   FOR_EACH_DEFINED_FUNCTION (node)
@@ -2219,8 +2218,8 @@ dump_overall_stats (void)
 	sum_weighted += time * node->count;
       }
   fprintf (dump_file, "Overall time estimate: "
-	   HOST_WIDEST_INT_PRINT_DEC" weighted by profile: "
-	   HOST_WIDEST_INT_PRINT_DEC"\n", sum, sum_weighted);
+	   "%"PRId64" weighted by profile: "
+	   "%"PRId64"\n", sum, sum_weighted);
 }
 
 /* Output some useful stats about inlining.  */
@@ -2228,13 +2227,13 @@ dump_overall_stats (void)
 static void
 dump_inline_stats (void)
 {
-  HOST_WIDEST_INT inlined_cnt = 0, inlined_indir_cnt = 0;
-  HOST_WIDEST_INT inlined_virt_cnt = 0, inlined_virt_indir_cnt = 0;
-  HOST_WIDEST_INT noninlined_cnt = 0, noninlined_indir_cnt = 0;
-  HOST_WIDEST_INT noninlined_virt_cnt = 0, noninlined_virt_indir_cnt = 0;
-  HOST_WIDEST_INT  inlined_speculative = 0, inlined_speculative_ply = 0;
-  HOST_WIDEST_INT indirect_poly_cnt = 0, indirect_cnt = 0;
-  HOST_WIDEST_INT reason[CIF_N_REASONS][3];
+  int64_t inlined_cnt = 0, inlined_indir_cnt = 0;
+  int64_t inlined_virt_cnt = 0, inlined_virt_indir_cnt = 0;
+  int64_t noninlined_cnt = 0, noninlined_indir_cnt = 0;
+  int64_t noninlined_virt_cnt = 0, noninlined_virt_indir_cnt = 0;
+  int64_t  inlined_speculative = 0, inlined_speculative_ply = 0;
+  int64_t indirect_poly_cnt = 0, indirect_cnt = 0;
+  int64_t reason[CIF_N_REASONS][3];
   int i;
   struct cgraph_node *node;
 
@@ -2298,31 +2297,31 @@ dump_inline_stats (void)
   if (max_count)
     {
       fprintf (dump_file,
-	       "Inlined " HOST_WIDEST_INT_PRINT_DEC " + speculative "
-	       HOST_WIDEST_INT_PRINT_DEC " + speculative polymorphic "
-	       HOST_WIDEST_INT_PRINT_DEC " + previously indirect "
-	       HOST_WIDEST_INT_PRINT_DEC " + virtual "
-	       HOST_WIDEST_INT_PRINT_DEC " + virtual and previously indirect "
-	       HOST_WIDEST_INT_PRINT_DEC "\n" "Not inlined "
-	       HOST_WIDEST_INT_PRINT_DEC " + previously indirect "
-	       HOST_WIDEST_INT_PRINT_DEC " + virtual "
-	       HOST_WIDEST_INT_PRINT_DEC " + virtual and previously indirect "
-	       HOST_WIDEST_INT_PRINT_DEC " + stil indirect "
-	       HOST_WIDEST_INT_PRINT_DEC " + still indirect polymorphic "
-	       HOST_WIDEST_INT_PRINT_DEC "\n", inlined_cnt,
+	       "Inlined %"PRId64 " + speculative "
+	       "%"PRId64 " + speculative polymorphic "
+	       "%"PRId64 " + previously indirect "
+	       "%"PRId64 " + virtual "
+	       "%"PRId64 " + virtual and previously indirect "
+	       "%"PRId64 "\n" "Not inlined "
+	       "%"PRId64 " + previously indirect "
+	       "%"PRId64 " + virtual "
+	       "%"PRId64 " + virtual and previously indirect "
+	       "%"PRId64 " + stil indirect "
+	       "%"PRId64 " + still indirect polymorphic "
+	       "%"PRId64 "\n", inlined_cnt,
 	       inlined_speculative, inlined_speculative_ply,
 	       inlined_indir_cnt, inlined_virt_cnt, inlined_virt_indir_cnt,
 	       noninlined_cnt, noninlined_indir_cnt, noninlined_virt_cnt,
 	       noninlined_virt_indir_cnt, indirect_cnt, indirect_poly_cnt);
       fprintf (dump_file,
-	       "Removed speculations " HOST_WIDEST_INT_PRINT_DEC "\n",
+	       "Removed speculations %"PRId64 "\n",
 	       spec_rem);
     }
   dump_overall_stats ();
   fprintf (dump_file, "\nWhy inlining failed?\n");
   for (i = 0; i < CIF_N_REASONS; i++)
     if (reason[i][2])
-      fprintf (dump_file, "%-50s: %8i calls, %8i freq, "HOST_WIDEST_INT_PRINT_DEC" count\n",
+      fprintf (dump_file, "%-50s: %8i calls, %8i freq, %"PRId64" count\n",
 	       cgraph_inline_failed_string ((cgraph_inline_failed_t) i),
 	       (int) reason[i][2], (int) reason[i][1], reason[i][0]);
 }
@@ -2626,7 +2625,7 @@ pass_early_inline::execute (function *fun)
 #ifdef ENABLE_CHECKING
   verify_cgraph_node (node);
 #endif
-  ipa_remove_all_references (&node->ref_list);
+  node->remove_all_references ();
 
   /* Even when not optimizing or not inlining inline always-inline
      functions.  */

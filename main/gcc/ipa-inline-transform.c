@@ -93,7 +93,7 @@ can_remove_node_now_p_1 (struct cgraph_node *node)
      can remove its offline copy, but we would need to keep unanalyzed node in
      the callgraph so references can point to it.  */
   return (!node->address_taken
-	  && !ipa_ref_has_aliases_p (&node->ref_list)
+	  && !node->has_aliases_p ()
 	  && !node->used_as_abstract_origin
 	  && cgraph_can_remove_if_no_direct_calls_p (node)
 	  /* Inlining might enable more devirtualizing, so we want to remove
@@ -268,7 +268,7 @@ cgraph_node_opt_info (struct cgraph_node *node, bool emit_mod_info)
     }
 
   if (profile_info)
-    sprintf (buf, "%s ("HOST_WIDEST_INT_PRINT_DEC")", buf, node->count);
+    sprintf (buf, "%s (%"PRId64")", buf, node->count);
   return buf;
 }
 
@@ -325,7 +325,7 @@ dump_inline_decision (struct cgraph_edge *edge)
     {
       const char *call_count_str = " with call count ";
       char *buf = (char *) xmalloc (strlen (call_count_str) + MAX_INT_LENGTH);
-      sprintf (buf, "%s"HOST_WIDEST_INT_PRINT_DEC, call_count_str,
+      sprintf (buf, "%s%"PRId64, call_count_str,
 	       edge->count);
       call_count_text = buf;
     }
@@ -493,7 +493,7 @@ save_inline_function_body (struct cgraph_node *node)
   /* first_clone will be turned into real function.  */
   first_clone = node->clones;
   first_clone->decl = copy_node (node->decl);
-  symtab_insert_node_to_hashtable (first_clone);
+  first_clone->decl->decl_with_vis.symtab_node = first_clone;
   gcc_assert (first_clone == cgraph_get_node (first_clone->decl));
 
   /* Now reshape the clone tree, so all other clones descends from
@@ -603,7 +603,7 @@ inline_transform (struct cgraph_node *node)
       next = e->next_callee;
       cgraph_redirect_edge_call_stmt_to_callee (e);
     }
-  ipa_remove_all_references (&node->ref_list);
+  node->remove_all_references ();
 
   timevar_push (TV_INTEGRATION);
   if (node->callees && optimize)

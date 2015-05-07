@@ -311,8 +311,39 @@ AC_CHECK_SIZEOF(short)
 AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(long)
 AC_CHECK_TYPES([long long], [AC_CHECK_SIZEOF(long long)])
-AC_CHECK_TYPES([__int64], [AC_CHECK_SIZEOF(__int64)])
 GCC_STDINT_TYPES
+if test x"$ac_cv_c_uint64_t" = x"no" -o x"$ac_cv_c_int64_t" = x"no"; then
+  AC_MSG_ERROR([uint64_t or int64_t not found])
+fi
+
+# check what underlying integer type int64_t uses
+AC_LANG_PUSH(C++)
+AC_CACHE_CHECK(for int64_t underlying type, ac_cv_int64_t_type, [
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+template <typename T> struct X { };
+template <>
+struct X<long> { typedef long t; };
+]], [[X<int64_t>::t x;]])],[ac_cv_int64_t_type=long],[ac_cv_int64_t_type="long long"])])
+if test "$ac_cv_int64_t_type" = "long"; then
+  AC_DEFINE(INT64_T_IS_LONG, 1,
+  [Define if int64_t uses long as underlying type.])
+else
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+template <typename T> struct X { };
+template <>
+struct X<long long> { typedef long long t; };
+]], [[X<int64_t>::t x;]])],[],[AC_MSG_ERROR([error verifying int64_t uses long long])])
+fi
+AC_LANG_POP(C++)
+
+
+
 
 # ---------------------
 # Warnings and checking
@@ -1068,13 +1099,18 @@ LIBS="$save_LIBS"
 AC_SUBST(LDEXP_LIB)
 
 # Use <inttypes.h> only if it exists,
-# doesn't clash with <sys/types.h>, and declares intmax_t.
+# doesn't clash with <sys/types.h>, declares intmax_t and defines
+# PRId64
 AC_MSG_CHECKING(for inttypes.h)
 AC_CACHE_VAL(gcc_cv_header_inttypes_h,
 [AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
-[[#include <sys/types.h>
+[[#define __STDC_FORMAT_MACROS
+#include <sys/types.h>
 #include <inttypes.h>]],
-  [[intmax_t i = -1;]])],
+  [[intmax_t i = -1;
+#ifndef PRId64
+choke me
+#endif]])],
   [gcc_cv_header_inttypes_h=yes],
   [gcc_cv_header_inttypes_h=no])])
 AC_MSG_RESULT($gcc_cv_header_inttypes_h)
@@ -1149,7 +1185,7 @@ CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include $GMPINC"
 saved_CXXFLAGS="$CXXFLAGS"
 CXXFLAGS="$CXXFLAGS -I${srcdir} -I${srcdir}/../include $GMPINC"
 gcc_AC_CHECK_DECLS(getenv atol asprintf sbrk abort atof getcwd getwd \
-	strsignal strstr stpcpy strverscmp \
+	stpcpy strnlen strsignal strstr strverscmp \
 	errno snprintf vsnprintf vasprintf malloc realloc calloc \
 	free basename getopt clock getpagesize ffs gcc_UNLOCKED_FUNCS, , ,[
 #include "ansidecl.h"
@@ -1389,7 +1425,7 @@ fi
 
 if test x$use_long_long_for_widest_fast_int = xyes; then
 	AC_DEFINE(USE_LONG_LONG_FOR_WIDEST_FAST_INT, 1,
-[Define to 1 if the 'long long' (or '__int64') is wider than 'long' but still
+[Define to 1 if the 'long long' type is wider than 'long' but still
 efficiently supported by the host hardware.])
 fi
 
@@ -4750,6 +4786,21 @@ if test x"$gcc_cv_ld_as_needed" = xyes; then
 	AC_DEFINE_UNQUOTED(LD_NO_AS_NEEDED_OPTION, "$gcc_cv_ld_no_as_needed_option",
 [Define to the linker option to keep unused dependencies.])
 fi
+
+AC_MSG_CHECKING(linker mapfile support for clearing hardware capabilities)
+saved_LDFLAGS="$LDFLAGS"
+for clearcap_map in sol2-clearcapv2.map sol2-clearcap.map; do
+  LDFLAGS="$saved_LDFLAGS -Wl,-M,${srcdir}/config/$clearcap_map"
+  AC_LINK_IFELSE([int main(void) {return 0;}],
+    [gcc_cv_ld_clearcap=yes; break], [gcc_cv_ld_clearcap=no])
+done
+LDFLAGS="$saved_LDFLAGS"
+if test "x$gcc_cv_ld_clearcap" = xyes; then
+  AC_DEFINE([HAVE_LD_CLEARCAP], 1,
+[Define if the linker supports clearing hardware capabilities via mapfile.])
+  AC_CONFIG_LINKS([clearcap.map:${srcdir}/config/$clearcap_map])
+fi
+AC_MSG_RESULT($gcc_cv_ld_clearcap)
 
 case "$target:$tm_file" in
   powerpc64-*-freebsd* | powerpc64*-*-linux* | powerpc*-*-linux*rs6000/biarch64.h*)

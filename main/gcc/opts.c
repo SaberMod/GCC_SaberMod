@@ -457,6 +457,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fbranch_count_reg, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fmove_loop_invariants, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_ftree_pta, NULL, 1 },
+    { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fssa_phiopt, NULL, 1 },
 
     /* -O2 optimizations.  */
     { OPT_LEVELS_2_PLUS, OPT_finline_small_functions, NULL, 1 },
@@ -497,6 +498,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS_SPEED_ONLY, OPT_foptimize_strlen, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fhoist_adjacent_loads, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fisolate_erroneous_paths_dereference, NULL, 1 },
+    { OPT_LEVELS_2_PLUS, OPT_fuse_caller_save, NULL, 1 },
 
     /* -O3 optimizations.  */
     { OPT_LEVELS_3_PLUS, OPT_ftree_loop_distribute_patterns, NULL, 1 },
@@ -1503,6 +1505,9 @@ common_handle_option (struct gcc_options *opts,
 	      { "enum", SANITIZE_ENUM, sizeof "enum" - 1 },
 	      { "float-divide-by-zero", SANITIZE_FLOAT_DIVIDE,
 		sizeof "float-divide-by-zero" - 1 },
+	      { "float-cast-overflow", SANITIZE_FLOAT_CAST,
+		sizeof "float-cast-overflow" - 1 },
+	      { "bounds", SANITIZE_BOUNDS, sizeof "bounds" - 1 },
 	      { NULL, 0, 0 }
 	    };
 	    const char *comma;

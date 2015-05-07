@@ -345,7 +345,7 @@ size_t dfa_state_size;
 
 /* The following array is used to find the best insn from ready when
    the automaton pipeline interface is used.  */
-char *ready_try = NULL;
+signed char *ready_try = NULL;
 
 /* The ready list.  */
 struct ready_list ready = {NULL, 0, 0, 0, 0};
@@ -651,8 +651,8 @@ delay_i2_hasher::equal (const value_type *x, const compare_type *y)
 
 /* Two hash tables to record delay_pairs, one indexed by I1 and the other
    indexed by I2.  */
-static hash_table <delay_i1_hasher> delay_htab;
-static hash_table <delay_i2_hasher> delay_htab_i2;
+static hash_table<delay_i1_hasher> *delay_htab;
+static hash_table<delay_i2_hasher> *delay_htab_i2;
 
 /* Called through htab_traverse.  Walk the hashtable using I2 as
    index, and delete all elements involving an UID higher than
@@ -664,7 +664,7 @@ haifa_htab_i2_traverse (delay_pair **slot, int *data)
   struct delay_pair *p = *slot;
   if (INSN_UID (p->i2) >= maxuid || INSN_UID (p->i1) >= maxuid)
     {
-      delay_htab_i2.clear_slot (slot);
+      delay_htab_i2->clear_slot (slot);
     }
   return 1;
 }
@@ -680,7 +680,7 @@ haifa_htab_i1_traverse (delay_pair **pslot, int *data)
 
   if (INSN_UID ((*pslot)->i1) >= maxuid)
     {
-      delay_htab.clear_slot (pslot);
+      delay_htab->clear_slot (pslot);
       return 1;
     }
   pprev = &first;
@@ -694,7 +694,7 @@ haifa_htab_i1_traverse (delay_pair **pslot, int *data)
     }
   *pprev = NULL;
   if (first == NULL)
-    delay_htab.clear_slot (pslot);
+    delay_htab->clear_slot (pslot);
   else
     *pslot = first;
   return 1;
@@ -705,8 +705,8 @@ haifa_htab_i1_traverse (delay_pair **pslot, int *data)
 void
 discard_delay_pairs_above (int max_uid)
 {
-  delay_htab.traverse <int *, haifa_htab_i1_traverse> (&max_uid);
-  delay_htab_i2.traverse <int *, haifa_htab_i2_traverse> (&max_uid);
+  delay_htab->traverse <int *, haifa_htab_i1_traverse> (&max_uid);
+  delay_htab_i2->traverse <int *, haifa_htab_i2_traverse> (&max_uid);
 }
 
 /* This function can be called by a port just before it starts the final
@@ -736,15 +736,15 @@ record_delay_slot_pair (rtx i1, rtx i2, int cycles, int stages)
   p->cycles = cycles;
   p->stages = stages;
 
-  if (!delay_htab.is_created ())
+  if (!delay_htab)
     {
-      delay_htab.create (10);
-      delay_htab_i2.create (10);
+      delay_htab = new hash_table<delay_i1_hasher> (10);
+      delay_htab_i2 = new hash_table<delay_i2_hasher> (10);
     }
-  slot = delay_htab.find_slot_with_hash (i1, htab_hash_pointer (i1), INSERT);
+  slot = delay_htab->find_slot_with_hash (i1, htab_hash_pointer (i1), INSERT);
   p->next_same_i1 = *slot;
   *slot = p;
-  slot = delay_htab_i2.find_slot_with_hash (i2, htab_hash_pointer (i2), INSERT);
+  slot = delay_htab_i2->find_slot (p, INSERT);
   *slot = p;
 }
 
@@ -755,10 +755,10 @@ real_insn_for_shadow (rtx insn)
 {
   struct delay_pair *pair;
 
-  if (!delay_htab.is_created ())
+  if (!delay_htab)
     return NULL_RTX;
 
-  pair = delay_htab_i2.find_with_hash (insn, htab_hash_pointer (insn));
+  pair = delay_htab_i2->find_with_hash (insn, htab_hash_pointer (insn));
   if (!pair || pair->stages > 0)
     return NULL_RTX;
   return pair->i1;
@@ -786,10 +786,10 @@ add_delay_dependencies (rtx insn)
   sd_iterator_def sd_it;
   dep_t dep;
 
-  if (!delay_htab.is_created ())
+  if (!delay_htab)
     return;
 
-  pair = delay_htab_i2.find_with_hash (insn, htab_hash_pointer (insn));
+  pair = delay_htab_i2->find_with_hash (insn, htab_hash_pointer (insn));
   if (!pair)
     return;
   add_dependence (insn, pair->i1, REG_DEP_ANTI);
@@ -800,7 +800,7 @@ add_delay_dependencies (rtx insn)
     {
       rtx pro = DEP_PRO (dep);
       struct delay_pair *other_pair
-	= delay_htab_i2.find_with_hash (pro, htab_hash_pointer (pro));
+	= delay_htab_i2->find_with_hash (pro, htab_hash_pointer (pro));
       if (!other_pair || other_pair->stages)
 	continue;
       if (pair_delay (other_pair) >= pair_delay (pair))
@@ -1421,11 +1421,11 @@ dep_cost_1 (dep_t link, dw_t dw)
   if (DEP_COST (link) != UNKNOWN_DEP_COST)
     return DEP_COST (link);
 
-  if (delay_htab.is_created ())
+  if (delay_htab)
     {
       struct delay_pair *delay_entry;
       delay_entry
-	= delay_htab_i2.find_with_hash (used, htab_hash_pointer (used));
+	= delay_htab_i2->find_with_hash (used, htab_hash_pointer (used));
       if (delay_entry)
 	{
 	  if (delay_entry->i1 == insn)
@@ -5126,7 +5126,7 @@ early_queue_to_ready (state_t state, struct ready_list *ready)
    If READY_TRY is non-zero then only print insns that max_issue
    will consider.  */
 static void
-debug_ready_list_1 (struct ready_list *ready, char *ready_try)
+debug_ready_list_1 (struct ready_list *ready, signed char *ready_try)
 {
   rtx *p;
   int i;
@@ -5566,11 +5566,9 @@ choose_ready (struct ready_list *ready, bool first_cycle_insn_p,
     }
   else
     {
-      /* Try to choose the better insn.  */
-      int index = 0, i, n;
+      /* Try to choose the best insn.  */
+      int index = 0, i;
       rtx insn;
-      int try_data = 1, try_control = 1;
-      ds_t ts;
 
       insn = ready_element (ready, 0);
       if (INSN_CODE (insn) < 0)
@@ -5579,83 +5577,56 @@ choose_ready (struct ready_list *ready, bool first_cycle_insn_p,
 	  return 0;
 	}
 
-      if (spec_info
-	  && spec_info->flags & (PREFER_NON_DATA_SPEC
-				 | PREFER_NON_CONTROL_SPEC))
+      /* Filter the search space.  */
+      for (i = 0; i < ready->n_ready; i++)
 	{
-	  for (i = 0, n = ready->n_ready; i < n; i++)
-	    {
-	      rtx x;
-	      ds_t s;
+	  ready_try[i] = 0;
 
-	      x = ready_element (ready, i);
-	      s = TODO_SPEC (x);
-
-	      if (spec_info->flags & PREFER_NON_DATA_SPEC
-		  && !(s & DATA_SPEC))
-		{
-		  try_data = 0;
-		  if (!(spec_info->flags & PREFER_NON_CONTROL_SPEC)
-		      || !try_control)
-		    break;
-		}
-
-	      if (spec_info->flags & PREFER_NON_CONTROL_SPEC
-		  && !(s & CONTROL_SPEC))
-		{
-		  try_control = 0;
-		  if (!(spec_info->flags & PREFER_NON_DATA_SPEC) || !try_data)
-		    break;
-		}
-	    }
-	}
-
-      ts = TODO_SPEC (insn);
-      if ((ts & SPECULATIVE)
-	  && (((!try_data && (ts & DATA_SPEC))
-	       || (!try_control && (ts & CONTROL_SPEC)))
-	      || (targetm.sched.first_cycle_multipass_dfa_lookahead_guard_spec
-		  && !targetm.sched
-		  .first_cycle_multipass_dfa_lookahead_guard_spec (insn))))
-	/* Discard speculative instruction that stands first in the ready
-	   list.  */
-	{
-	  change_queue_index (insn, 1);
-	  return 1;
-	}
-
-      ready_try[0] = 0;
-
-      for (i = 1; i < ready->n_ready; i++)
-	{
 	  insn = ready_element (ready, i);
 
-	  ready_try [i]
-	    = ((!try_data && (TODO_SPEC (insn) & DATA_SPEC))
-               || (!try_control && (TODO_SPEC (insn) & CONTROL_SPEC)));
+	  /* If this insn is recognizable we should have already
+	     recognized it earlier.
+	     ??? Not very clear where this is supposed to be done.
+	     See dep_cost_1.  */
+	  gcc_checking_assert (INSN_CODE (insn) >= 0
+			       || recog_memoized (insn) < 0);
+	  if (INSN_CODE (insn) < 0)
+	    {
+	      /* Non-recognized insns at position 0 are handled above.  */
+	      gcc_assert (i > 0);
+	      ready_try[i] = 1;
+	      continue;
+	    }
+
+	  if (targetm.sched.first_cycle_multipass_dfa_lookahead_guard)
+	    {
+	      ready_try[i]
+		= (targetm.sched.first_cycle_multipass_dfa_lookahead_guard
+		    (insn, i));
+
+	      if (ready_try[i] < 0)
+		/* Queue instruction for several cycles.
+		   We need to restart choose_ready as we have changed
+		   the ready list.  */
+		{
+		  change_queue_index (insn, -ready_try[i]);
+		  return 1;
+		}
+
+	      /* Make sure that we didn't end up with 0'th insn filtered out.
+		 Don't be tempted to make life easier for backends and just
+		 requeue 0'th insn if (ready_try[0] == 0) and restart
+		 choose_ready.  Backends should be very considerate about
+		 requeueing instructions -- especially the highest priority
+		 one at position 0.  */
+	      gcc_assert (ready_try[i] == 0 || i > 0);
+	      if (ready_try[i])
+		continue;
+	    }
+
+	  gcc_assert (ready_try[i] == 0);
+	  /* INSN made it through the scrutiny of filters!  */
 	}
-
-      /* Let the target filter the search space.  */
-      for (i = 1; i < ready->n_ready; i++)
-	if (!ready_try[i])
-	  {
-	    insn = ready_element (ready, i);
-
-	    /* If this insn is recognizable we should have already
-	       recognized it earlier.
-	       ??? Not very clear where this is supposed to be done.
-	       See dep_cost_1.  */
-	    gcc_checking_assert (INSN_CODE (insn) >= 0
-				 || recog_memoized (insn) < 0);
-
-	    ready_try [i]
-	      = (/* INSN_CODE check can be omitted here as it is also done later
-		    in max_issue ().  */
-		 INSN_CODE (insn) < 0
-		 || (targetm.sched.first_cycle_multipass_dfa_lookahead_guard
-		     && !targetm.sched.first_cycle_multipass_dfa_lookahead_guard
-		     (insn)));
-	  }
 
       if (max_issue (ready, 1, curr_state, first_cycle_insn_p, &index) == 0)
 	{
@@ -5808,12 +5779,12 @@ prune_ready_list (state_t temp_state, bool first_cycle_insn_p,
 	    {
 	      int delay_cost = 0;
 
-	      if (delay_htab.is_created ())
+	      if (delay_htab)
 		{
 		  struct delay_pair *delay_entry;
 		  delay_entry
-		    = delay_htab.find_with_hash (insn,
-						 htab_hash_pointer (insn));
+		    = delay_htab->find_with_hash (insn,
+						  htab_hash_pointer (insn));
 		  while (delay_entry && delay_cost == 0)
 		    {
 		      delay_cost = estimate_shadow_tick (delay_entry);
@@ -6307,13 +6278,13 @@ schedule_block (basic_block *target_bb, state_t init_state)
 	      goto restart_choose_ready;
 	    }
 
-	  if (delay_htab.is_created ())
+	  if (delay_htab)
 	    {
 	      /* If this insn is the first part of a delay-slot pair, record a
 		 backtrack point.  */
 	      struct delay_pair *delay_entry;
 	      delay_entry
-		= delay_htab.find_with_hash (insn, htab_hash_pointer (insn));
+		= delay_htab->find_with_hash (insn, htab_hash_pointer (insn));
 	      if (delay_entry)
 		{
 		  save_backtrack_point (delay_entry, ls);
@@ -6902,10 +6873,10 @@ sched_finish (void)
 void
 free_delay_pairs (void)
 {
-  if (delay_htab.is_created ())
+  if (delay_htab)
     {
-      delay_htab.empty ();
-      delay_htab_i2.empty ();
+      delay_htab->empty ();
+      delay_htab_i2->empty ();
     }
 }
 
@@ -7235,8 +7206,9 @@ sched_extend_ready_list (int new_sched_ready_n_insns)
 
   gcc_assert (new_sched_ready_n_insns >= sched_ready_n_insns);
 
-  ready_try = (char *) xrecalloc (ready_try, new_sched_ready_n_insns,
-                                  sched_ready_n_insns, sizeof (*ready_try));
+  ready_try = (signed char *) xrecalloc (ready_try, new_sched_ready_n_insns,
+					 sched_ready_n_insns,
+					 sizeof (*ready_try));
 
   /* We allocate +1 element to save initial state in the choice_stack[0]
      entry.  */

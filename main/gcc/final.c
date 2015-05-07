@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "tree.h"
 #include "varasm.h"
+#include "hard-reg-set.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "regs.h"
@@ -57,7 +58,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "conditions.h"
 #include "flags.h"
-#include "hard-reg-set.h"
 #include "output.h"
 #include "except.h"
 #include "function.h"
@@ -227,6 +227,7 @@ static int alter_cond (rtx);
 static int final_addr_vec_align (rtx);
 #endif
 static int align_fuzz (rtx, rtx, int, unsigned);
+static void collect_fn_hard_reg_usage (void);
 
 /* Initialize data in final at the beginning of a compilation.  */
 
@@ -374,7 +375,7 @@ init_insn_lengths (void)
 /* Obtain the current length of an insn.  If branch shortening has been done,
    get its actual length.  Otherwise, use FALLBACK_FN to calculate the
    length.  */
-static inline int
+static int
 get_attr_length_1 (rtx insn, int (*fallback_fn) (rtx))
 {
   rtx body;
@@ -1932,7 +1933,7 @@ dump_basic_block_info (FILE *file, rtx insn, basic_block *start_to_bb,
       if (bb->frequency)
         fprintf (file, " freq:%d", bb->frequency);
       if (bb->count)
-        fprintf (file, " count:" HOST_WIDEST_INT_PRINT_DEC,
+        fprintf (file, " count:%"PRId64,
                  bb->count);
       fprintf (file, " seq:%d", (*bb_seqn)++);
       fprintf (file, "\n%s PRED:", ASM_COMMENT_START);
@@ -3026,10 +3027,16 @@ notice_source_line (rtx insn, bool *is_stmt)
       filename = override_filename;
       linenum = override_linenum;
     }
+  else if (INSN_HAS_LOCATION (insn))
+    {
+      expanded_location xloc = insn_location (insn);
+      filename = xloc.file;
+      linenum = xloc.line;
+    }
   else
     {
-      filename = insn_file (insn);
-      linenum = insn_line (insn);
+      filename = NULL;
+      linenum = 0;
     }
 
   if (filename == NULL)
@@ -4448,7 +4455,7 @@ dump_cgraph_profiles (void)
       callee = e->callee;
       fprintf (asm_out_file, "\t.string \"%s\"\n",
                IDENTIFIER_POINTER (decl_assembler_name (callee->decl)));
-      fprintf (asm_out_file, "\t.string \"" HOST_WIDEST_INT_PRINT_DEC "\"\n",
+      fprintf (asm_out_file, "\t.string \"%" PRId64 "\"\n",
                e->count);
     }
 }
@@ -4494,6 +4501,8 @@ rest_of_handle_final (void)
   assemble_start_function (current_function_decl, fnname);
   final_start_function (get_insns (), asm_out_file, optimize);
   final (get_insns (), asm_out_file, optimize);
+  if (flag_use_caller_save)
+    collect_fn_hard_reg_usage ();
   final_end_function ();
 
   /* The IA-64 ".handlerdata" directive must be issued before the ".endp"
@@ -4554,9 +4563,9 @@ rest_of_handle_final (void)
       switch_to_section (get_section (profile_fnname, flags, NULL));
       fprintf (asm_out_file, "\t.string \"Function %s\"\n", fnname);
       fprintf (asm_out_file, "\t.string \"Weight "
-                            HOST_WIDEST_INT_PRINT_DEC
+														"%"PRId64
                             " "
-                            HOST_WIDEST_INT_PRINT_DEC
+														"%"PRId64
                             "\"\n",
               (cgraph_get_node (current_function_decl))->count,
               get_max_count (current_function_decl, false));
@@ -4564,7 +4573,7 @@ rest_of_handle_final (void)
         here.  */
       if (has_cold_section_p)
         fprintf (asm_out_file, "\t.string \"ColdWeight "
-                 HOST_WIDEST_INT_PRINT_DEC
+ 								"%"PRId64
                  "\"\n",
                  get_max_count (current_function_decl, true));
       dump_cgraph_profiles ();
@@ -4821,4 +4830,125 @@ rtl_opt_pass *
 make_pass_clean_state (gcc::context *ctxt)
 {
   return new pass_clean_state (ctxt);
+}
+
+/* Collect hard register usage for the current function.  */
+
+static void
+collect_fn_hard_reg_usage (void)
+{
+  rtx insn;
+#ifdef STACK_REGS
+  int i;
+#endif
+  struct cgraph_rtl_info *node;
+  HARD_REG_SET function_used_regs;
+
+  /* ??? To be removed when all the ports have been fixed.  */
+  if (!targetm.call_fusage_contains_non_callee_clobbers)
+    return;
+
+  CLEAR_HARD_REG_SET (function_used_regs);
+
+  for (insn = get_insns (); insn != NULL_RTX; insn = next_insn (insn))
+    {
+      HARD_REG_SET insn_used_regs;
+
+      if (!NONDEBUG_INSN_P (insn))
+	continue;
+
+      if (CALL_P (insn))
+	{
+	  if (!get_call_reg_set_usage (insn, &insn_used_regs,
+				       call_used_reg_set))
+	    return;
+
+	  IOR_HARD_REG_SET (function_used_regs, insn_used_regs);
+	}
+
+      find_all_hard_reg_sets (insn, &insn_used_regs, false);
+      IOR_HARD_REG_SET (function_used_regs, insn_used_regs);
+    }
+
+  /* Be conservative - mark fixed and global registers as used.  */
+  IOR_HARD_REG_SET (function_used_regs, fixed_reg_set);
+
+#ifdef STACK_REGS
+  /* Handle STACK_REGS conservatively, since the df-framework does not
+     provide accurate information for them.  */
+
+  for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
+    SET_HARD_REG_BIT (function_used_regs, i);
+#endif
+
+  /* The information we have gathered is only interesting if it exposes a
+     register from the call_used_regs that is not used in this function.  */
+  if (hard_reg_set_subset_p (call_used_reg_set, function_used_regs))
+    return;
+
+  node = cgraph_rtl_info (current_function_decl);
+  gcc_assert (node != NULL);
+
+  COPY_HARD_REG_SET (node->function_used_regs, function_used_regs);
+  node->function_used_regs_valid = 1;
+}
+
+/* Get the declaration of the function called by INSN.  */
+
+static tree
+get_call_fndecl (rtx insn)
+{
+  rtx note, datum;
+
+  note = find_reg_note (insn, REG_CALL_DECL, NULL_RTX);
+  if (note == NULL_RTX)
+    return NULL_TREE;
+
+  datum = XEXP (note, 0);
+  if (datum != NULL_RTX)
+    return SYMBOL_REF_DECL (datum);
+
+  return NULL_TREE;
+}
+
+/* Return the cgraph_rtl_info of the function called by INSN.  Returns NULL for
+   call targets that can be overwritten.  */
+
+static struct cgraph_rtl_info *
+get_call_cgraph_rtl_info (rtx insn)
+{
+  tree fndecl;
+
+  if (insn == NULL_RTX)
+    return NULL;
+
+  fndecl = get_call_fndecl (insn);
+  if (fndecl == NULL_TREE
+      || !decl_binds_to_current_def_p (fndecl))
+    return NULL;
+
+  return cgraph_rtl_info (fndecl);
+}
+
+/* Find hard registers used by function call instruction INSN, and return them
+   in REG_SET.  Return DEFAULT_SET in REG_SET if not found.  */
+
+bool
+get_call_reg_set_usage (rtx insn, HARD_REG_SET *reg_set,
+			HARD_REG_SET default_set)
+{
+  if (flag_use_caller_save)
+    {
+      struct cgraph_rtl_info *node = get_call_cgraph_rtl_info (insn);
+      if (node != NULL
+	  && node->function_used_regs_valid)
+	{
+	  COPY_HARD_REG_SET (*reg_set, node->function_used_regs);
+	  AND_HARD_REG_SET (*reg_set, default_set);
+	  return true;
+	}
+    }
+
+  COPY_HARD_REG_SET (*reg_set, default_set);
+  return false;
 }

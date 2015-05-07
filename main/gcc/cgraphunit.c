@@ -402,7 +402,7 @@ cgraph_reset_node (struct cgraph_node *node)
   node->cpp_implicit_alias = false;
 
   cgraph_node_remove_callees (node);
-  ipa_remove_all_references (&node->ref_list);
+  node->remove_all_references ();
 }
 
 /* Return true when there are references to NODE.  */
@@ -410,10 +410,10 @@ cgraph_reset_node (struct cgraph_node *node)
 static bool
 referred_to_p (symtab_node *node)
 {
-  struct ipa_ref *ref;
+  struct ipa_ref *ref = NULL;
 
   /* See if there are any references at all.  */
-  if (ipa_ref_list_referring_iterate (&node->ref_list, 0, ref))
+  if (node->iterate_referring (0, ref))
     return true;
   /* For functions check also calls.  */
   cgraph_node *cn = dyn_cast <cgraph_node *> (node);
@@ -509,7 +509,7 @@ cgraph_add_new_function (tree fndecl, bool lowered)
 	break;
       case CGRAPH_STATE_CONSTRUCTION:
 	/* Just enqueue function to be processed at nearest occurrence.  */
-	node = cgraph_create_node (fndecl);
+	node = cgraph_get_create_node (fndecl);
 	if (lowered)
 	  node->lowered = true;
 	if (!cgraph_new_nodes)
@@ -619,7 +619,7 @@ analyze_function (struct cgraph_node *node)
     {
       cgraph_create_edge (node, cgraph_get_node (node->thunk.alias),
 		          NULL, 0, CGRAPH_FREQ_BASE);
-      if (!expand_thunk (node, false))
+      if (!expand_thunk (node, false, false))
 	{
 	  node->thunk.alias = NULL;
 	  node->analyzed = true;
@@ -983,6 +983,8 @@ analyze_functions (void)
 	   node != first_analyzed
 	   && node != first_analyzed_var; node = node->next)
 	{
+	  /* Convert COMDAT group designators to IDENTIFIER_NODEs.  */
+	  node->get_comdat_group_id ();
 	  if (decide_is_symbol_needed (node))
 	    {
 	      enqueue_node (node);
@@ -1077,7 +1079,7 @@ analyze_functions (void)
 		   next = next->same_comdat_group)
 		enqueue_node (next);
 	    }
-	  for (i = 0; ipa_ref_list_reference_iterate (&node->ref_list, i, ref); i++)
+	  for (i = 0; node->iterate_reference (i, ref); i++)
 	    if (ref->referred->definition)
 	      enqueue_node (ref->referred);
           cgraph_process_new_functions ();
@@ -1612,11 +1614,13 @@ thunk_adjust (gimple_stmt_iterator * bsi,
 }
 
 /* Expand thunk NODE to gimple if possible.
+   When FORCE_GIMPLE_THUNK is true, gimple thunk is created and
+   no assembler is produced.
    When OUTPUT_ASM_THUNK is true, also produce assembler for
    thunks that are not lowered.  */
 
 bool
-expand_thunk (struct cgraph_node *node, bool output_asm_thunks)
+expand_thunk (struct cgraph_node *node, bool output_asm_thunks, bool force_gimple_thunk)
 {
   bool this_adjusting = node->thunk.this_adjusting;
   HOST_WIDE_INT fixed_offset = node->thunk.fixed_offset;
@@ -1627,7 +1631,7 @@ expand_thunk (struct cgraph_node *node, bool output_asm_thunks)
   tree a;
 
 
-  if (this_adjusting
+  if (!force_gimple_thunk && this_adjusting
       && targetm.asm_out.can_output_mi_thunk (thunk_fndecl, fixed_offset,
 					      virtual_value, alias))
     {
@@ -1856,7 +1860,7 @@ assemble_thunks_and_aliases (struct cgraph_node *node)
 {
   struct cgraph_edge *e;
   int i;
-  struct ipa_ref *ref;
+  struct ipa_ref *ref = NULL;
 
   for (e = node->callers; e;)
     if (e->caller->thunk.thunk_p)
@@ -1864,16 +1868,15 @@ assemble_thunks_and_aliases (struct cgraph_node *node)
 	struct cgraph_node *thunk = e->caller;
 
 	e = e->next_caller;
+        expand_thunk (thunk, true, false);
 	assemble_thunks_and_aliases (thunk);
-        expand_thunk (thunk, true);
       }
     else
       e = e->next_caller;
-  for (i = 0; ipa_ref_list_referring_iterate (&node->ref_list,
-					     i, ref); i++)
+  for (i = 0; node->iterate_referring (i, ref); i++)
     if (ref->use == IPA_REF_ALIAS)
       {
-	struct cgraph_node *alias = ipa_ref_referring_node (ref);
+	struct cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
         bool saved_written = TREE_ASM_WRITTEN (node->decl);
 
 	/* Force assemble_alias to really output the alias this time instead
@@ -1996,7 +1999,7 @@ expand_function (struct cgraph_node *node)
   /* Eliminate all call edges.  This is important so the GIMPLE_CALL no longer
      points to the dead function body.  */
   cgraph_node_remove_callees (node);
-  ipa_remove_all_references (&node->ref_list);
+  node->remove_all_references ();
 }
 
 /* Node comparer that is responsible for the order that corresponds
@@ -2506,5 +2509,41 @@ finalize_compilation_unit (void)
   timevar_pop (TV_CGRAPH);
 }
 
+/* Creates a wrapper from SOURCE node to TARGET node. Thunk is used for this
+   kind of wrapper method.  */
+
+void
+cgraph_make_wrapper (struct cgraph_node *source, struct cgraph_node *target)
+{
+    /* Preserve DECL_RESULT so we get right by reference flag.  */
+    tree decl_result = DECL_RESULT (source->decl);
+
+    /* Remove the function's body.  */
+    cgraph_release_function_body (source);
+    cgraph_reset_node (source);
+
+    DECL_RESULT (source->decl) = decl_result;
+    DECL_INITIAL (source->decl) = NULL;
+    allocate_struct_function (source->decl, false);
+    set_cfun (NULL);
+
+    /* Turn alias into thunk and expand it into GIMPLE representation.  */
+    source->definition = true;
+    source->thunk.thunk_p = true;
+    source->thunk.this_adjusting = false;
+
+    struct cgraph_edge *e = cgraph_create_edge (source, target, NULL, 0,
+						CGRAPH_FREQ_BASE);
+
+    if (!expand_thunk (source, false, true))
+      source->analyzed = true;
+
+    e->call_stmt_cannot_inline_p = true;
+
+    /* Inline summary set-up.  */
+
+    analyze_function (source);
+    inline_analyze_function (source);
+}
 
 #include "gt-cgraphunit.h"

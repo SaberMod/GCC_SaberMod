@@ -124,8 +124,8 @@ init_ic_make_global_vars (void)
       TREE_PUBLIC (ic_void_ptr_var) = 1;
       DECL_EXTERNAL (ic_void_ptr_var) = 1;
       if (targetm.have_tls)
-        DECL_TLS_MODEL (ic_void_ptr_var) =
-          decl_default_tls_model (ic_void_ptr_var);
+        set_decl_tls_model (ic_void_ptr_var,
+          decl_default_tls_model (ic_void_ptr_var));
       gcov_type_ptr = build_pointer_type (get_gcov_type ());
       ic_gcov_type_ptr_var 
 	= build_decl (UNKNOWN_LOCATION, VAR_DECL, 
@@ -134,8 +134,8 @@ init_ic_make_global_vars (void)
       TREE_PUBLIC (ic_gcov_type_ptr_var) = 1;
       DECL_EXTERNAL (ic_gcov_type_ptr_var) = 1;
       if (targetm.have_tls)
-        DECL_TLS_MODEL (ic_gcov_type_ptr_var) =
-          decl_default_tls_model (ic_gcov_type_ptr_var);
+				set_decl_tls_model (ic_gcov_type_ptr_var,
+          decl_default_tls_model (ic_gcov_type_ptr_var));
     }
   else 
     {
@@ -165,8 +165,7 @@ init_ic_make_global_vars (void)
   DECL_ARTIFICIAL (ic_void_ptr_var) = 1;
   DECL_INITIAL (ic_void_ptr_var) = NULL;
   if (targetm.have_tls)
-    DECL_TLS_MODEL (ic_void_ptr_var) =
-      decl_default_tls_model (ic_void_ptr_var);
+    set_decl_tls_model (ic_void_ptr_var, decl_default_tls_model (ic_void_ptr_var));
 
   varpool_finalize_decl (ic_void_ptr_var);
 
@@ -196,8 +195,7 @@ init_ic_make_global_vars (void)
   DECL_ARTIFICIAL (ic_gcov_type_ptr_var) = 1;
   DECL_INITIAL (ic_gcov_type_ptr_var) = NULL;
   if (targetm.have_tls)
-    DECL_TLS_MODEL (ic_gcov_type_ptr_var) =
-      decl_default_tls_model (ic_gcov_type_ptr_var);
+    set_decl_tls_model (ic_gcov_type_ptr_var, decl_default_tls_model (ic_gcov_type_ptr_var));
 
   varpool_finalize_decl (ic_gcov_type_ptr_var);
 
@@ -415,11 +413,15 @@ add_sampling_to_edge_counters (void)
 static void
 init_comdat_decl (tree decl, int param)
 {
+	symtab_node *symbol;
   TREE_PUBLIC (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
-  DECL_COMDAT_GROUP (decl)
-      = DECL_ASSEMBLER_NAME (decl);
   TREE_STATIC (decl) = 1;
+  if (TREE_CODE (decl) == VAR_DECL)
+    symbol = varpool_node_for_decl (decl);
+  else
+    symbol = cgraph_get_create_node (decl);
+	symbol->set_comdat_group (DECL_ASSEMBLER_NAME (decl));
   DECL_INITIAL (decl) = build_int_cst (
       get_gcov_unsigned_t (),
       PARAM_VALUE (param));
@@ -522,9 +524,9 @@ tree_init_instrumentation (void)
                     get_const_string_type ());
       TREE_PUBLIC (gcov_profile_prefix_decl) = 1;
       DECL_ARTIFICIAL (gcov_profile_prefix_decl) = 1;
+      TREE_STATIC (gcov_profile_prefix_decl) = 1;
       make_decl_one_only (gcov_profile_prefix_decl,
                           DECL_ASSEMBLER_NAME (gcov_profile_prefix_decl));
-      TREE_STATIC (gcov_profile_prefix_decl) = 1;
 
       const char null_prefix[] = "\0";
       const char *prefix = null_prefix;
@@ -564,9 +566,10 @@ tree_init_instrumentation_sampling (void)
           get_gcov_unsigned_t ());
       TREE_PUBLIC (gcov_sampling_period_decl) = 1;
       DECL_ARTIFICIAL (gcov_sampling_period_decl) = 1;
-      DECL_COMDAT_GROUP (gcov_sampling_period_decl)
-          = DECL_ASSEMBLER_NAME (gcov_sampling_period_decl);
       TREE_STATIC (gcov_sampling_period_decl) = 1;
+			symtab_node *symbol;
+      symbol = varpool_node_for_decl (gcov_sampling_period_decl);
+			symbol->set_comdat_group (DECL_ASSEMBLER_NAME (gcov_sampling_period_decl));
       DECL_INITIAL (gcov_sampling_period_decl) = build_int_cst (
           get_gcov_unsigned_t (),
           PARAM_VALUE (PARAM_PROFILE_GENERATE_SAMPLING_PERIOD));
@@ -585,9 +588,10 @@ tree_init_instrumentation_sampling (void)
           get_gcov_unsigned_t ());
       TREE_PUBLIC (gcov_has_sampling_decl) = 1;
       DECL_ARTIFICIAL (gcov_has_sampling_decl) = 1;
-      DECL_COMDAT_GROUP (gcov_has_sampling_decl)
-          = DECL_ASSEMBLER_NAME (gcov_has_sampling_decl);
       TREE_STATIC (gcov_has_sampling_decl) = 1;
+			symtab_node *symbol;
+	    symbol = varpool_node_for_decl (gcov_has_sampling_decl);
+			symbol->set_comdat_group (DECL_ASSEMBLER_NAME (gcov_has_sampling_decl));
       DECL_INITIAL (gcov_has_sampling_decl) = build_int_cst (
           get_gcov_unsigned_t (),
           flag_profile_generate_sampling ? 1 : 0);
@@ -606,8 +610,8 @@ tree_init_instrumentation_sampling (void)
       DECL_EXTERNAL (gcov_sample_counter_decl) = 1;
       DECL_ARTIFICIAL (gcov_sample_counter_decl) = 1;
       if (targetm.have_tls)
-        DECL_TLS_MODEL (gcov_sample_counter_decl) =
-            decl_default_tls_model (gcov_sample_counter_decl);
+        set_decl_tls_model (gcov_sample_counter_decl,
+            decl_default_tls_model (gcov_sample_counter_decl));
     }
   if (PARAM_VALUE (PARAM_COVERAGE_EXEC_ONCE)
       && instrumentation_to_be_sampled == 0)
@@ -1369,8 +1373,8 @@ direct_call_profiling (void)
 		      build_pointer_type (gcov_type_node));
       DECL_ARTIFICIAL (dc_gcov_type_ptr_var) = 1;
       DECL_EXTERNAL (dc_gcov_type_ptr_var) = 1;
-      DECL_TLS_MODEL (dc_gcov_type_ptr_var) =
-	decl_default_tls_model (dc_gcov_type_ptr_var);
+      set_decl_tls_model (dc_gcov_type_ptr_var,
+	decl_default_tls_model (dc_gcov_type_ptr_var));
 
       dc_void_ptr_var =
 	build_decl (UNKNOWN_LOCATION, VAR_DECL,
@@ -1378,8 +1382,8 @@ direct_call_profiling (void)
 		    ptr_void);
       DECL_ARTIFICIAL (dc_void_ptr_var) = 1;
       DECL_EXTERNAL (dc_void_ptr_var) = 1;
-      DECL_TLS_MODEL (dc_void_ptr_var) =
-	decl_default_tls_model (dc_void_ptr_var);
+      set_decl_tls_model (dc_void_ptr_var,
+	decl_default_tls_model (dc_void_ptr_var));
     }
 
   if (!DECL_STATIC_CONSTRUCTOR (current_function_decl))
@@ -1424,16 +1428,6 @@ direct_call_profiling (void)
     }
 
   return 0;
-}
-
-/* When profile instrumentation, use or test coverage shall be performed.  */
-
-static bool
-gate_tree_profile_ipa (void)
-{
-  return (!in_lto_p
-	  && (flag_branch_probabilities || flag_test_coverage
-	      || profile_arc_flag));
 }
 
 namespace {
@@ -1488,8 +1482,8 @@ public:
 
   /* opt_pass methods: */
   opt_pass * clone () { return new pass_direct_call_profile (m_ctxt); }
-  virtual bool gate () { return do_direct_call_profiling (); }
-  virtual unsigned int execute () { return direct_call_profiling (); }
+  virtual bool gate (function *) { return do_direct_call_profiling (); }
+  virtual unsigned int execute (function *) { return direct_call_profiling (); }
 
 }; // class pass_direct_call_profiling
 

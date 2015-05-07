@@ -1886,6 +1886,15 @@ proc check_effective_target_large_double { } {
     }]
 }
 
+# Return 1 if the target supports long double of 128 bits,
+# 0 otherwise.
+
+proc check_effective_target_longdouble128 { } {
+    return [check_no_compiler_messages longdouble128 object {
+	int dummy[sizeof(long double) == 16 ? 1 : -1];
+    }]
+}
+
 # Return 1 if the target supports double of 64 bits,
 # 0 otherwise.
 
@@ -3330,7 +3339,10 @@ proc check_effective_target_vect_bswap { } {
 	verbose "check_effective_target_vect_bswap: using cached result" 2
     } else {
 	set et_vect_bswap_saved 0
-	if { [istarget aarch64*-*-*] } {
+	if { [istarget aarch64*-*-*]
+             || ([istarget arm*-*-*]
+                && [check_effective_target_arm_neon])
+	   } {
 	   set et_vect_bswap_saved 1
 	}
     }
@@ -3931,6 +3943,26 @@ proc check_effective_target_vect_udot_hi { } {
     return $et_vect_udot_hi_saved
 }
 
+# Return 1 if the target plus current options supports a vector
+# sad operation of unsigned chars, 0 otherwise.
+#
+# This won't change for different subtargets so cache the result.
+
+proc check_effective_target_vect_usad_char { } {
+    global et_vect_usad_char
+
+    if [info exists et_vect_usad_char_saved] {
+        verbose "check_effective_target_vect_usad_char: using cached result" 2
+    } else {
+        set et_vect_usad_char_saved 0
+        if { ([istarget i?86-*-*]
+             || [istarget x86_64-*-*]) } {
+            set et_vect_usad_char_saved 1
+        }
+    }
+    verbose "check_effective_target_vect_usad_char: returning $et_vect_usad_char_saved" 2
+    return $et_vect_usad_char_saved
+}
 
 # Return 1 if the target plus current options supports a vector
 # demotion (packing) of shorts (to chars) and ints (to shorts) 
@@ -4826,6 +4858,90 @@ proc check_effective_target_sync_long_long_runtime { } {
     } else {
 	return 0
     }
+}
+
+# Return 1 if the target supports byte swap instructions.
+
+proc check_effective_target_bswap { } {
+    global et_bswap_saved
+
+    if [info exists et_bswap_saved] {
+        verbose "check_effective_target_bswap: using cached result" 2
+    } else {
+	set et_bswap_saved 0
+	if { [istarget aarch64-*-*]
+	     || [istarget alpha*-*-*]
+	     || [istarget arm*-*-*]
+	     || [istarget i?86-*-*]
+	     || [istarget m68k-*-*]
+	     || [istarget powerpc*-*-*]
+	     || [istarget rs6000-*-*]
+	     || [istarget s390*-*-*]
+	     || [istarget x86_64-*-*] } {
+	    set et_bswap_saved 1
+	}
+    }
+
+    verbose "check_effective_target_bswap: returning $et_bswap_saved" 2
+    return $et_bswap_saved
+}
+
+# Return 1 if the target supports 16-bit byte swap instructions.
+
+proc check_effective_target_bswap16 { } {
+    global et_bswap16_saved
+
+    if [info exists et_bswap16_saved] {
+	verbose "check_effective_target_bswap16: using cached result" 2
+    } else {
+	set et_bswap16_saved 0
+	if { [is-effective-target bswap]
+	     && ![istarget alpha*-*-*]
+	     && ![istarget i?86-*-*]
+	     && ![istarget x86_64-*-*] } {
+	   set et_bswap16_saved 1
+	}
+    }
+
+    verbose "check_effective_target_bswap16: returning $et_bswap16_saved" 2
+    return $et_bswap16_saved
+}
+
+# Return 1 if the target supports 32-bit byte swap instructions.
+
+proc check_effective_target_bswap32 { } {
+    global et_bswap32_saved
+
+    if [info exists et_bswap32_saved] {
+	verbose "check_effective_target_bswap32: using cached result" 2
+    } else {
+	set et_bswap32_saved 0
+	if { [is-effective-target bswap] } {
+	   set et_bswap32_saved 1
+	}
+    }
+
+    verbose "check_effective_target_bswap32: returning $et_bswap32_saved" 2
+    return $et_bswap32_saved
+}
+
+# Return 1 if the target supports 64-bit byte swap instructions.
+
+proc check_effective_target_bswap64 { } {
+    global et_bswap64_saved
+
+    if [info exists et_bswap64_saved] {
+        verbose "check_effective_target_bswap64: using cached result" 2
+    } else {
+	set et_bswap64_saved 0
+	if { [is-effective-target bswap]
+	     && [is-effective-target lp64] } {
+	   set et_bswap64_saved 1
+	}
+    }
+
+    verbose "check_effective_target_bswap64: returning $et_bswap64_saved" 2
+    return $et_bswap64_saved
 }
 
 # Return 1 if the target supports atomic operations on "int" and "long".

@@ -62,6 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "cilk.h"
 #include "wide-int.h"
+#include "builtins.h"
 
 /* Possible cases of bad specifiers type used by bad_specifiers. */
 enum bad_spec_place {
@@ -1953,7 +1954,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	      if (!DECL_LANG_SPECIFIC (newdecl))
 		retrofit_lang_decl (newdecl);
 
-	      DECL_TLS_MODEL (newdecl) = DECL_TLS_MODEL (olddecl);
+	      set_decl_tls_model (newdecl, DECL_TLS_MODEL (olddecl));
 	      CP_DECL_THREADPRIVATE_P (newdecl) = 1;
 	    }
 	}
@@ -2020,8 +2021,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	 We want to issue an error if the sections conflict but that must be
 	 done later in decl_attributes since we are called before attributes
 	 are assigned.  */
-      if (DECL_SECTION_NAME (newdecl) == NULL_TREE)
-	DECL_SECTION_NAME (newdecl) = DECL_SECTION_NAME (olddecl);
+      if ((DECL_EXTERNAL (olddecl) || TREE_PUBLIC (olddecl) || TREE_STATIC (olddecl))
+	  && DECL_SECTION_NAME (newdecl) == NULL
+	  && DECL_SECTION_NAME (olddecl) != NULL)
+	set_decl_section_name (newdecl, DECL_SECTION_NAME (olddecl));
 
       if (TREE_CODE (newdecl) == FUNCTION_DECL)
 	{
@@ -2067,8 +2070,17 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
   /* Merge the storage class information.  */
   merge_weak (newdecl, olddecl);
 
-  if (DECL_ONE_ONLY (olddecl))
-    DECL_COMDAT_GROUP (newdecl) = DECL_COMDAT_GROUP (olddecl);
+  if ((TREE_CODE (olddecl) == FUNCTION_DECL || TREE_CODE (olddecl) == VAR_DECL)
+      && (DECL_EXTERNAL (olddecl) || TREE_PUBLIC (olddecl) || TREE_STATIC (olddecl))
+      && DECL_ONE_ONLY (olddecl))
+    {
+      struct symtab_node *symbol;
+      if (TREE_CODE (olddecl) == FUNCTION_DECL)
+	symbol = cgraph_get_create_node (newdecl);
+      else
+	symbol = varpool_node_for_decl (newdecl);
+      symbol->set_comdat_group (symtab_get_node (olddecl)->get_comdat_group ());
+    }
 
   DECL_DEFER_OUTPUT (newdecl) |= DECL_DEFER_OUTPUT (olddecl);
   TREE_PUBLIC (newdecl) = TREE_PUBLIC (olddecl);
@@ -2378,6 +2390,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     {
       int function_size;
+      struct symtab_node *snode = symtab_get_node (olddecl);
 
       function_size = sizeof (struct tree_decl_common);
 
@@ -2388,6 +2401,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       memcpy ((char *) olddecl + sizeof (struct tree_decl_common),
 	      (char *) newdecl + sizeof (struct tree_decl_common),
 	      sizeof (struct tree_function_decl) - sizeof (struct tree_decl_common));
+
+      /* Preserve symtab node mapping.  */
+      olddecl->decl_with_vis.symtab_node = snode;
+
       if (new_template_info)
 	/* If newdecl is a template instantiation, it is possible that
 	   the following sequence of events has occurred:
@@ -2417,6 +2434,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
   else
     {
       size_t size = tree_code_size (TREE_CODE (olddecl));
+
       memcpy ((char *) olddecl + sizeof (struct tree_common),
 	      (char *) newdecl + sizeof (struct tree_common),
 	      sizeof (struct tree_decl_common) - sizeof (struct tree_common));
@@ -2430,10 +2448,17 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	case TYPE_DECL:
 	case CONST_DECL:
 	  {
+            struct symtab_node *snode = NULL;
+
+            if (TREE_CODE (olddecl) == VAR_DECL
+		&& (TREE_STATIC (olddecl) || TREE_PUBLIC (olddecl) || DECL_EXTERNAL (olddecl)))
+	      snode = symtab_get_node (olddecl);
 	    memcpy ((char *) olddecl + sizeof (struct tree_decl_common),
 		    (char *) newdecl + sizeof (struct tree_decl_common),
 		    size - sizeof (struct tree_decl_common)
 		    + TREE_CODE_LENGTH (TREE_CODE (newdecl)) * sizeof (char *));
+            if (TREE_CODE (olddecl) == VAR_DECL)
+	      olddecl->decl_with_vis.symtab_node = snode;
 	  }
 	  break;
 	default:
@@ -2468,7 +2493,21 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 
   /* The NEWDECL will no longer be needed.  Because every out-of-class
      declaration of a member results in a call to duplicate_decls,
-     freeing these nodes represents in a significant savings.  */
+     freeing these nodes represents in a significant savings.
+
+     Before releasing the node, be sore to remove function from symbol
+     table that might have been inserted there to record comdat group.
+     Be sure to however do not free DECL_STRUCT_FUNCTION becuase this
+     structure is shared in between newdecl and oldecl.  */
+  if (TREE_CODE (newdecl) == FUNCTION_DECL)
+    DECL_STRUCT_FUNCTION (newdecl) = NULL;
+  if (TREE_CODE (newdecl) == FUNCTION_DECL
+      || TREE_CODE (newdecl) == VAR_DECL)
+    {
+      struct symtab_node *snode = symtab_get_node (newdecl);
+      if (snode)
+	symtab_remove_node (snode);
+    }
   {
     tree clone;
     bool found_clone = false;
@@ -5287,19 +5326,18 @@ reshape_init_class (tree type, reshape_iter *d, bool first_initializer_p,
 	  if (d->cur->index == error_mark_node)
 	    return error_mark_node;
 
-	  if (TREE_CODE (d->cur->index) == INTEGER_CST)
+	  if (TREE_CODE (d->cur->index) == FIELD_DECL)
+	    /* We already reshaped this.  */
+	    gcc_assert (d->cur->index == field);
+	  else if (TREE_CODE (d->cur->index) == IDENTIFIER_NODE)
+	    field = lookup_field_1 (type, d->cur->index, /*want_type=*/false);
+	  else
 	    {
 	      if (complain & tf_error)
 		error ("%<[%E] =%> used in a GNU-style designated initializer"
 		       " for class %qT", d->cur->index, type);
 	      return error_mark_node;
 	    }
-
-	  if (TREE_CODE (d->cur->index) == FIELD_DECL)
-	    /* We already reshaped this.  */
-	    gcc_assert (d->cur->index == field);
-	  else
-	    field = lookup_field_1 (type, d->cur->index, /*want_type=*/false);
 
 	  if (!field || TREE_CODE (field) != FIELD_DECL)
 	    {
@@ -5752,6 +5790,16 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 		check_narrowing (type, init);
 	    }
 	}
+      else if (TREE_CODE (init) == TREE_LIST
+	       && TREE_TYPE (init) != unknown_type_node
+	       && !MAYBE_CLASS_TYPE_P (type))
+	{
+	  gcc_assert (TREE_CODE (decl) != RESULT_DECL);
+
+	  /* We get here with code like `int a (2);' */
+	  init = build_x_compound_expr_from_list (init, ELK_INIT,
+						  tf_warning_or_error);
+	}
 
       /* If DECL has an array type without a specific bound, deduce the
 	 array size from the initializer.  */
@@ -5842,6 +5890,13 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 
   if (init && init != error_mark_node)
     init_code = build2 (INIT_EXPR, type, decl, init);
+
+  if (init_code)
+    {
+      /* We might have set these in cp_finish_decl.  */
+      DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = false;
+      TREE_CONSTANT (decl) = false;
+    }
 
   if (init_code && DECL_IN_AGGR_P (decl))
     {
@@ -7995,7 +8050,8 @@ grokvardecl (tree type,
 
   if (decl_spec_seq_has_spec_p (declspecs, ds_thread))
     {
-      DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
+      if (DECL_EXTERNAL (decl) || TREE_STATIC (decl))
+        set_decl_tls_model (decl, decl_default_tls_model (decl));
       if (declspecs->gnu_thread_keyword_p)
 	DECL_GNU_TLS_P (decl) = true;
     }
@@ -8247,7 +8303,6 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 {
   tree itype;
   tree osize = size;
-  tree abi_1_itype = NULL_TREE;
 
   if (error_operand_p (size))
     return error_mark_node;
@@ -8284,9 +8339,6 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 	      if (size == error_mark_node)
 		return error_mark_node;
 	      type = TREE_TYPE (size);
-	      /* We didn't support this case in GCC 3.2, so don't bother
-		 trying to model it now in ABI v1.  */
-	      abi_1_itype = error_mark_node;
 	    }
 
 	  if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type))
@@ -8333,17 +8385,6 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
       return itype;
     }
   
-  if (!abi_version_at_least (2) && processing_template_decl
-      && abi_1_itype == NULL_TREE)
-    /* For abi-1, we handled all instances in templates the same way,
-       even when they were non-dependent. This affects the manglings
-       produced.  So, we do the normal checking for non-dependent
-       sizes, but at the end we'll return the same type that abi-1
-       would have, but with TYPE_CANONICAL set to the "right"
-       value that the current ABI would provide. */
-    abi_1_itype = build_index_type (build_min (MINUS_EXPR, sizetype,
-					       osize, integer_one_node));
-
   /* Normally, the array-bound will be a constant.  */
   if (TREE_CODE (size) == INTEGER_CST)
     {
@@ -8489,14 +8530,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
     }
 
   /* Create and return the appropriate index type.  */
-  if (abi_1_itype && abi_1_itype != error_mark_node)
-    {
-      tree t = build_index_type (itype);
-      TYPE_CANONICAL (abi_1_itype) = TYPE_CANONICAL (t);
-      itype = abi_1_itype;
-    }
-  else
-    itype = build_index_type (itype);
+  itype = build_index_type (itype);
 
   /* If the index type were dependent, we would have returned early, so
      remember that it isn't.  */
@@ -8815,6 +8849,7 @@ grokdeclarator (const cp_declarator *declarator,
   bool template_parm_flag = false;
   bool typedef_p = decl_spec_seq_has_spec_p (declspecs, ds_typedef);
   bool constexpr_p = decl_spec_seq_has_spec_p (declspecs, ds_constexpr);
+  bool late_return_type_p = false;
   source_location saved_loc = input_location;
   const char *errmsg;
 
@@ -9006,7 +9041,7 @@ grokdeclarator (const cp_declarator *declarator,
       return error_mark_node;
     }
 
-  if (((dname && IDENTIFIER_OPNAME_P (dname)) || flags == TYPENAME_FLAG)
+  if (flags == TYPENAME_FLAG
       && innermost_code != cdk_function
       && ! (ctype && !declspecs->any_specifiers_p))
     {
@@ -9658,10 +9693,13 @@ grokdeclarator (const cp_declarator *declarator,
 	    if (type == error_mark_node)
 	      return error_mark_node;
 
+	    if (declarator->u.function.late_return_type)
+	      late_return_type_p = true;
+
 	    if (ctype == NULL_TREE
 		&& decl_context == FIELD
 		&& funcdecl_p
-		&& (friendp == 0 || dname == current_class_name))
+		&& friendp == 0)
 	      ctype = current_class_type;
 
 	    if (ctype && (sfk == sfk_constructor
@@ -10588,6 +10626,10 @@ grokdeclarator (const cp_declarator *declarator,
 	      decl_function_context (TYPE_MAIN_DECL (ctype)) : NULL_TREE;
 	    publicp = (! friendp || ! staticp)
 	      && function_context == NULL_TREE;
+
+	    if (late_return_type_p)
+	      TYPE_HAS_LATE_RETURN_TYPE (type) = 1;
+
 	    decl = grokfndecl (ctype, type,
 			       TREE_CODE (unqualified_id) != TEMPLATE_ID_EXPR
 			       ? unqualified_id : dname,
@@ -10692,7 +10734,7 @@ grokdeclarator (const cp_declarator *declarator,
 
 		if (thread_p)
 		  {
-		    DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
+		    set_decl_tls_model (decl, decl_default_tls_model (decl));
 		    if (declspecs->gnu_thread_keyword_p)
 		      DECL_GNU_TLS_P (decl) = true;
 		  }
@@ -10811,6 +10853,9 @@ grokdeclarator (const cp_declarator *declarator,
 	/* Record whether the function is public.  */
 	publicp = (ctype != NULL_TREE
 		   || storage_class != sc_static);
+
+	if (late_return_type_p)
+	  TYPE_HAS_LATE_RETURN_TYPE (type) = 1;
 
 	decl = grokfndecl (ctype, type, original_name, parms, unqualified_id,
 			   virtualp, flags, memfn_quals, rqual, raises,
@@ -11128,11 +11173,20 @@ grokparms (tree parmlist, tree *parms)
       if (VOID_TYPE_P (type))
 	{
 	  if (same_type_p (type, void_type_node)
-	      && DECL_SELF_REFERENCE_P (type)
-	      && !DECL_NAME (decl) && !result && TREE_CHAIN (parm) == void_list_node)
-	    /* this is a parmlist of `(void)', which is ok.  */
+	      && !init
+	      && !DECL_NAME (decl) && !result
+	      && TREE_CHAIN (parm) == void_list_node)
+	    /* DR 577: A parameter list consisting of a single
+	       unnamed parameter of non-dependent type 'void'.  */
 	    break;
-	  cxx_incomplete_type_error (decl, type);
+	  else if (cv_qualified_p (type))
+	    error_at (DECL_SOURCE_LOCATION (decl),
+		      "invalid use of cv-qualified type %qT in "
+		      "parameter declaration", type);
+	  else
+	    error_at (DECL_SOURCE_LOCATION (decl),
+		      "invalid use of type %<void%> in parameter "
+		      "declaration");
 	  /* It's not a good idea to actually create parameters of
 	     type `void'; other parts of the compiler assume that a
 	     void type terminates the parameter list.  */
@@ -14419,6 +14473,8 @@ static_fn_type (tree memfntype)
 	    (fntype, TYPE_ATTRIBUTES (memfntype)));
   fntype = (build_exception_variant
 	    (fntype, TYPE_RAISES_EXCEPTIONS (memfntype)));
+  if (TYPE_HAS_LATE_RETURN_TYPE (memfntype))
+    TYPE_HAS_LATE_RETURN_TYPE (fntype) = 1;
   return fntype;
 }
 
@@ -14482,18 +14538,17 @@ cp_missing_noreturn_ok_p (tree decl)
   return DECL_MAIN_P (decl);
 }
 
-/* Return the COMDAT group into which DECL should be placed.  */
+/* Return the decl used to identify the COMDAT group into which DECL should
+   be placed.  */
 
 tree
 cxx_comdat_group (tree decl)
 {
-  tree name;
-
   /* Virtual tables, construction virtual tables, and virtual table
      tables all go in a single COMDAT group, named after the primary
      virtual table.  */
   if (VAR_P (decl) && DECL_VTABLE_OR_VTT_P (decl))
-    name = DECL_ASSEMBLER_NAME (CLASSTYPE_VTABLES (DECL_CONTEXT (decl)));
+    decl = CLASSTYPE_VTABLES (DECL_CONTEXT (decl));
   /* For all other DECLs, the COMDAT group is the mangled name of the
      declaration itself.  */
   else
@@ -14511,10 +14566,9 @@ cxx_comdat_group (tree decl)
 	  else
 	    break;
 	}
-      name = DECL_ASSEMBLER_NAME (decl);
     }
 
-  return name;
+  return decl;
 }
 
 /* Returns the return type for FN as written by the user, which may include

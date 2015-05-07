@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "tm_p.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "cp-tree.h"
@@ -1334,14 +1335,8 @@ get_pseudo_ti_index (tree type)
 		/* already created.  */
 		break;
 
-	      /* Create the array of __base_class_type_info entries.
-		 G++ 3.2 allocated an array that had one too many
-		 entries, and then filled that extra entries with
-		 zeros.  */
-	      if (abi_version_at_least (2))
-		array_domain = build_index_type (size_int (num_bases - 1));
-	      else
-		array_domain = build_index_type (size_int (num_bases));
+	      /* Create the array of __base_class_type_info entries.  */
+	      array_domain = build_index_type (size_int (num_bases - 1));
 	      base_array = build_array_type ((*tinfo_descs)[TK_BASE_TYPE].type,
 					     array_domain);
 
@@ -1606,6 +1601,12 @@ emit_tinfo_decl (tree decl)
       DECL_INITIAL (decl) = init;
       mark_used (decl);
       cp_finish_decl (decl, init, false, NULL_TREE, 0);
+      /* Avoid targets optionally bumping up the alignment to improve
+	 vector instruction accesses, tinfo are never accessed this way.  */
+#ifdef DATA_ABI_ALIGNMENT
+      DECL_ALIGN (decl) = DATA_ABI_ALIGNMENT (decl, TYPE_ALIGN (TREE_TYPE (decl)));
+      DECL_USER_ALIGN (decl) = true;
+#endif
       return true;
     }
   else

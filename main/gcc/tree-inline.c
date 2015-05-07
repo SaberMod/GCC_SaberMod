@@ -69,6 +69,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "l-ipo.h"
 #include "cfgloop.h"
+#include "builtins.h"
 
 #include "rtl.h"	/* FIXME: For asm_str_count.  */
 
@@ -1792,7 +1793,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 							       (old_edge->frequency + indirect->frequency)),
 							 CGRAPH_FREQ_MAX);
 			    }
-			  ipa_clone_ref (ref, id->dst_node, stmt);
+			  id->dst_node->clone_reference (ref, stmt);
 			}
 		      else
 			{
@@ -3715,6 +3716,7 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights,
     case WIDEN_SUM_EXPR:
     case WIDEN_MULT_EXPR:
     case DOT_PROD_EXPR:
+    case SAD_EXPR:
     case WIDEN_MULT_PLUS_EXPR:
     case WIDEN_MULT_MINUS_EXPR:
     case WIDEN_LSHIFT_EXPR:
@@ -5209,7 +5211,7 @@ delete_unreachable_blocks_update_callgraph (copy_body_data *id)
 	      struct cgraph_edge *e;
 	      struct cgraph_node *node;
 
-	      ipa_remove_stmt_references (id->dst_node, gsi_stmt (bsi));
+	      id->dst_node->remove_stmt_references (gsi_stmt (bsi));
 
 	      if (gimple_code (gsi_stmt (bsi)) == GIMPLE_CALL
 		  &&(e = cgraph_edge (id->dst_node, gsi_stmt (bsi))) != NULL)
@@ -5223,7 +5225,7 @@ delete_unreachable_blocks_update_callgraph (copy_body_data *id)
 		  && id->dst_node->clones)
 		for (node = id->dst_node->clones; node != id->dst_node;)
 		  {
-		    ipa_remove_stmt_references (node, gsi_stmt (bsi));
+		    node->remove_stmt_references (gsi_stmt (bsi));
 		    if (gimple_code (gsi_stmt (bsi)) == GIMPLE_CALL
 			&& (e = cgraph_edge (node, gsi_stmt (bsi))) != NULL)
 		      {
@@ -5386,8 +5388,9 @@ tree_function_versioning (tree old_decl, tree new_decl,
   DECL_ARGUMENTS (new_decl) = DECL_ARGUMENTS (old_decl);
   initialize_cfun (new_decl, old_decl,
 		   old_entry_block->count);
-  DECL_STRUCT_FUNCTION (new_decl)->gimple_df->ipa_pta
-    = id.src_cfun->gimple_df->ipa_pta;
+  if (DECL_STRUCT_FUNCTION (new_decl)->gimple_df)
+    DECL_STRUCT_FUNCTION (new_decl)->gimple_df->ipa_pta
+      = id.src_cfun->gimple_df->ipa_pta;
 
   /* Copy the function's static chain.  */
   p = DECL_STRUCT_FUNCTION (old_decl)->static_chain_decl;

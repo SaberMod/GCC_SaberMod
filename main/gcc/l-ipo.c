@@ -1972,12 +1972,11 @@ promote_function_aliases (struct cgraph_node *cnode, unsigned mod_id,
   int i;
   struct ipa_ref *ref;
 
-  for (i = 0; ipa_ref_list_referring_iterate (&cnode->ref_list, i, ref);
-      i++)
+  for (i = 0; cnode->iterate_reference (i, ref); i++)
     {
       if (ref->use == IPA_REF_ALIAS)
         {
-          struct cgraph_node *alias = ipa_ref_referring_node (ref);
+          struct cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
           tree alias_decl = alias->decl;
           /* Should assert  */
           if (cgraph_get_module_id (alias_decl) == mod_id)
@@ -2012,11 +2011,10 @@ process_module_scope_static_func (struct cgraph_node *cnode)
   addr_taken = cnode->address_taken;
   if (!addr_taken)
     {
-      for (i = 0; ipa_ref_list_referring_iterate (&cnode->ref_list, i, ref);
-          i++)
+      for (i = 0; cnode->iterate_reference (i, ref); i++)
         if (ref->use == IPA_REF_ALIAS)
           {
-	    struct cgraph_node *alias = ipa_ref_referring_node (ref);
+          struct cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
 	    if (alias->address_taken)
 	      addr_taken = true;
           }
@@ -2298,7 +2296,6 @@ fixup_reference_list (struct varpool_node *node)
 {
   int i;
   struct ipa_ref *ref;
-  struct ipa_ref_list *list = &node->ref_list;
   vec<cgraph_node_ptr> new_refered;
   vec<int> new_refered_type;
   struct cgraph_node *c;
@@ -2306,12 +2303,12 @@ fixup_reference_list (struct varpool_node *node)
 
   new_refered.create (10);
   new_refered_type.create (10);
-  for (i = 0; ipa_ref_list_reference_iterate (list, i, ref); i++)
+  for (i = 0; node->iterate_referring (i, ref); i++)
     {
       if (!is_a <cgraph_node *> (ref->referred))
         continue;
 
-      struct cgraph_node *cnode = ipa_ref_node (ref);
+      struct cgraph_node *cnode = dyn_cast <cgraph_node *>(ref->referred);
       struct cgraph_node *r_cnode
         = cgraph_lipo_get_resolved_node (cnode->decl);
       if (r_cnode != cnode)
@@ -2323,8 +2320,8 @@ fixup_reference_list (struct varpool_node *node)
     }
   for (i = 0; new_refered.iterate (i, &c); ++i)
     {
-      ipa_record_reference (node, c,
-                            (enum ipa_ref_use) new_refered_type[i], NULL);
+			node->add_reference (c,
+													(enum ipa_ref_use) new_refered_type[i]);
     }
 }
 

@@ -57,6 +57,8 @@ get_scalar_to_descriptor_type (tree scalar, symbol_attribute attr)
   else
     akind = GFC_ARRAY_ASSUMED_SHAPE_CONT;
 
+  if (POINTER_TYPE_P (TREE_TYPE (scalar)))
+    scalar = TREE_TYPE (scalar);
   return gfc_get_array_type_bounds (TREE_TYPE (scalar), 0, 0, NULL, NULL, 1,
 				    akind, !(attr.pointer || attr.target));
 }
@@ -1384,8 +1386,8 @@ gfc_get_expr_charlen (gfc_expr *e)
 
 /* Return for an expression the backend decl of the coarray.  */
 
-static tree
-get_tree_for_caf_expr (gfc_expr *expr)
+tree
+gfc_get_tree_for_caf_expr (gfc_expr *expr)
 {
   tree caf_decl;
   bool found;
@@ -4807,7 +4809,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  tree caf_decl, caf_type;
 	  tree offset, tmp2;
 
-	  caf_decl = get_tree_for_caf_expr (e);
+	  caf_decl = gfc_get_tree_for_caf_expr (e);
 	  caf_type = TREE_TYPE (caf_decl);
 
 	  if (GFC_DESCRIPTOR_TYPE_P (caf_type)
@@ -6506,6 +6508,20 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
 
   /* Take the address of that value.  */
   se->expr = gfc_build_addr_expr (NULL_TREE, var);
+  if (expr->ts.type == BT_DERIVED && expr->rank
+      && !gfc_is_finalizable (expr->ts.u.derived, NULL)
+      && expr->ts.u.derived->attr.alloc_comp
+      && expr->expr_type != EXPR_VARIABLE)
+    {
+      tree tmp;
+
+      tmp = build_fold_indirect_ref_loc (input_location, se->expr);
+      tmp = gfc_deallocate_alloc_comp (expr->ts.u.derived, tmp, expr->rank);
+      
+      /* The components shall be deallocated before
+         their containing entity.  */
+      gfc_prepend_expr_to_block (&se->post, tmp);
+    }
 }
 
 

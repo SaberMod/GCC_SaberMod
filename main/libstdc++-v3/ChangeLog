@@ -1,3 +1,397 @@
+2014-06-25  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/alloc_traits.h (__alloc_rebind): Define alias template.
+	* include/bits/forward_list.h (_Fwd_list_base): Use __alloc_rebind.
+	* include/bits/hashtable_policy.h (_Insert_base, _Hashtable_alloc):
+	Likewise.
+	* include/ext/alloc_traits.h: Fix comment.
+
+	* include/Makefile.am: Add new header.
+	* include/Makefile.in: Regenerate.
+	* include/bits/allocated_ptr.h (__allocated_ptr, __allocate_guarded):
+	New RAII utilities for working with allocators.
+	* include/bits/shared_ptr_base.h (_Sp_counted_deleter): Define
+	__allocator_type typedef and use new __allocated_ptr type.
+	(_Sp_counted_ptr_inplace): Likewise.
+	(__shared_count::__shared_count, __shared_ptr::__shared_ptr): Use
+	__allocate_guarded to to simplify exception handling.
+	* include/experimental/any (any::_Manager_alloc::_S_alloc): Likewise.
+	* include/std/future (_Result_alloc::_M_destroy): Likewise.
+	(_Result_alloc::_S_allocate_result): Likewise.
+	* testsuite/20_util/shared_ptr/cons/43820_neg.cc: Adjust line number.
+	* testsuite/20_util/shared_ptr/cons/void_neg.cc: Likewise.
+	* testsuite/20_util/shared_ptr/creation/no_rtti.cc: New.
+	* testsuite/20_util/shared_ptr/creation/alloc.cc: Test allocator
+	with fancy pointer.
+	* testsuite/30_threads/promise/cons/alloc.cc: Likewise.
+
+2014-06-24  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/functexcept.h (__throw_out_of_range_fmt): Change
+	attribute to __gnu_printf__ archetype to prevent warnings for "%zu".
+	* include/bits/locale_facets_nonio.tcc (time_get::do_get_weekday):
+	Remove unused typedef.
+	(time_get::do_get_monthname): Likewise.
+	* include/bits/stl_tree.h: Add system_header pragma.
+	* include/ext/stdio_sync_filebuf.h (stdio_sync_filebuf::file): Remove
+	redundant const-qualifier.
+	* include/std/complex (complex::__rep): Use _GLIBCXX_CONSTEXPR macro
+	instead of _GLIBCXX_USE_CONSTEXPR.
+
+2014-06-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/parse_numbers.h (_Number_help): Fix divide-by-zero.
+	* include/std/chrono (_Checked_integral_constant): Allow zero.
+	* testsuite/20_util/duration/literals/values.cc: Test non-positive
+	values and digit separators.
+	* include/experimental/any 
+
+	PR libstdc++/61532
+	* testsuite/20_util/make_signed/requirements/typedefs-1.cc: Do not
+	apply the signed specifier to wchar_t.
+	* testsuite/20_util/make_signed/requirements/typedefs-2.cc: Likewise.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-1.cc: Check
+	cv-qualifier and size.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-2.cc:
+	Likewise.
+
+	* include/experimental/any (any_v1): Rename namespace to
+	fundamentals_v1. Change string returned by bad_any_cast::what().
+	* include/experimental/optional (fundamentals_v1): Add namespace.
+	* include/experimental/string_view (fundamentals_v1): Likewise.
+	* testsuite/experimental/any/typedefs.cc: New.
+	* testsuite/experimental/optional/typedefs.cc: New.
+	* testsuite/experimental/string_view/typedefs.cc: New.
+
+2014-06-18  Paolo Carlini  <paolo.carlini@oracle.com>
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR libstdc++/61536
+	* config/abi/pre/gnu.ver: Adjust for out of line comparisons.
+
+2014-06-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/status_cxx2014.xml: Update Fundamentals TS status.
+	* include/Makefile.am: Add new header.
+	* include/Makefile.in: Regenerate.
+	* include/experimental/any: New.
+	* include/ext/aligned_buffer.h (__aligned_buffer(nullptr_t)): New
+	constructor.
+	* testsuite/experimental/any/assign/1.cc: New.
+	* testsuite/experimental/any/assign/2.cc: New.
+	* testsuite/experimental/any/cons/1.cc: New.
+	* testsuite/experimental/any/cons/2.cc: New.
+	* testsuite/experimental/any/cons/3.cc: New.
+	* testsuite/experimental/any/misc/any_cast.cc: New.
+	* testsuite/experimental/any/misc/any_cast_neg.cc: New.
+	* testsuite/experimental/any/misc/any_cast_no_rtti.cc: New.
+	* testsuite/experimental/any/misc/swap.cc: New.
+	* testsuite/experimental/any/modifiers/1.cc: New.
+	* testsuite/experimental/any/observers/type.cc: New.
+
+	* doc/doxygen/user.cfg.in (INPUT): Add C++14 headers.
+	* include/bits/random.h (subtract_with_carry_engine): Fix Doxygen
+	warnings.
+	* include/bits/shared_ptr.h (shared_ptr): Likewise.
+	* include/bits/unordered_map.h (unordered_map, unordered_multimap):
+	Likewise.
+	* include/bits/unordered_set.h (unordered_set, unordered_multiset):
+	Likewise.
+	* include/parallel/list_partition.h (__parallel::list_partition):
+	Likewise.
+	* include/std/iomanip (quoted): Likewise.
+	* include/tr2/dynamic_bitset (dynamic_bitset): Likewise.
+
+	* doc/xml/api.xml: Link to more recent API docs.
+	* include/bits/allocator.h: Fix link in doxygen comment.
+	* include/bits/char_traits.h: Likewise.
+	* include/bits/ios_base.h: Likewise.
+	* include/bits/stl_map.h: Likewise.
+	* include/bits/stl_multimap.h: Likewise.
+	* include/bits/stl_multiset.h: Likewise.
+	* include/bits/stl_set.h: Likewise.
+	* include/bits/unordered_map.h: Likewise.
+	* include/bits/unordered_set.h: Likewise.
+	* include/ext/mt_allocator.h: Likewise.
+	* include/std/fstream: Likewise.
+	* include/std/iosfwd: Likewise.
+	* include/std/ostream: Likewise.
+	* include/std/sstream: Likewise.
+	* include/std/streambuf: Likewise.
+	* doc/html/*: Regenerate.
+
+	* include/experimental/any (any_cast): Combine duplicate doxygen
+	comments.
+	* include/experimental/string_view (basic_string_view): Update
+	doxygen comment.
+	* include/std/bitset (bitset): Move to Doxygen 'utilities' group.
+	* include/tr2/dynamic_bitset (_Bool2UChar): Remove unused templates.
+	(dynamic_bitset): Improve Doxygen comments.
+	* include/tr2/dynamic_bitset.tcc (operator>>): Improve Doxygen
+	comment.
+
+2014-06-11  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/wchar_t/4402.cc
+	(test02) [TEST_NUMPUT_VERBOSE]: Use `wcout' rather than `cout'.
+
+2014-06-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/61390
+	* include/ext/pb_ds/detail/bin_search_tree_/traits.hpp
+	(bin_search_tree_traits): Do not redeclare template-parameters.
+	* testsuite/util/testsuite_iterators.h (test_container): Likewise.
+
+2014-06-09  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/Makefile.am: Add missing file. Use generate.consistent.ids
+	parameter for DocBook HTML generation.
+	* doc/Makefile.in: Regenerate.
+	* doc/doxygen/user.cfg.in: Unset DOT_FONTNAME.
+	* doc/xml/faq.xml: Update content and improve formatting.
+	* doc/xml/manual/abi.xml: Add stable ID attribute and fix links.
+	* doc/xml/manual/allocator.xml: Add stable ID attribute.
+	* doc/xml/manual/bitmap_allocator.xml: Likewise.
+	* doc/xml/manual/build_hacking.xml: Likewise.
+	* doc/xml/manual/codecvt.xml: Change URL.
+	* doc/xml/manual/ctype.xml: Add stable ID attribute.
+	* doc/xml/manual/debug_mode.xml: Likewise.
+	* doc/xml/manual/documentation_hacking.xml: Likewise.
+	* doc/xml/manual/evolution.xml: Likewise.
+	* doc/xml/manual/extensions.xml: Likewise.
+	* doc/xml/manual/locale.xml: Likewise.
+	* doc/xml/manual/messages.xml: Make section id consistent, improve
+	markup, change URL.
+	* doc/xml/manual/parallel_mode.xml: Add stable ID attributes.
+	* doc/xml/manual/profile_mode.xml: Likewise.
+	* doc/xml/manual/shared_ptr.xml: Likewise. Also remove old info.
+	* doc/xml/manual/status_cxx1998.xml: Add stable ID attributes.
+	* doc/xml/manual/status_cxx2011.xml: Likewise.
+	* doc/xml/manual/status_cxx2014.xml: Likewise.
+	* doc/xml/manual/status_cxxtr1.xml: Likewise.
+	* doc/xml/manual/status_cxxtr24733.xml: Likewise.
+	* doc/xml/manual/using.xml: Likewise.
+	* doc/html/*: Regenerate.
+
+2014-06-09  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/tr1/beta_function.tcc: Fix spelling of include guard in
+	comment.
+
+2014-06-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* config/abi/pre/gnu.ver: Tighten some patterns; tidy.
+
+2014-06-06  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	DR 2344 - std::quoted doesn't respect padding
+	* include/std/iomanip: Allow for padding in quoted inserters.
+	* testsuite/27_io/manipulators/standard/char/dr2344.cc: New.
+	* testsuite/27_io/manipulators/standard/wchar_t/dr2344.cc: New.
+
+2014-06-06  François Dumont  <fdumont@gcc.gnu.org>
+
+	* testsuite/23_containers/map/operators/1.cc: Simplify test.
+
+2014-06-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/faq.xml (faq.stream_reopening_fails): Replace <quote> in
+	code example.
+	* doc/xml/manual/backwards_compatibility.xml
+	(backwards.second.stringstreams): Likewise.
+	* doc/xml/manual/configure.xml (--enable-libstdcxx-time): Document
+	change of default.
+	* doc/xml/manual/containers.xml (associative.bitset.type_string):
+	Replace <quote> in code example.
+	* doc/xml/manual/debug.xml: Clarify reference to ThreadSanitizer.
+	* doc/xml/manual/documentation_hacking.xml: Improve debugging tips,
+	fix typos, improve markup.
+	* doc/xml/manual/intro.xml (manual.intro.status.bugs.iso): Replace
+	<emphasis> with <replaceable>.
+	* doc/xml/manual/locale.xml (locale.impl.c): Remove backticks.
+	* doc/xml/manual/support.xml (std.support.memory): Replace <quote>
+	and remove newlines in string literal.
+
+2014-06-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	DR 1423
+	PR c++/52174
+	* testsuite/20_util/is_assignable/value.cc: Update.
+
+2014-06-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/condition_variable (condition_variable_any::_Unlock): Do
+	not swallow __forced_unwind.
+	* include/std/future (__future_base::_Task_setter): Likewise.
+	(__future_base::_Async_state_impl): Turn __forced_unwind into broken
+	promise and rethrow.
+	* include/std/mutex (try_lock): Likewise.
+	* testsuite/30_threads/async/forced_unwind.cc: New.
+	* testsuite/30_threads/packaged_task/forced_unwind.cc: New.
+
+	* include/bits/regex_compiler.h (__detail::_BracketMatcher): Reorder
+	members to avoid wasted space when not using a cache.
+	(__detail::_BracketMatcher::_M_ready()): Sort and deduplicate set.
+	* include/bits/regex_compiler.tcc
+	(__detail::_BracketMatcher::_M_apply(_CharT, false_type)): Use binary
+	search on set.
+	* include/bits/regex_executor.h (__detail::_Executor::_Match_mode):
+	New enumeration type to indicate match mode.
+	(__detail::_Executor::_State_info): New type holding members only
+	needed in BFS-mode. Replace unique_ptr<vector<bool>> with
+	unique_ptr<bool[]>.
+	(__detail::_Executor::_M_rep_once_more, __detail::_Executor::_M_dfs):
+	Replace template parameter with run-time function parameter.
+	(__detail::_Executor::_M_main): Likewise. Dispatch to ...
+	(__detail::_Executor::_M_main_dispatch): New overloaded functions to
+	implement DFS and BFS mode.
+	* include/bits/regex_executor.tcc (__detail::_Executor::_M_main):
+	Split implementation into ...
+	(__detail::_Executor::_M_main_dispatch): New overloaded functions.
+	(__detail::_Executor::_M_lookahead): Create nested executor on stack.
+	(__detail::_Executor::_M_rep_once_more): Pass match mode as function
+	argument instead of template argument.
+	(__detail::_Executor::_M_dfs): Likewise.
+	* include/bits/regex_scanner.tcc: Fix typos in comments.
+	* testsuite/performance/28_regex/range.cc: New.
+
+2014-06-02  Rüdiger Sonderfeld  <ruediger@c-plusplus.de>
+	    Jonathan Wakely  <jwakely@redhat.com>
+
+	* libstdc++-v3/include/std/type_traits (__strictest_alignment): New
+	helper struct.
+	(aligned_union): New struct (C++11).
+	(aligned_union_t): New type alias (C++14).
+	* doc/xml/manual/status_cxx2011.xml: Update.
+	* libstdc++-v3/testsuite/20_util/aligned_union/1.cc: New file.
+	* testsuite/20_util/declval/requirements/1_neg.cc: Adjust dg-error
+	line number.
+
+2014-06-01  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/61374
+	* include/experimental/string_view (operator basic_string): Correct
+	order of arguments.
+	(to_string): Replace with member function.
+	Add inline specifiers. Remove unused header. Remove _S_empty_rep and
+	allow _M_str to be null.
+	* testsuite/experimental/string_view/cons/char/1.cc: Adjust to new
+	default constructor semantics.
+	* testsuite/experimental/string_view/cons/wchar_t/1.cc: Likewise.
+	* testsuite/experimental/string_view/operations/copy/char/1.cc: Fix
+	copyright dates. Remove unused header.
+	* testsuite/experimental/string_view/operations/copy/wchar_t/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/data/char/1.cc:
+	Fix copyright dates. Adjust to new default constructor semantics.
+	* testsuite/experimental/string_view/operations/data/wchar_t/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/to_string/1.cc: New.
+
+	* include/bits/uses_allocator.h (__uses_allocator_helper): Simplify.
+	(__uses_allocator_arg): Remove unused type.
+	(__uses_alloc0): Turn into a trivial type.
+	(__uses_alloc): Add missing template parameter in primary template.
+	(__uses_alloc_impl): Rename to __uses_alloc_t.
+
+2014-05-30  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Adjust regexp to
+	work with previous versions of Tcl.
+
+	* doc/xml/manual/appendix_contributing.xml (list.copyright): Replace
+	Benjamin's old email address.
+
+	* doc/xml/manual/appendix_contributing.xml (list.copyright): Add
+	Paolo's address too.
+
+2014-05-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/tr2/bool_set: Use UTF-8 for accented characters.
+	* scripts/run_doxygen: Handle Doxygen 1.8.x change.
+	* doc/doxygen/user.cfg.in: Update to Doxygen 1.8.6 format. Set
+	QUIET=YES, remove obsolete SYMBOL_CACHE_SIZE tag.
+
+2014-05-27  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/61329
+	* include/bits/regex_automaton.tcc (_State_base::_M_print): Add
+	inline specifier.
+	(_State_base::_M_dot): Likewise.
+
+2014-05-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/profile/map.h: Fix typo in comment; minor formatting fix.
+	* include/profile/multimap.h: Likewise.
+	* include/profile/set.h: Likewise.
+	* include/profile/multiset.h: Likewise.
+
+2014-05-24  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/profile/array: Clean useless white chars.
+	* include/profile/base.h: Likewise.
+	* include/profile/iterator_tracker.h: Likewise.
+	* include/profile/bitset: Code cleanup and remove not instrumented code.
+	* include/profile/deque: Likewise.
+	* include/profile/forward_list: Likewise.
+	* include/profile/list (std::__profile::_List_profile<>): New.
+	(std::__profile::list<>): Inherit from latter and adapt.
+	* include/profile/impl/profiler_map_to_unordered_map.h: Generalize
+	advise to match any ordered to unordered container conversion.
+	* include/profile/ordered_base.h (std::__profile::_Ordered_profile<>):
+	New.
+	* include/Makefile.am: Add latter.
+	* include/Makefile.in: Regenerate.
+	* include/profile/map.h (std::__profile::map<>): Inherit from latter,
+	remove not instrumented code.
+	* include/profile/multimap.h (std::__profile::multimap<>): Likewise.
+	* include/profile/set.h (std::__profile::set<>): Likewise.
+	* include/profile/multiset.h (std::__profile::multiset<>): Likewise.
+	* include/profile/unordered_base.h: Add some line feed.
+	* include/profile/unordered_map: Clean useless white chars and replace
+	spaces with tabs.
+	* include/profile/unordered_set: Likewise.
+	* include/profile/vector (std::__profile::_Vector_profile_pre<>): New.
+	(std::__profile::_Vector_profile_post<>): New.
+	(std::__profile::vector<>): Inherit from latter and adapt.
+
+2014-05-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/60793
+	* testsuite/*: Use 's/\*-\*-freebsd\* /&*-*-dragonfly* /' to add
+	dragonfly target selector to all tests that run on freebsd.
+
+	* testsuite/23_containers/vector/capacity/resize/1.cc: Add xfail for
+	dragonfly.
+	* testsuite/30_threads/call_once/60497.cc: Add target selectors.
+	* testsuite/30_threads/condition_variable/members/53841.cc: Likewise.
+
+	* testsuite/30_threads/async/54297.cc: Remove duplicate dragonfly
+	selector.
+	* testsuite/30_threads/call_once/60497.cc: Likewise.
+	* testsuite/30_threads/condition_variable/54185.cc: Likewise.
+	* testsuite/30_threads/condition_variable_any/53830.cc: Likewise.
+	* testsuite/30_threads/packaged_task/60564.cc: Likewise.
+	* testsuite/30_threads/packaged_task/cons/56492.cc: Likewise.
+	* testsuite/30_threads/promise/60966.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/1.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/2.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/3.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/4.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/5.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/6.cc: Likewise.
+	* testsuite/30_threads/shared_lock/locking/1.cc: Likewise.
+	* testsuite/30_threads/shared_lock/locking/2.cc: Likewise.
+	* testsuite/30_threads/shared_lock/locking/3.cc: Likewise.
+	* testsuite/30_threads/shared_lock/locking/4.cc: Likewise.
+	* testsuite/30_threads/shared_lock/modifiers/1.cc: Likewise.
+	* testsuite/30_threads/shared_lock/modifiers/2.cc: Likewise.
+	* testsuite/30_threads/shared_timed_mutex/cons/1.cc: Likewise.
+	* testsuite/30_threads/shared_timed_mutex/try_lock/1.cc:
+	* testsuite/30_threads/shared_timed_mutex/try_lock/2.cc: Likewise.
+	* testsuite/30_threads/thread/native_handle/cancel.cc: Likewise.
+	* testsuite/30_threads/timed_mutex/try_lock_until/57641.cc: Likewise.
+
 2014-05-21  François Dumont  <fdumont@gcc.gnu.org>
 
 	PR libstdc++/61143

@@ -38,6 +38,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "l-ipo.h"
 #include "pointer-set.h"
 
+const char * const tls_model_names[]={"none", "tls-emulated", "tls-real",
+				      "tls-global-dynamic", "tls-local-dynamic",
+				      "tls-initial-exec", "tls-local-exec"};
+
 /* List of hooks triggered on varpool_node events.  */
 struct varpool_node_hook_list {
   varpool_node_hook hook;
@@ -211,12 +215,16 @@ dump_varpool_node (FILE *f, varpool_node *node)
     fprintf (f, " initialized");
   if (node->output)
     fprintf (f, " output");
+  if (node->used_by_single_function)
+    fprintf (f, " used-by-single-function");
   if (TREE_READONLY (node->decl))
     fprintf (f, " read-only");
   if (ctor_for_folding (node->decl) != error_mark_node)
     fprintf (f, " const-value-known");
   if (node->writeonly)
     fprintf (f, " write-only");
+  if (node->tls_model)
+    fprintf (f, " %s", tls_model_names [node->tls_model]);
   fprintf (f, "\n");
 }
 
@@ -310,7 +318,16 @@ ctor_for_folding (tree decl)
   if (DECL_VIRTUAL_P (real_decl))
     {
       gcc_checking_assert (TREE_READONLY (real_decl));
-      return DECL_INITIAL (real_decl);
+      if (DECL_INITIAL (real_decl))
+	return DECL_INITIAL (real_decl);
+      else
+	{
+	  /* The C++ front end creates VAR_DECLs for vtables of typeinfo
+	     classes not defined in the current TU so that it can refer
+	     to them from typeinfo objects.  Avoid returning NULL_TREE.  */
+	  gcc_checking_assert (!COMPLETE_TYPE_P (DECL_CONTEXT (real_decl)));
+	  return error_mark_node;
+	}
     }
 
   /* If there is no constructor, we have nothing to do.  */
@@ -359,7 +376,6 @@ varpool_add_new_variable (tree decl)
 enum availability
 cgraph_variable_initializer_availability (varpool_node *node)
 {
-  gcc_assert (cgraph_function_flags_ready);
   if (!node->definition)
     return AVAIL_NOT_AVAILABLE;
   if (!TREE_PUBLIC (node->decl))
@@ -413,11 +429,12 @@ static void
 assemble_aliases (varpool_node *node)
 {
   int i;
-  struct ipa_ref *ref;
-  for (i = 0; ipa_ref_list_referring_iterate (&node->ref_list, i, ref); i++)
+  struct ipa_ref *ref = NULL;
+
+  for (i = 0; node->iterate_referring (i, ref); i++)
     if (ref->use == IPA_REF_ALIAS)
       {
-	varpool_node *alias = ipa_ref_referring_varpool_node (ref);
+	varpool_node *alias = dyn_cast <varpool_node *> (ref->referring);
 	do_assemble_alias (alias->decl,
 			   DECL_ASSEMBLER_NAME (node->decl));
 	assemble_aliases (alias);
@@ -494,7 +511,7 @@ varpool_remove_unreferenced_decls (void)
   varpool_node *next, *node;
   varpool_node *first = (varpool_node *)(void *)1;
   int i;
-  struct ipa_ref *ref;
+  struct ipa_ref *ref = NULL;
   struct pointer_set_t *referenced = pointer_set_create ();
 
   if (seen_error ())
@@ -532,7 +549,7 @@ varpool_remove_unreferenced_decls (void)
 		enqueue_node (vnext, &first);
 	    }
 	}
-      for (i = 0; ipa_ref_list_reference_iterate (&node->ref_list, i, ref); i++)
+      for (i = 0; node->iterate_reference (i, ref); i++)
 	{
 	  varpool_node *vnode = dyn_cast <varpool_node *> (ref->referred);
 	  if (vnode
@@ -578,7 +595,7 @@ varpool_finalize_named_section_flags (varpool_node *node)
       && !DECL_EXTERNAL (node->decl)
       && TREE_CODE (node->decl) == VAR_DECL
       && !DECL_HAS_VALUE_EXPR_P (node->decl)
-      && DECL_SECTION_NAME (node->decl))
+      && node->get_section ())
     get_variable_section (node->decl, false);
 }
 
@@ -682,14 +699,14 @@ varpool_for_node_and_aliases (varpool_node *node,
 			      bool include_overwritable)
 {
   int i;
-  struct ipa_ref *ref;
+  struct ipa_ref *ref = NULL;
 
   if (callback (node, data))
     return true;
-  for (i = 0; ipa_ref_list_referring_iterate (&node->ref_list, i, ref); i++)
+  for (i = 0; node->iterate_referring (i, ref); i++)
     if (ref->use == IPA_REF_ALIAS)
       {
-	varpool_node *alias = ipa_ref_referring_varpool_node (ref);
+	varpool_node *alias = dyn_cast <varpool_node *> (ref->referring);
 	if (include_overwritable
 	    || cgraph_variable_initializer_availability (alias) > AVAIL_OVERWRITABLE)
           if (varpool_for_node_and_aliases (alias, callback, data,

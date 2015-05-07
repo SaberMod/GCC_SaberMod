@@ -847,7 +847,7 @@ Driver Undocumented
 ;    Therefore, 0 will not necessarily indicate the same ABI in different
 ;    versions of G++.
 ;
-; 1: The version of the ABI first used in G++ 3.2.
+; 1: The version of the ABI first used in G++ 3.2.  No longer selectable.
 ;
 ; 2: The version of the ABI first used in G++ 3.4 (and current default).
 ;
@@ -880,6 +880,7 @@ Driver Undocumented
 ; the ABI become the default version of the ABI.
 fabi-version=
 Common Joined RejectNegative UInteger Var(flag_abi_version) Init(0)
+The version of the C++ ABI in use
 
 faggressive-loop-optimizations
 Common Report Var(flag_aggressive_loop_optimizations) Optimization Init(1) 
@@ -2098,6 +2099,10 @@ Generate discontiguous stack frames
 fsplit-wide-types
 Common Report Var(flag_split_wide_types) Optimization
 Split wide types into independent registers
+
+fssa-phiopt
+Common Report Var(flag_ssa_phiopt) Optimization
+Optimize conditional patterns using SSA PHI nodes
 
 fvariable-expansion-in-unroller
 Common Report Var(flag_variable_expansion_in_unroller) Optimization

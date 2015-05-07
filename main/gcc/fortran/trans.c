@@ -450,13 +450,13 @@ trans_runtime_error_vararg (bool error, locus* where, const char* msgid,
     fntype = TREE_TYPE (gfor_fndecl_runtime_warning_at);
 
   loc = where ? where->lb->location : input_location;
-  tmp = fold_builtin_call_array (loc, TREE_TYPE (fntype),
-				 fold_build1_loc (loc, ADDR_EXPR,
+  tmp = fold_build_call_array_loc (loc, TREE_TYPE (fntype),
+				   fold_build1_loc (loc, ADDR_EXPR,
 					     build_pointer_type (fntype),
 					     error
 					     ? gfor_fndecl_runtime_error_at
 					     : gfor_fndecl_runtime_warning_at),
-				 nargs + 2, argarray);
+				   nargs + 2, argarray);
   gfc_add_expr_to_block (&block, tmp);
 
   return gfc_finish_block (&block);
@@ -1851,6 +1851,10 @@ trans_code (gfc_code * code, tree cond)
 	case EXEC_OMP_CANCEL:
 	case EXEC_OMP_CANCELLATION_POINT:
 	case EXEC_OMP_CRITICAL:
+	case EXEC_OMP_DISTRIBUTE:
+	case EXEC_OMP_DISTRIBUTE_PARALLEL_DO:
+	case EXEC_OMP_DISTRIBUTE_PARALLEL_DO_SIMD:
+	case EXEC_OMP_DISTRIBUTE_SIMD:
 	case EXEC_OMP_DO:
 	case EXEC_OMP_DO_SIMD:
 	case EXEC_OMP_FLUSH:
@@ -1864,10 +1868,23 @@ trans_code (gfc_code * code, tree cond)
 	case EXEC_OMP_SECTIONS:
 	case EXEC_OMP_SIMD:
 	case EXEC_OMP_SINGLE:
+	case EXEC_OMP_TARGET:
+	case EXEC_OMP_TARGET_DATA:
+	case EXEC_OMP_TARGET_TEAMS:
+	case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE:
+	case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO:
+	case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD:
+	case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD:
+	case EXEC_OMP_TARGET_UPDATE:
 	case EXEC_OMP_TASK:
 	case EXEC_OMP_TASKGROUP:
 	case EXEC_OMP_TASKWAIT:
 	case EXEC_OMP_TASKYIELD:
+	case EXEC_OMP_TEAMS:
+	case EXEC_OMP_TEAMS_DISTRIBUTE:
+	case EXEC_OMP_TEAMS_DISTRIBUTE_PARALLEL_DO:
+	case EXEC_OMP_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD:
+	case EXEC_OMP_TEAMS_DISTRIBUTE_SIMD:
 	case EXEC_OMP_WORKSHARE:
 	  res = gfc_trans_omp_directive (code);
 	  break;

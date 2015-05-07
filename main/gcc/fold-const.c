@@ -68,6 +68,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "tree-dfa.h"
 #include "hash-table.h"  /* Required for ENABLE_FOLD_CHECKING.  */
+#include "builtins.h"
 
 /* Nonzero if we are folding constants inside an initializer; zero
    otherwise.  */
@@ -8509,6 +8510,9 @@ fold_unary_loc_1 (location_t loc, enum tree_code code, tree type, tree op0)
 static void
 set_expr_folded_flag (tree exp)
 {
+	// Can not be called any more -- the bit is used for other purpose - wide-int
+	// support
+	gcc_assert (0);
   /* FIXME -- can not set the flag on SSA_NAME, the flag overlaps
      with the version member.  */
   if (TREE_CODE (exp) == SSA_NAME)
@@ -8542,8 +8546,6 @@ tree
 fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 {
   tree tem = fold_unary_loc_1 (loc, code, type, op0);
-  if (tem)
-    set_expr_folded_flag (tem);
   return tem;
 }
 
@@ -8977,6 +8979,7 @@ static tree
 fold_comparison (location_t loc, enum tree_code code, tree type,
 		 tree op0, tree op1)
 {
+  const bool equality_code = (code == EQ_EXPR || code == NE_EXPR);
   tree arg0, arg1, tem;
 
   arg0 = op0;
@@ -8993,28 +8996,24 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
   if (tree_swap_operands_p (arg0, arg1, true))
     return fold_build2_loc (loc, swap_tree_comparison (code), type, op1, op0);
 
-  /* Transform comparisons of the form X +- C1 CMP C2 to X CMP C2 +- C1.  */
+  /* Transform comparisons of the form X +- C1 CMP C2 to X CMP C2 -+ C1.  */
   if ((TREE_CODE (arg0) == PLUS_EXPR || TREE_CODE (arg0) == MINUS_EXPR)
-      && (TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
-	  && !TREE_OVERFLOW (TREE_OPERAND (arg0, 1))
-	  && TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (arg1)))
-      && (TREE_CODE (arg1) == INTEGER_CST
-	  && !TREE_OVERFLOW (arg1)))
+      && (equality_code || TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (arg0)))
+      && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
+      && !TREE_OVERFLOW (TREE_OPERAND (arg0, 1))
+      && TREE_CODE (arg1) == INTEGER_CST
+      && !TREE_OVERFLOW (arg1))
     {
+      const enum tree_code
+	reverse_op = TREE_CODE (arg0) == PLUS_EXPR ? MINUS_EXPR : PLUS_EXPR;
       tree const1 = TREE_OPERAND (arg0, 1);
-      tree const2 = arg1;
+      tree const2 = fold_convert_loc (loc, TREE_TYPE (const1), arg1);
       tree variable = TREE_OPERAND (arg0, 0);
-      tree lhs;
-      int lhs_add;
-      lhs_add = TREE_CODE (arg0) != PLUS_EXPR;
-
-      lhs = fold_build2_loc (loc, lhs_add ? PLUS_EXPR : MINUS_EXPR,
-			 TREE_TYPE (arg1), const2, const1);
+      tree new_const = int_const_binop (reverse_op, const2, const1);
 
       /* If the constant operation overflowed this can be
 	 simplified as a comparison against INT_MAX/INT_MIN.  */
-      if (TREE_CODE (lhs) == INTEGER_CST
-	  && TREE_OVERFLOW (lhs))
+      if (TREE_OVERFLOW (new_const))
 	{
 	  int const1_sgn = tree_int_cst_sgn (const1);
 	  enum tree_code code2 = code;
@@ -9034,27 +9033,46 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	  /* We now can look at the canonicalized case
 	       VARIABLE + 1  CODE2  INT_MIN
 	     and decide on the result.  */
-	  if (code2 == LT_EXPR
-	      || code2 == LE_EXPR
-	      || code2 == EQ_EXPR)
-	    return omit_one_operand_loc (loc, type, boolean_false_node, variable);
-	  else if (code2 == NE_EXPR
-		   || code2 == GE_EXPR
-		   || code2 == GT_EXPR)
-	    return omit_one_operand_loc (loc, type, boolean_true_node, variable);
-	}
+	  switch (code2)
+	    {
+	    case EQ_EXPR:
+	    case LT_EXPR:
+	    case LE_EXPR:
+	      return
+		omit_one_operand_loc (loc, type, boolean_false_node, variable);
 
-      if (TREE_CODE (lhs) == TREE_CODE (arg1)
-	  && (TREE_CODE (lhs) != INTEGER_CST
-	      || !TREE_OVERFLOW (lhs)))
+	    case NE_EXPR:
+	    case GE_EXPR:
+	    case GT_EXPR:
+	      return
+		omit_one_operand_loc (loc, type, boolean_true_node, variable);
+
+	    default:
+	      gcc_unreachable ();
+	    }
+	}
+      else
 	{
-	  if (code != EQ_EXPR && code != NE_EXPR)
+	  if (!equality_code)
 	    fold_overflow_warning ("assuming signed overflow does not occur "
 				   "when changing X +- C1 cmp C2 to "
-				   "X cmp C1 +- C2",
+				   "X cmp C2 -+ C1",
 				   WARN_STRICT_OVERFLOW_COMPARISON);
-	  return fold_build2_loc (loc, code, type, variable, lhs);
+	  return fold_build2_loc (loc, code, type, variable, new_const);
 	}
+    }
+
+  /* Transform comparisons of the form X - Y CMP 0 to X CMP Y.  */
+  if (TREE_CODE (arg0) == MINUS_EXPR
+      && (equality_code || TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (arg0)))
+      && integer_zerop (arg1))
+    {
+      if (!equality_code)
+	fold_overflow_warning ("assuming signed overflow does not occur "
+			       "when changing X - Y cmp 0 to X cmp Y",
+			       WARN_STRICT_OVERFLOW_COMPARISON);
+      return fold_build2_loc (loc, code, type, TREE_OPERAND (arg0, 0),
+			      TREE_OPERAND (arg0, 1));
     }
 
   /* For comparisons of pointers we can decompose it to a compile time
@@ -9184,8 +9202,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 		  || POINTER_TYPE_OVERFLOW_UNDEFINED))
 
 	    {
-	      if (code != EQ_EXPR
-		  && code != NE_EXPR
+	      if (!equality_code
 		  && bitpos0 != bitpos1
 		  && (pointer_may_wrap_p (base0, offset0, bitpos0)
 		      || pointer_may_wrap_p (base1, offset1, bitpos1)))
@@ -9219,7 +9236,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	     object and overflow on pointer differences is undefined as of
 	     6.5.6/8 and /9 with respect to the signed ptrdiff_t.  */
 	  else if (bitpos0 == bitpos1
-		   && ((code == EQ_EXPR || code == NE_EXPR)
+		   && (equality_code
 		       || (indirect_base0 && DECL_P (base0))
 		       || POINTER_TYPE_OVERFLOW_UNDEFINED))
 	    {
@@ -9237,8 +9254,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	      else
 		offset1 = fold_convert_loc (loc, ssizetype, offset1);
 
-	      if (code != EQ_EXPR
-		  && code != NE_EXPR
+	      if (!equality_code
 		  && (pointer_may_wrap_p (base0, offset0, bitpos0)
 		      || pointer_may_wrap_p (base1, offset1, bitpos1)))
 		fold_overflow_warning (("assuming pointer wraparound does not "
@@ -9298,7 +9314,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
   /* Transform comparisons of the form X +- C1 CMP Y +- C2 to
      X CMP Y +- C2 +- C1 for signed X, Y.  This is valid if
      the resulting offset is smaller in absolute value than the
-     original one.  */
+     original one and has the same sign.  */
   if (TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (arg0))
       && (TREE_CODE (arg0) == PLUS_EXPR || TREE_CODE (arg0) == MINUS_EXPR)
       && (TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
@@ -9317,32 +9333,35 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 				      "a comparison");
 
       /* Put the constant on the side where it doesn't overflow and is
-	 of lower absolute value than before.  */
+	 of lower absolute value and of same sign than before.  */
       cst = int_const_binop (TREE_CODE (arg0) == TREE_CODE (arg1)
 			     ? MINUS_EXPR : PLUS_EXPR,
 			     const2, const1);
       if (!TREE_OVERFLOW (cst)
-	  && tree_int_cst_compare (const2, cst) == tree_int_cst_sgn (const2))
+	  && tree_int_cst_compare (const2, cst) == tree_int_cst_sgn (const2)
+	  && tree_int_cst_sgn (cst) == tree_int_cst_sgn (const2))
 	{
 	  fold_overflow_warning (warnmsg, WARN_STRICT_OVERFLOW_COMPARISON);
 	  return fold_build2_loc (loc, code, type,
-			      variable1,
-			      fold_build2_loc (loc,
-					   TREE_CODE (arg1), TREE_TYPE (arg1),
-					   variable2, cst));
+				  variable1,
+				  fold_build2_loc (loc, TREE_CODE (arg1),
+						   TREE_TYPE (arg1),
+						   variable2, cst));
 	}
 
       cst = int_const_binop (TREE_CODE (arg0) == TREE_CODE (arg1)
 			     ? MINUS_EXPR : PLUS_EXPR,
 			     const1, const2);
       if (!TREE_OVERFLOW (cst)
-	  && tree_int_cst_compare (const1, cst) == tree_int_cst_sgn (const1))
+	  && tree_int_cst_compare (const1, cst) == tree_int_cst_sgn (const1)
+	  && tree_int_cst_sgn (cst) == tree_int_cst_sgn (const1))
 	{
 	  fold_overflow_warning (warnmsg, WARN_STRICT_OVERFLOW_COMPARISON);
 	  return fold_build2_loc (loc, code, type,
-			      fold_build2_loc (loc, TREE_CODE (arg0), TREE_TYPE (arg0),
-					   variable1, cst),
-			      variable2);
+				  fold_build2_loc (loc, TREE_CODE (arg0),
+						   TREE_TYPE (arg0),
+						   variable1, cst),
+				  variable2);
 	}
     }
 
@@ -12961,21 +12980,6 @@ fold_binary_loc_1 (location_t loc,
 				        type);
 	}
 
-      /* If this is an EQ or NE comparison of a constant with a PLUS_EXPR or
-	 a MINUS_EXPR of a constant, we can convert it into a comparison with
-	 a revised constant as long as no overflow occurs.  */
-      if (TREE_CODE (arg1) == INTEGER_CST
-	  && (TREE_CODE (arg0) == PLUS_EXPR
-	      || TREE_CODE (arg0) == MINUS_EXPR)
-	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
-	  && 0 != (tem = const_binop (TREE_CODE (arg0) == PLUS_EXPR
-				      ? MINUS_EXPR : PLUS_EXPR,
-				      fold_convert_loc (loc, TREE_TYPE (arg0),
-							arg1),
-				      TREE_OPERAND (arg0, 1)))
-	  && !TREE_OVERFLOW (tem))
-	return fold_build2_loc (loc, code, type, TREE_OPERAND (arg0, 0), tem);
-
       /* Similarly for a NEGATE_EXPR.  */
       if (TREE_CODE (arg0) == NEGATE_EXPR
 	  && TREE_CODE (arg1) == INTEGER_CST
@@ -13028,13 +13032,6 @@ fold_binary_loc_1 (location_t loc,
 				    ? boolean_true_node : boolean_false_node,
 				    TREE_OPERAND (arg0, 1), arg1);
 	}
-
-      /* If we have X - Y == 0, we can convert that to X == Y and similarly
-	 for !=.  Don't do this for ordered comparisons due to overflow.  */
-      if (TREE_CODE (arg0) == MINUS_EXPR
-	  && integer_zerop (arg1))
-	return fold_build2_loc (loc, code, type,
-			    TREE_OPERAND (arg0, 0), TREE_OPERAND (arg0, 1));
 
       /* Convert ABS_EXPR<x> == 0 or ABS_EXPR<x> != 0 to x == 0 or x != 0.  */
       if (TREE_CODE (arg0) == ABS_EXPR
@@ -14026,8 +14023,6 @@ fold_binary_loc (location_t loc,
                  enum tree_code code, tree type, tree op0, tree op1)
 {
   tree tem = fold_binary_loc_1 (loc, code, type, op0, op1);
-  if (tem)
-    set_expr_folded_flag (tem);
   return tem;
 }
 
@@ -14644,8 +14639,6 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 		  tree op0, tree op1, tree op2)
 {
   tree tem = fold_ternary_loc_1 (loc, code, type, op0, op1, op2);
-  if (tem)
-    set_expr_folded_flag (tem);
   return tem;
 }
 
@@ -14796,7 +14789,7 @@ fold (tree expr)
 #undef fold
 
 static void fold_checksum_tree (const_tree, struct md5_ctx *,
-				hash_table <pointer_hash <tree_node> >);
+				hash_table<pointer_hash<const tree_node> > *);
 static void fold_check_failed (const_tree, const_tree);
 void print_fold_checksum (const_tree);
 
@@ -14810,20 +14803,18 @@ fold (tree expr)
   tree ret;
   struct md5_ctx ctx;
   unsigned char checksum_before[16], checksum_after[16];
-  hash_table <pointer_hash <tree_node> > ht;
+  hash_table<pointer_hash<const tree_node> > ht (32);
 
-  ht.create (32);
   md5_init_ctx (&ctx);
-  fold_checksum_tree (expr, &ctx, ht);
+  fold_checksum_tree (expr, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_before);
   ht.empty ();
 
   ret = fold_1 (expr);
 
   md5_init_ctx (&ctx);
-  fold_checksum_tree (expr, &ctx, ht);
+  fold_checksum_tree (expr, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_after);
-  ht.dispose ();
 
   if (memcmp (checksum_before, checksum_after, 16))
     fold_check_failed (expr, ret);
@@ -14836,13 +14827,11 @@ print_fold_checksum (const_tree expr)
 {
   struct md5_ctx ctx;
   unsigned char checksum[16], cnt;
-  hash_table <pointer_hash <tree_node> > ht;
+  hash_table<pointer_hash<const tree_node> > ht (32);
 
-  ht.create (32);
   md5_init_ctx (&ctx);
-  fold_checksum_tree (expr, &ctx, ht);
+  fold_checksum_tree (expr, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum);
-  ht.dispose ();
   for (cnt = 0; cnt < 16; ++cnt)
     fprintf (stderr, "%02x", checksum[cnt]);
   putc ('\n', stderr);
@@ -14856,9 +14845,9 @@ fold_check_failed (const_tree expr ATTRIBUTE_UNUSED, const_tree ret ATTRIBUTE_UN
 
 static void
 fold_checksum_tree (const_tree expr, struct md5_ctx *ctx,
-		    hash_table <pointer_hash <tree_node> > ht)
+		    hash_table<pointer_hash <const tree_node> > *ht)
 {
-  tree_node **slot;
+  const tree_node **slot;
   enum tree_code code;
   union tree_node buf;
   int i, len;
@@ -14866,10 +14855,10 @@ fold_checksum_tree (const_tree expr, struct md5_ctx *ctx,
  recursive_label:
   if (expr == NULL)
     return;
-  slot = ht.find_slot (expr, INSERT);
+  slot = ht->find_slot (expr, INSERT);
   if (*slot != NULL)
     return;
-  *slot = CONST_CAST_TREE (expr);
+  *slot = expr;
   code = TREE_CODE (expr);
   if (TREE_CODE_CLASS (code) == tcc_declaration
       && DECL_ASSEMBLER_NAME_SET_P (expr))
@@ -14969,8 +14958,6 @@ fold_checksum_tree (const_tree expr, struct md5_ctx *ctx,
 	  fold_checksum_tree (DECL_ABSTRACT_ORIGIN (expr), ctx, ht);
 	  fold_checksum_tree (DECL_ATTRIBUTES (expr), ctx, ht);
 	}
-      if (CODE_CONTAINS_STRUCT (TREE_CODE (expr), TS_DECL_WITH_VIS))
-	fold_checksum_tree (DECL_SECTION_NAME (expr), ctx, ht);
 
       if (CODE_CONTAINS_STRUCT (TREE_CODE (expr), TS_DECL_NON_COMMON))
 	{
@@ -15015,11 +15002,10 @@ debug_fold_checksum (const_tree t)
   int i;
   unsigned char checksum[16];
   struct md5_ctx ctx;
-  hash_table <pointer_hash <tree_node> > ht;
-  ht.create (32);
+  hash_table<pointer_hash<const tree_node> > ht (32);
 
   md5_init_ctx (&ctx);
-  fold_checksum_tree (t, &ctx, ht);
+  fold_checksum_tree (t, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum);
   ht.empty ();
 
@@ -15044,11 +15030,10 @@ fold_build1_stat_loc (location_t loc,
 #ifdef ENABLE_FOLD_CHECKING
   unsigned char checksum_before[16], checksum_after[16];
   struct md5_ctx ctx;
-  hash_table <pointer_hash <tree_node> > ht;
+  hash_table<pointer_hash<const tree_node> > ht (32);
 
-  ht.create (32);
   md5_init_ctx (&ctx);
-  fold_checksum_tree (op0, &ctx, ht);
+  fold_checksum_tree (op0, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_before);
   ht.empty ();
 #endif
@@ -15059,9 +15044,8 @@ fold_build1_stat_loc (location_t loc,
 
 #ifdef ENABLE_FOLD_CHECKING
   md5_init_ctx (&ctx);
-  fold_checksum_tree (op0, &ctx, ht);
+  fold_checksum_tree (op0, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_after);
-  ht.dispose ();
 
   if (memcmp (checksum_before, checksum_after, 16))
     fold_check_failed (op0, tem);
@@ -15087,16 +15071,15 @@ fold_build2_stat_loc (location_t loc,
 		checksum_after_op0[16],
 		checksum_after_op1[16];
   struct md5_ctx ctx;
-  hash_table <pointer_hash <tree_node> > ht;
+  hash_table<pointer_hash<const tree_node> > ht (32);
 
-  ht.create (32);
   md5_init_ctx (&ctx);
-  fold_checksum_tree (op0, &ctx, ht);
+  fold_checksum_tree (op0, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_before_op0);
   ht.empty ();
 
   md5_init_ctx (&ctx);
-  fold_checksum_tree (op1, &ctx, ht);
+  fold_checksum_tree (op1, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_before_op1);
   ht.empty ();
 #endif
@@ -15107,7 +15090,7 @@ fold_build2_stat_loc (location_t loc,
 
 #ifdef ENABLE_FOLD_CHECKING
   md5_init_ctx (&ctx);
-  fold_checksum_tree (op0, &ctx, ht);
+  fold_checksum_tree (op0, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_after_op0);
   ht.empty ();
 
@@ -15115,9 +15098,8 @@ fold_build2_stat_loc (location_t loc,
     fold_check_failed (op0, tem);
 
   md5_init_ctx (&ctx);
-  fold_checksum_tree (op1, &ctx, ht);
+  fold_checksum_tree (op1, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_after_op1);
-  ht.dispose ();
 
   if (memcmp (checksum_before_op1, checksum_after_op1, 16))
     fold_check_failed (op1, tem);
@@ -15143,21 +15125,20 @@ fold_build3_stat_loc (location_t loc, enum tree_code code, tree type,
 		checksum_after_op1[16],
 		checksum_after_op2[16];
   struct md5_ctx ctx;
-  hash_table <pointer_hash <tree_node> > ht;
+  hash_table<pointer_hash<const tree_node> > ht (32);
 
-  ht.create (32);
   md5_init_ctx (&ctx);
-  fold_checksum_tree (op0, &ctx, ht);
+  fold_checksum_tree (op0, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_before_op0);
   ht.empty ();
 
   md5_init_ctx (&ctx);
-  fold_checksum_tree (op1, &ctx, ht);
+  fold_checksum_tree (op1, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_before_op1);
   ht.empty ();
 
   md5_init_ctx (&ctx);
-  fold_checksum_tree (op2, &ctx, ht);
+  fold_checksum_tree (op2, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_before_op2);
   ht.empty ();
 #endif
@@ -15169,7 +15150,7 @@ fold_build3_stat_loc (location_t loc, enum tree_code code, tree type,
 
 #ifdef ENABLE_FOLD_CHECKING
   md5_init_ctx (&ctx);
-  fold_checksum_tree (op0, &ctx, ht);
+  fold_checksum_tree (op0, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_after_op0);
   ht.empty ();
 
@@ -15177,7 +15158,7 @@ fold_build3_stat_loc (location_t loc, enum tree_code code, tree type,
     fold_check_failed (op0, tem);
 
   md5_init_ctx (&ctx);
-  fold_checksum_tree (op1, &ctx, ht);
+  fold_checksum_tree (op1, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_after_op1);
   ht.empty ();
 
@@ -15185,9 +15166,8 @@ fold_build3_stat_loc (location_t loc, enum tree_code code, tree type,
     fold_check_failed (op1, tem);
 
   md5_init_ctx (&ctx);
-  fold_checksum_tree (op2, &ctx, ht);
+  fold_checksum_tree (op2, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_after_op2);
-  ht.dispose ();
 
   if (memcmp (checksum_before_op2, checksum_after_op2, 16))
     fold_check_failed (op2, tem);
@@ -15211,18 +15191,17 @@ fold_build_call_array_loc (location_t loc, tree type, tree fn,
 		checksum_after_fn[16],
 		checksum_after_arglist[16];
   struct md5_ctx ctx;
-  hash_table <pointer_hash <tree_node> > ht;
+  hash_table<pointer_hash<const tree_node> > ht (32);
   int i;
 
-  ht.create (32);
   md5_init_ctx (&ctx);
-  fold_checksum_tree (fn, &ctx, ht);
+  fold_checksum_tree (fn, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_before_fn);
   ht.empty ();
 
   md5_init_ctx (&ctx);
   for (i = 0; i < nargs; i++)
-    fold_checksum_tree (argarray[i], &ctx, ht);
+    fold_checksum_tree (argarray[i], &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_before_arglist);
   ht.empty ();
 #endif
@@ -15231,7 +15210,7 @@ fold_build_call_array_loc (location_t loc, tree type, tree fn,
 
 #ifdef ENABLE_FOLD_CHECKING
   md5_init_ctx (&ctx);
-  fold_checksum_tree (fn, &ctx, ht);
+  fold_checksum_tree (fn, &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_after_fn);
   ht.empty ();
 
@@ -15240,9 +15219,8 @@ fold_build_call_array_loc (location_t loc, tree type, tree fn,
 
   md5_init_ctx (&ctx);
   for (i = 0; i < nargs; i++)
-    fold_checksum_tree (argarray[i], &ctx, ht);
+    fold_checksum_tree (argarray[i], &ctx, &ht);
   md5_finish_ctx (&ctx, checksum_after_arglist);
-  ht.dispose ();
 
   if (memcmp (checksum_before_arglist, checksum_after_arglist, 16))
     fold_check_failed (NULL_TREE, tem);

@@ -109,6 +109,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-propagate.h"
 #include "expmed.h"
 #include "tree-ssa-address.h"
+#include "builtins.h"
 
 /* FIXME: Expressions are expanded to RTL in this pass to determine the
    cost of different addressing modes.  This should be moved to a TBD
@@ -305,7 +306,7 @@ struct ivopts_data
 
   /* The hashtable of loop invariant expressions created
      by ivopt.  */
-  hash_table <iv_inv_expr_hasher> inv_expr_tab;
+  hash_table<iv_inv_expr_hasher> *inv_expr_tab;
 
   /* Loop invariant expression id.  */
   int inv_expr_id;
@@ -874,7 +875,7 @@ tree_ssa_iv_optimize_init (struct ivopts_data *data)
   data->niters = NULL;
   data->iv_uses.create (20);
   data->iv_candidates.create (20);
-  data->inv_expr_tab.create (10);
+  data->inv_expr_tab = new hash_table<iv_inv_expr_hasher> (10);
   data->inv_expr_id = 0;
   decl_rtl_to_reset.create (20);
 }
@@ -3954,7 +3955,7 @@ get_expr_id (struct ivopts_data *data, tree expr)
 
   ent.expr = expr;
   ent.hash = iterative_hash_expr (expr, 0);
-  slot = data->inv_expr_tab.find_slot (&ent, INSERT);
+  slot = data->inv_expr_tab->find_slot (&ent, INSERT);
   if (*slot)
     return (*slot)->id;
 
@@ -6784,7 +6785,7 @@ free_loop_data (struct ivopts_data *data)
 
   decl_rtl_to_reset.truncate (0);
 
-  data->inv_expr_tab.empty ();
+  data->inv_expr_tab->empty ();
   data->inv_expr_id = 0;
 }
 
@@ -6802,7 +6803,8 @@ tree_ssa_iv_optimize_finalize (struct ivopts_data *data)
   decl_rtl_to_reset.release ();
   data->iv_uses.release ();
   data->iv_candidates.release ();
-  data->inv_expr_tab.dispose ();
+  delete data->inv_expr_tab;
+  data->inv_expr_tab = NULL;
 }
 
 /* Returns true if the loop body BODY includes any function calls.  */

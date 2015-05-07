@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "predict.h"
 #include "l-ipo.h"
 #include "wide-int-print.h"
+#include "internal-fn.h"
 
 #include <new>                           // For placement-new.
 
@@ -501,6 +502,7 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
 	  pp_string (buffer, "alloc");
 	  break;
 	case OMP_CLAUSE_MAP_TO:
+	case OMP_CLAUSE_MAP_TO_PSET:
 	  pp_string (buffer, "to");
 	  break;
 	case OMP_CLAUSE_MAP_FROM:
@@ -521,6 +523,9 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
 	  if (OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_MAP
 	      && OMP_CLAUSE_MAP_KIND (clause) == OMP_CLAUSE_MAP_POINTER)
 	    pp_string (buffer, " [pointer assign, bias: ");
+	  else if (OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_MAP
+		   && OMP_CLAUSE_MAP_KIND (clause) == OMP_CLAUSE_MAP_TO_PSET)
+	    pp_string (buffer, " [pointer set, len: ");
 	  else
 	    pp_string (buffer, " [len: ");
 	  dump_generic_node (buffer, OMP_CLAUSE_SIZE (clause),
@@ -1750,7 +1755,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case CALL_EXPR:
-      print_call_name (buffer, CALL_EXPR_FN (node), flags);
+      if (CALL_EXPR_FN (node) != NULL_TREE)
+	print_call_name (buffer, CALL_EXPR_FN (node), flags);
+      else
+	pp_string (buffer, internal_fn_name (CALL_EXPR_IFN (node)));
 
       /* Print parameters.  */
       pp_space (buffer);
@@ -3494,12 +3502,6 @@ pp_double_int (pretty_printer *pp, double_int d, bool uns)
     pp_wide_integer (pp, d.low);
   else if (d.fits_uhwi ())
     pp_unsigned_wide_integer (pp, d.low);
-  else if (HOST_BITS_PER_DOUBLE_INT == HOST_BITS_PER_WIDEST_INT)
-    pp_scalar (pp,
-	       uns
-	       ? HOST_WIDEST_INT_PRINT_UNSIGNED : HOST_WIDEST_INT_PRINT_DEC,
-	       (HOST_WIDEST_INT) ((((unsigned HOST_WIDEST_INT) d.high << 1)
-				   << (HOST_BITS_PER_WIDE_INT - 1)) | d.low));
   else
     {
       unsigned HOST_WIDE_INT low = d.low;

@@ -1848,7 +1848,7 @@ format_gcov (gcov_type top, gcov_type bottom, int dp)
 	}
     }
   else
-    sprintf (buffer, HOST_WIDEST_INT_PRINT_DEC, (HOST_WIDEST_INT)top);
+    sprintf (buffer, "%"PRId64, (int64_t)top);
 
   return buffer;
 }

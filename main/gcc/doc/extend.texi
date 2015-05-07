@@ -373,6 +373,8 @@ goto *(&&foo + array[i]);
 This is more friendly to code living in shared libraries, as it reduces
 the number of dynamic relocations that are needed, and by consequence,
 allows the data to be read-only.
+This alternative with label differences is not supported for the AVR target,
+please use the first approach for AVR programs.
 
 The @code{&&foo} expressions for the same label might have different
 values if the containing function is inlined or cloned.  If a program
@@ -3089,6 +3091,28 @@ On RL78, use @code{brk_interrupt} instead of @code{interrupt} for
 handlers intended to be used with the @code{BRK} opcode (i.e.@: those
 that must end with @code{RETB} instead of @code{RETI}).
 
+On RX targets, you may specify one or more vector numbers as arguments
+to the attribute, as well as naming an alternate table name.
+Parameters are handled sequentially, so one handler can be assigned to
+multiple entries in multiple tables.  One may also pass the magic
+string @code{"$default"} which causes the function to be used for any
+unfilled slots in the current table.
+
+This example shows a simple assignment of a function to one vector in
+the default table (note that preprocessor macros may be used for
+chip-specific symbolic vector names):
+@smallexample
+void __attribute__ ((interrupt (5))) txd1_handler ();
+@end smallexample
+
+This example assigns a function to two slots in the default table
+(using preprocessor macros defined elsewhere) and makes it the default
+for the @code{dct} table:
+@smallexample
+void __attribute__ ((interrupt (RXD1_VECT,RXD2_VECT,"dct","$default")))
+	txd1_handler ();
+@end smallexample
+
 @item interrupt_handler
 @cindex interrupt handler functions on the Blackfin, m68k, H8/300 and SH processors
 Use this attribute on the Blackfin, m68k, H8/300, H8/300H, H8S, and SH to
@@ -3207,14 +3231,16 @@ efficient @code{jal} instruction.
 
 @item malloc
 @cindex @code{malloc} attribute
-The @code{malloc} attribute is used to tell the compiler that a function
-may be treated as if any non-@code{NULL} pointer it returns cannot
-alias any other pointer valid when the function returns and that the memory
-has undefined content.
-This often improves optimization.
-Standard functions with this property include @code{malloc} and
-@code{calloc}.  @code{realloc}-like functions do not have this
-property as the memory pointed to does not have undefined content.
+This tells the compiler that a function is @code{malloc}-like, i.e.,
+that the pointer @var{P} returned by the function cannot alias any
+other pointer valid when the function returns, and moreover no
+pointers to valid objects occur in any storage addressed by @var{P}.
+
+Using this attribute can improve optimization.  Functions like
+@code{malloc} and @code{calloc} have this property because they return
+a pointer to uninitialized or zeroed-out storage.  However, functions
+like @code{realloc} do not have this property, as they can return a
+pointer to storage containing pointers.
 
 @item mips16/nomips16
 @cindex @code{mips16} attribute
@@ -4288,6 +4314,13 @@ inline assembly.
 When applied to a member function of a C++ class template, the
 attribute also means that the function is instantiated if the
 class itself is instantiated.
+
+@item vector
+@cindex @code{vector} attibute
+This RX attribute is similar to the @code{attribute}, including its
+parameters, but does not make the function an interrupt-handler type
+function (i.e. it retains the normal C function calling ABI).  See the
+@code{interrupt} attribute for a description of its arguments.
 
 @item version_id
 @cindex @code{version_id} attribute
@@ -5699,6 +5732,8 @@ You may only specify this attribute on the definition of an @code{enum},
 also define the enumerated type, structure or union.
 
 @item transparent_union
+@cindex @code{transparent_union} attribute
+
 This attribute, attached to a @code{union} type definition, indicates
 that any function parameter having that union type causes calls to that
 function to be treated in a special way.
@@ -9661,6 +9696,8 @@ to those machines.  Generally these generate calls to specific machine
 instructions, but allow the compiler to schedule those calls.
 
 @menu
+* AArch64 Built-in Functions::
+* AArch64 intrinsics::
 * Alpha Built-in Functions::
 * Altera Nios II Built-in Functions::
 * ARC Built-in Functions::
@@ -9668,6 +9705,7 @@ instructions, but allow the compiler to schedule those calls.
 * ARM iWMMXt Built-in Functions::
 * ARM NEON Intrinsics::
 * ARM ACLE Intrinsics::
+* ARM Floating Point Status and Control Intrinsics::
 * AVR Built-in Functions::
 * Blackfin Built-in Functions::
 * FR-V Built-in Functions::
@@ -9692,6 +9730,23 @@ instructions, but allow the compiler to schedule those calls.
 * TILE-Gx Built-in Functions::
 * TILEPro Built-in Functions::
 @end menu
+
+@node AArch64 Built-in Functions
+@subsection AArch64 Built-in Functions
+
+These built-in functions are available for the AArch64 family of
+processors.
+@smallexample
+unsigned int __builtin_aarch64_get_fpcr ()
+void __builtin_aarch64_set_fpcr (unsigned int)
+unsigned int __builtin_aarch64_get_fpsr ()
+void __builtin_aarch64_set_fpsr (unsigned int)
+@end smallexample
+
+@node AArch64 intrinsics
+@subsection ACLE Intrinsics for AArch64
+
+@include aarch64-acle-intrinsics.texi
 
 @node Alpha Built-in Functions
 @subsection Alpha Built-in Functions
@@ -10467,10 +10522,18 @@ when the @option{-mfpu=neon} switch is used:
 @node ARM ACLE Intrinsics
 @subsection ARM ACLE Intrinsics
 
-These built-in intrinsics for the ARMv8-A CRC32 extension are available when
-the @option{-march=armv8-a+crc} switch is used:
-
 @include arm-acle-intrinsics.texi
+
+@node ARM Floating Point Status and Control Intrinsics
+@subsection ARM Floating Point Status and Control Intrinsics
+
+These built-in functions are available for the ARM family of
+processors with floating-point unit.
+
+@smallexample
+unsigned int __builtin_arm_get_fpscr ()
+void __builtin_arm_set_fpscr (unsigned int)
+@end smallexample
 
 @node AVR Built-in Functions
 @subsection AVR Built-in Functions
@@ -11889,7 +11952,7 @@ used. All of them generate the machine instruction that is part of the
 name.
 
 @smallexample
-v32qi __builtin_ia32_mpsadbw256 (v32qi,v32qi,v32qi,int)
+v32qi __builtin_ia32_mpsadbw256 (v32qi,v32qi,int)
 v32qi __builtin_ia32_pabsb256 (v32qi)
 v16hi __builtin_ia32_pabsw256 (v16hi)
 v8si __builtin_ia32_pabsd256 (v8si)
@@ -12124,8 +12187,8 @@ The following built-in functions are available when @option{-mxop} is used.
 @smallexample
 v2df __builtin_ia32_vfrczpd (v2df)
 v4sf __builtin_ia32_vfrczps (v4sf)
-v2df __builtin_ia32_vfrczsd (v2df, v2df)
-v4sf __builtin_ia32_vfrczss (v4sf, v4sf)
+v2df __builtin_ia32_vfrczsd (v2df)
+v4sf __builtin_ia32_vfrczss (v4sf)
 v4df __builtin_ia32_vfrczpd256 (v4df)
 v8sf __builtin_ia32_vfrczps256 (v8sf)
 v2di __builtin_ia32_vpcmov (v2di, v2di, v2di)
@@ -13353,8 +13416,6 @@ double __builtin_rsqrt (double);
 uint64_t __builtin_ppc_get_timebase ();
 unsigned long __builtin_ppc_mftb ();
 double __builtin_unpack_longdouble (long double, int);
-double __builtin_longdouble_dw0 (long double);
-double __builtin_longdouble_dw1 (long double);
 long double __builtin_pack_longdouble (double, double);
 @end smallexample
 

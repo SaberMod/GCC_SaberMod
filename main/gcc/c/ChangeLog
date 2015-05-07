@@ -1,3 +1,122 @@
+2014-06-25  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61162
+	* c-parser.c (c_parser_statement_after_labels): Pass the location of
+	the return expression to c_finish_return.
+
+2014-06-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (c_finish_omp_clauses): Make sure
+	OMP_CLAUSE_LINEAR_STEP has correct type.
+
+2014-06-24  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* c-decl.c: Adjust.
+
+2014-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_for_loop): For
+	#pragma omp parallel for simd move lastprivate clause from parallel
+	to for rather than simd.
+
+2014-06-23  Marek Polacek  <polacek@redhat.com>
+
+	* c-typeck.c (parser_build_binary_op): Don't call
+	warn_logical_not_parentheses if the RHS is TRUTH_NOT_EXPR.
+
+2014-06-15  Jan Hubicka  <hubicka@ucw.cz>
+
+	* c-parser.c (c_parser_omp_threadprivate): Likewise.
+	* c-decl.c (merge_decls): Likewise.
+
+2014-06-09  Marek Polacek  <polacek@redhat.com>
+
+	PR c/36446
+	* c-typeck.c (error_init): Call inform instead of error_at.
+	(pedwarn_init): Call inform instead of pedwarn.
+	(warning_init): Call inform instead of warning_at.
+
+2014-06-07  Jan Hubicka  <hubicka@ucw.cz>
+
+	* c-decl.c (merge_decls): Use set_decl_section_name.
+	(duplicate_decls): Remove node if it exists.
+
+2014-06-05  S. Gilles  <sgilles@terpmail.umd.edu>
+
+	PR c/53119
+	* c-typeck.c (push_init_level, process_init_element,
+	pop_init_level): Correct check for zero initialization, move
+	missing brace warning to respect zero initialization.
+
+2014-06-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/56724
+	* c-typeck.c (convert_for_assignment): Use expr_loc for ic_argpass.
+
+2014-06-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/49706
+	* c-typeck.c (parser_build_binary_op): Warn when logical not is used
+	on the left hand side operand of a comparison. 
+
+2014-06-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/48062
+	* c-decl.c (warn_if_shadowing): Call inform instead of warning_at.
+	Print note only if the warning was printed.
+
+2014-06-04  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR c/58942
+	* c-array-notation.c (fix_builtin_array_notation_fn): Handle the case
+	with a pointer.
+
+2014-06-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/60439
+	* c-parser.c (c_parser_switch_statement): Pass explicit_cast_p to
+	c_start_case.
+	* c-tree.h (c_start_case): Update.
+	* c-typeck.c (c_start_case): Add new boolean parameter.  Warn if
+	switch condition has boolean value.
+
+2014-06-02  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-decl.c: Include builtins.h.
+	* c-parser.c: Likewise.
+
+2014-05-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c/56724
+	* c-typeck.c (convert_arguments): Get location of a parameter.  Change
+	error and warning calls to error_at and warning_at.  Pass location of
+	a parameter to it.  Call warning_at with OPT_Wtraditional_conversion.
+	(convert_for_assignment): Add parameter to WARN_FOR_ASSIGNMENT and
+	WARN_FOR_QUALIFIERS.  Pass expr_loc to those.
+
+2014-05-26  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR c/61191
+	* c-array-notation.c (fix_builtin_array_notation_fn): Check invalid
+	function parameters.
+
+2014-05-23  Jan Hubicka  <hubicka@ucw.cz>
+
+	* c-decl.c (merge_decls): Preserve symtab node pointers.
+	(duplicate_decls): Free new decl.
+
+2014-05-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-typeck.c (c_finish_omp_clauses): Remove duplicated variable
+	initialization.
+
+	* c-parser.c (c_parser_omp_target): Return bool values.
+
+2014-05-22  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-parser.c (c_parser_omp_clause_thread_limit): Rename
+	num_teams_loc variable to num_thread_limit_loc.
+
 2014-05-21  Richard Sandiford  <rsandifo@linux.vnet.ibm.com>
 
 	* c-array-notation.c (expand_array_notations): Use void_node

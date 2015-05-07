@@ -99,7 +99,7 @@ struct str_list
 typedef struct counts_entry
 {
   /* We hash by  */
-  unsigned HOST_WIDEST_INT ident;
+  uint64_t ident;
   unsigned ctr;
 
   /* Store  */
@@ -234,7 +234,7 @@ counts_entry::remove (value_type *entry)
 }
 
 /* Hash table of count data.  */
-static hash_table <counts_entry> counts_hash;
+static hash_table<counts_entry> *counts_hash;
 
 /* Returns true if MOD_ID is the id of the last source module.  */
 int
@@ -342,7 +342,7 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
   unsigned int num_non_warning_opts1 = 0, num_non_warning_opts2 = 0;
   bool warning_mismatch = false;
   bool non_warning_mismatch = false;
-  hash_table <string_hasher> option_tab1, option_tab2;
+  hash_table <string_hasher> option_tab1 (10), option_tab2 (10);
   unsigned int start_index1 = mod_info1->num_quote_paths 
     + mod_info1->num_bracket_paths + mod_info1->num_system_paths 
     + mod_info1->num_cpp_defines + mod_info1->num_cpp_includes;
@@ -366,9 +366,6 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
       cg_opts1[i] = force_matching_cg_opts[i].default_val;
       cg_opts2[i] = force_matching_cg_opts[i].default_val;
     }
-
-  option_tab1.create (10);
-  option_tab2.create (10);
 
   /* First, separate the warning and non-warning options.  */
   for (i = 0; i < mod_info1->num_cl_args; i++)
@@ -468,8 +465,6 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
    XDELETEVEC (non_warning_opts2);
    XDELETEVEC (cg_opts1);
    XDELETEVEC (cg_opts2);
-   option_tab1.dispose ();
-   option_tab2.dispose ();
    return ((flag_ripa_disallow_opt_mismatch && non_warning_mismatch)
            || has_any_incompatible_cg_opts || has_incompatible_std
            || has_incompatible_arch_isa);
@@ -514,7 +509,7 @@ module_name_entry::equal (const value_type *s1, const compare_type *s2)
   return !strcmp (s1->source_name, s2->source_name);
 }
 
-static  hash_table<module_name_entry> module_name_tab;
+static  hash_table<module_name_entry> *module_name_tab;
 
 /* Comparison function for sorting module_infos array.  */
 
@@ -529,9 +524,9 @@ cmp_module_name_entry (const void *p1, const void *p2)
 
   module_name_entry e;
   e.source_name = (*e1)->source_filename;
-  slot1 = module_name_tab.find_slot (&e, NO_INSERT);
+  slot1 = module_name_tab->find_slot (&e, NO_INSERT);
   e.source_name = (*e2)->source_filename;
-  slot2 = module_name_tab.find_slot (&e, NO_INSERT);
+  slot2 = module_name_tab->find_slot (&e, NO_INSERT);
 
   if (!slot1 || !*slot1)
     return 1;
@@ -560,9 +555,9 @@ cmp_fname_entry (const void *p1, const void *p2)
   module_name_entry e;
 
   e.source_name = *e1;
-  slot1 = module_name_tab.find_slot (&e, NO_INSERT);
+  slot1 = module_name_tab->find_slot (&e, NO_INSERT);
   e.source_name = *e2;
-  slot2 = module_name_tab.find_slot (&e, NO_INSERT);
+  slot2 = module_name_tab->find_slot (&e, NO_INSERT);
 
   if (!slot1 || !*slot1)
     return 1;
@@ -587,7 +582,7 @@ reorder_module_groups (const char *imports_file, unsigned max_group)
   size_t len;
   char *line = NULL;
 
-  module_name_tab.create (20);
+  module_name_tab = new hash_table <module_name_entry> (20);
 
   f = fopen (imports_file, "r");
   if (!f)
@@ -602,7 +597,7 @@ reorder_module_groups (const char *imports_file, unsigned max_group)
       m_e->source_name = line;
       m_e->order = order;
 
-      slot = module_name_tab.find_slot (m_e, INSERT);
+      slot = module_name_tab->find_slot (m_e, INSERT);
       gcc_assert (!*slot);
       *slot = m_e;
 
@@ -633,7 +628,7 @@ reorder_module_groups (const char *imports_file, unsigned max_group)
   if (num_in_fnames > max_group)
     num_in_fnames = max_group;
 
-  module_name_tab.dispose ();
+  delete module_name_tab;
 }
 
 typedef struct {
@@ -731,9 +726,8 @@ read_counts_file (const char *da_file_name, unsigned module_id)
   tag = gcov_read_unsigned ();
   bbg_file_stamp = crc32_unsigned (bbg_file_stamp, tag);
 
-  if (!counts_hash.is_created ())
-    counts_hash.create (10);
-
+  if (!counts_hash)
+		counts_hash = new hash_table<counts_entry> (10);
   while ((tag = gcov_read_unsigned ()))
     {
       gcov_unsigned_t length;
@@ -788,7 +782,7 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	  elt.ident = GEN_FUNC_GLOBAL_ID (module_id, fn_ident);
 	  elt.ctr = GCOV_COUNTER_FOR_TAG (tag);
 
-	  slot = counts_hash.find_slot (&elt, INSERT);
+	  slot = counts_hash->find_slot (&elt, INSERT);
 	  entry = *slot;
 	  if (!entry)
 	    {
@@ -809,14 +803,16 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	      error ("checksum is (%x,%x) instead of (%x,%x)",
 		     entry->lineno_checksum, entry->cfg_checksum,
 		     lineno_checksum, cfg_checksum);
-	      counts_hash.dispose ();
+	      delete counts_hash;
+	      counts_hash = NULL;
 	      break;
 	    }
 	  else if (entry->summary.num != n_counts)
 	    {
 	      error ("Profile data for function %u is corrupted", fn_ident);
 	      error ("number of counters is %d instead of %d", entry->summary.num, n_counts);
-	      counts_hash.dispose ();
+	      delete counts_hash;
+	      counts_hash = NULL;
 	      break;
 	    }
 	  else if (elt.ctr >= GCOV_COUNTERS_SUMMABLE)
@@ -969,7 +965,8 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	{
 	  error (is_error < 0 ? "%qs has overflowed" : "%qs is corrupted",
 		 da_file_name);
-	  counts_hash.dispose ();
+	  delete counts_hash;
+	  counts_hash = NULL;
 	  break;
 	}
     }
@@ -1007,7 +1004,7 @@ get_coverage_counts_entry (struct function *func, unsigned counter)
 
   elt.ident = FUNC_DECL_GLOBAL_ID (func);
   elt.ctr = counter;
-  entry = counts_hash.find (&elt);
+  entry = counts_hash->find (&elt);
 
   return entry;
 }
@@ -1022,7 +1019,7 @@ get_coverage_counts (unsigned counter, unsigned expected,
   counts_entry_t *entry;
 
   /* No hash table, no counts.  */
-  if (!counts_hash.is_created ())
+  if (!counts_hash)
     {
       static int warned = 0;
 
@@ -1106,12 +1103,12 @@ get_coverage_counts_no_warn (struct function *f, unsigned counter, unsigned *n_c
   counts_entry_t *entry, elt;
 
   /* No hash table, no counts.  */
-  if (!counts_hash.is_created () || !f)
+  if (!counts_hash || !f)
     return NULL;
 
   elt.ident = FUNC_DECL_GLOBAL_ID (f);
   elt.ctr = counter;
-  entry = counts_hash.find (&elt);
+  entry = counts_hash->find (&elt);
   if (!entry)
     return NULL;
 
@@ -1348,7 +1345,7 @@ coverage_compute_profile_id (struct cgraph_node *n)
   return chksum & 0x7fffffff;
 }
 
-/* Compute cfg checksum for the current function.
+/* Compute cfg checksum for the function FN given as argument.
    The checksum is calculated carefully so that
    source code changes that doesn't affect the control flow graph
    won't change the checksum.
@@ -1359,12 +1356,12 @@ coverage_compute_profile_id (struct cgraph_node *n)
    but the compiler won't detect the change and use the wrong profile data.  */
 
 unsigned
-coverage_compute_cfg_checksum (void)
+coverage_compute_cfg_checksum (struct function *fn)
 {
   basic_block bb;
-  unsigned chksum = n_basic_blocks_for_fn (cfun);
+  unsigned chksum = n_basic_blocks_for_fn (fn);
 
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB_FN (bb, fn)
     {
       edge e;
       edge_iterator ei;
@@ -1508,7 +1505,7 @@ coverage_dc_end_function (void)
 	  item->ident = FUNC_DECL_FUNC_ID (cfun);
 	  item->fn_decl = current_function_decl;
 	  item->lineno_checksum = coverage_compute_lineno_checksum ();
-	  item->cfg_checksum = coverage_compute_cfg_checksum ();
+	  item->cfg_checksum = coverage_compute_cfg_checksum (cfun);
           for (cnt = 0; cnt < GCOV_COUNTERS; cnt++)
             item->ctr_vars[cnt] = NULL_TREE;
 	}
@@ -2484,23 +2481,23 @@ rehash_callback (counts_entry **x,
 static void
 rebuild_counts_hash (void)
 {
-  hash_table <counts_entry> tmp_counts_hash;
-  tmp_counts_hash.create (10);
+  hash_table <counts_entry> *tmp_counts_hash;
+  tmp_counts_hash = new hash_table <counts_entry> (10);
   gcc_assert (primary_module_id);
 
   rebuilding_counts_hash = true;
 
   /* Move the counts entries to the temporary hashtable. */
-  counts_hash.traverse_noresize <
+  counts_hash->traverse_noresize <
     hash_table <counts_entry> *,
-    move_hash_entry_callback> (&tmp_counts_hash);
-  counts_hash.empty ();
+    move_hash_entry_callback> (tmp_counts_hash);
+  counts_hash->empty ();
 
   /* Now rehash and copy back.  */
-  tmp_counts_hash.traverse_noresize <
+  tmp_counts_hash->traverse_noresize <
     hash_table <counts_entry> *,
-    rehash_callback> (&counts_hash);
-  tmp_counts_hash.dispose();
+    rehash_callback> (counts_hash);
+  delete tmp_counts_hash;
 
   rebuilding_counts_hash = false;
 }

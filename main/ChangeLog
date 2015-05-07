@@ -1,3 +1,64 @@
+2014-06-23  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	Fix include path for in-tree cloog.
+	* config/cloog.m4 (CLOOG_INIT_FLAGS): Remove bogus include path.
+	* configure: Regenerate.
+
+2014-06-18  Richard Henderson  <rth@redhat.com>
+
+	* .gitignore: Import gcc_update output.
+
+2014-06-13  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* config-ml.in: Robustify ac_configure_args parsing.
+
+	* configure.ac (--enable-linker-plugin-configure-flags)
+	(--enable-linker-plugin-flags): New flags.
+	(configdirs): Conditionally add libiberty-linker-plugin.
+	* configure: Regenerate.
+	* Makefile.def (host_modules): Add libiberty-linker-plugin.
+	(host_modules) <lto-plugin>: Pay attention to
+	@extra_linker_plugin_flags@ and
+	@extra_linker_plugin_configure_flags@.
+	(all-lto-plugin): Also depend on all-libiberty-linker-plugin.
+	* Makefile.in: Regenerate.
+
+	* Makefile.tpl (configure-[+prefix+][+module+])
+	(configure-stage[+id+]-[+prefix+][+module+]): If specified, use
+	"module_srcdir" instead of "module" for locating a module's srcdir.
+	* Makefile.in: Regenerate.
+
+2014-06-10  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2014-06-06  Sebastian Pop  <sebpop@gmail.com>
+
+	* MAINTAINERS: Update my email address.
+
+2014-06-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2014-06-03  Andrew Bennett  <andrew.bennett@imgtec.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2014-05-30  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/61011
+	* configure.ac (--disable-libstdcxx): Set noconfigdirs correctly.
+	Disable libcilkrts, libitm, libsanitizer when not building libstdc++.
+	* configure: Regenerate.
+
+2014-05-28  Pedro Alves  <palves@redhat.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2014-05-22  Maxim Kuvyrkov  <maxim.kuvyrkov@linaro.org>
+
+	* MAINTAINERS: Update my affiliation/email.
+
 2014-05-19  Mike Stump  <mikestump@comcast.net>
 
 	* MAINTAINERS: Add wide-int reviewers.
@@ -237,7 +298,7 @@
 2013-09-12  DJ Delorie  <dj@redhat.com>
 
 	* MAINTAINERS: Add Nick Clifton and DJ Delorie as msp430
-        maintainers.
+	maintainers.
 
 2013-09-03  Richard Biener  <rguenther@suse.de>
 

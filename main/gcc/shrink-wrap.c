@@ -64,7 +64,7 @@ bool
 requires_stack_frame_p (rtx insn, HARD_REG_SET prologue_used,
 			HARD_REG_SET set_up_by_prologue)
 {
-  df_ref *df_rec;
+  df_ref def, use;
   HARD_REG_SET hardregs;
   unsigned regno;
 
@@ -76,9 +76,9 @@ requires_stack_frame_p (rtx insn, HARD_REG_SET prologue_used,
     return true;
 
   CLEAR_HARD_REG_SET (hardregs);
-  for (df_rec = DF_INSN_DEFS (insn); *df_rec; df_rec++)
+  FOR_EACH_INSN_DEF (def, insn)
     {
-      rtx dreg = DF_REF_REG (*df_rec);
+      rtx dreg = DF_REF_REG (def);
 
       if (!REG_P (dreg))
 	continue;
@@ -94,9 +94,9 @@ requires_stack_frame_p (rtx insn, HARD_REG_SET prologue_used,
 	&& df_regs_ever_live_p (regno))
       return true;
 
-  for (df_rec = DF_INSN_USES (insn); *df_rec; df_rec++)
+  FOR_EACH_INSN_USE (use, insn)
     {
-      rtx reg = DF_REF_REG (*df_rec);
+      rtx reg = DF_REF_REG (use);
 
       if (!REG_P (reg))
 	continue;
@@ -179,7 +179,12 @@ move_insn_for_shrink_wrap (basic_block bb, rtx insn,
     return false;
   src = SET_SRC (set);
   dest = SET_DEST (set);
-  if (!REG_P (dest) || !REG_P (src))
+  if (!REG_P (dest) || !REG_P (src)
+      /* STACK or FRAME related adjustment might be part of prologue.
+	 So keep them in the entry block.  */
+      || dest == stack_pointer_rtx
+      || dest == frame_pointer_rtx
+      || dest == hard_frame_pointer_rtx)
     return false;
 
   /* Make sure that the source register isn't defined later in BB.  */
@@ -204,8 +209,19 @@ move_insn_for_shrink_wrap (basic_block bb, rtx insn,
   /* Create a new basic block on the edge.  */
   if (EDGE_COUNT (next_block->preds) == 2)
     {
+      /* split_edge for a block with only one successor is meaningless.  */
+      if (EDGE_COUNT (bb->succs) == 1)
+	return false;
+
+      /* If DF_LIVE doesn't exist, i.e. at -O1, just give up.  */
+      if (!df_live)
+	return false;
+
       next_block = split_edge (live_edge);
 
+      /* We create a new basic block.  Call df_grow_bb_info to make sure
+	 all data structures are allocated.  */
+      df_grow_bb_info (df_live);
       bitmap_copy (df_get_live_in (next_block), df_get_live_out (bb));
       df_set_bb_dirty (next_block);
 
@@ -317,7 +333,7 @@ prepare_shrink_wrap (basic_block entry_block)
 {
   rtx insn, curr, x;
   HARD_REG_SET uses, defs;
-  df_ref *ref;
+  df_ref def, use;
   bool split_p = false;
 
   if (JUMP_P (BB_END (entry_block)))
@@ -337,17 +353,17 @@ prepare_shrink_wrap (basic_block entry_block)
 				       &split_p))
       {
 	/* Add all defined registers to DEFs.  */
-	for (ref = DF_INSN_DEFS (insn); *ref; ref++)
+	FOR_EACH_INSN_DEF (def, insn)
 	  {
-	    x = DF_REF_REG (*ref);
+	    x = DF_REF_REG (def);
 	    if (REG_P (x) && HARD_REGISTER_P (x))
 	      SET_HARD_REG_BIT (defs, REGNO (x));
 	  }
 
 	/* Add all used registers to USESs.  */
-	for (ref = DF_INSN_USES (insn); *ref; ref++)
+	FOR_EACH_INSN_USE (use, insn)
 	  {
-	    x = DF_REF_REG (*ref);
+	    x = DF_REF_REG (use);
 	    if (REG_P (x) && HARD_REGISTER_P (x))
 	      SET_HARD_REG_BIT (uses, REGNO (x));
 	  }

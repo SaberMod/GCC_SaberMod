@@ -79,7 +79,7 @@ typedef unsigned char uchar;
 static void
 push_char_default (st_parameter_dt *dtp, int c)
 {
-  char *new;
+
 
   if (dtp->u.p.saved_string == NULL)
     {
@@ -92,13 +92,11 @@ push_char_default (st_parameter_dt *dtp, int c)
   if (dtp->u.p.saved_used >= dtp->u.p.saved_length)
     {
       dtp->u.p.saved_length = 2 * dtp->u.p.saved_length;
-      new = realloc (dtp->u.p.saved_string, dtp->u.p.saved_length);
-      if (new == NULL)
-	generate_error (&dtp->common, LIBERROR_OS, NULL);
-      dtp->u.p.saved_string = new;
+      dtp->u.p.saved_string = 
+	xrealloc (dtp->u.p.saved_string, dtp->u.p.saved_length);
       
       // Also this should not be necessary.
-      memset (new + dtp->u.p.saved_used, 0, 
+      memset (dtp->u.p.saved_string + dtp->u.p.saved_used, 0, 
 	      dtp->u.p.saved_length - dtp->u.p.saved_used);
 
     }
@@ -126,10 +124,7 @@ push_char4 (st_parameter_dt *dtp, int c)
   if (dtp->u.p.saved_used >= dtp->u.p.saved_length)
     {
       dtp->u.p.saved_length = 2 * dtp->u.p.saved_length;
-      new = realloc (p, dtp->u.p.saved_length * sizeof (gfc_char4_t));
-      if (new == NULL)
-	generate_error (&dtp->common, LIBERROR_OS, NULL);
-      p = new;
+      p = xrealloc (p, dtp->u.p.saved_length * sizeof (gfc_char4_t));
       
       memset4 (new + dtp->u.p.saved_used, 0, 
 	      dtp->u.p.saved_length - dtp->u.p.saved_used);
@@ -398,7 +393,7 @@ eat_spaces (st_parameter_dt *dtp)
   if (is_array_io (dtp))
     {
       gfc_offset offset = stell (dtp->u.p.current_unit->s);
-      gfc_offset limit = dtp->u.p.current_unit->bytes_left;
+      gfc_offset limit = offset + dtp->u.p.current_unit->bytes_left;
 
       if (dtp->common.unit) /* kind=4 */
 	{
@@ -410,13 +405,15 @@ eat_spaces (st_parameter_dt *dtp)
 	      offset += (sizeof (gfc_char4_t));
 	      dtp->u.p.current_unit->bytes_left--;
 	    }
-	  while (offset < limit && (cc == (gfc_char4_t)' '
-		  || cc == (gfc_char4_t)'\t'));
+	  while (offset < limit && cc == (gfc_char4_t)' ');
 	  /* Back up, seek ahead, and fall through to complete the
 	     process so that END conditions are handled correctly.  */
 	  dtp->u.p.current_unit->bytes_left++;
-	  sseek (dtp->u.p.current_unit->s,
-		  offset-(sizeof (gfc_char4_t)), SEEK_SET);
+
+	  cc = dtp->internal_unit[offset];
+	  if (cc != (gfc_char4_t)' ')
+	    sseek (dtp->u.p.current_unit->s,
+		   offset-(sizeof (gfc_char4_t)), SEEK_SET);
 	}
       else
 	{
@@ -425,11 +422,13 @@ eat_spaces (st_parameter_dt *dtp)
 	      c = dtp->internal_unit[offset++];
 	      dtp->u.p.current_unit->bytes_left--;
 	    }
-	  while (offset < limit && (c == ' ' || c == '\t'));
+	  while (offset < limit && c == ' ');
 	  /* Back up, seek ahead, and fall through to complete the
 	     process so that END conditions are handled correctly.  */
 	  dtp->u.p.current_unit->bytes_left++;
-	  sseek (dtp->u.p.current_unit->s, offset-1, SEEK_SET);
+
+	  if (dtp->internal_unit[offset] != ' ')
+	    sseek (dtp->u.p.current_unit->s, offset - 1, SEEK_SET);
 	}
     }
   /* Now skip spaces, EOF and EOL are handled in next_char.  */
@@ -2553,6 +2552,38 @@ err_ret:
   return false;
 }
 
+
+static bool
+extended_look_ahead (char *p, char *q)
+{
+  char *r, *s;
+
+  /* Scan ahead to find a '%' in the p string.  */
+  for(r = p, s = q; *r && *s; s++)
+    if ((*s == '%' || *s == '+') && strcmp (r + 1, s + 1) == 0)
+      return true;
+  return false;
+}
+
+
+static bool
+strcmp_extended_type (char *p, char *q)
+{
+  char *r, *s;
+  
+  for (r = p, s = q; *r && *s; r++, s++)
+    {
+      if (*r != *s)
+	{
+	  if (*r == '%' && *s == '+' && extended_look_ahead (r, s))
+	    return true;
+	  break;
+	}
+    }
+  return false;
+}
+
+
 static namelist_info *
 find_nml_node (st_parameter_dt *dtp, char * var_name)
 {
@@ -2560,6 +2591,11 @@ find_nml_node (st_parameter_dt *dtp, char * var_name)
   while (t != NULL)
     {
       if (strcmp (var_name, t->var_name) == 0)
+	{
+	  t->touched = 1;
+	  return t;
+	}
+      if (strcmp_extended_type (var_name, t->var_name))
 	{
 	  t->touched = 1;
 	  return t;
@@ -2579,7 +2615,7 @@ nml_touch_nodes (namelist_info * nl)
 {
   index_type len = strlen (nl->var_name) + 1;
   int dim;
-  char * ext_name = (char*)xmalloc (len + 1);
+  char * ext_name = xmalloc (len + 1);
   memcpy (ext_name, nl->var_name, len-1);
   memcpy (ext_name + len - 1, "%", 2);
   for (nl = nl->next; nl; nl = nl->next)

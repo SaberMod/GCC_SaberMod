@@ -1955,7 +1955,7 @@ scalarize_intrinsic_call (gfc_expr *e)
   for (; a; a = a->next)
     {
       n++;
-      if (a->expr->expr_type != EXPR_ARRAY)
+      if (!a->expr || a->expr->expr_type != EXPR_ARRAY)
 	continue;
       array_arg = n;
       expr = gfc_copy_expr (a->expr);
@@ -4956,10 +4956,11 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
 			  en = n->expr;
 			  if (gfc_dep_compare_expr (ec, en) == 0)
 			    {
-			      gfc_error_now ("Elements with the same value at %L"
-					     " and %L in vector subscript"
-					     " in a variable definition"
-					     " context (%s)", &(ec->where),
+			      if (context)
+				gfc_error_now ("Elements with the same value at %L"
+					       " and %L in vector subscript"
+					       " in a variable definition"
+					       " context (%s)", &(ec->where),
 					     &(en->where), context);
 			      return false;
 			    }

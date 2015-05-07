@@ -1,3 +1,72 @@
+2014-06-24  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (mentions_vars_p_decl_non_common): Move DECL_VINDEX check to ..
+	(mentions_vars_p_function): ... here.
+	(compare_tree_sccs_1): Update VINDEX checks.
+	(lto_fixup_prevailing_decls): Likewise.
+
+2014-06-24  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* lto.c (canonical_type_hash_cache): Use hash_map instead of
+	pointer_map.
+
+2014-06-24  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* lto.c: Adjust.
+
+2014-06-20  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto-symtab.c (lto_varpool_replace_node): Report TLS model conflicts.
+
+2014-06-20  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (compare_tree_sccs_1): Do not compare priorities.
+
+2014-06-15  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (compare_tree_sccs_1): Do not compare DECL_TLS_MODEL.
+
+2014-06-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (read_cgraph_and_symbols): Remove unreachable symbols.
+	(do_whole_program_analysis): Use verify_symtab.
+
+2014-06-07  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (mentions_vars_p_decl_with_vis, compare_tree_sccs_1,
+	lto_fixup_prevailing_decls): Skip section names.
+
+2014-06-02  Andrew MacLeod  <amacleod@redhat.com>
+
+	* lto-symtab.c: Include builtins.h.
+
+2014-05-26  Richard Biener  <rguenther@suse.de>
+
+	* lto.c (lto_parse_hex): Use int64_t.
+	(lto_resolution_read): Likewise.
+
+2014-05-23  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (read_cgraph_and_symbols): Grow ggc memory after streaming.
+
+2014-05-23  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto-symtab.c (lto_symtab_merge_symbols): Update code setting
+	symtab pointer.
+	* lto.c (compare_tree_sccs_1): Do not compare comdat groups.
+
+2014-05-22  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* lto-lang.c (DEF_FUNCTION_TYPE_0, DEF_FUNCTION_TYPE_6)
+	(DEF_FUNCTION_TYPE_7, DEF_FUNCTION_TYPE_8)
+	(DEF_FUNCTION_TYPE_VAR_5): Cosmetic fixes.
+
+2012-05-22  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* lto-object.c: Include "lto-section-names.h".
+	(LTO_SEGMENT_NAME): Don't define.
+	* lto.c: Include "lto-section-names.h".
+
 2014-05-17  Jan Hubicka  <hubicka@ucw.cz>
 
 	PR lto/61012

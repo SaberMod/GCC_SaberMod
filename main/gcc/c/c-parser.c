@@ -61,6 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "plugin.h"
 #include "omp-low.h"
+#include "builtins.h"
 
 
 /* Initialization routine for this file.  */
@@ -4947,9 +4948,10 @@ c_parser_statement_after_labels (c_parser *parser)
 	    }
 	  else
 	    {
+	      location_t xloc = c_parser_peek_token (parser)->location;
 	      struct c_expr expr = c_parser_expression_conv (parser);
 	      mark_exp_read (expr.value);
-	      stmt = c_finish_return (loc, expr.value, expr.original_type);
+	      stmt = c_finish_return (xloc, expr.value, expr.original_type);
 	      goto expect_semicolon;
 	    }
 	  break;
@@ -5196,9 +5198,13 @@ c_parser_switch_statement (c_parser *parser)
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_SWITCH));
   c_parser_consume_token (parser);
   block = c_begin_compound_stmt (flag_isoc99);
+  bool explicit_cast_p = false;
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
       switch_cond_loc = c_parser_peek_token (parser)->location;
+      if (c_parser_next_token_is (parser, CPP_OPEN_PAREN)
+	  && c_token_starts_typename (c_parser_peek_2nd_token (parser)))
+	explicit_cast_p = true;
       ce = c_parser_expression (parser);
       ce = convert_lvalue_to_rvalue (switch_cond_loc, ce, true, false);
       expr = ce.value;
@@ -5216,7 +5222,7 @@ c_parser_switch_statement (c_parser *parser)
       switch_cond_loc = UNKNOWN_LOCATION;
       expr = error_mark_node;
     }
-  c_start_case (switch_loc, switch_cond_loc, expr);
+  c_start_case (switch_loc, switch_cond_loc, expr, explicit_cast_p);
   save_break = c_break_label;
   c_break_label = NULL_TREE;
   body = c_parser_c99_block_statement (parser);
@@ -10453,7 +10459,7 @@ c_parser_omp_clause_num_teams (c_parser *parser, tree list)
 static tree
 c_parser_omp_clause_thread_limit (c_parser *parser, tree list)
 {
-  location_t num_teams_loc = c_parser_peek_token (parser)->location;
+  location_t num_thread_limit_loc = c_parser_peek_token (parser)->location;
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
       location_t expr_loc = c_parser_peek_token (parser)->location;
@@ -10483,7 +10489,7 @@ c_parser_omp_clause_thread_limit (c_parser *parser, tree list)
       check_no_duplicate_clause (list, OMP_CLAUSE_THREAD_LIMIT,
 				 "thread_limit");
 
-      c = build_omp_clause (num_teams_loc, OMP_CLAUSE_THREAD_LIMIT);
+      c = build_omp_clause (num_thread_limit_loc, OMP_CLAUSE_THREAD_LIMIT);
       OMP_CLAUSE_THREAD_LIMIT_EXPR (c) = t;
       OMP_CLAUSE_CHAIN (c) = list;
       list = c;
@@ -11905,8 +11911,17 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 			tree l = build_omp_clause (OMP_CLAUSE_LOCATION (*c),
 						   OMP_CLAUSE_LASTPRIVATE);
 			OMP_CLAUSE_DECL (l) = OMP_CLAUSE_DECL (*c);
-			OMP_CLAUSE_CHAIN (l) = clauses;
-			clauses = l;
+			if (code == OMP_SIMD)
+			  {
+			    OMP_CLAUSE_CHAIN (l)
+			      = cclauses[C_OMP_CLAUSE_SPLIT_FOR];
+			    cclauses[C_OMP_CLAUSE_SPLIT_FOR] = l;
+			  }
+			else
+			  {
+			    OMP_CLAUSE_CHAIN (l) = clauses;
+			    clauses = l;
+			  }
 			OMP_CLAUSE_SET_CODE (*c, OMP_CLAUSE_SHARED);
 		      }
 		  }
@@ -12720,15 +12735,19 @@ c_parser_omp_target (c_parser *parser, enum pragma_context context)
 	  c_parser_consume_token (parser);
 	  strcpy (p_name, "#pragma omp target");
 	  if (!flag_openmp)  /* flag_openmp_simd  */
-	    return c_parser_omp_teams (loc, parser, p_name,
-				       OMP_TARGET_CLAUSE_MASK, cclauses);
+	    {
+	      tree stmt = c_parser_omp_teams (loc, parser, p_name,
+					      OMP_TARGET_CLAUSE_MASK,
+					      cclauses);
+	      return stmt != NULL_TREE;
+	    }
 	  keep_next_level ();
 	  tree block = c_begin_compound_stmt (true);
 	  tree ret = c_parser_omp_teams (loc, parser, p_name,
 					 OMP_TARGET_CLAUSE_MASK, cclauses);
 	  block = c_end_compound_stmt (loc, block, true);
-	  if (ret == NULL)
-	    return ret;
+	  if (ret == NULL_TREE)
+	    return false;
 	  tree stmt = make_node (OMP_TARGET);
 	  TREE_TYPE (stmt) = void_type_node;
 	  OMP_TARGET_CLAUSES (stmt) = cclauses[C_OMP_CLAUSE_SPLIT_TARGET];
@@ -12739,7 +12758,7 @@ c_parser_omp_target (c_parser *parser, enum pragma_context context)
       else if (!flag_openmp)  /* flag_openmp_simd  */
 	{
 	  c_parser_skip_to_pragma_eol (parser);
-	  return NULL_TREE;
+	  return false;
 	}
       else if (strcmp (p, "data") == 0)
 	{
@@ -13548,7 +13567,7 @@ c_parser_omp_threadprivate (c_parser *parser)
 	{
 	  if (! DECL_THREAD_LOCAL_P (v))
 	    {
-	      DECL_TLS_MODEL (v) = decl_default_tls_model (v);
+	      set_decl_tls_model (v, decl_default_tls_model (v));
 	      /* If rtl has been already set for this var, call
 		 make_decl_rtl once again, so that encode_section_info
 		 has a chance to look at the new decl flags.  */

@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-streamer.h"
 #include "ipa-utils.h"
 #include "ipa-inline.h"
+#include "builtins.h"
 
 /* Replace the cgraph node NODE with PREVAILING_NODE in the cgraph, merging
    all edges and removing the old node.  */
@@ -83,7 +84,7 @@ lto_cgraph_replace_node (struct cgraph_node *node,
 	e->call_stmt_cannot_inline_p = 1;
     }
   /* Redirect incomming references.  */
-  ipa_clone_referring (prevailing_node, &node->ref_list);
+  prevailing_node->clone_referring (node);
 
   ipa_merge_profiles (prevailing_node, node);
   lto_free_function_in_decl_state_for_node (node);
@@ -105,7 +106,7 @@ lto_varpool_replace_node (varpool_node *vnode,
   gcc_assert (!vnode->definition || prevailing_node->definition);
   gcc_assert (!vnode->analyzed || prevailing_node->analyzed);
 
-  ipa_clone_referring (prevailing_node, &vnode->ref_list);
+  prevailing_node->clone_referring (vnode);
   if (vnode->force_output)
     prevailing_node->force_output = true;
   if (vnode->forced_by_abi)
@@ -115,6 +116,15 @@ lto_varpool_replace_node (varpool_node *vnode,
   if (DECL_INITIAL (vnode->decl)
       && vnode->decl != prevailing_node->decl)
     DECL_INITIAL (vnode->decl) = error_mark_node;
+
+  if (vnode->tls_model != prevailing_node->tls_model)
+    {
+      error_at (DECL_SOURCE_LOCATION (vnode->decl),
+		"%qD is defined as %s", vnode->decl, tls_model_names [vnode->tls_model]);
+      inform (DECL_SOURCE_LOCATION (prevailing_node->decl),
+	      "previously defined here as %s",
+	      tls_model_names [prevailing_node->tls_model]);
+    }
   /* Finally remove the replaced node.  */
   varpool_remove_node (vnode);
 }
@@ -644,7 +654,7 @@ lto_symtab_merge_symbols (void)
 		       && cnode2 != cnode)
 		cgraph_remove_node (cnode2);
 
-	      symtab_insert_node_to_hashtable (node);
+	      node->decl->decl_with_vis.symtab_node = node;
 	    }
 	}
     }

@@ -47,6 +47,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "asan.h"
 #include "gimplify-me.h"
 #include "intl.h"
+#include "realmpfr.h"
+#include "dfp.h"
 
 /* Map from a tree to a VAR_DECL tree.  */
 
@@ -267,20 +269,26 @@ static unsigned short
 get_ubsan_type_info_for_type (tree type)
 {
   gcc_assert (TYPE_SIZE (type) && tree_fits_uhwi_p (TYPE_SIZE (type)));
-  int prec = exact_log2 (tree_to_uhwi (TYPE_SIZE (type)));
-  gcc_assert (prec != -1);
-  return (prec << 1) | !TYPE_UNSIGNED (type);
+  if (TREE_CODE (type) == REAL_TYPE)
+    return tree_to_uhwi (TYPE_SIZE (type));
+  else if (INTEGRAL_TYPE_P (type))
+    {
+      int prec = exact_log2 (tree_to_uhwi (TYPE_SIZE (type)));
+      gcc_assert (prec != -1);
+      return (prec << 1) | !TYPE_UNSIGNED (type);
+    }
+  else
+    return 0;
 }
 
 /* Helper routine that returns ADDR_EXPR of a VAR_DECL of a type
    descriptor.  It first looks into the hash table; if not found,
    create the VAR_DECL, put it into the hash table and return the
-   ADDR_EXPR of it.  TYPE describes a particular type.  WANT_POINTER_TYPE_P
-   means whether we are interested in the pointer type and not the pointer
-   itself.  */
+   ADDR_EXPR of it.  TYPE describes a particular type.  PSTYLE is
+   an enum controlling how we want to print the type.  */
 
 tree
-ubsan_type_descriptor (tree type, bool want_pointer_type_p)
+ubsan_type_descriptor (tree type, enum ubsan_print_style pstyle)
 {
   /* See through any typedefs.  */
   type = TYPE_MAIN_VARIANT (type);
@@ -301,7 +309,7 @@ ubsan_type_descriptor (tree type, bool want_pointer_type_p)
   unsigned short tkind, tinfo;
 
   /* Get the name of the type, or the name of the pointer type.  */
-  if (want_pointer_type_p)
+  if (pstyle == UBSAN_PRINT_POINTER)
     {
       gcc_assert (POINTER_TYPE_P (type));
       type2 = TREE_TYPE (type);
@@ -317,6 +325,12 @@ ubsan_type_descriptor (tree type, bool want_pointer_type_p)
   /* If an array, get its type.  */
   type2 = strip_array_types (type2);
 
+  if (pstyle == UBSAN_PRINT_ARRAY)
+    {
+      while (POINTER_TYPE_P (type2))
+        deref_depth++, type2 = TREE_TYPE (type2);
+    }
+
   if (TYPE_NAME (type2) != NULL)
     {
       if (TREE_CODE (TYPE_NAME (type2)) == IDENTIFIER_NODE)
@@ -331,7 +345,7 @@ ubsan_type_descriptor (tree type, bool want_pointer_type_p)
 
   /* Decorate the type name with '', '*', "struct", or "union".  */
   pretty_name = (char *) alloca (strlen (tname) + 16 + deref_depth);
-  if (want_pointer_type_p)
+  if (pstyle == UBSAN_PRINT_POINTER)
     {
       int pos = sprintf (pretty_name, "'%s%s%s%s%s%s%s",
 			 TYPE_VOLATILE (type2) ? "volatile " : "",
@@ -348,6 +362,33 @@ ubsan_type_descriptor (tree type, bool want_pointer_type_p)
       pretty_name[pos++] = '\'';
       pretty_name[pos] = '\0';
     }
+  else if (pstyle == UBSAN_PRINT_ARRAY)
+    {
+      /* Pretty print the array dimensions.  */
+      gcc_assert (TREE_CODE (type) == ARRAY_TYPE);
+      tree t = type;
+      int pos = sprintf (pretty_name, "'%s ", tname);
+      while (deref_depth-- > 0)
+        pretty_name[pos++] = '*';
+      while (TREE_CODE (t) == ARRAY_TYPE)
+	{
+	  pretty_name[pos++] = '[';
+	  tree dom = TYPE_DOMAIN (t);
+	  if (dom && TREE_CODE (TYPE_MAX_VALUE (dom)) == INTEGER_CST)
+	    pos += sprintf (&pretty_name[pos], HOST_WIDE_INT_PRINT_DEC,
+			    tree_to_shwi (TYPE_MAX_VALUE (dom)) + 1);
+	  else
+	    /* ??? We can't determine the variable name; print VLA unspec.  */
+	    pretty_name[pos++] = '*';
+	  pretty_name[pos++] = ']';
+	  t = TREE_TYPE (t);
+	}
+      pretty_name[pos++] = '\'';
+      pretty_name[pos] = '\0';
+
+     /* Save the tree with stripped types.  */
+     type = t;
+    }
   else
     sprintf (pretty_name, "'%s'", tname);
 
@@ -359,7 +400,14 @@ ubsan_type_descriptor (tree type, bool want_pointer_type_p)
       tkind = 0x0000;
       break;
     case REAL_TYPE:
-      tkind = 0x0001;
+      /* FIXME: libubsan right now only supports float, double and
+	 long double type formats.  */
+      if (TYPE_MODE (type) == TYPE_MODE (float_type_node)
+	  || TYPE_MODE (type) == TYPE_MODE (double_type_node)
+	  || TYPE_MODE (type) == TYPE_MODE (long_double_type_node))
+	tkind = 0x0001;
+      else
+	tkind = 0xffff;
       break;
     default:
       tkind = 0xffff;
@@ -536,6 +584,69 @@ is_ubsan_builtin_p (tree t)
 		     "__builtin___ubsan_", 18) == 0;
 }
 
+/* Expand the UBSAN_BOUNDS special builtin function.  */
+
+void
+ubsan_expand_bounds_ifn (gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  location_t loc = gimple_location (stmt);
+  gcc_assert (gimple_call_num_args (stmt) == 3);
+
+  /* Pick up the arguments of the UBSAN_BOUNDS call.  */
+  tree type = TREE_TYPE (TREE_TYPE (gimple_call_arg (stmt, 0)));
+  tree index = gimple_call_arg (stmt, 1);
+  tree orig_index_type = TREE_TYPE (index);
+  tree bound = gimple_call_arg (stmt, 2);
+
+  gimple_stmt_iterator gsi_orig = *gsi;
+
+  /* Create condition "if (index > bound)".  */
+  basic_block then_bb, fallthru_bb;
+  gimple_stmt_iterator cond_insert_point
+    = create_cond_insert_point (gsi, 0/*before_p*/, false, true,
+				&then_bb, &fallthru_bb);
+  index = fold_convert (TREE_TYPE (bound), index);
+  index = force_gimple_operand_gsi (&cond_insert_point, index,
+				    true/*simple_p*/, NULL_TREE,
+				    false/*before*/, GSI_NEW_STMT);
+  gimple g = gimple_build_cond (GT_EXPR, index, bound, NULL_TREE, NULL_TREE);
+  gimple_set_location (g, loc);
+  gsi_insert_after (&cond_insert_point, g, GSI_NEW_STMT);
+
+  /* Generate __ubsan_handle_out_of_bounds call.  */
+  *gsi = gsi_after_labels (then_bb);
+  if (flag_sanitize_undefined_trap_on_error)
+    g = gimple_build_call (builtin_decl_explicit (BUILT_IN_TRAP), 0);
+  else
+    {
+      tree data
+	= ubsan_create_data ("__ubsan_out_of_bounds_data", &loc, NULL,
+			     ubsan_type_descriptor (type, UBSAN_PRINT_ARRAY),
+			     ubsan_type_descriptor (orig_index_type),
+			     NULL_TREE);
+      data = build_fold_addr_expr_loc (loc, data);
+      enum built_in_function bcode
+	= flag_sanitize_recover
+	  ? BUILT_IN_UBSAN_HANDLE_OUT_OF_BOUNDS
+	  : BUILT_IN_UBSAN_HANDLE_OUT_OF_BOUNDS_ABORT;
+      tree fn = builtin_decl_explicit (bcode);
+      tree val = force_gimple_operand_gsi (gsi, ubsan_encode_value (index),
+					   true, NULL_TREE, true,
+					   GSI_SAME_STMT);
+      g = gimple_build_call (fn, 2, data, val);
+    }
+  gimple_set_location (g, loc);
+  gsi_insert_before (gsi, g, GSI_SAME_STMT);
+
+  /* Get rid of the UBSAN_BOUNDS call from the IR.  */
+  unlink_stmt_vdef (stmt);
+  gsi_remove (&gsi_orig, true);
+
+  /* Point GSI to next logical statement.  */
+  *gsi = gsi_start_bb (fallthru_bb);
+}
+
 /* Expand UBSAN_NULL internal call.  */
 
 void
@@ -557,11 +668,8 @@ ubsan_expand_null_ifn (gimple_stmt_iterator gsi)
   basic_block cond_bb = e->src;
   basic_block fallthru_bb = e->dest;
   basic_block then_bb = create_empty_bb (cond_bb);
-  if (current_loops)
-    {
-      add_bb_to_loop (then_bb, cond_bb->loop_father);
-      loops_state_set (LOOPS_NEED_FIXUP);
-    }
+  add_bb_to_loop (then_bb, cond_bb->loop_father);
+  loops_state_set (LOOPS_NEED_FIXUP);
 
   /* Make an edge coming from the 'cond block' into the 'then block';
      this edge is unlikely taken, so set up the probability accordingly.  */
@@ -598,9 +706,11 @@ ubsan_expand_null_ifn (gimple_stmt_iterator gsi)
       tree fn = builtin_decl_implicit (bcode);
       const struct ubsan_mismatch_data m
 	= { build_zero_cst (pointer_sized_int_node), ckind };
-      tree data = ubsan_create_data ("__ubsan_null_data", &loc, &m,
-				     ubsan_type_descriptor (TREE_TYPE (ptr),
-							    true), NULL_TREE);
+      tree data
+	= ubsan_create_data ("__ubsan_null_data", &loc, &m,
+			     ubsan_type_descriptor (TREE_TYPE (ptr),
+						    UBSAN_PRINT_POINTER),
+			     NULL_TREE);
       data = build_fold_addr_expr_loc (loc, data);
       g = gimple_build_call (fn, 2, data,
 			     build_zero_cst (pointer_sized_int_node));
@@ -678,8 +788,7 @@ ubsan_build_overflow_builtin (tree_code code, location_t loc, tree lhstype,
     return build_call_expr_loc (loc, builtin_decl_explicit (BUILT_IN_TRAP), 0);
 
   tree data = ubsan_create_data ("__ubsan_overflow_data", &loc, NULL,
-				 ubsan_type_descriptor (lhstype, false),
-				 NULL_TREE);
+				 ubsan_type_descriptor (lhstype), NULL_TREE);
   enum built_in_function fn_code;
 
   switch (code)
@@ -873,8 +982,7 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
   else
     {
       tree data = ubsan_create_data ("__ubsan_invalid_value_data", &loc, NULL,
-				     ubsan_type_descriptor (type, false),
-				     NULL_TREE);
+				     ubsan_type_descriptor (type), NULL_TREE);
       data = build_fold_addr_expr_loc (loc, data);
       enum built_in_function bcode
 	= flag_sanitize_recover
@@ -889,6 +997,128 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
     }
   gimple_set_location (g, loc);
   gsi_insert_before (&gsi2, g, GSI_SAME_STMT);
+}
+
+/* Instrument float point-to-integer conversion.  TYPE is an integer type of
+   destination, EXPR is floating-point expression.  */
+
+tree
+ubsan_instrument_float_cast (location_t loc, tree type, tree expr)
+{
+  tree expr_type = TREE_TYPE (expr);
+  tree t, tt, fn, min, max;
+  enum machine_mode mode = TYPE_MODE (expr_type);
+  int prec = TYPE_PRECISION (type);
+  bool uns_p = TYPE_UNSIGNED (type);
+
+  /* Float to integer conversion first truncates toward zero, so
+     even signed char c = 127.875f; is not problematic.
+     Therefore, we should complain only if EXPR is unordered or smaller
+     or equal than TYPE_MIN_VALUE - 1.0 or greater or equal than
+     TYPE_MAX_VALUE + 1.0.  */
+  if (REAL_MODE_FORMAT (mode)->b == 2)
+    {
+      /* For maximum, TYPE_MAX_VALUE might not be representable
+	 in EXPR_TYPE, e.g. if TYPE is 64-bit long long and
+	 EXPR_TYPE is IEEE single float, but TYPE_MAX_VALUE + 1.0 is
+	 either representable or infinity.  */
+      REAL_VALUE_TYPE maxval = dconst1;
+      SET_REAL_EXP (&maxval, REAL_EXP (&maxval) + prec - !uns_p);
+      real_convert (&maxval, mode, &maxval);
+      max = build_real (expr_type, maxval);
+
+      /* For unsigned, assume -1.0 is always representable.  */
+      if (uns_p)
+	min = build_minus_one_cst (expr_type);
+      else
+	{
+	  /* TYPE_MIN_VALUE is generally representable (or -inf),
+	     but TYPE_MIN_VALUE - 1.0 might not be.  */
+	  REAL_VALUE_TYPE minval = dconstm1, minval2;
+	  SET_REAL_EXP (&minval, REAL_EXP (&minval) + prec - 1);
+	  real_convert (&minval, mode, &minval);
+	  real_arithmetic (&minval2, MINUS_EXPR, &minval, &dconst1);
+	  real_convert (&minval2, mode, &minval2);
+	  if (real_compare (EQ_EXPR, &minval, &minval2)
+	      && !real_isinf (&minval))
+	    {
+	      /* If TYPE_MIN_VALUE - 1.0 is not representable and
+		 rounds to TYPE_MIN_VALUE, we need to subtract
+		 more.  As REAL_MODE_FORMAT (mode)->p is the number
+		 of base digits, we want to subtract a number that
+		 will be 1 << (REAL_MODE_FORMAT (mode)->p - 1)
+		 times smaller than minval.  */
+	      minval2 = dconst1;
+	      gcc_assert (prec > REAL_MODE_FORMAT (mode)->p);
+	      SET_REAL_EXP (&minval2,
+			    REAL_EXP (&minval2) + prec - 1
+			    - REAL_MODE_FORMAT (mode)->p + 1);
+	      real_arithmetic (&minval2, MINUS_EXPR, &minval, &minval2);
+	      real_convert (&minval2, mode, &minval2);
+	    }
+	  min = build_real (expr_type, minval2);
+	}
+    }
+  else if (REAL_MODE_FORMAT (mode)->b == 10)
+    {
+      /* For _Decimal128 up to 34 decimal digits, - sign,
+	 dot, e, exponent.  */
+      char buf[64];
+      mpfr_t m;
+      int p = REAL_MODE_FORMAT (mode)->p;
+      REAL_VALUE_TYPE maxval, minval;
+
+      /* Use mpfr_snprintf rounding to compute the smallest
+	 representable decimal number greater or equal than
+	 1 << (prec - !uns_p).  */
+      mpfr_init2 (m, prec + 2);
+      mpfr_set_ui_2exp (m, 1, prec - !uns_p, GMP_RNDN);
+      mpfr_snprintf (buf, sizeof buf, "%.*RUe", p - 1, m);
+      decimal_real_from_string (&maxval, buf);
+      max = build_real (expr_type, maxval);
+
+      /* For unsigned, assume -1.0 is always representable.  */
+      if (uns_p)
+	min = build_minus_one_cst (expr_type);
+      else
+	{
+	  /* Use mpfr_snprintf rounding to compute the largest
+	     representable decimal number less or equal than
+	     (-1 << (prec - 1)) - 1.  */
+	  mpfr_set_si_2exp (m, -1, prec - 1, GMP_RNDN);
+	  mpfr_sub_ui (m, m, 1, GMP_RNDN);
+	  mpfr_snprintf (buf, sizeof buf, "%.*RDe", p - 1, m);
+	  decimal_real_from_string (&minval, buf);
+	  min = build_real (expr_type, minval);
+	}
+      mpfr_clear (m);
+    }
+  else
+    return NULL_TREE;
+
+  if (flag_sanitize_undefined_trap_on_error)
+    fn = build_call_expr_loc (loc, builtin_decl_explicit (BUILT_IN_TRAP), 0);
+  else
+    {
+      /* Create the __ubsan_handle_float_cast_overflow fn call.  */
+      tree data = ubsan_create_data ("__ubsan_float_cast_overflow_data", NULL,
+				     NULL, ubsan_type_descriptor (expr_type),
+				     ubsan_type_descriptor (type), NULL_TREE);
+      enum built_in_function bcode
+	= flag_sanitize_recover
+	  ? BUILT_IN_UBSAN_HANDLE_FLOAT_CAST_OVERFLOW
+	  : BUILT_IN_UBSAN_HANDLE_FLOAT_CAST_OVERFLOW_ABORT;
+      fn = builtin_decl_explicit (bcode);
+      fn = build_call_expr_loc (loc, fn, 2,
+				build_fold_addr_expr_loc (loc, data),
+				ubsan_encode_value (expr, false));
+    }
+
+  t = fold_build2 (UNLE_EXPR, boolean_type_node, expr, min);
+  tt = fold_build2 (UNGE_EXPR, boolean_type_node, expr, max);
+  return fold_build3 (COND_EXPR, void_type_node,
+		      fold_build2 (TRUTH_OR_EXPR, boolean_type_node, t, tt),
+		      fn, integer_zero_node);
 }
 
 namespace {

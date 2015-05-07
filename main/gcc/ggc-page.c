@@ -156,7 +156,7 @@ along with GCC; see the file COPYING3.  If not see
 struct max_alignment {
   char c;
   union {
-    HOST_WIDEST_INT i;
+    int64_t i;
     void *p;
   } u;
 };
@@ -2183,6 +2183,23 @@ ggc_collect (void)
     fprintf (stderr, "%luk}", (unsigned long) G.allocated / 1024);
   if (GGC_DEBUG_LEVEL >= 2)
     fprintf (G.debug_file, "END COLLECTING\n");
+}
+
+/* Assume that all GGC memory is reachable and grow the limits for next collection.
+   With checking, trigger GGC so -Q compilation outputs how much of memory really is
+   reachable.  */
+
+void
+ggc_grow (void)
+{
+#ifndef ENABLE_CHECKING
+  G.allocated_last_gc = MAX (G.allocated_last_gc,
+			     G.allocated);
+#else
+  ggc_collect ();
+#endif
+  if (!quiet_flag)
+    fprintf (stderr, " {GC start %luk} ", (unsigned long) G.allocated / 1024);
 }
 
 /* Print allocation statistics.  */

@@ -273,6 +273,8 @@ if test "x${with_newlib}" = "xyes"; then
    AC_DEFINE(HAVE_VSNPRINTF, 1, [Define if you have vsnprintf.])
    AC_DEFINE(HAVE_LOCALTIME_R, 1, [Define if you have localtime_r.])
    AC_DEFINE(HAVE_GMTIME_R, 1, [Define if you have gmtime_r.])
+   AC_DEFINE(HAVE_STRNLEN, 1, [Define if you have strnlen.])
+   AC_DEFINE(HAVE_STRNDUP, 1, [Define if you have strndup.])
 
    # At some point, we should differentiate between architectures
    # like x86, which have long double versions, and alpha/powerpc/etc.,
@@ -519,8 +521,14 @@ fi
 
 # Check for SysV fpsetmask
 LIBGFOR_CHECK_FPSETMASK
-AC_CHECK_TYPES([fp_except,fp_except_t], [], [], [[#include <ieeefp.h>]])
-AC_CHECK_TYPES([fp_rnd,fp_rnd_t], [], [], [[#include <ieeefp.h>]])
+AC_CHECK_TYPES([fp_except,fp_except_t], [], [], [[
+#include <ieeefp.h>
+#include <math.h>
+]])
+AC_CHECK_TYPES([fp_rnd,fp_rnd_t], [], [], [[
+#include <ieeefp.h>
+#include <math.h>
+]])
 
 # Check for AIX fp_trap and fp_enable
 AC_CHECK_FUNC([fp_trap],[have_fp_trap=yes AC_DEFINE([HAVE_FP_TRAP],[1],[fp_trap is present])])

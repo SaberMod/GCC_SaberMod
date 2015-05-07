@@ -686,7 +686,7 @@ struct GTY(()) function {
 
 /* The bit width of function id in the global function id used
    in LIPO.  */
-#define FUNC_ID_WIDTH HOST_BITS_PER_WIDEST_INT / 2
+#define FUNC_ID_WIDTH 64 / 2
 /* The mask to extract function id from the global function id.  */
 #define FUNC_ID_MASK ((1ll << FUNC_ID_WIDTH) - 1)
 /* Macro to extract module id from global function id GID.  */
@@ -696,7 +696,7 @@ struct GTY(()) function {
 #define EXTRACT_FUNC_ID_FROM_GLOBAL_ID(gid) (unsigned)((gid) & FUNC_ID_MASK)
 /* Macro to generate a global function id from module id M and
    function id F.  */
-#define GEN_FUNC_GLOBAL_ID(m,f) ((((HOST_WIDEST_INT) (m)) << FUNC_ID_WIDTH)\
+#define GEN_FUNC_GLOBAL_ID(m,f) ((((uint64_t) (m)) << FUNC_ID_WIDTH)\
                                  | (f))
 /* Access macro for module_id field of function FUNC.  */
 #define FUNC_DECL_MODULE_ID(func) ((func)->module_id)

@@ -288,7 +288,6 @@ static void
 set_new_clone_decl_and_node_flags (cgraph_node *new_node)
 {
   DECL_EXTERNAL (new_node->decl) = 0;
-  DECL_COMDAT_GROUP (new_node->decl) = 0;
   TREE_PUBLIC (new_node->decl) = 0;
   DECL_COMDAT (new_node->decl) = 0;
   DECL_WEAK (new_node->decl) = 0;
@@ -346,7 +345,6 @@ duplicate_thunk_for_node (cgraph_node *thunk, cgraph_node *node,
 
   DECL_NAME (new_decl) = clone_function_name (thunk->decl, "artificial_thunk");
   SET_DECL_ASSEMBLER_NAME (new_decl, DECL_NAME (new_decl));
-  DECL_SECTION_NAME (new_decl) = NULL;
 
   new_thunk = cgraph_create_node (new_decl);
   set_new_clone_decl_and_node_flags (new_thunk);
@@ -359,7 +357,7 @@ duplicate_thunk_for_node (cgraph_node *thunk, cgraph_node *node,
 					      CGRAPH_FREQ_BASE);
   e->call_stmt_cannot_inline_p = true;
   cgraph_call_edge_duplication_hooks (thunk->callees, e);
-  if (!expand_thunk (new_thunk, false))
+  if (!expand_thunk (new_thunk, false, false))
     new_thunk->analyzed = true;
   cgraph_call_node_duplication_hooks (thunk, new_thunk);
   return new_thunk;
@@ -473,7 +471,7 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
   for (e = n->indirect_calls; e; e = e->next_callee)
     cgraph_clone_edge (e, new_node, e->call_stmt, e->lto_stmt_uid,
 		       count_scale, freq, update_original);
-  ipa_clone_references (new_node, &n->ref_list);
+  new_node->clone_references (n);
 
   new_node->next_sibling_clone = n->clones;
   if (n->clones)
@@ -570,8 +568,6 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
      that is not weak also.
      ??? We cannot use COMDAT linkage because there is no
      ABI support for this.  */
-  if (DECL_COMDAT_GROUP (old_decl))
-    DECL_SECTION_NAME (new_node->decl) = NULL;
   set_new_clone_decl_and_node_flags (new_node);
   new_node->clone.tree_map = tree_map;
   new_node->clone.args_to_skip = args_to_skip;
@@ -584,8 +580,7 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
       || in_lto_p)
     new_node->unique_name = true;
   FOR_EACH_VEC_SAFE_ELT (tree_map, i, map)
-    ipa_maybe_record_reference (new_node, map->new_tree,
-				IPA_REF_ADDR, NULL);
+    new_node->maybe_add_reference (map->new_tree, IPA_REF_ADDR, NULL);
   if (!args_to_skip)
     new_node->clone.combined_args_to_skip = old_node->clone.combined_args_to_skip;
   else if (old_node->clone.combined_args_to_skip)
@@ -1052,7 +1047,7 @@ cgraph_materialize_clone (struct cgraph_node *node)
     {
       cgraph_release_function_body (node->clone_of);
       cgraph_node_remove_callees (node->clone_of);
-      ipa_remove_all_references (&node->clone_of->ref_list);
+      node->clone_of->remove_all_references ();
     }
   node->clone_of = NULL;
   bitmap_obstack_release (NULL);
@@ -1137,10 +1132,10 @@ cgraph_materialize_all_clones (void)
     if (!node->analyzed && node->callees)
       {
         cgraph_node_remove_callees (node);
-	ipa_remove_all_references (&node->ref_list);
+	node->remove_all_references ();
       }
     else
-      ipa_clear_stmts_in_references (node);
+      node->clear_stmts_in_references ();
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "Materialization Call site updates done.\n");
 #ifdef ENABLE_CHECKING

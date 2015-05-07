@@ -73,6 +73,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "pass_manager.h"
 #include "context.h"
+#include "builtins.h"
 
 int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
 
@@ -1757,7 +1758,8 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
       else
 	opc = NULL_RTX;
 
-      if ((tls_kind = tls_symbolic_operand (op1, Pmode)) != TLS_MODEL_NONE)
+      if (! reload_in_progress && ! reload_completed
+	  && (tls_kind = tls_symbolic_operand (op1, Pmode)) != TLS_MODEL_NONE)
 	{
 	  rtx tga_op1, tga_ret, tmp, tmp2;
 
@@ -2088,12 +2090,11 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
 	    lsw_taken_prob = prob ? REG_BR_PROB_BASE : 0;
 	  else
 	    {
-	      gcc_assert (HOST_BITS_PER_WIDEST_INT >= 64);
 	      lsw_taken_prob
 		= (prob
 		   ? (REG_BR_PROB_BASE
-		      - ((HOST_WIDEST_INT) REG_BR_PROB_BASE * rev_prob
-			 / ((HOST_WIDEST_INT) prob << 32)))
+		      - ((gcov_type) REG_BR_PROB_BASE * rev_prob
+			 / ((gcov_type) prob << 32)))
 		   : 0);
 	    }
 	}

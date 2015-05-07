@@ -1701,7 +1701,7 @@ Elemental function
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .70
-@item @var{X} @tab The type shall be @code{REAL}, and it shall be scalar.
+@item @var{X} @tab The type shall be @code{REAL}.
 @end multitable
 
 @item @emph{Return value}:
@@ -1750,11 +1750,11 @@ Elemental function
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .70
-@item @var{X} @tab The type shall be @code{REAL}, and it shall be scalar.
+@item @var{X} @tab The type shall be @code{REAL}.
 @end multitable
 
 @item @emph{Return value}:
-The return value is of type @code{REAL} and it lies in the
+The return value is of type @code{REAL} and lies in the
 range @math{ - 0.5818... \leq Bessel (0,x) \leq 0.5818 }. It has the same
 kind as @var{X}.
 
@@ -1865,12 +1865,11 @@ Elemental function
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .70
-@item @var{X} @tab The type shall be @code{REAL}, and it shall be scalar.
+@item @var{X} @tab The type shall be @code{REAL}.
 @end multitable
 
 @item @emph{Return value}:
-The return value is a scalar of type @code{REAL}. It has the same
-kind as @var{X}.
+The return value is of type @code{REAL}. It has the same kind as @var{X}.
 
 @item @emph{Example}:
 @smallexample
@@ -1913,12 +1912,11 @@ Elemental function
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .70
-@item @var{X} @tab The type shall be @code{REAL}, and it shall be scalar.
+@item @var{X} @tab The type shall be @code{REAL}.
 @end multitable
 
 @item @emph{Return value}:
-The return value is a scalar of type @code{REAL}. It has the same
-kind as @var{X}.
+The return value is of type @code{REAL}. It has the same kind as @var{X}.
 
 @item @emph{Example}:
 @smallexample
@@ -3508,10 +3506,8 @@ end program test_cshift
 @table @asis
 @item @emph{Description}:
 @code{CTIME} converts a system time value, such as returned by
-@code{TIME8}, to a string. Unless the application has called
-@code{setlocale}, the output will be in the default locale, of length
-24 and of the form @samp{Sat Aug 19 18:13:14 1995}. In other locales,
-a longer string may result.
+@code{TIME8}, to a string. The output will be of the form @samp{Sat
+Aug 19 18:13:14 1995}.
 
 This intrinsic is provided in both subroutine and function forms; however,
 only one form can be used in any given program unit.
@@ -9676,18 +9672,32 @@ REAL, POINTER, DIMENSION(:) :: VEC => NULL ()
 Returns the number of images.
 
 @item @emph{Standard}:
-Fortran 2008 and later
+Fortran 2008 and later. With @var{DISTANCE} or @var{FAILED} argument, 
+Technical Specification (TS) 18508 or later
+
 
 @item @emph{Class}:
 Transformational function
 
 @item @emph{Syntax}:
-@code{RESULT = NUM_IMAGES()}
+@code{RESULT = NUM_IMAGES(DISTANCE, FAILED)}
 
-@item @emph{Arguments}: None.
+@item @emph{Arguments}:
+@multitable @columnfractions .15 .70
+@item @var{DISTANCE} @tab (optional, intent(in)) Nonnegative scalar integer
+@item @var{FAILED}   @tab (optional, intent(in)) Scalar logical expression
+@end multitable
 
 @item @emph{Return value}:
-Scalar default-kind integer.
+Scalar default-kind integer.  If @var{DISTANCE} is not present or has value 0,
+the number of images in the current team is returned. For values smaller or
+equal distance to the initial team, it returns the number of images index
+on the ancestor team which has a distance of @var{DISTANCE} from the invoking
+team. If @var{DISTANCE} is larger than the distance to the initial team, the
+number of images of the initial team is returned. If @var{FAILED} is not present
+the total number of images is returned; if it has the value @code{.TRUE.},
+the number of failed images is returned, otherwise, the number of images which
+do have not the failed status.
 
 @item @emph{Example}:
 @smallexample
@@ -12249,15 +12259,16 @@ clock implementation, provide up to nanosecond resolution.  If a
 monotonic clock is not available, the implementation falls back to a
 realtime clock.
 
-@var{COUNT_RATE} is system dependent and can vary depending on the
-kind of the arguments. For @var{kind=4} arguments, @var{COUNT}
-represents milliseconds, while for @var{kind=8} arguments, @var{COUNT}
-typically represents micro- or nanoseconds depending on resolution of
-the underlying platform clock. @var{COUNT_MAX} usually equals
-@code{HUGE(COUNT_MAX)}. Note that the millisecond resolution of the
-@var{kind=4} version implies that the @var{COUNT} will wrap around in
-roughly 25 days. In order to avoid issues with the wrap around and for
-more precise timing, please use the @var{kind=8} version.
+@var{COUNT_RATE} is system dependent and can vary depending on the kind of
+the arguments. For @var{kind=4} arguments (and smaller integer kinds),
+@var{COUNT} represents milliseconds, while for @var{kind=8} arguments (and
+larger integer kinds), @var{COUNT} typically represents micro- or
+nanoseconds depending on resolution of the underlying platform clock.
+@var{COUNT_MAX} usually equals @code{HUGE(COUNT_MAX)}. Note that the
+millisecond resolution of the @var{kind=4} version implies that the
+@var{COUNT} will wrap around in roughly 25 days. In order to avoid issues
+with the wrap around and for more precise timing, please use the
+@var{kind=8} version.
 
 If there is no clock, or querying the clock fails, @var{COUNT} is set
 to @code{-HUGE(COUNT)}, and @var{COUNT_RATE} and @var{COUNT_MAX} are
@@ -12289,7 +12300,7 @@ Subroutine
 @item @var{COUNT}      @tab (Optional) shall be a scalar of type 
 @code{INTEGER} with @code{INTENT(OUT)}.
 @item @var{COUNT_RATE} @tab (Optional) shall be a scalar of type 
-@code{INTEGER} with @code{INTENT(OUT)}.
+@code{INTEGER} or @code{REAL}, with @code{INTENT(OUT)}.
 @item @var{COUNT_MAX}  @tab (Optional) shall be a scalar of type 
 @code{INTEGER} with @code{INTENT(OUT)}.
 @end multitable
@@ -12422,7 +12433,8 @@ end program test_tanh
 Returns the cosubscript for this image.
 
 @item @emph{Standard}:
-Fortran 2008 and later
+Fortran 2008 and later. With @var{DISTANCE} argument, 
+Technical Specification (TS) 18508 or later
 
 @item @emph{Class}:
 Transformational function
@@ -12430,11 +12442,14 @@ Transformational function
 @item @emph{Syntax}:
 @multitable @columnfractions .80
 @item @code{RESULT = THIS_IMAGE()}
+@item @code{RESULT = THIS_IMAGE(DISTANCE)}
 @item @code{RESULT = THIS_IMAGE(COARRAY [, DIM])}
 @end multitable
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .70
+@item @var{DISTANCE} @tab (optional, intent(in)) Nonnegative scalar integer
+(not permitted together with @var{COARRAY}).
 @item @var{COARRAY} @tab Coarray of any type  (optional; if @var{DIM}
 present, required).
 @item @var{DIM}     @tab default integer scalar (optional). If present,
@@ -12443,12 +12458,17 @@ present, required).
 
 
 @item @emph{Return value}:
-Default integer. If @var{COARRAY} is not present, it is scalar and its value
-is the index of the invoking image. Otherwise, if @var{DIM} is not present,
-a rank-1 array with corank elements is returned, containing the cosubscripts
-for @var{COARRAY} specifying the invoking image. If @var{DIM} is present,
-a scalar is returned, with the value of the @var{DIM} element of
-@code{THIS_IMAGE(COARRAY)}.
+Default integer. If @var{COARRAY} is not present, it is scalar; if
+@var{DISTANCE} is not present or has value 0, its value is the image index on
+the invoking image for the current team, for values smaller or equal
+distance to the initial team, it returns the image index on the ancestor team
+which has a distance of @var{DISTANCE} from the invoking team. If
+@var{DISTANCE} is larger than the distance to the initial team, the image
+index of the initial team is returned. Otherwise when the @var{COARRAY} is
+present, if @var{DIM} is not present, a rank-1 array with corank elements is
+returned, containing the cosubscripts for @var{COARRAY} specifying the invoking
+image. If @var{DIM} is present, a scalar is returned, with the value of
+the @var{DIM} element of @code{THIS_IMAGE(COARRAY)}.
 
 @item @emph{Example}:
 @smallexample
@@ -12461,6 +12481,10 @@ IF (THIS_IMAGE() == 1) THEN
     WRITE(*,'(2(a,i0))') 'value[', i, '] is ', value[i]
   END DO
 END IF
+
+! Check whether the current image is the initial image
+IF (THIS_IMAGE(HUGE(1)) /= THIS_IMAGE())
+  error stop "something is rotten here"
 @end smallexample
 
 @item @emph{See also}:
@@ -13375,8 +13399,7 @@ named constants:
 @code{OMP_LIB} provides the scalar default-integer
 named constant @code{openmp_version} with a value of the form
 @var{yyyymm}, where @code{yyyy} is the year and @var{mm} the month
-of the OpenMP version; for OpenMP v3.1 the value is @code{201107}
-and for OpenMP v4.0 the value is @code{201307}.
+of the OpenMP version; for OpenMP v4.0 the value is @code{201307}.
 
 The following scalar integer named constants of the
 kind @code{omp_sched_kind}:

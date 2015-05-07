@@ -894,6 +894,13 @@
 #endif
 
 
+/* Define to 1 if we found a declaration for 'strnlen', otherwise define to 0.
+   */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DECL_STRNLEN
+#endif
+
+
 /* Define to 1 if we found a declaration for 'strsignal', otherwise define to
    0. */
 #ifndef USED_FOR_TARGET
@@ -1263,6 +1270,13 @@
 /* Define if your linker supports --build-id. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_BUILDID
+#endif
+
+
+/* Define if the linker supports clearing hardware capabilities via mapfile.
+   */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LD_CLEARCAP
 #endif
 
 
@@ -1661,12 +1675,6 @@
 #endif
 
 
-/* Define to 1 if the system has the type `__int64'. */
-#ifndef USED_FOR_TARGET
-#undef HAVE___INT64
-#endif
-
-
 /* Define if cloog is in use. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_cloog
@@ -1682,6 +1690,12 @@
 /* Define as const if the declaration of iconv() needs const. */
 #ifndef USED_FOR_TARGET
 #undef ICONV_CONST
+#endif
+
+
+/* Define if int64_t uses long as underlying type. */
+#ifndef USED_FOR_TARGET
+#undef INT64_T_IS_LONG
 #endif
 
 
@@ -1818,12 +1832,6 @@
 #endif
 
 
-/* The size of `__int64', as computed by sizeof. */
-#ifndef USED_FOR_TARGET
-#undef SIZEOF___INT64
-#endif
-
-
 /* Define to 1 if you have the ANSI C header files. */
 #ifndef USED_FOR_TARGET
 #undef STDC_HEADERS
@@ -1877,8 +1885,8 @@
 #endif
 
 
-/* Define to 1 if the 'long long' (or '__int64') is wider than 'long' but
-   still efficiently supported by the host hardware. */
+/* Define to 1 if the 'long long' type is wider than 'long' but still
+   efficiently supported by the host hardware. */
 #ifndef USED_FOR_TARGET
 #undef USE_LONG_LONG_FOR_WIDEST_FAST_INT
 #endif

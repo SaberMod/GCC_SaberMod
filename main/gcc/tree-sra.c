@@ -114,6 +114,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "l-ipo.h"
 #include "ipa-inline.h"
 #include "ipa-utils.h"
+#include "builtins.h"
 
 /* Enumeration of all aggregate reductions we can do.  */
 enum sra_mode { SRA_MODE_EARLY_IPA,   /* early call regularization */
@@ -321,7 +322,7 @@ uid_decl_hasher::equal (const value_type *a, const compare_type *b)
 
 /* Set of candidates.  */
 static bitmap candidate_bitmap;
-static hash_table <uid_decl_hasher> candidates;
+static hash_table<uid_decl_hasher> *candidates;
 
 /* For a candidate UID return the candidates decl.  */
 
@@ -330,7 +331,7 @@ candidate (unsigned uid)
 {
  tree_node t;
  t.decl_minimal.uid = uid;
- return candidates.find_with_hash (&t, static_cast <hashval_t> (uid));
+ return candidates->find_with_hash (&t, static_cast <hashval_t> (uid));
 }
 
 /* Bitmap of candidates which we should try to entirely scalarize away and
@@ -661,7 +662,8 @@ static void
 sra_initialize (void)
 {
   candidate_bitmap = BITMAP_ALLOC (NULL);
-  candidates.create (vec_safe_length (cfun->local_decls) / 2);
+  candidates = new hash_table<uid_decl_hasher>
+    (vec_safe_length (cfun->local_decls) / 2);
   should_scalarize_away_bitmap = BITMAP_ALLOC (NULL);
   cannot_scalarize_away_bitmap = BITMAP_ALLOC (NULL);
   gcc_obstack_init (&name_obstack);
@@ -691,7 +693,8 @@ static void
 sra_deinitialize (void)
 {
   BITMAP_FREE (candidate_bitmap);
-  candidates.dispose ();
+  delete candidates;
+  candidates = NULL;
   BITMAP_FREE (should_scalarize_away_bitmap);
   BITMAP_FREE (cannot_scalarize_away_bitmap);
   free_alloc_pool (access_pool);
@@ -708,9 +711,7 @@ static void
 disqualify_candidate (tree decl, const char *reason)
 {
   if (bitmap_clear_bit (candidate_bitmap, DECL_UID (decl)))
-    candidates.clear_slot (candidates.find_slot_with_hash (decl,
-							   DECL_UID (decl),
-							   NO_INSERT));
+    candidates->remove_elt_with_hash (decl, DECL_UID (decl));
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1834,7 +1835,7 @@ maybe_add_sra_candidate (tree var)
     }
 
   bitmap_set_bit (candidate_bitmap, DECL_UID (var));
-  slot = candidates.find_slot_with_hash (var, DECL_UID (var), INSERT);
+  slot = candidates->find_slot_with_hash (var, DECL_UID (var), INSERT);
   *slot = var;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -3793,7 +3794,7 @@ find_param_candidates (void)
 	continue;
 
       bitmap_set_bit (candidate_bitmap, DECL_UID (parm));
-      slot = candidates.find_slot_with_hash (parm, DECL_UID (parm), INSERT);
+      slot = candidates->find_slot_with_hash (parm, DECL_UID (parm), INSERT);
       *slot = parm;
 
       ret = true;
@@ -4928,12 +4929,15 @@ modify_function (struct cgraph_node *node, ipa_parm_adjustment_vec adjustments)
 {
   struct cgraph_node *new_node;
   bool cfg_changed;
-  vec<cgraph_edge_p> redirect_callers = collect_callers_of_node (node);
 
   rebuild_cgraph_edges ();
   free_dominance_info (CDI_DOMINATORS);
   pop_cfun ();
 
+  /* This must be done after rebuilding cgraph edges for node above.
+     Otherwise any recursive calls to node that are recorded in
+     redirect_callers will be corrupted.  */
+  vec<cgraph_edge_p> redirect_callers = collect_callers_of_node (node);
   new_node = cgraph_function_versioning (node, redirect_callers,
 					 NULL,
 					 NULL, false, NULL, NULL, "isra");

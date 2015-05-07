@@ -61,6 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimplify.h"
 #include "lto-streamer.h"
+#include "lto-section-names.h"
 
 /* Darwin supports a feature called fix-and-continue, which is used
    for rapid turn around debugging.  When code is compiled with the
@@ -1898,9 +1899,6 @@ typedef struct GTY (()) darwin_lto_section_e {
 
 static GTY (()) vec<darwin_lto_section_e, va_gc> *lto_section_names;
 
-/* Segment for LTO data.  */
-#define LTO_SEGMENT_NAME "__GNU_LTO"
-
 /* Section wrapper scheme (used here to wrap the unlimited number of LTO
    sections into three Mach-O ones).
    NOTE: These names MUST be kept in sync with those in
@@ -3606,7 +3604,7 @@ darwin_function_section (tree decl, enum node_frequency freq,
 
   /* If there is a specified section name, we should not be trying to
      override.  */
-  if (decl && DECL_SECTION_NAME (decl) != NULL_TREE)
+  if (decl && DECL_SECTION_NAME (decl) != NULL)
     return get_named_section (decl, NULL, 0);
 
   /* We always put unlikely executed stuff in the cold section.  */

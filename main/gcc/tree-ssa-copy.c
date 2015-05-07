@@ -45,6 +45,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "tree-scalar-evolution.h"
 #include "tree-ssa-dom.h"
+#include "tree-ssa-loop-niter.h"
+
 
 /* This file implements the copy propagation pass and provides a
    handful of interfaces for performing const/copy propagation and
@@ -406,8 +408,7 @@ copy_prop_visit_phi_node (gimple phi)
 	 ???  The value will be always loop invariant.
 	 In loop-closed SSA form do not copy-propagate through
 	 PHI nodes in blocks with a loop exit edge predecessor.  */
-      if (current_loops
-	  && TREE_CODE (arg_value) == SSA_NAME
+      if (TREE_CODE (arg_value) == SSA_NAME
 	  && (loop_depth_of_name (arg_value) > loop_depth_of_name (lhs)
 	      || (loops_state_satisfies_p (LOOP_CLOSED_SSA)
 		  && loop_exit_edge_p (e->src->loop_father, e))))
@@ -543,7 +544,7 @@ get_value (tree name)
 /* Deallocate memory used in copy propagation and do final
    substitution.  */
 
-static void
+static bool
 fini_copy_prop (void)
 {
   unsigned i;
@@ -595,10 +596,17 @@ fini_copy_prop (void)
 	}
     }
 
-  /* Don't do DCE if SCEV is initialized.  It would destroy the scev cache.  */
-  substitute_and_fold (get_value, NULL, !scev_initialized_p ());
+  bool changed = substitute_and_fold (get_value, NULL, true);
+  if (changed)
+    {
+      free_numbers_of_iterations_estimates ();
+      if (scev_initialized_p ())
+	scev_reset ();
+    }
 
   free (copy_of);
+
+  return changed;
 }
 
 
@@ -640,7 +648,8 @@ execute_copy_prop (void)
 {
   init_copy_prop ();
   ssa_propagate (copy_prop_visit_stmt, copy_prop_visit_phi_node);
-  fini_copy_prop ();
+  if (fini_copy_prop ())
+    return TODO_cleanup_cfg;
   return 0;
 }
 
@@ -657,7 +666,7 @@ const pass_data pass_data_copy_prop =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_cleanup_cfg | TODO_update_ssa ), /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_copy_prop : public gimple_opt_pass

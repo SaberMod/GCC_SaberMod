@@ -5874,49 +5874,6 @@ _ACEOF
 
 fi
 
-ac_fn_c_check_type "$LINENO" "__int64" "ac_cv_type___int64" "$ac_includes_default"
-if test "x$ac_cv_type___int64" = x""yes; then :
-
-cat >>confdefs.h <<_ACEOF
-#define HAVE___INT64 1
-_ACEOF
-
-# The cast to long int works around a bug in the HP C Compiler
-# version HP92453-01 B.11.11.23709.GP, which incorrectly rejects
-# declarations like `int a3[[(sizeof (unsigned char)) >= 0]];'.
-# This bug is HP SR number 8606223364.
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking size of __int64" >&5
-$as_echo_n "checking size of __int64... " >&6; }
-if test "${ac_cv_sizeof___int64+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  if ac_fn_c_compute_int "$LINENO" "(long int) (sizeof (__int64))" "ac_cv_sizeof___int64"        "$ac_includes_default"; then :
-
-else
-  if test "$ac_cv_type___int64" = yes; then
-     { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-{ as_fn_set_status 77
-as_fn_error "cannot compute sizeof (__int64)
-See \`config.log' for more details." "$LINENO" 5; }; }
-   else
-     ac_cv_sizeof___int64=0
-   fi
-fi
-
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_sizeof___int64" >&5
-$as_echo "$ac_cv_sizeof___int64" >&6; }
-
-
-
-cat >>confdefs.h <<_ACEOF
-#define SIZEOF___INT64 $ac_cv_sizeof___int64
-_ACEOF
-
-
-fi
-
 ac_fn_c_find_intX_t "$LINENO" "8" "ac_cv_c_int8_t"
 case $ac_cv_c_int8_t in #(
   no|yes) ;; #(
@@ -6277,6 +6234,90 @@ fi
 
 
 
+
+
+
+
+if test x"$ac_cv_c_uint64_t" = x"no" -o x"$ac_cv_c_int64_t" = x"no"; then
+  as_fn_error "uint64_t or int64_t not found" "$LINENO" 5
+fi
+
+# check what underlying integer type int64_t uses
+ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for int64_t underlying type" >&5
+$as_echo_n "checking for int64_t underlying type... " >&6; }
+if test "${ac_cv_int64_t_type+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+template <typename T> struct X { };
+template <>
+struct X<long> { typedef long t; };
+
+int
+main ()
+{
+X<int64_t>::t x;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+  ac_cv_int64_t_type=long
+else
+  ac_cv_int64_t_type="long long"
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_int64_t_type" >&5
+$as_echo "$ac_cv_int64_t_type" >&6; }
+if test "$ac_cv_int64_t_type" = "long"; then
+
+$as_echo "#define INT64_T_IS_LONG 1" >>confdefs.h
+
+else
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+template <typename T> struct X { };
+template <>
+struct X<long long> { typedef long long t; };
+
+int
+main ()
+{
+X<int64_t>::t x;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+
+else
+  as_fn_error "error verifying int64_t uses long long" "$LINENO" 5
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
@@ -8815,7 +8856,6 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
 
 
-
 for ac_header in unordered_map
 do :
   ac_fn_cxx_check_header_preproc "$LINENO" "unordered_map" "ac_cv_header_unordered_map"
@@ -9232,7 +9272,8 @@ LIBS="$save_LIBS"
 
 
 # Use <inttypes.h> only if it exists,
-# doesn't clash with <sys/types.h>, and declares intmax_t.
+# doesn't clash with <sys/types.h>, declares intmax_t and defines
+# PRId64
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for inttypes.h" >&5
 $as_echo_n "checking for inttypes.h... " >&6; }
 if test "${gcc_cv_header_inttypes_h+set}" = set; then :
@@ -9240,12 +9281,16 @@ if test "${gcc_cv_header_inttypes_h+set}" = set; then :
 else
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
+#define __STDC_FORMAT_MACROS
 #include <sys/types.h>
 #include <inttypes.h>
 int
 main ()
 {
 intmax_t i = -1;
+#ifndef PRId64
+choke me
+#endif
   ;
   return 0;
 }
@@ -10509,7 +10554,7 @@ CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include $GMPINC"
 saved_CXXFLAGS="$CXXFLAGS"
 CXXFLAGS="$CXXFLAGS -I${srcdir} -I${srcdir}/../include $GMPINC"
 for ac_func in getenv atol asprintf sbrk abort atof getcwd getwd \
-	strsignal strstr stpcpy strverscmp \
+	stpcpy strnlen strsignal strstr strverscmp \
 	errno snprintf vsnprintf vasprintf malloc realloc calloc \
 	free basename getopt clock getpagesize ffs clearerr_unlocked feof_unlocked   ferror_unlocked fflush_unlocked fgetc_unlocked fgets_unlocked   fileno_unlocked fprintf_unlocked fputc_unlocked fputs_unlocked   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked   putchar_unlocked putc_unlocked
 do
@@ -18038,7 +18083,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 17991 "configure"
+#line 18036 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18144,7 +18189,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18097 "configure"
+#line 18142 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -27010,6 +27055,34 @@ _ACEOF
 
 fi
 
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking linker mapfile support for clearing hardware capabilities" >&5
+$as_echo_n "checking linker mapfile support for clearing hardware capabilities... " >&6; }
+saved_LDFLAGS="$LDFLAGS"
+for clearcap_map in sol2-clearcapv2.map sol2-clearcap.map; do
+  LDFLAGS="$saved_LDFLAGS -Wl,-M,${srcdir}/config/$clearcap_map"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+int main(void) {return 0;}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  gcc_cv_ld_clearcap=yes; break
+else
+  gcc_cv_ld_clearcap=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+done
+LDFLAGS="$saved_LDFLAGS"
+if test "x$gcc_cv_ld_clearcap" = xyes; then
+
+$as_echo "#define HAVE_LD_CLEARCAP 1" >>confdefs.h
+
+  ac_config_links="$ac_config_links clearcap.map:${srcdir}/config/$clearcap_map"
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_ld_clearcap" >&5
+$as_echo "$gcc_cv_ld_clearcap" >&6; }
+
 case "$target:$tm_file" in
   powerpc64-*-freebsd* | powerpc64*-*-linux* | powerpc*-*-linux*rs6000/biarch64.h*)
   case "$target" in
@@ -28579,6 +28652,7 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
 # Files that config.status was made for.
 config_files="$ac_config_files"
 config_headers="$ac_config_headers"
+config_links="$ac_config_links"
 config_commands="$ac_config_commands"
 
 _ACEOF
@@ -28607,6 +28681,9 @@ $config_files
 
 Configuration headers:
 $config_headers
+
+Configuration links:
+$config_links
 
 Configuration commands:
 $config_commands
@@ -28743,6 +28820,7 @@ do
     "as") CONFIG_FILES="$CONFIG_FILES as:exec-tool.in" ;;
     "collect-ld") CONFIG_FILES="$CONFIG_FILES collect-ld:exec-tool.in" ;;
     "nm") CONFIG_FILES="$CONFIG_FILES nm:exec-tool.in" ;;
+    "clearcap.map") CONFIG_LINKS="$CONFIG_LINKS clearcap.map:${srcdir}/config/$clearcap_map" ;;
     "$all_outputs") CONFIG_FILES="$CONFIG_FILES $all_outputs" ;;
     "default") CONFIG_COMMANDS="$CONFIG_COMMANDS default" ;;
 
@@ -28758,6 +28836,7 @@ done
 if $ac_need_defaults; then
   test "${CONFIG_FILES+set}" = set || CONFIG_FILES=$config_files
   test "${CONFIG_HEADERS+set}" = set || CONFIG_HEADERS=$config_headers
+  test "${CONFIG_LINKS+set}" = set || CONFIG_LINKS=$config_links
   test "${CONFIG_COMMANDS+set}" = set || CONFIG_COMMANDS=$config_commands
 fi
 
@@ -29079,7 +29158,7 @@ cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
 fi # test -n "$CONFIG_HEADERS"
 
 
-eval set X "  :F $CONFIG_FILES  :H $CONFIG_HEADERS    :C $CONFIG_COMMANDS"
+eval set X "  :F $CONFIG_FILES  :H $CONFIG_HEADERS  :L $CONFIG_LINKS  :C $CONFIG_COMMANDS"
 shift
 for ac_tag
 do
@@ -29315,7 +29394,38 @@ $as_echo "$as_me: $ac_file is unchanged" >&6;}
       || as_fn_error "could not create -" "$LINENO" 5
   fi
  ;;
+  :L)
+  #
+  # CONFIG_LINK
+  #
 
+  if test "$ac_source" = "$ac_file" && test "$srcdir" = '.'; then
+    :
+  else
+    # Prefer the file from the source tree if names are identical.
+    if test "$ac_source" = "$ac_file" || test ! -r "$ac_source"; then
+      ac_source=$srcdir/$ac_source
+    fi
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: linking $ac_source to $ac_file" >&5
+$as_echo "$as_me: linking $ac_source to $ac_file" >&6;}
+
+    if test ! -r "$ac_source"; then
+      as_fn_error "$ac_source: file not found" "$LINENO" 5
+    fi
+    rm -f "$ac_file"
+
+    # Try a relative symlink, then a hard link, then a copy.
+    case $srcdir in
+    [\\/$]* | ?:[\\/]* ) ac_rel_source=$ac_source ;;
+	*) ac_rel_source=$ac_top_build_prefix$ac_source ;;
+    esac
+    ln -s "$ac_rel_source" "$ac_file" 2>/dev/null ||
+      ln "$ac_source" "$ac_file" 2>/dev/null ||
+      cp -p "$ac_source" "$ac_file" ||
+      as_fn_error "cannot link or copy $ac_source to $ac_file" "$LINENO" 5
+  fi
+ ;;
   :C)  { $as_echo "$as_me:${as_lineno-$LINENO}: executing $ac_file commands" >&5
 $as_echo "$as_me: executing $ac_file commands" >&6;}
  ;;

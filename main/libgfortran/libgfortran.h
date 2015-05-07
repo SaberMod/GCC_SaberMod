@@ -768,9 +768,14 @@ internal_proto(get_fpu_rounding_mode);
 extern void *xmalloc (size_t) __attribute__ ((malloc));
 internal_proto(xmalloc);
 
+extern void *xmallocarray (size_t, size_t) __attribute__ ((malloc));
+internal_proto(xmallocarray);
+
 extern void *xcalloc (size_t, size_t) __attribute__ ((malloc));
 internal_proto(xcalloc);
 
+extern void *xrealloc (void *, size_t);
+internal_proto(xrealloc);
 
 /* environ.c */
 

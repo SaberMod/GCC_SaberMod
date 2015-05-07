@@ -64,6 +64,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin.h"
 #include "c-family/c-ada-spec.h"
 #include "cilk.h"
+#include "builtins.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -2343,7 +2344,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
   /* Merge the threadprivate attribute.  */
   if (TREE_CODE (olddecl) == VAR_DECL && C_DECL_THREADPRIVATE_P (olddecl))
     {
-      DECL_TLS_MODEL (newdecl) = DECL_TLS_MODEL (olddecl);
+      set_decl_tls_model (newdecl, DECL_TLS_MODEL (olddecl));
       C_DECL_THREADPRIVATE_P (newdecl) = 1;
     }
 
@@ -2353,8 +2354,10 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	 We want to issue an error if the sections conflict but that
 	 must be done later in decl_attributes since we are called
 	 before attributes are assigned.  */
-      if (DECL_SECTION_NAME (newdecl) == NULL_TREE)
-	DECL_SECTION_NAME (newdecl) = DECL_SECTION_NAME (olddecl);
+      if ((DECL_EXTERNAL (olddecl) || TREE_PUBLIC (olddecl) || TREE_STATIC (olddecl))
+	  && DECL_SECTION_NAME (newdecl) == NULL
+	  && DECL_SECTION_NAME (olddecl))
+	set_decl_section_name (newdecl, DECL_SECTION_NAME (olddecl));
 
       /* Copy the assembler name.
 	 Currently, it can only be defined in the prototype.  */
@@ -2557,8 +2560,18 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
     switch (TREE_CODE (olddecl))
       {
       case FUNCTION_DECL:
-      case FIELD_DECL:
       case VAR_DECL:
+	{
+	  struct symtab_node *snode = olddecl->decl_with_vis.symtab_node;
+
+	  memcpy ((char *) olddecl + sizeof (struct tree_decl_common),
+		  (char *) newdecl + sizeof (struct tree_decl_common),
+		  tree_code_size (TREE_CODE (olddecl)) - sizeof (struct tree_decl_common));
+	  olddecl->decl_with_vis.symtab_node = snode;
+	  break;
+	}
+
+      case FIELD_DECL:
       case PARM_DECL:
       case LABEL_DECL:
       case RESULT_DECL:
@@ -2611,6 +2624,16 @@ duplicate_decls (tree newdecl, tree olddecl)
     }
 
   merge_decls (newdecl, olddecl, newtype, oldtype);
+
+  /* The NEWDECL will no longer be needed.  */
+  if (TREE_CODE (newdecl) == FUNCTION_DECL
+      || TREE_CODE (newdecl) == VAR_DECL)
+    {
+      struct symtab_node *snode = symtab_get_node (newdecl);
+      if (snode)
+	symtab_remove_node (snode);
+    }
+  ggc_free (newdecl);
   return true;
 }
 
@@ -2639,6 +2662,7 @@ warn_if_shadowing (tree new_decl)
 					     DECL_SOURCE_LOCATION (b->decl))))
       {
 	tree old_decl = b->decl;
+	bool warned = false;
 
 	if (old_decl == error_mark_node)
 	  warning (OPT_Wshadow, "declaration of %q+D shadows previous "
@@ -2655,10 +2679,8 @@ warn_if_shadowing (tree new_decl)
               warning_code = OPT_Wshadow_compatible_local;
             else
               warning_code = OPT_Wshadow_local;
-            warning (warning_code,
+            warned = warning (warning_code,
                      "declaration of %q+D shadows a parameter", new_decl);
-            warning_at (DECL_SOURCE_LOCATION (old_decl), warning_code,
-			"shadowed declaration is here");
           }
 	else if (DECL_FILE_SCOPE_P (old_decl))
 	  {
@@ -2669,10 +2691,8 @@ warn_if_shadowing (tree new_decl)
 		&& !FUNCTION_POINTER_TYPE_P (TREE_TYPE (new_decl)))
 		continue;
 
-            warning (OPT_Wshadow, "declaration of %q+D shadows a global "
+            warned = warning (OPT_Wshadow, "declaration of %q+D shadows a global "
                      "declaration", new_decl);
-            warning_at (DECL_SOURCE_LOCATION (old_decl), OPT_Wshadow,
-		        "shadowed declaration is here");
 	  }
 	else if (TREE_CODE (old_decl) == FUNCTION_DECL
 		 && DECL_BUILT_IN (old_decl))
@@ -2681,7 +2701,6 @@ warn_if_shadowing (tree new_decl)
 	else
           {
             enum opt_code warning_code;
-
             /* If '-Wshadow-compatible-local' is specified without other
                -Wshadow flags, we will warn only when the types of the
                shadowing variable (i.e. new_decl) and the shadowed variable
@@ -2690,13 +2709,13 @@ warn_if_shadowing (tree new_decl)
               warning_code = OPT_Wshadow_compatible_local;
             else
               warning_code = OPT_Wshadow_local;
-            warning (warning_code,
+            warned = warning (warning_code,
                      "declaration of %q+D shadows a previous local",
                      new_decl);
-
-            warning_at (DECL_SOURCE_LOCATION (old_decl), warning_code,
-			"shadowed declaration is here");
-          }
+					}
+	if (warned)
+	  inform (DECL_SOURCE_LOCATION (old_decl),
+		  "shadowed declaration is here");
 
 	break;
       }
@@ -6405,7 +6424,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	  }
 
 	if (threadp)
-	  DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
+	  set_decl_tls_model (decl, decl_default_tls_model (decl));
       }
 
     if ((storage_class == csc_extern
@@ -7136,7 +7155,7 @@ is_duplicate_field (tree x, tree y)
 
 static void
 detect_field_duplicates_hash (tree fieldlist,
-			      hash_table <pointer_hash <tree_node> > htab)
+			      hash_table<pointer_hash <tree_node> > *htab)
 {
   tree x, y;
   tree_node **slot;
@@ -7144,7 +7163,7 @@ detect_field_duplicates_hash (tree fieldlist,
   for (x = fieldlist; x ; x = DECL_CHAIN (x))
     if ((y = DECL_NAME (x)) != 0)
       {
-	slot = htab.find_slot (y, INSERT);
+	slot = htab->find_slot (y, INSERT);
 	if (*slot)
 	  {
 	    error ("duplicate member %q+D", x);
@@ -7164,7 +7183,7 @@ detect_field_duplicates_hash (tree fieldlist,
 	    && TREE_CODE (TYPE_NAME (TREE_TYPE (x))) == TYPE_DECL)
 	  {
 	    tree xn = DECL_NAME (TYPE_NAME (TREE_TYPE (x)));
-	    slot = htab.find_slot (xn, INSERT);
+	    slot = htab->find_slot (xn, INSERT);
 	    if (*slot)
 	      error ("duplicate member %q+D", TYPE_NAME (TREE_TYPE (x)));
 	    *slot = xn;
@@ -7236,11 +7255,8 @@ detect_field_duplicates (tree fieldlist)
     }
   else
     {
-      hash_table <pointer_hash <tree_node> > htab;
-      htab.create (37);
-
-      detect_field_duplicates_hash (fieldlist, htab);
-      htab.dispose ();
+      hash_table<pointer_hash <tree_node> > htab (37);
+      detect_field_duplicates_hash (fieldlist, &htab);
     }
 }
 

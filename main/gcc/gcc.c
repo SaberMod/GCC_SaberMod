@@ -7859,10 +7859,15 @@ set_multilib_dir (void)
 		q2++;
 	      if (*q2 == ':')
 		ml_end = q2;
-	      new_multilib_os_dir = XNEWVEC (char, ml_end - q);
-	      memcpy (new_multilib_os_dir, q + 1, ml_end - q - 1);
-	      new_multilib_os_dir[ml_end - q - 1] = '\0';
-	      multilib_os_dir = *new_multilib_os_dir ? new_multilib_os_dir : ".";
+	      if (ml_end - q == 1)
+		multilib_os_dir = xstrdup (".");
+	      else
+		{
+		  new_multilib_os_dir = XNEWVEC (char, ml_end - q);
+		  memcpy (new_multilib_os_dir, q + 1, ml_end - q - 1);
+		  new_multilib_os_dir[ml_end - q - 1] = '\0';
+		  multilib_os_dir = new_multilib_os_dir;
+		}
 
 	      if (q2 < end && *q2 == ':')
 		{
@@ -8239,7 +8244,7 @@ sanitize_spec_function (int argc, const char **argv)
   if (strcmp (argv[0], "thread") == 0)
     return (flag_sanitize & SANITIZE_THREAD) ? "" : NULL;
   if (strcmp (argv[0], "undefined") == 0)
-    return ((flag_sanitize & (SANITIZE_UNDEFINED | SANITIZE_FLOAT_DIVIDE))
+    return ((flag_sanitize & (SANITIZE_UNDEFINED | SANITIZE_NONDEFAULT))
 	    && !flag_sanitize_undefined_trap_on_error) ? "" : NULL;
   if (strcmp (argv[0], "leak") == 0)
     return ((flag_sanitize

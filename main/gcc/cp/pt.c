@@ -2265,6 +2265,10 @@ copy_default_args_to_explicit_spec (tree decl)
 					      TYPE_ATTRIBUTES (old_type));
   new_type = build_exception_variant (new_type,
 				      TYPE_RAISES_EXCEPTIONS (old_type));
+
+  if (TYPE_HAS_LATE_RETURN_TYPE (old_type))
+    TYPE_HAS_LATE_RETURN_TYPE (new_type) = 1;
+
   TREE_TYPE (decl) = new_type;
 }
 
@@ -4423,7 +4427,8 @@ check_default_tmpl_args (tree decl, tree parms, bool is_primary,
      in the template-parameter-list of the definition of a member of a
      class template.  */
 
-  if (TREE_CODE (CP_DECL_CONTEXT (decl)) == FUNCTION_DECL)
+  if (TREE_CODE (CP_DECL_CONTEXT (decl)) == FUNCTION_DECL
+      || (TREE_CODE (decl) == FUNCTION_DECL && DECL_LOCAL_FUNCTION_P (decl)))
     /* You can't have a function template declaration in a local
        scope, nor you can you define a member of a class template in a
        local scope.  */
@@ -5354,6 +5359,10 @@ check_valid_ptrmem_cst_expr (tree type, tree expr,
   if (expr && (null_ptr_cst_p (expr) || TREE_CODE (expr) == PTRMEM_CST))
     return true;
   if (cxx_dialect >= cxx11 && null_member_pointer_value_p (expr))
+    return true;
+  if (processing_template_decl
+      && TREE_CODE (expr) == ADDR_EXPR
+      && TREE_CODE (TREE_OPERAND (expr, 0)) == OFFSET_REF)
     return true;
   if (complain & tf_error)
     {
@@ -11325,14 +11334,48 @@ tsubst_function_type (tree t,
 		      tree in_decl)
 {
   tree return_type;
-  tree arg_types;
+  tree arg_types = NULL_TREE;
   tree fntype;
 
   /* The TYPE_CONTEXT is not used for function/method types.  */
   gcc_assert (TYPE_CONTEXT (t) == NULL_TREE);
 
-  /* Substitute the return type.  */
-  return_type = tsubst (TREE_TYPE (t), args, complain, in_decl);
+  /* DR 1227: Mixing immediate and non-immediate contexts in deduction
+     failure.  */
+  bool late_return_type_p = TYPE_HAS_LATE_RETURN_TYPE (t);
+
+  if (late_return_type_p)
+    {
+      /* Substitute the argument types.  */
+      arg_types = tsubst_arg_types (TYPE_ARG_TYPES (t), args, NULL_TREE,
+				    complain, in_decl);
+      if (arg_types == error_mark_node)
+	return error_mark_node;
+
+      tree save_ccp = current_class_ptr;
+      tree save_ccr = current_class_ref;
+      tree this_type = (TREE_CODE (t) == METHOD_TYPE
+			? TREE_TYPE (TREE_VALUE (arg_types)) : NULL_TREE);
+      bool do_inject = this_type && CLASS_TYPE_P (this_type);
+      if (do_inject)
+	{
+	  /* DR 1207: 'this' is in scope in the trailing return type.  */
+	  inject_this_parameter (this_type, cp_type_quals (this_type));
+	}
+
+      /* Substitute the return type.  */
+      return_type = tsubst (TREE_TYPE (t), args, complain, in_decl);
+
+      if (do_inject)
+	{
+	  current_class_ptr = save_ccp;
+	  current_class_ref = save_ccr;
+	}
+    }
+  else
+    /* Substitute the return type.  */
+    return_type = tsubst (TREE_TYPE (t), args, complain, in_decl);
+
   if (return_type == error_mark_node)
     return error_mark_node;
   /* DR 486 clarifies that creation of a function type with an
@@ -11353,11 +11396,14 @@ tsubst_function_type (tree t,
   if (abstract_virtuals_error_sfinae (ACU_RETURN, return_type, complain))
     return error_mark_node;
 
-  /* Substitute the argument types.  */
-  arg_types = tsubst_arg_types (TYPE_ARG_TYPES (t), args, NULL_TREE,
-				complain, in_decl);
-  if (arg_types == error_mark_node)
-    return error_mark_node;
+  if (!late_return_type_p)
+    {
+      /* Substitute the argument types.  */
+      arg_types = tsubst_arg_types (TYPE_ARG_TYPES (t), args, NULL_TREE,
+				    complain, in_decl);
+      if (arg_types == error_mark_node)
+	return error_mark_node;
+    }
 
   /* Construct a new type node and return it.  */
   if (TREE_CODE (t) == FUNCTION_TYPE)
@@ -11392,6 +11438,9 @@ tsubst_function_type (tree t,
       fntype = build_ref_qualified_type (fntype, type_memfn_rqual (t));
     }
   fntype = cp_build_type_attribute_variant (fntype, TYPE_ATTRIBUTES (t));
+
+  if (late_return_type_p)
+    TYPE_HAS_LATE_RETURN_TYPE (fntype) = 1;
 
   return fntype;
 }
@@ -12093,7 +12142,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	if (type == TREE_TYPE (t) && domain == TYPE_DOMAIN (t))
 	  return t;
 
-	/* These checks should match the ones in grokdeclarator.
+	/* These checks should match the ones in create_array_type_for_decl.
 
 	   [temp.deduct]
 
@@ -12104,6 +12153,8 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	      an abstract class type.  */
 	if (VOID_TYPE_P (type)
 	    || TREE_CODE (type) == FUNCTION_TYPE
+	    || (TREE_CODE (type) == ARRAY_TYPE
+		&& TYPE_DOMAIN (type) == NULL_TREE)
 	    || TREE_CODE (type) == REFERENCE_TYPE)
 	  {
 	    if (complain & tf_error)
@@ -12520,6 +12571,37 @@ tsubst_qualified_id (tree qualified_id, tree args,
   return expr;
 }
 
+/* tsubst the initializer for a VAR_DECL.  INIT is the unsubstituted
+   initializer, DECL is the substituted VAR_DECL.  Other arguments are as
+   for tsubst.  */
+
+static tree
+tsubst_init (tree init, tree decl, tree args,
+	     tsubst_flags_t complain, tree in_decl)
+{
+  if (!init)
+    return NULL_TREE;
+
+  init = tsubst_expr (init, args, complain, in_decl, false);
+
+  if (!init)
+    {
+      /* If we had an initializer but it
+	 instantiated to nothing,
+	 value-initialize the object.  This will
+	 only occur when the initializer was a
+	 pack expansion where the parameter packs
+	 used in that expansion were of length
+	 zero.  */
+      init = build_value_init (TREE_TYPE (decl),
+			       complain);
+      if (TREE_CODE (init) == AGGR_INIT_EXPR)
+	init = get_target_expr_sfinae (init, complain);
+    }
+
+  return init;
+}
+
 /* Like tsubst, but deals with expressions.  This function just replaces
    template parms; to finish processing the resultant expression, use
    tsubst_copy_and_build or tsubst_expr.  */
@@ -12662,14 +12744,19 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  r = retrieve_local_specialization (t);
 	  if (r == NULL_TREE)
 	    {
-	      if (DECL_ANON_UNION_VAR_P (t))
+	      /* First try name lookup to find the instantiation.  */
+	      r = lookup_name (DECL_NAME (t));
+	      if (r)
 		{
-		  /* Just use name lookup to find a member alias for an
-		     anonymous union, but then add it to the hash table.  */
-		  r = lookup_name (DECL_NAME (t));
-		  gcc_assert (DECL_ANON_UNION_VAR_P (r));
-		  register_local_specialization (r, t);
+		  /* Make sure that the one we found is the one we want.  */
+		  tree ctx = tsubst (DECL_CONTEXT (t), args,
+				     complain, in_decl);
+		  if (ctx != DECL_CONTEXT (r))
+		    r = NULL_TREE;
 		}
+
+	      if (r)
+		/* OK */;
 	      else
 		{
 		  /* This can happen for a variable used in a
@@ -12677,13 +12764,38 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		     local static or constant.  Building a new VAR_DECL
 		     should be OK in all those cases.  */
 		  r = tsubst_decl (t, args, complain);
-		  if (decl_constant_var_p (r))
-		    /* A use of a local constant must decay to its value.  */
-		    return integral_constant_value (r);
+		  if (decl_maybe_constant_var_p (r))
+		    {
+		      /* We can't call cp_finish_decl, so handle the
+			 initializer by hand.  */
+		      tree init = tsubst_init (DECL_INITIAL (t), r, args,
+					       complain, in_decl);
+		      if (!processing_template_decl)
+			init = maybe_constant_init (init);
+		      if (processing_template_decl
+			  ? potential_constant_expression (init)
+			  : reduced_constant_expression_p (init))
+			DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (r)
+			  = TREE_CONSTANT (r) = true;
+		      DECL_INITIAL (r) = init;
+		    }
 		  gcc_assert (cp_unevaluated_operand || TREE_STATIC (r)
+			      || decl_constant_var_p (r)
 			      || errorcount || sorrycount);
-		  return r;
+		  if (!processing_template_decl)
+		    {
+		      if (TREE_STATIC (r))
+			rest_of_decl_compilation (r, toplevel_bindings_p (),
+						  at_eof);
+		      else if (decl_constant_var_p (r))
+			/* A use of a local constant decays to its value.
+			   FIXME update for core DR 696.  */
+			r = integral_constant_value (r);
+		    }
 		}
+	      /* Remember this for subsequent uses.  */
+	      if (local_specializations)
+		register_local_specialization (r, t);
 	    }
 	}
       else
@@ -13551,26 +13663,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 			init = cp_fname_init (name, &TREE_TYPE (decl));
 		      }
 		    else
-		      {
-			tree t = RECUR (init);
-
-			if (init && !t)
-			  {
-			    /* If we had an initializer but it
-			       instantiated to nothing,
-			       value-initialize the object.  This will
-			       only occur when the initializer was a
-			       pack expansion where the parameter packs
-			       used in that expansion were of length
-			       zero.  */
-			    init = build_value_init (TREE_TYPE (decl),
-						     complain);
-			    if (TREE_CODE (init) == AGGR_INIT_EXPR)
-			      init = get_target_expr_sfinae (init, complain);
-			  }
-			else
-			  init = t;
-		      }
+		      init = tsubst_init (init, decl, args, complain, in_decl);
 
 		    if (VAR_P (decl))
 		      const_init = (DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P
@@ -15689,7 +15782,7 @@ pack_deducible_p (tree parm, tree fn)
 	continue;
       for (packs = PACK_EXPANSION_PARAMETER_PACKS (type);
 	   packs; packs = TREE_CHAIN (packs))
-	if (TREE_VALUE (packs) == parm)
+	if (template_args_equal (TREE_VALUE (packs), parm))
 	  {
 	    /* The template parameter pack is used in a function parameter
 	       pack.  If this is the end of the parameter list, the
@@ -16750,7 +16843,16 @@ resolve_overloaded_unification (tree tparms,
       int i = TREE_VEC_LENGTH (targs);
       for (; i--; )
 	if (TREE_VEC_ELT (tempargs, i))
-	  TREE_VEC_ELT (targs, i) = TREE_VEC_ELT (tempargs, i);
+	  {
+	    tree old = TREE_VEC_ELT (targs, i);
+	    tree new_ = TREE_VEC_ELT (tempargs, i);
+	    if (new_ && old && ARGUMENT_PACK_P (old)
+		&& ARGUMENT_PACK_EXPLICIT_ARGS (old))
+	      /* Don't forget explicit template arguments in a pack.  */
+	      ARGUMENT_PACK_EXPLICIT_ARGS (new_)
+		= ARGUMENT_PACK_EXPLICIT_ARGS (old);
+	    TREE_VEC_ELT (targs, i) = new_;
+	  }
     }
   if (good)
     return true;
@@ -19663,6 +19765,11 @@ instantiate_decl (tree d, int defer_ok,
   /* In general, we do not instantiate such templates.  */
   if (external_p && !always_instantiate_p (d))
     return d;
+
+  /* Any local class members should be instantiated from the TAG_DEFN
+     with defer_ok == 0.  */
+  gcc_checking_assert (!defer_ok || !decl_function_context (d)
+		       || LAMBDA_TYPE_P (DECL_CONTEXT (d)));
 
   gen_tmpl = most_general_template (tmpl);
   gen_args = DECL_TI_ARGS (d);

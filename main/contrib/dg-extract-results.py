@@ -10,7 +10,9 @@
 import sys
 import getopt
 import re
+import io
 from datetime import datetime
+from operator import attrgetter
 
 # True if unrecognised lines should cause a fatal error.  Might want to turn
 # this on by default later.
@@ -20,12 +22,21 @@ strict = False
 # they should keep the original order.
 sort_logs = True
 
+# A version of open() that is safe against whatever binary output
+# might be added to the log.
+def safe_open (filename):
+    if sys.version_info >= (3, 0):
+        return open (filename, 'r', errors = 'surrogateescape')
+    return open (filename, 'r')
+
+# Force stdout to handle escape sequences from a safe_open file.
+if sys.version_info >= (3, 0):
+    sys.stdout = io.TextIOWrapper (sys.stdout.buffer,
+                                   errors = 'surrogateescape')
+
 class Named:
     def __init__ (self, name):
         self.name = name
-
-    def __cmp__ (self, other):
-        return cmp (self.name, other.name)
 
 class ToolRun (Named):
     def __init__ (self, name):
@@ -459,7 +470,7 @@ class Prog:
 
     # Output a segment of text.
     def output_segment (self, segment):
-        with open (segment.filename, 'r') as file:
+        with safe_open (segment.filename) as file:
             file.seek (segment.start)
             for i in range (segment.lines):
                 sys.stdout.write (file.readline())
@@ -480,7 +491,8 @@ class Prog:
     # with a summary at the end.
     def output_variation (self, tool, variation):
         self.output_segment (variation.header)
-        for harness in sorted (variation.harnesses.values()):
+        for harness in sorted (variation.harnesses.values(),
+                               key = attrgetter ('name')):
             sys.stdout.write ('Running ' + harness.name + ' ...\n')
             if self.do_sum:
                 # Keep the original test result order if there was only
@@ -541,7 +553,7 @@ class Prog:
         try:
             # Parse the input files.
             for filename in self.files:
-                with open (filename, 'r') as file:
+                with safe_open (filename) as file:
                     self.parse_file (filename, file)
 
             # Decide what to output.

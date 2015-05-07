@@ -38,6 +38,19 @@ enum symtab_type
   SYMTAB_VARIABLE
 };
 
+/* Section names are stored as reference counted strings in GGC safe hashtable
+   (to make them survive through PCH).  */
+
+struct GTY(()) section_hash_entry_d
+{
+  int ref_count;
+  char *name;  /* As long as this datastructure stays in GGC, we can not put
+		  string at the tail of structure of GGC dies in horrible
+		  way  */
+};
+
+typedef struct section_hash_entry_d section_hash_entry;
+
 /* Base of all entries in the symbol table.
    The symtab_node is inherited by cgraph and varpol nodes.  */
 class GTY((desc ("%h.type"), tag ("SYMTAB_SYMBOL"),
@@ -94,6 +107,9 @@ public:
   unsigned forced_by_abi : 1;
   /* True when the name is known to be unique and thus it does not need mangling.  */
   unsigned unique_name : 1;
+  /* Specify whether the section was set by user or by
+     compiler via -ffunction-sections.  */
+  unsigned implicit_section : 1;
   /* True when body and other characteristics have been removed by
      symtab_remove_unreachable_nodes. */
   unsigned body_removed : 1;
@@ -115,6 +131,8 @@ public:
 
   /* Set when symbol has address taken. */
   unsigned address_taken : 1;
+  /* Set when init priority is set.  */
+  unsigned in_init_priority_hash : 1;
 
 
   /* Ordering of all symtab entries.  */
@@ -142,6 +160,101 @@ public:
   /* Circular list of nodes in the same comdat group if non-NULL.  */
   symtab_node *same_comdat_group;
 
+  /* Return comdat group.  */
+  tree get_comdat_group ()
+    {
+      return x_comdat_group;
+    }
+
+  /* Return comdat group as identifier_node.  */
+  tree get_comdat_group_id ()
+    {
+      if (x_comdat_group && TREE_CODE (x_comdat_group) != IDENTIFIER_NODE)
+	x_comdat_group = DECL_ASSEMBLER_NAME (x_comdat_group);
+      return x_comdat_group;
+    }
+
+  /* Set comdat group.  */
+  void set_comdat_group (tree group)
+    {
+      gcc_checking_assert (!group || TREE_CODE (group) == IDENTIFIER_NODE
+			   || DECL_P (group));
+      x_comdat_group = group;
+    }
+
+  /* Return section as string.  */
+  const char * get_section ()
+    {
+      if (!x_section)
+	return NULL;
+      return x_section->name;
+    }
+
+  /* Return ipa reference from this symtab_node to
+     REFERED_NODE or REFERED_VARPOOL_NODE. USE_TYPE specify type
+     of the use and STMT the statement (if it exists).  */
+  struct ipa_ref *add_reference (symtab_node *referred_node,
+				enum ipa_ref_use use_type);
+
+  /* Return ipa reference from this symtab_node to
+     REFERED_NODE or REFERED_VARPOOL_NODE. USE_TYPE specify type
+     of the use and STMT the statement (if it exists).  */
+  struct ipa_ref *add_reference (symtab_node *referred_node,
+				 enum ipa_ref_use use_type, gimple stmt);
+
+  /* If VAL is a reference to a function or a variable, add a reference from
+     this symtab_node to the corresponding symbol table node.  USE_TYPE specify
+     type of the use and STMT the statement (if it exists).  Return the new
+     reference or NULL if none was created.  */
+  struct ipa_ref *maybe_add_reference (tree val, enum ipa_ref_use use_type,
+				       gimple stmt);
+
+  /* Clone all references from symtab NODE to this symtab_node.  */
+  void clone_references (symtab_node *node);
+
+  /* Remove all stmt references in non-speculative references.
+     Those are not maintained during inlining & clonning.
+     The exception are speculative references that are updated along
+     with callgraph edges associated with them.  */
+  void clone_referring (symtab_node *node);
+
+  /* Clone reference REF to this symtab_node and set its stmt to STMT.  */
+  struct ipa_ref *clone_reference (struct ipa_ref *ref, gimple stmt);
+
+  /* Find the structure describing a reference to REFERRED_NODE
+     and associated with statement STMT.  */
+  struct ipa_ref *find_reference (symtab_node *, gimple, unsigned int);
+
+  /* Remove all references that are associated with statement STMT.  */
+  void remove_stmt_references (gimple stmt);
+
+  /* Remove all stmt references in non-speculative references.
+     Those are not maintained during inlining & clonning.
+     The exception are speculative references that are updated along
+     with callgraph edges associated with them.  */
+  void clear_stmts_in_references (void);
+
+  /* Remove all references in ref list.  */
+  void remove_all_references (void);
+
+  /* Remove all referring items in ref list.  */
+  void remove_all_referring (void);
+
+  /* Dump references in ref list to FILE.  */
+  void dump_references (FILE *file);
+
+  /* Dump referring in list to FILE.  */
+  void dump_referring (FILE *);
+
+  /* Return true if list contains an alias.  */
+  bool has_aliases_p (void);
+
+  /* Iterates I-th reference in the list, REF is also set.  */
+  struct ipa_ref *iterate_reference (unsigned i, struct ipa_ref *&ref);
+
+  /* Iterates I-th referring item in the list, REF is also set.  */
+  struct ipa_ref *iterate_referring (unsigned i, struct ipa_ref *&ref);
+
   /* Vectors of referring and referenced entities.  */
   struct ipa_ref_list ref_list;
 
@@ -154,6 +267,19 @@ public:
   struct lto_file_decl_data * lto_file_data;
 
   PTR GTY ((skip)) aux;
+
+  /* Comdat group the symbol is in.  Can be private if GGC allowed that.  */
+  tree x_comdat_group;
+
+  /* Section name. Again can be private, if allowed.  */
+  section_hash_entry *x_section;
+
+  /* Set section for symbol and its aliases.  */
+  void set_section (const char *section);
+  void set_section_for_node (const char *section);
+
+  void set_init_priority (priority_type priority);
+  priority_type get_init_priority ();
 };
 
 enum availability
@@ -184,6 +310,7 @@ struct lto_file_decl_data;
 
 extern const char * const cgraph_availability_names[];
 extern const char * const ld_plugin_symbol_resolution_names[];
+extern const char * const tls_model_names[];
 
 /* Information about thunk, used only for same body aliases.  */
 
@@ -238,6 +365,13 @@ struct GTY(()) cgraph_global_info {
 
 struct GTY(()) cgraph_rtl_info {
    unsigned int preferred_incoming_stack_boundary;
+
+  /* Call unsaved hard registers really used by the corresponding
+     function (including ones used by functions called by the
+     function).  */
+  HARD_REG_SET function_used_regs;
+  /* Set if function_used_regs is valid.  */
+  unsigned function_used_regs_valid: 1;
 };
 
 /* Represent which DECL tree (or reference to such tree)
@@ -443,6 +577,9 @@ public:
   /* True if this decl calls a COMDAT-local function.  This is set up in
      compute_inline_parameters and inline_call.  */
   unsigned calls_comdat_local : 1;
+
+  void set_fini_priority (priority_type priority);
+  priority_type get_fini_priority ();
 };
 
 
@@ -655,6 +792,14 @@ public:
   /* Set if the variable is dynamically initialized, except for
      function local statics.   */
   unsigned dynamically_initialized : 1;
+
+  ENUM_BITFIELD(tls_model) tls_model : 3;
+
+  /* Set if the variable is known to be used by single function only.
+     This is computed by ipa_signle_use pass and used by late optimizations
+     in places where optimization would be valid for local static variable
+     if we did not do any inter-procedural code movement.  */
+  unsigned used_by_single_function : 1;
 };
 
 /* Every top level asm statement is put into a asm_node.  */
@@ -739,9 +884,7 @@ void symtab_register_node (symtab_node *);
 void symtab_unregister_node (symtab_node *);
 void symtab_remove_from_same_comdat_group (symtab_node *);
 void symtab_remove_node (symtab_node *);
-symtab_node *symtab_get_node (const_tree);
 symtab_node *symtab_node_for_asm (const_tree asmname);
-void symtab_insert_node_to_hashtable (symtab_node *);
 void symtab_add_to_same_comdat_group (symtab_node *, symtab_node *);
 void symtab_dissolve_same_comdat_group_list (symtab_node *node);
 void dump_symtab (FILE *);
@@ -948,7 +1091,9 @@ void fixup_same_cpp_alias_visibility (symtab_node *, symtab_node *target, tree);
 basic_block init_lowered_empty_function (tree, bool);
 void cgraph_reset_node (struct cgraph_node *);
 void cgraph_enqueue_node (struct cgraph_node *);
-bool expand_thunk (struct cgraph_node *, bool);
+bool expand_thunk (struct cgraph_node *, bool, bool);
+void cgraph_make_wrapper (struct cgraph_node *source,
+			  struct cgraph_node *target);
 
 /* In cgraphclones.c  */
 
@@ -1014,6 +1159,11 @@ void free_varpool_node_set (varpool_node_set);
 void ipa_discover_readonly_nonaddressable_vars (void);
 bool varpool_externally_visible_p (varpool_node *);
 
+/* In ipa-visibility.c */
+bool cgraph_local_node_p (struct cgraph_node *);
+bool address_taken_from_non_vtable_p (symtab_node *node);
+
+
 /* In predict.c  */
 bool cgraph_maybe_hot_edge_p (struct cgraph_edge *e);
 bool cgraph_optimize_for_size_p (struct cgraph_node *);
@@ -1052,6 +1202,28 @@ void varpool_remove_initializer (varpool_node *);
 
 /* In cgraph.c */
 extern void change_decl_assembler_name (tree, tree);
+
+/* Return symbol table node associated with DECL, if any,
+   and NULL otherwise.  */
+
+static inline symtab_node *
+symtab_get_node (const_tree decl)
+{
+#ifdef ENABLE_CHECKING
+  /* Check that we are called for sane type of object - functions
+     and static or external variables.  */
+  gcc_checking_assert (TREE_CODE (decl) == FUNCTION_DECL
+		       || (TREE_CODE (decl) == VAR_DECL
+			   && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)
+			       || in_lto_p)));
+  /* Check that the mapping is sane - perhaps this check can go away,
+     but at the moment frontends tends to corrupt the mapping by calling
+     memcpy/memset on the tree nodes.  */
+  gcc_checking_assert (!decl->decl_with_vis.symtab_node
+		       || decl->decl_with_vis.symtab_node->decl == decl);
+#endif
+  return decl->decl_with_vis.symtab_node;
+}
 
 /* Return callgraph node for given symbol and check it is a function. */
 static inline struct cgraph_node *
@@ -1494,16 +1666,13 @@ varpool_all_refs_explicit_p (varpool_node *vnode)
 /* Constant pool accessor function.  */
 htab_t constant_pool_htab (void);
 
-/* FIXME: inappropriate dependency of cgraph on IPA.  */
-#include "ipa-ref-inline.h"
-
 /* Return node that alias N is aliasing.  */
 
 static inline symtab_node *
 symtab_alias_target (symtab_node *n)
 {
-  struct ipa_ref *ref;
-  ipa_ref_list_reference_iterate (&n->ref_list, 0, ref);
+  struct ipa_ref *ref = NULL;
+  n->iterate_reference (0, ref);
   gcc_checking_assert (ref->use == IPA_REF_ALIAS);
   return ref->referred;
 }
@@ -1618,7 +1787,7 @@ static inline bool
 symtab_can_be_discarded (symtab_node *node)
 {
   return (DECL_EXTERNAL (node->decl)
-	  || (DECL_ONE_ONLY (node->decl)
+	  || (node->get_comdat_group ()
 	      && node->resolution != LDPR_PREVAILING_DEF
 	      && node->resolution != LDPR_PREVAILING_DEF_IRONLY
 	      && node->resolution != LDPR_PREVAILING_DEF_IRONLY_EXP));
@@ -1650,6 +1819,6 @@ symtab_in_same_comdat_p (symtab_node *one, symtab_node *two)
 	two = cn->global.inlined_to;
     }
 
-  return DECL_COMDAT_GROUP (one->decl) == DECL_COMDAT_GROUP (two->decl);
+  return one->get_comdat_group () == two->get_comdat_group ();
 }
 #endif  /* GCC_CGRAPH_H  */

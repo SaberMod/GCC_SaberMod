@@ -16491,6 +16491,12 @@ $as_echo "#define HAVE_LOCALTIME_R 1" >>confdefs.h
 $as_echo "#define HAVE_GMTIME_R 1" >>confdefs.h
 
 
+$as_echo "#define HAVE_STRNLEN 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_STRNDUP 1" >>confdefs.h
+
+
    # At some point, we should differentiate between architectures
    # like x86, which have long double versions, and alpha/powerpc/etc.,
    # which don't. For the time being, punt.
@@ -26051,7 +26057,10 @@ $as_echo "#define HAVE_FPSETMASK 1" >>confdefs.h
 
   fi
 
-ac_fn_c_check_type "$LINENO" "fp_except" "ac_cv_type_fp_except" "#include <ieeefp.h>
+ac_fn_c_check_type "$LINENO" "fp_except" "ac_cv_type_fp_except" "
+#include <ieeefp.h>
+#include <math.h>
+
 "
 if test "x$ac_cv_type_fp_except" = x""yes; then :
 
@@ -26061,7 +26070,10 @@ _ACEOF
 
 
 fi
-ac_fn_c_check_type "$LINENO" "fp_except_t" "ac_cv_type_fp_except_t" "#include <ieeefp.h>
+ac_fn_c_check_type "$LINENO" "fp_except_t" "ac_cv_type_fp_except_t" "
+#include <ieeefp.h>
+#include <math.h>
+
 "
 if test "x$ac_cv_type_fp_except_t" = x""yes; then :
 
@@ -26072,7 +26084,10 @@ _ACEOF
 
 fi
 
-ac_fn_c_check_type "$LINENO" "fp_rnd" "ac_cv_type_fp_rnd" "#include <ieeefp.h>
+ac_fn_c_check_type "$LINENO" "fp_rnd" "ac_cv_type_fp_rnd" "
+#include <ieeefp.h>
+#include <math.h>
+
 "
 if test "x$ac_cv_type_fp_rnd" = x""yes; then :
 
@@ -26082,7 +26097,10 @@ _ACEOF
 
 
 fi
-ac_fn_c_check_type "$LINENO" "fp_rnd_t" "ac_cv_type_fp_rnd_t" "#include <ieeefp.h>
+ac_fn_c_check_type "$LINENO" "fp_rnd_t" "ac_cv_type_fp_rnd_t" "
+#include <ieeefp.h>
+#include <math.h>
+
 "
 if test "x$ac_cv_type_fp_rnd_t" = x""yes; then :
 

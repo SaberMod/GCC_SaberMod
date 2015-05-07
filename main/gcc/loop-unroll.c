@@ -162,11 +162,11 @@ var_expand_hasher::equal (const value_type *i1, const compare_type *i2)
 
 struct opt_info
 {
-  hash_table <iv_split_hasher> insns_to_split; /* A hashtable of insns to
+  hash_table<iv_split_hasher> *insns_to_split; /* A hashtable of insns to
 						  split.  */
   struct iv_to_split *iv_to_split_head; /* The first iv to split.  */
   struct iv_to_split **iv_to_split_tail; /* Pointer to the tail of the list.  */
-  hash_table <var_expand_hasher> insns_with_var_to_expand; /* A hashtable of
+  hash_table<var_expand_hasher> *insns_with_var_to_expand; /* A hashtable of
 					insns with accumulators to expand.  */
   struct var_to_expand *var_to_expand_head; /* The first var to expand.  */
   struct var_to_expand **var_to_expand_tail; /* Pointer to the tail of the list.  */
@@ -721,7 +721,7 @@ decide_peel_completely (struct loop *loop, int flags ATTRIBUTE_UNUSED)
 	{
 	  fprintf (dump_file,
 		   ";; Not peeling loop completely, rolls too much (");
-	  fprintf (dump_file, HOST_WIDEST_INT_PRINT_DEC, desc->niter);
+	  fprintf (dump_file, "%"PRId64, desc->niter);
 	  fprintf (dump_file, " iterations > %d [maximum peelings])\n", npeel);
 	}
       return;
@@ -1676,8 +1676,8 @@ decide_peel_simple (struct loop *loop, int flags)
 	  if (dump_file)
 	    {
 	      fprintf (dump_file, ";; Not peeling loop, rolls too much (");
-	      fprintf (dump_file, HOST_WIDEST_INT_PRINT_DEC,
-		       (HOST_WIDEST_INT) (iterations.to_shwi () + 1));
+	      fprintf (dump_file, "%"PRId64,
+		       (int64_t) (iterations.to_shwi () + 1));
 	      fprintf (dump_file, " iterations > %d [maximum peelings])\n",
 		       npeel);
 	    }
@@ -2237,7 +2237,8 @@ analyze_insns_in_loop (struct loop *loop)
 
   if (flag_split_ivs_in_unroller)
     {
-      opt_info->insns_to_split.create (5 * loop->num_nodes);
+      opt_info->insns_to_split
+       	= new hash_table<iv_split_hasher> (5 * loop->num_nodes);
       opt_info->iv_to_split_head = NULL;
       opt_info->iv_to_split_tail = &opt_info->iv_to_split_head;
     }
@@ -2258,7 +2259,8 @@ analyze_insns_in_loop (struct loop *loop)
   if (flag_variable_expansion_in_unroller
       && can_apply)
     {
-      opt_info->insns_with_var_to_expand.create (5 * loop->num_nodes);
+      opt_info->insns_with_var_to_expand
+       	= new hash_table<var_expand_hasher> (5 * loop->num_nodes);
       opt_info->var_to_expand_head = NULL;
       opt_info->var_to_expand_tail = &opt_info->var_to_expand_head;
     }
@@ -2274,12 +2276,12 @@ analyze_insns_in_loop (struct loop *loop)
         if (!INSN_P (insn))
           continue;
 
-        if (opt_info->insns_to_split.is_created ())
+        if (opt_info->insns_to_split)
           ivts = analyze_iv_to_split_insn (insn);
 
         if (ivts)
           {
-            slot1 = opt_info->insns_to_split.find_slot (ivts, INSERT);
+            slot1 = opt_info->insns_to_split->find_slot (ivts, INSERT);
 	    gcc_assert (*slot1 == NULL);
             *slot1 = ivts;
 	    *opt_info->iv_to_split_tail = ivts;
@@ -2287,12 +2289,12 @@ analyze_insns_in_loop (struct loop *loop)
             continue;
           }
 
-        if (opt_info->insns_with_var_to_expand.is_created ())
+        if (opt_info->insns_with_var_to_expand)
           ves = analyze_insn_to_expand_var (loop, insn);
 
         if (ves)
           {
-            slot2 = opt_info->insns_with_var_to_expand.find_slot (ves, INSERT);
+            slot2 = opt_info->insns_with_var_to_expand->find_slot (ves, INSERT);
 	    gcc_assert (*slot2 == NULL);
             *slot2 = ves;
 	    *opt_info->var_to_expand_tail = ves;
@@ -2670,7 +2672,7 @@ apply_opt_in_copies (struct opt_info *opt_info,
   gcc_assert (!unrolling || rewrite_original_loop);
 
   /* Allocate the basic variables (i0).  */
-  if (opt_info->insns_to_split.is_created ())
+  if (opt_info->insns_to_split)
     for (ivts = opt_info->iv_to_split_head; ivts; ivts = ivts->next)
       allocate_basic_variable (ivts);
 
@@ -2704,11 +2706,11 @@ apply_opt_in_copies (struct opt_info *opt_info,
           ve_templ.insn = orig_insn;
 
           /* Apply splitting iv optimization.  */
-          if (opt_info->insns_to_split.is_created ())
+          if (opt_info->insns_to_split)
             {
 	      maybe_strip_eq_note_for_split_iv (opt_info, insn);
 
-              ivts = opt_info->insns_to_split.find (&ivts_templ);
+              ivts = opt_info->insns_to_split->find (&ivts_templ);
 
               if (ivts)
                 {
@@ -2721,10 +2723,10 @@ apply_opt_in_copies (struct opt_info *opt_info,
                 }
             }
           /* Apply variable expansion optimization.  */
-          if (unrolling && opt_info->insns_with_var_to_expand.is_created ())
+          if (unrolling && opt_info->insns_with_var_to_expand)
             {
               ves = (struct var_to_expand *)
-		opt_info->insns_with_var_to_expand.find (&ve_templ);
+		opt_info->insns_with_var_to_expand->find (&ve_templ);
               if (ves)
                 {
 		  gcc_assert (GET_CODE (PATTERN (insn))
@@ -2741,7 +2743,7 @@ apply_opt_in_copies (struct opt_info *opt_info,
 
   /* Initialize the variable expansions in the loop preheader
      and take care of combining them at the loop exit.  */
-  if (opt_info->insns_with_var_to_expand.is_created ())
+  if (opt_info->insns_with_var_to_expand)
     {
       for (ves = opt_info->var_to_expand_head; ves; ves = ves->next)
 	insert_var_expansion_initialization (ves, opt_info->loop_preheader);
@@ -2772,12 +2774,12 @@ apply_opt_in_copies (struct opt_info *opt_info,
  	    continue;
 
           ivts_templ.insn = orig_insn;
-          if (opt_info->insns_to_split.is_created ())
+          if (opt_info->insns_to_split)
             {
 	      maybe_strip_eq_note_for_split_iv (opt_info, orig_insn);
 
               ivts = (struct iv_to_split *)
-		opt_info->insns_to_split.find (&ivts_templ);
+		opt_info->insns_to_split->find (&ivts_templ);
               if (ivts)
                 {
                   if (!delta)
@@ -2796,15 +2798,16 @@ apply_opt_in_copies (struct opt_info *opt_info,
 static void
 free_opt_info (struct opt_info *opt_info)
 {
-  if (opt_info->insns_to_split.is_created ())
-    opt_info->insns_to_split.dispose ();
-  if (opt_info->insns_with_var_to_expand.is_created ())
+  delete opt_info->insns_to_split;
+  opt_info->insns_to_split = NULL;
+  if (opt_info->insns_with_var_to_expand)
     {
       struct var_to_expand *ves;
 
       for (ves = opt_info->var_to_expand_head; ves; ves = ves->next)
 	ves->var_expansions.release ();
-      opt_info->insns_with_var_to_expand.dispose ();
+      delete opt_info->insns_with_var_to_expand;
+      opt_info->insns_with_var_to_expand = NULL;
     }
   free (opt_info);
 }

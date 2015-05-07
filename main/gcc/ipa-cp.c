@@ -1752,13 +1752,13 @@ good_cloning_opportunity_p (struct cgraph_node *node, int time_benefit,
   if (max_count)
     {
       int factor = (count_sum * 1000) / max_count;
-      HOST_WIDEST_INT evaluation = (((HOST_WIDEST_INT) time_benefit * factor)
+      int64_t evaluation = (((int64_t) time_benefit * factor)
 				    / size_cost);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "     good_cloning_opportunity_p (time: %i, "
 		 "size: %i, count_sum: " HOST_WIDE_INT_PRINT_DEC
-		 ") -> evaluation: " HOST_WIDEST_INT_PRINT_DEC
+		 ") -> evaluation: " "%"PRId64
 		 ", threshold: %i\n",
 		 time_benefit, size_cost, (HOST_WIDE_INT) count_sum,
 		 evaluation, PARAM_VALUE (PARAM_IPA_CP_EVAL_THRESHOLD));
@@ -1767,13 +1767,13 @@ good_cloning_opportunity_p (struct cgraph_node *node, int time_benefit,
     }
   else
     {
-      HOST_WIDEST_INT evaluation = (((HOST_WIDEST_INT) time_benefit * freq_sum)
+      int64_t evaluation = (((int64_t) time_benefit * freq_sum)
 				    / size_cost);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "     good_cloning_opportunity_p (time: %i, "
 		 "size: %i, freq_sum: %i) -> evaluation: "
-		 HOST_WIDEST_INT_PRINT_DEC ", threshold: %i\n",
+		 "%"PRId64 ", threshold: %i\n",
 		 time_benefit, size_cost, freq_sum, evaluation,
 		 PARAM_VALUE (PARAM_IPA_CP_EVAL_THRESHOLD));
 
@@ -2391,14 +2391,12 @@ ipcp_discover_new_direct_edges (struct cgraph_node *node,
 		    fprintf (dump_file, "     controlled uses count of param "
 			     "%i bumped down to %i\n", param_index, c);
 		  if (c == 0
-		      && (to_del = ipa_find_reference (node,
-						       cs->callee,
-						       NULL, 0)))
+		      && (to_del = node->find_reference (cs->callee, NULL, 0)))
 		    {
 		      if (dump_file && (dump_flags & TDF_DETAILS))
 			fprintf (dump_file, "       and even removing its "
 				 "cloning-created reference\n");
-		      ipa_remove_reference (to_del);
+		      to_del->remove_reference ();
 		    }
 		}
 	    }
@@ -2463,7 +2461,7 @@ ipcp_edge_removal_hook (struct cgraph_edge *cs, void *)
    parameter with the given INDEX.  */
 
 static tree
-get_clone_agg_value (struct cgraph_node *node, HOST_WIDEST_INT offset,
+get_clone_agg_value (struct cgraph_node *node, HOST_WIDE_INT offset,
 		     int index)
 {
   struct ipa_agg_replacement_value *aggval;
@@ -2486,7 +2484,8 @@ cgraph_edge_brings_value_p (struct cgraph_edge *cs,
 			    struct ipcp_value_source *src)
 {
   struct ipa_node_params *caller_info = IPA_NODE_REF (cs->caller);
-  struct ipa_node_params *dst_info = IPA_NODE_REF (cs->callee);
+  cgraph_node *real_dest = cgraph_function_node (cs->callee);
+  struct ipa_node_params *dst_info = IPA_NODE_REF (real_dest);
 
   if ((dst_info->ipcp_orig_node && !dst_info->is_all_contexts_clone)
       || caller_info->node_dead)
@@ -2806,8 +2805,7 @@ create_specialized_node (struct cgraph_node *node,
 					  args_to_skip, "constprop");
   ipa_set_node_agg_value_chain (new_node, aggvals);
   for (av = aggvals; av; av = av->next)
-    ipa_maybe_record_reference (new_node, av->value,
-				IPA_REF_ADDR, NULL);
+    new_node->maybe_add_reference (av->value, IPA_REF_ADDR, NULL);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {

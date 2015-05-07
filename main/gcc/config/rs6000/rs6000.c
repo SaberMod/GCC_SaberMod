@@ -79,6 +79,7 @@
 #include "dumpfile.h"
 #include "cgraph.h"
 #include "target-globals.h"
+#include "builtins.h"
 #if TARGET_XCOFF
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
 #endif
@@ -1068,7 +1069,7 @@ static tree rs6000_handle_longcall_attribute (tree *, tree, tree, int, bool *);
 static tree rs6000_handle_altivec_attribute (tree *, tree, tree, int, bool *);
 static tree rs6000_handle_struct_attribute (tree *, tree, tree, int, bool *);
 static tree rs6000_builtin_vectorized_libmass (tree, tree, tree);
-static rtx rs6000_emit_set_long_const (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
+static void rs6000_emit_set_long_const (rtx, HOST_WIDE_INT);
 static int rs6000_memory_move_cost (enum machine_mode, reg_class_t, bool);
 static bool rs6000_debug_rtx_costs (rtx, int, int, int, int *, bool);
 static int rs6000_debug_address_cost (rtx, enum machine_mode, addr_space_t,
@@ -3040,7 +3041,8 @@ rs6000_builtin_mask_calculate (void)
 	  | ((TARGET_CRYPTO)		    ? RS6000_BTM_CRYPTO	   : 0)
 	  | ((TARGET_HTM)		    ? RS6000_BTM_HTM	   : 0)
 	  | ((TARGET_DFP)		    ? RS6000_BTM_DFP	   : 0)
-	  | ((TARGET_HARD_FLOAT)	    ? RS6000_BTM_HARD_FLOAT : 0));
+	  | ((TARGET_HARD_FLOAT)	    ? RS6000_BTM_HARD_FLOAT : 0)
+	  | ((TARGET_LONG_DOUBLE_128)	    ? RS6000_BTM_LDBL128 : 0));
 }
 
 /* Override command line options.  Mostly we process the processor type and
@@ -6124,7 +6126,8 @@ mem_operand_gpr (rtx op, enum machine_mode mode)
     return false;
 
   extra = GET_MODE_SIZE (mode) - UNITS_PER_WORD;
-  gcc_assert (extra >= 0);
+  if (extra < 0)
+    extra = 0;
 
   if (GET_CODE (addr) == LO_SUM)
     /* For lo_sum addresses, we must allow any offset except one that
@@ -7848,53 +7851,50 @@ rs6000_conditional_register_usage (void)
 }
 
 
-/* Try to output insns to set TARGET equal to the constant C if it can
-   be done in less than N insns.  Do all computations in MODE.
-   Returns the place where the output has been placed if it can be
-   done and the insns have been emitted.  If it would take more than N
-   insns, zero is returned and no insns and emitted.  */
+/* Output insns to set DEST equal to the constant SOURCE as a series of
+   lis, ori and shl instructions and return TRUE.  */
 
-rtx
-rs6000_emit_set_const (rtx dest, enum machine_mode mode,
-		       rtx source, int n ATTRIBUTE_UNUSED)
+bool
+rs6000_emit_set_const (rtx dest, rtx source)
 {
-  rtx result, insn, set;
-  HOST_WIDE_INT c0, c1;
+  enum machine_mode mode = GET_MODE (dest);
+  rtx temp, insn, set;
+  HOST_WIDE_INT c;
 
+  gcc_checking_assert (CONST_INT_P (source));
+  c = INTVAL (source);
   switch (mode)
     {
-    case  QImode:
+    case QImode:
     case HImode:
-      if (dest == NULL)
-	dest = gen_reg_rtx (mode);
       emit_insn (gen_rtx_SET (VOIDmode, dest, source));
-      return dest;
+      return true;
 
     case SImode:
-      result = !can_create_pseudo_p () ? dest : gen_reg_rtx (SImode);
+      temp = !can_create_pseudo_p () ? dest : gen_reg_rtx (SImode);
 
-      emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (result),
-			      GEN_INT (INTVAL (source)
-				       & (~ (HOST_WIDE_INT) 0xffff))));
+      emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (temp),
+			      GEN_INT (c & ~(HOST_WIDE_INT) 0xffff)));
       emit_insn (gen_rtx_SET (VOIDmode, dest,
-			      gen_rtx_IOR (SImode, copy_rtx (result),
-					   GEN_INT (INTVAL (source) & 0xffff))));
-      result = dest;
+			      gen_rtx_IOR (SImode, copy_rtx (temp),
+					   GEN_INT (c & 0xffff))));
       break;
 
     case DImode:
-      switch (GET_CODE (source))
+      if (!TARGET_POWERPC64)
 	{
-	case CONST_INT:
-	  c0 = INTVAL (source);
-	  c1 = -(c0 < 0);
-	  break;
+	  rtx hi, lo;
 
-	default:
-	  gcc_unreachable ();
+	  hi = operand_subword_force (copy_rtx (dest), WORDS_BIG_ENDIAN == 0,
+				      DImode);
+	  lo = operand_subword_force (dest, WORDS_BIG_ENDIAN != 0,
+				      DImode);
+	  emit_move_insn (hi, GEN_INT (c >> 32));
+	  c = ((c & 0xffffffff) ^ 0x80000000) - 0x80000000;
+	  emit_move_insn (lo, GEN_INT (c));
 	}
-
-      result = rs6000_emit_set_long_const (dest, c0, c1);
+      else
+	rs6000_emit_set_long_const (dest, c);
       break;
 
     default:
@@ -7904,107 +7904,103 @@ rs6000_emit_set_const (rtx dest, enum machine_mode mode,
   insn = get_last_insn ();
   set = single_set (insn);
   if (! CONSTANT_P (SET_SRC (set)))
-    set_unique_reg_note (insn, REG_EQUAL, source);
+    set_unique_reg_note (insn, REG_EQUAL, GEN_INT (c));
 
-  return result;
+  return true;
 }
 
-/* Having failed to find a 3 insn sequence in rs6000_emit_set_const,
-   fall back to a straight forward decomposition.  We do this to avoid
-   exponential run times encountered when looking for longer sequences
-   with rs6000_emit_set_const.  */
-static rtx
-rs6000_emit_set_long_const (rtx dest, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
-{
-  if (!TARGET_POWERPC64)
-    {
-      rtx operand1, operand2;
+/* Subroutine of rs6000_emit_set_const, handling PowerPC64 DImode.
+   Output insns to set DEST equal to the constant C as a series of
+   lis, ori and shl instructions.  */
 
-      operand1 = operand_subword_force (dest, WORDS_BIG_ENDIAN == 0,
-					DImode);
-      operand2 = operand_subword_force (copy_rtx (dest), WORDS_BIG_ENDIAN != 0,
-					DImode);
-      emit_move_insn (operand1, GEN_INT (c1));
-      emit_move_insn (operand2, GEN_INT (c2));
+static void
+rs6000_emit_set_long_const (rtx dest, HOST_WIDE_INT c)
+{
+  rtx temp;
+  HOST_WIDE_INT ud1, ud2, ud3, ud4;
+
+  ud1 = c & 0xffff;
+  c = c >> 16;
+  ud2 = c & 0xffff;
+  c = c >> 16;
+  ud3 = c & 0xffff;
+  c = c >> 16;
+  ud4 = c & 0xffff;
+
+  if ((ud4 == 0xffff && ud3 == 0xffff && ud2 == 0xffff && (ud1 & 0x8000))
+      || (ud4 == 0 && ud3 == 0 && ud2 == 0 && ! (ud1 & 0x8000)))
+    emit_move_insn (dest, GEN_INT ((ud1 ^ 0x8000) - 0x8000));
+
+  else if ((ud4 == 0xffff && ud3 == 0xffff && (ud2 & 0x8000))
+	   || (ud4 == 0 && ud3 == 0 && ! (ud2 & 0x8000)))
+    {
+      temp = !can_create_pseudo_p () ? dest : gen_reg_rtx (DImode);
+
+      emit_move_insn (ud1 != 0 ? copy_rtx (temp) : dest,
+		      GEN_INT (((ud2 << 16) ^ 0x80000000) - 0x80000000));
+      if (ud1 != 0)
+	emit_move_insn (dest,
+			gen_rtx_IOR (DImode, copy_rtx (temp),
+				     GEN_INT (ud1)));
+    }
+  else if (ud3 == 0 && ud4 == 0)
+    {
+      temp = !can_create_pseudo_p () ? dest : gen_reg_rtx (DImode);
+
+      gcc_assert (ud2 & 0x8000);
+      emit_move_insn (copy_rtx (temp),
+		      GEN_INT (((ud2 << 16) ^ 0x80000000) - 0x80000000));
+      if (ud1 != 0)
+	emit_move_insn (copy_rtx (temp),
+			gen_rtx_IOR (DImode, copy_rtx (temp),
+				     GEN_INT (ud1)));
+      emit_move_insn (dest,
+		      gen_rtx_ZERO_EXTEND (DImode,
+					   gen_lowpart (SImode,
+							copy_rtx (temp))));
+    }
+  else if ((ud4 == 0xffff && (ud3 & 0x8000))
+	   || (ud4 == 0 && ! (ud3 & 0x8000)))
+    {
+      temp = !can_create_pseudo_p () ? dest : gen_reg_rtx (DImode);
+
+      emit_move_insn (copy_rtx (temp),
+		      GEN_INT (((ud3 << 16) ^ 0x80000000) - 0x80000000));
+      if (ud2 != 0)
+	emit_move_insn (copy_rtx (temp),
+			gen_rtx_IOR (DImode, copy_rtx (temp),
+				     GEN_INT (ud2)));
+      emit_move_insn (ud1 != 0 ? copy_rtx (temp) : dest,
+		      gen_rtx_ASHIFT (DImode, copy_rtx (temp),
+				      GEN_INT (16)));
+      if (ud1 != 0)
+	emit_move_insn (dest,
+			gen_rtx_IOR (DImode, copy_rtx (temp),
+				     GEN_INT (ud1)));
     }
   else
     {
-      HOST_WIDE_INT ud1, ud2, ud3, ud4;
+      temp = !can_create_pseudo_p () ? dest : gen_reg_rtx (DImode);
 
-      ud1 = c1 & 0xffff;
-      ud2 = (c1 & 0xffff0000) >> 16;
-      c2 = c1 >> 32;
-      ud3 = c2 & 0xffff;
-      ud4 = (c2 & 0xffff0000) >> 16;
+      emit_move_insn (copy_rtx (temp),
+		      GEN_INT (((ud4 << 16) ^ 0x80000000) - 0x80000000));
+      if (ud3 != 0)
+	emit_move_insn (copy_rtx (temp),
+			gen_rtx_IOR (DImode, copy_rtx (temp),
+				     GEN_INT (ud3)));
 
-      if ((ud4 == 0xffff && ud3 == 0xffff && ud2 == 0xffff && (ud1 & 0x8000))
-	  || (ud4 == 0 && ud3 == 0 && ud2 == 0 && ! (ud1 & 0x8000)))
-	emit_move_insn (dest, GEN_INT ((ud1 ^ 0x8000) - 0x8000));
-
-      else if ((ud4 == 0xffff && ud3 == 0xffff && (ud2 & 0x8000))
-	       || (ud4 == 0 && ud3 == 0 && ! (ud2 & 0x8000)))
-	{
-	  emit_move_insn (dest, GEN_INT (((ud2 << 16) ^ 0x80000000)
-					 - 0x80000000));
-	  if (ud1 != 0)
-	    emit_move_insn (copy_rtx (dest),
-			    gen_rtx_IOR (DImode, copy_rtx (dest),
-					 GEN_INT (ud1)));
-	}
-      else if (ud3 == 0 && ud4 == 0)
-	{
-	  gcc_assert (ud2 & 0x8000);
-	  emit_move_insn (dest, GEN_INT (((ud2 << 16) ^ 0x80000000)
-					 - 0x80000000));
-	  if (ud1 != 0)
-	    emit_move_insn (copy_rtx (dest),
-			    gen_rtx_IOR (DImode, copy_rtx (dest),
-					 GEN_INT (ud1)));
-	  emit_move_insn (copy_rtx (dest),
-			  gen_rtx_ZERO_EXTEND (DImode,
-					       gen_lowpart (SImode,
-							    copy_rtx (dest))));
-	}
-      else if ((ud4 == 0xffff && (ud3 & 0x8000))
-	       || (ud4 == 0 && ! (ud3 & 0x8000)))
-	{
-	  emit_move_insn (dest, GEN_INT (((ud3 << 16) ^ 0x80000000)
-					 - 0x80000000));
-	  if (ud2 != 0)
-	    emit_move_insn (copy_rtx (dest),
-			    gen_rtx_IOR (DImode, copy_rtx (dest),
-					 GEN_INT (ud2)));
-	  emit_move_insn (copy_rtx (dest),
-			  gen_rtx_ASHIFT (DImode, copy_rtx (dest),
-					  GEN_INT (16)));
-	  if (ud1 != 0)
-	    emit_move_insn (copy_rtx (dest),
-			    gen_rtx_IOR (DImode, copy_rtx (dest),
-					 GEN_INT (ud1)));
-	}
-      else
-	{
-	  emit_move_insn (dest, GEN_INT (((ud4 << 16) ^ 0x80000000)
-					 - 0x80000000));
-	  if (ud3 != 0)
-	    emit_move_insn (copy_rtx (dest),
-			    gen_rtx_IOR (DImode, copy_rtx (dest),
-					 GEN_INT (ud3)));
-
-	  emit_move_insn (copy_rtx (dest),
-			  gen_rtx_ASHIFT (DImode, copy_rtx (dest),
-					  GEN_INT (32)));
-	  if (ud2 != 0)
-	    emit_move_insn (copy_rtx (dest),
-			    gen_rtx_IOR (DImode, copy_rtx (dest),
-					 GEN_INT (ud2 << 16)));
-	  if (ud1 != 0)
-	    emit_move_insn (copy_rtx (dest),
-			    gen_rtx_IOR (DImode, copy_rtx (dest),
-					 GEN_INT (ud1)));
-	}
+      emit_move_insn (ud2 != 0 || ud1 != 0 ? copy_rtx (temp) : dest,
+		      gen_rtx_ASHIFT (DImode, copy_rtx (temp),
+				      GEN_INT (32)));
+      if (ud2 != 0)
+	emit_move_insn (ud1 != 0 ? copy_rtx (temp) : dest,
+			gen_rtx_IOR (DImode, copy_rtx (temp),
+				     GEN_INT (ud2 << 16)));
+      if (ud1 != 0)
+	emit_move_insn (dest,
+			gen_rtx_IOR (DImode, copy_rtx (temp),
+				     GEN_INT (ud1)));
     }
-  return dest;
 }
 
 /* Helper for the following.  Get rid of [r+r] memory refs
@@ -10484,35 +10480,65 @@ rs6000_parm_needs_stack (cumulative_args_t args_so_far, tree type)
    list, or passes any parameter in memory.  */
 
 static bool
-rs6000_function_parms_need_stack (tree fun)
+rs6000_function_parms_need_stack (tree fun, bool incoming)
 {
-  function_args_iterator args_iter;
-  tree arg_type;
+  tree fntype, result;
   CUMULATIVE_ARGS args_so_far_v;
   cumulative_args_t args_so_far;
 
   if (!fun)
     /* Must be a libcall, all of which only use reg parms.  */
     return false;
+
+  fntype = fun;
   if (!TYPE_P (fun))
-    fun = TREE_TYPE (fun);
+    fntype = TREE_TYPE (fun);
 
   /* Varargs functions need the parameter save area.  */
-  if (!prototype_p (fun) || stdarg_p (fun))
+  if ((!incoming && !prototype_p (fntype)) || stdarg_p (fntype))
     return true;
 
-  INIT_CUMULATIVE_INCOMING_ARGS (args_so_far_v, fun, NULL_RTX);
+  INIT_CUMULATIVE_INCOMING_ARGS (args_so_far_v, fntype, NULL_RTX);
   args_so_far = pack_cumulative_args (&args_so_far_v);
 
-  if (aggregate_value_p (TREE_TYPE (fun), fun))
+  /* When incoming, we will have been passed the function decl.
+     It is necessary to use the decl to handle K&R style functions,
+     where TYPE_ARG_TYPES may not be available.  */
+  if (incoming)
     {
-      tree type = build_pointer_type (TREE_TYPE (fun));
-      rs6000_parm_needs_stack (args_so_far, type);
+      gcc_assert (DECL_P (fun));
+      result = DECL_RESULT (fun);
+    }
+  else
+    result = TREE_TYPE (fntype);
+
+  if (result && aggregate_value_p (result, fntype))
+    {
+      if (!TYPE_P (result))
+	result = TREE_TYPE (result);
+      result = build_pointer_type (result);
+      rs6000_parm_needs_stack (args_so_far, result);
     }
 
-  FOREACH_FUNCTION_ARGS (fun, arg_type, args_iter)
-    if (rs6000_parm_needs_stack (args_so_far, arg_type))
-      return true;
+  if (incoming)
+    {
+      tree parm;
+
+      for (parm = DECL_ARGUMENTS (fun);
+	   parm && parm != void_list_node;
+	   parm = TREE_CHAIN (parm))
+	if (rs6000_parm_needs_stack (args_so_far, TREE_TYPE (parm)))
+	  return true;
+    }
+  else
+    {
+      function_args_iterator args_iter;
+      tree arg_type;
+
+      FOREACH_FUNCTION_ARGS (fntype, arg_type, args_iter)
+	if (rs6000_parm_needs_stack (args_so_far, arg_type))
+	  return true;
+    }
 
   return false;
 }
@@ -10524,7 +10550,7 @@ rs6000_function_parms_need_stack (tree fun)
    all parameters in registers.  */
 
 int
-rs6000_reg_parm_stack_space (tree fun)
+rs6000_reg_parm_stack_space (tree fun, bool incoming)
 {
   int reg_parm_stack_space;
 
@@ -10542,7 +10568,7 @@ rs6000_reg_parm_stack_space (tree fun)
     case ABI_ELFv2:
       /* ??? Recomputing this every time is a bit expensive.  Is there
 	 a place to cache this information?  */
-      if (rs6000_function_parms_need_stack (fun))
+      if (rs6000_function_parms_need_stack (fun, incoming))
 	reg_parm_stack_space = TARGET_64BIT ? 64 : 32;
       else
 	reg_parm_stack_space = 0;
@@ -13564,11 +13590,15 @@ rs6000_invalid_builtin (enum rs6000_builtins fncode)
   else if ((fnmask & (RS6000_BTM_DFP | RS6000_BTM_P8_VECTOR))
 	   == (RS6000_BTM_DFP | RS6000_BTM_P8_VECTOR))
     error ("Builtin function %s requires the -mhard-dfp and"
-	   "-mpower8-vector options", name);
+	   " -mpower8-vector options", name);
   else if ((fnmask & RS6000_BTM_DFP) != 0)
     error ("Builtin function %s requires the -mhard-dfp option", name);
   else if ((fnmask & RS6000_BTM_P8_VECTOR) != 0)
     error ("Builtin function %s requires the -mpower8-vector option", name);
+  else if ((fnmask & (RS6000_BTM_HARD_FLOAT | RS6000_BTM_LDBL128))
+	   == (RS6000_BTM_HARD_FLOAT | RS6000_BTM_LDBL128))
+    error ("Builtin function %s requires the -mhard-float and"
+	   " -mlong-double-128 options", name);
   else if ((fnmask & RS6000_BTM_HARD_FLOAT) != 0)
     error ("Builtin function %s requires the -mhard-float option", name);
   else
@@ -26187,13 +26217,21 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                 {
                 case TYPE_CMP:
                 case TYPE_COMPARE:
-                case TYPE_DELAYED_COMPARE:
-                case TYPE_IMUL_COMPARE:
-                case TYPE_LMUL_COMPARE:
                 case TYPE_FPCOMPARE:
                 case TYPE_CR_LOGICAL:
                 case TYPE_DELAYED_CR:
 		  return cost + 2;
+                case TYPE_MUL:
+		  if (get_attr_dot (dep_insn) == DOT_YES)
+		    return cost + 2;
+		  else
+		    break;
+                case TYPE_SHIFT:
+		  if (get_attr_dot (dep_insn) == DOT_YES
+		      && get_attr_var_shift (dep_insn) == VAR_SHIFT_NO)
+		    return cost + 2;
+		  else
+		    break;
 		default:
 		  break;
 		}
@@ -26224,20 +26262,19 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                                == SIGN_EXTEND_YES ? 6 : 4;
                       break;
                     }
-                  case TYPE_VAR_SHIFT_ROTATE:
-                  case TYPE_VAR_DELAYED_COMPARE:
+                  case TYPE_SHIFT:
                     {
                       if (! store_data_bypass_p (dep_insn, insn))
-                        return 6;
+                        return get_attr_var_shift (dep_insn) == VAR_SHIFT_YES ?
+                               6 : 3;
                       break;
 		    }
                   case TYPE_INTEGER:
+                  case TYPE_ADD:
+                  case TYPE_LOGICAL:
                   case TYPE_COMPARE:
-                  case TYPE_FAST_COMPARE:
                   case TYPE_EXTS:
-                  case TYPE_SHIFT:
-                  case TYPE_INSERT_WORD:
-                  case TYPE_INSERT_DWORD:
+                  case TYPE_INSERT:
                     {
                       if (! store_data_bypass_p (dep_insn, insn))
                         return 3;
@@ -26252,27 +26289,16 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                         return 3;
                       break;
                     }
-                  case TYPE_IMUL:
-                  case TYPE_IMUL2:
-                  case TYPE_IMUL3:
-                  case TYPE_LMUL:
-                  case TYPE_IMUL_COMPARE:
-                  case TYPE_LMUL_COMPARE:
+                  case TYPE_MUL:
                     {
                       if (! store_data_bypass_p (dep_insn, insn))
                         return 17;
                       break;
                     }
-                  case TYPE_IDIV:
+                  case TYPE_DIV:
                     {
                       if (! store_data_bypass_p (dep_insn, insn))
-                        return 45;
-                      break;
-                    }
-                  case TYPE_LDIV:
-                    {
-                      if (! store_data_bypass_p (dep_insn, insn))
-                        return 57;
+                        return get_attr_size (dep_insn) == SIZE_32 ? 45 : 57;
                       break;
                     }
                   default:
@@ -26300,20 +26326,19 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                                == SIGN_EXTEND_YES ? 6 : 4;
                       break;
                     }
-                  case TYPE_VAR_SHIFT_ROTATE:
-                  case TYPE_VAR_DELAYED_COMPARE:
+                  case TYPE_SHIFT:
                     {
                       if (set_to_load_agen (dep_insn, insn))
-                        return 6;
+                        return get_attr_var_shift (dep_insn) == VAR_SHIFT_YES ?
+                               6 : 3;
                       break;
-                    }
+		    }
                   case TYPE_INTEGER:
+                  case TYPE_ADD:
+                  case TYPE_LOGICAL:
                   case TYPE_COMPARE:
-                  case TYPE_FAST_COMPARE:
                   case TYPE_EXTS:
-                  case TYPE_SHIFT:
-                  case TYPE_INSERT_WORD:
-                  case TYPE_INSERT_DWORD:
+                  case TYPE_INSERT:
                     {
                       if (set_to_load_agen (dep_insn, insn))
                         return 3;
@@ -26328,27 +26353,16 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                         return 3;
                       break;
                     }
-                  case TYPE_IMUL:
-                  case TYPE_IMUL2:
-                  case TYPE_IMUL3:
-                  case TYPE_LMUL:
-                  case TYPE_IMUL_COMPARE:
-                  case TYPE_LMUL_COMPARE:
+                  case TYPE_MUL:
                     {
                       if (set_to_load_agen (dep_insn, insn))
                         return 17;
                       break;
                     }
-                  case TYPE_IDIV:
+                  case TYPE_DIV:
                     {
                       if (set_to_load_agen (dep_insn, insn))
-                        return 45;
-                      break;
-                    }
-                  case TYPE_LDIV:
-                    {
-                      if (set_to_load_agen (dep_insn, insn))
-                        return 57;
+                        return get_attr_size (dep_insn) == SIZE_32 ? 45 : 57;
                       break;
                     }
                   default:
@@ -26497,10 +26511,15 @@ is_cracked_insn (rtx insn)
 	  || ((type == TYPE_FPLOAD || type == TYPE_FPSTORE)
 	      && get_attr_update (insn) == UPDATE_YES)
 	  || type == TYPE_DELAYED_CR
-	  || type == TYPE_COMPARE || type == TYPE_DELAYED_COMPARE
-	  || type == TYPE_IMUL_COMPARE || type == TYPE_LMUL_COMPARE
-	  || type == TYPE_IDIV || type == TYPE_LDIV
-	  || type == TYPE_INSERT_WORD)
+	  || type == TYPE_COMPARE
+	  || (type == TYPE_SHIFT
+	      && get_attr_dot (insn) == DOT_YES
+	      && get_attr_var_shift (insn) == VAR_SHIFT_NO)
+	  || (type == TYPE_MUL
+	      && get_attr_dot (insn) == DOT_YES)
+	  || type == TYPE_DIV
+	  || (type == TYPE_INSERT
+	      && get_attr_size (insn) == SIZE_32))
 	return true;
     }
 
@@ -26654,8 +26673,8 @@ rs6000_adjust_priority (rtx insn ATTRIBUTE_UNUSED, int priority)
       default:
 	break;
 
-      case TYPE_IMUL:
-      case TYPE_IDIV:
+      case TYPE_MUL:
+      case TYPE_DIV:
 	fprintf (stderr, "priority was %#x (%d) before adjustment\n",
 		 priority, priority);
 	if (priority >= 0 && priority < 0x01000000)
@@ -26708,12 +26727,8 @@ is_nonpipeline_insn (rtx insn)
     return false;
 
   type = get_attr_type (insn);
-  if (type == TYPE_IMUL
-      || type == TYPE_IMUL2
-      || type == TYPE_IMUL3
-      || type == TYPE_LMUL
-      || type == TYPE_IDIV
-      || type == TYPE_LDIV
+  if (type == TYPE_MUL
+      || type == TYPE_DIV
       || type == TYPE_SDIV
       || type == TYPE_DDIV
       || type == TYPE_SSQRT
@@ -26796,22 +26811,25 @@ rs6000_use_sched_lookahead (void)
     }
 }
 
-/* We are choosing insn from the ready queue.  Return nonzero if INSN can be chosen.  */
+/* We are choosing insn from the ready queue.  Return zero if INSN can be
+   chosen.  */
 static int
-rs6000_use_sched_lookahead_guard (rtx insn)
+rs6000_use_sched_lookahead_guard (rtx insn, int ready_index)
 {
-  if (rs6000_cpu_attr != CPU_CELL)
-    return 1;
+  if (ready_index == 0)
+    return 0;
 
-   if (insn == NULL_RTX || !INSN_P (insn))
-     abort ();
+  if (rs6000_cpu_attr != CPU_CELL)
+    return 0;
+
+  gcc_assert (insn != NULL_RTX && INSN_P (insn));
 
   if (!reload_completed
       || is_nonpipeline_insn (insn)
       || is_microcoded_insn (insn))
-    return 0;
+    return 1;
 
-  return 1;
+  return 0;
 }
 
 /* Determine if PAT refers to memory. If so, set MEM_REF to the MEM rtx
@@ -27309,8 +27327,7 @@ insn_must_be_first_in_group (rtx insn)
         case TYPE_CR_LOGICAL:
         case TYPE_MTJMPR:
         case TYPE_MFJMPR:
-        case TYPE_IDIV:
-        case TYPE_LDIV:
+        case TYPE_DIV:
         case TYPE_LOAD_L:
         case TYPE_STORE_C:
         case TYPE_ISYNC:
@@ -27325,21 +27342,11 @@ insn_must_be_first_in_group (rtx insn)
 
       switch (type)
         {
-        case TYPE_INSERT_DWORD:
         case TYPE_EXTS:
         case TYPE_CNTLZ:
-        case TYPE_SHIFT:
-        case TYPE_VAR_SHIFT_ROTATE:
         case TYPE_TRAP:
-        case TYPE_IMUL:
-        case TYPE_IMUL2:
-        case TYPE_IMUL3:
-        case TYPE_LMUL:
-        case TYPE_IDIV:
-        case TYPE_INSERT_WORD:
-        case TYPE_DELAYED_COMPARE:
-        case TYPE_IMUL_COMPARE:
-        case TYPE_LMUL_COMPARE:
+        case TYPE_MUL:
+        case TYPE_INSERT:
         case TYPE_FPCOMPARE:
         case TYPE_MFCR:
         case TYPE_MTCR:
@@ -27350,6 +27357,17 @@ insn_must_be_first_in_group (rtx insn)
         case TYPE_LOAD_L:
         case TYPE_STORE_C:
           return true;
+        case TYPE_SHIFT:
+          if (get_attr_dot (insn) == DOT_NO
+              || get_attr_var_shift (insn) == VAR_SHIFT_NO)
+            return true;
+          else
+            break;
+        case TYPE_DIV:
+          if (get_attr_size (insn) == SIZE_32)
+            return true;
+          else
+            break;
         case TYPE_LOAD:
         case TYPE_STORE:
         case TYPE_FPLOAD:
@@ -27371,17 +27389,20 @@ insn_must_be_first_in_group (rtx insn)
         case TYPE_MFCR:
         case TYPE_MFCRF:
         case TYPE_MTCR:
-        case TYPE_IDIV:
-        case TYPE_LDIV:
+        case TYPE_DIV:
         case TYPE_COMPARE:
-        case TYPE_DELAYED_COMPARE:
-        case TYPE_VAR_DELAYED_COMPARE:
         case TYPE_ISYNC:
         case TYPE_LOAD_L:
         case TYPE_STORE_C:
         case TYPE_MFJMPR:
         case TYPE_MTJMPR:
           return true;
+        case TYPE_MUL:
+        case TYPE_SHIFT:
+          if (get_attr_dot (insn) == DOT_YES)
+            return true;
+          else
+            break;
         case TYPE_LOAD:
           if (get_attr_sign_extend (insn) == SIGN_EXTEND_YES
               || get_attr_update (insn) == UPDATE_YES)
@@ -27410,10 +27431,6 @@ insn_must_be_first_in_group (rtx insn)
         case TYPE_MFCRF:
         case TYPE_MTCR:
         case TYPE_COMPARE:
-        case TYPE_DELAYED_COMPARE:
-        case TYPE_VAR_DELAYED_COMPARE:
-        case TYPE_IMUL_COMPARE:
-        case TYPE_LMUL_COMPARE:
         case TYPE_SYNC:
         case TYPE_ISYNC:
         case TYPE_LOAD_L:
@@ -27422,6 +27439,12 @@ insn_must_be_first_in_group (rtx insn)
         case TYPE_MFJMPR:
         case TYPE_MTJMPR:
           return true;
+        case TYPE_SHIFT:
+        case TYPE_MUL:
+          if (get_attr_dot (insn) == DOT_YES)
+            return true;
+          else
+            break;
         case TYPE_LOAD:
           if (get_attr_sign_extend (insn) == SIGN_EXTEND_YES
               || get_attr_update (insn) == UPDATE_YES)
@@ -27474,17 +27497,8 @@ insn_must_be_last_in_group (rtx insn)
       {
       case TYPE_EXTS:
       case TYPE_CNTLZ:
-      case TYPE_SHIFT:
-      case TYPE_VAR_SHIFT_ROTATE:
       case TYPE_TRAP:
-      case TYPE_IMUL:
-      case TYPE_IMUL2:
-      case TYPE_IMUL3:
-      case TYPE_LMUL:
-      case TYPE_IDIV:
-      case TYPE_DELAYED_COMPARE:
-      case TYPE_IMUL_COMPARE:
-      case TYPE_LMUL_COMPARE:
+      case TYPE_MUL:
       case TYPE_FPCOMPARE:
       case TYPE_MFCR:
       case TYPE_MTCR:
@@ -27495,6 +27509,17 @@ insn_must_be_last_in_group (rtx insn)
       case TYPE_LOAD_L:
       case TYPE_STORE_C:
         return true;
+      case TYPE_SHIFT:
+        if (get_attr_dot (insn) == DOT_NO
+            || get_attr_var_shift (insn) == VAR_SHIFT_NO)
+          return true;
+        else
+          break;
+      case TYPE_DIV:
+        if (get_attr_size (insn) == SIZE_32)
+          return true;
+        else
+          break;
       default:
         break;
     }
@@ -28488,7 +28513,7 @@ rs6000_elf_in_small_data_p (const_tree decl)
 
   if (TREE_CODE (decl) == VAR_DECL && DECL_SECTION_NAME (decl))
     {
-      const char *section = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+      const char *section = DECL_SECTION_NAME (decl);
       if (compare_section_name (section, ".sdata")
 	  || compare_section_name (section, ".sdata2")
 	  || compare_section_name (section, ".gnu.linkonce.s")
@@ -29257,7 +29282,7 @@ rs6000_xcoff_asm_named_section (const char *name, unsigned int flags,
 
 #define IN_NAMED_SECTION(DECL) \
   ((TREE_CODE (DECL) == FUNCTION_DECL || TREE_CODE (DECL) == VAR_DECL) \
-   && DECL_SECTION_NAME (DECL) != NULL_TREE)
+   && DECL_SECTION_NAME (DECL) != NULL)
 
 static section *
 rs6000_xcoff_select_section (tree decl, int reloc,
@@ -29322,7 +29347,7 @@ rs6000_xcoff_unique_section (tree decl, int reloc ATTRIBUTE_UNUSED)
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
   name = (*targetm.strip_name_encoding) (name);
-  DECL_SECTION_NAME (decl) = build_string (strlen (name), name);
+  set_decl_section_name (decl, name);
 }
 
 /* Select section for constant in constant pool.
@@ -29425,6 +29450,71 @@ rs6000_xcoff_file_end (void)
   fputs (TARGET_32BIT
 	 ? "\t.long _section_.text\n" : "\t.llong _section_.text\n",
 	 asm_out_file);
+}
+
+/* This macro produces the initial definition of a function name.
+   On the RS/6000, we need to place an extra '.' in the function name and
+   output the function descriptor.
+   Dollar signs are converted to underscores.
+
+   The csect for the function will have already been created when
+   text_section was selected.  We do have to go back to that csect, however.
+
+   The third and fourth parameters to the .function pseudo-op (16 and 044)
+   are placeholders which no longer have any use.  */
+
+void
+rs6000_xcoff_declare_function_name (FILE *file, const char *name, tree decl)
+{
+  char *buffer = (char *) alloca (strlen (name) + 1);
+  char *p;
+  int dollar_inside = 0;
+  strcpy (buffer, name);
+  p = strchr (buffer, '$');
+  while (p) {
+    *p = '_';
+    dollar_inside++;
+    p = strchr (p + 1, '$');
+  }
+  if (TREE_PUBLIC (decl))
+    {
+      if (!RS6000_WEAK || !DECL_WEAK (decl))
+	{
+          if (dollar_inside) {
+              fprintf(file, "\t.rename .%s,\".%s\"\n", buffer, name);
+              fprintf(file, "\t.rename %s,\"%s\"\n", buffer, name);
+	    }
+	  fputs ("\t.globl .", file);
+	  RS6000_OUTPUT_BASENAME (file, buffer);
+	  putc ('\n', file);
+	}
+    }
+  else
+    {
+      if (dollar_inside) {
+          fprintf(file, "\t.rename .%s,\".%s\"\n", buffer, name);
+          fprintf(file, "\t.rename %s,\"%s\"\n", buffer, name);
+	}
+      fputs ("\t.lglobl .", file);
+      RS6000_OUTPUT_BASENAME (file, buffer);
+      putc ('\n', file);
+    }
+  fputs ("\t.csect ", file);
+  RS6000_OUTPUT_BASENAME (file, buffer);
+  fputs (TARGET_32BIT ? "[DS]\n" : "[DS],3\n", file);
+  RS6000_OUTPUT_BASENAME (file, buffer);
+  fputs (":\n", file);
+  fputs (TARGET_32BIT ? "\t.long ." : "\t.llong .", file);
+  RS6000_OUTPUT_BASENAME (file, buffer);
+  fputs (", TOC[tc0], 0\n", file);
+  in_section = NULL;
+  switch_to_section (function_section (decl));
+  putc ('.', file);
+  RS6000_OUTPUT_BASENAME (file, buffer);
+  fputs (":\n", file);
+  if (write_symbols != NO_DEBUG && !DECL_IGNORED_P (decl))
+    xcoffout_declare_function (file, decl, buffer);
+  return;
 }
 
 #ifdef HAVE_AS_TLS
@@ -31393,6 +31483,7 @@ static struct rs6000_opt_mask const rs6000_builtin_mask_names[] =
   { "htm",		 RS6000_BTM_HTM,	false, false },
   { "hard-dfp",		 RS6000_BTM_DFP,	false, false },
   { "hard-float",	 RS6000_BTM_HARD_FLOAT,	false, false },
+  { "long-double-128",	 RS6000_BTM_LDBL128,	false, false },
 };
 
 /* Option variables that we want to support inside attribute((target)) and
@@ -32335,7 +32426,7 @@ rs6000_code_end (void)
 #if RS6000_WEAK
   if (USE_HIDDEN_LINKONCE)
     {
-      DECL_COMDAT_GROUP (decl) = DECL_ASSEMBLER_NAME (decl);
+      cgraph_create_node (decl)->set_comdat_group (DECL_ASSEMBLER_NAME (decl));
       targetm.asm_out.unique_section (decl, 0);
       switch_to_section (get_named_section (decl, NULL, 0));
       DECL_WEAK (decl) = 1;

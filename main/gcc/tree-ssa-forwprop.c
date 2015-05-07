@@ -47,11 +47,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "langhooks.h"
 #include "flags.h"
+#include "diagnostic.h"
 #include "expr.h"
 #include "cfgloop.h"
 #include "optabs.h"
 #include "tree-ssa-propagate.h"
 #include "tree-ssa-dom.h"
+#include "builtins.h"
 
 /* This pass propagates the RHS of assignment statements into use
    sites of the LHS of the assignment.  It's basically a specialized
@@ -2642,49 +2644,67 @@ associate_plusminus (gimple_stmt_iterator *gsi)
 		  gimple_set_modified (stmt, true);
 		}
 	    }
-	  else if (CONVERT_EXPR_CODE_P (def_code) && code == MINUS_EXPR
+	  else if (code == MINUS_EXPR
+		   && CONVERT_EXPR_CODE_P (def_code)
+		   && TREE_CODE (gimple_assign_rhs1 (def_stmt)) == SSA_NAME
 		   && TREE_CODE (rhs2) == SSA_NAME)
 	    {
-	      /* (T)(ptr + adj) - (T)ptr -> (T)adj.  */
+	      /* (T)(P + A) - (T)P -> (T)A.  */
 	      gimple def_stmt2 = SSA_NAME_DEF_STMT (rhs2);
-	      if (TREE_CODE (gimple_assign_rhs1 (def_stmt)) == SSA_NAME
-		  && is_gimple_assign (def_stmt2)
+	      if (is_gimple_assign (def_stmt2)
 		  && can_propagate_from (def_stmt2)
 		  && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt2))
 		  && TREE_CODE (gimple_assign_rhs1 (def_stmt2)) == SSA_NAME)
 		{
-		  /* Now we have (T)A - (T)ptr.  */
-		  tree ptr = gimple_assign_rhs1 (def_stmt2);
+		  /* Now we have (T)X - (T)P.  */
+		  tree p = gimple_assign_rhs1 (def_stmt2);
 		  def_stmt2 = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (def_stmt));
 		  if (is_gimple_assign (def_stmt2)
-		      && gimple_assign_rhs_code (def_stmt2) == POINTER_PLUS_EXPR
-		      && gimple_assign_rhs1 (def_stmt2) == ptr)
+		      && can_propagate_from (def_stmt2)
+		      && (gimple_assign_rhs_code (def_stmt2) == POINTER_PLUS_EXPR
+			  || gimple_assign_rhs_code (def_stmt2) == PLUS_EXPR)
+		      && gimple_assign_rhs1 (def_stmt2) == p)
 		    {
-		      /* And finally (T)(ptr + X) - (T)ptr.  */
-		      tree adj = gimple_assign_rhs2 (def_stmt2);
-		      /* If the conversion of the pointer adjustment to the
-		         final type requires a sign- or zero-extension we
-			 have to punt - it is not defined which one is
-			 correct.  */
+		      /* And finally (T)(P + A) - (T)P.  */
+		      tree a = gimple_assign_rhs2 (def_stmt2);
 		      if (TYPE_PRECISION (TREE_TYPE (rhs1))
-			  <= TYPE_PRECISION (TREE_TYPE (adj))
-			  || (TREE_CODE (adj) == INTEGER_CST
-			      && tree_int_cst_sign_bit (adj) == 0))
+			  <= TYPE_PRECISION (TREE_TYPE (a))
+			  /* For integer types, if A has a smaller type
+			     than T the result depends on the possible
+			     overflow in P + A.
+			     E.g. T=size_t, A=(unsigned)429497295, P>0.
+			     However, if an overflow in P + A would cause
+			     undefined behavior, we can assume that there
+			     is no overflow.  */
+			  || (INTEGRAL_TYPE_P (TREE_TYPE (p))
+			      && TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (p)))
+			  /* For pointer types, if the conversion of A to the
+			     final type requires a sign- or zero-extension,
+			     then we have to punt - it is not defined which
+			     one is correct.  */
+			  || (POINTER_TYPE_P (TREE_TYPE (p))
+			      && TREE_CODE (a) == INTEGER_CST
+			      && tree_int_cst_sign_bit (a) == 0))
 			{
+			  if (issue_strict_overflow_warning
+			      (WARN_STRICT_OVERFLOW_MISC)
+			      && TYPE_PRECISION (TREE_TYPE (rhs1))
+				 > TYPE_PRECISION (TREE_TYPE (a))
+			      && INTEGRAL_TYPE_P (TREE_TYPE (p)))
+			    warning_at (gimple_location (stmt),
+					OPT_Wstrict_overflow,
+					"assuming signed overflow does not "
+					"occur when assuming that "
+					"(T)(P + A) - (T)P is always (T)A");
 			  if (useless_type_conversion_p (TREE_TYPE (rhs1),
-							 TREE_TYPE (adj)))
-			    {
-			      code = TREE_CODE (adj);
-			      rhs1 = adj;
-			    }
+							 TREE_TYPE (a)))
+			    code = TREE_CODE (a);
 			  else
-			    {
-			      code = NOP_EXPR;
-			      rhs1 = adj;
-			    }
+			    code = NOP_EXPR;
+			  rhs1 = a;
 			  rhs2 = NULL_TREE;
 			  gimple_assign_set_rhs_with_ops (gsi, code, rhs1,
-							  NULL_TREE);
+							  rhs2);
 			  gcc_assert (gsi_stmt (*gsi) == stmt);
 			  gimple_set_modified (stmt, true);
 			}

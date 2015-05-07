@@ -24,7 +24,7 @@
 #ifndef RUNTIME_ROOT_PREFIX
 #define RUNTIME_ROOT_PREFIX ""
 #endif
-#define GLIBC_DYNAMIC_LINKER RUNTIME_ROOT_PREFIX "/lib/ld-linux-aarch64%{mbig-endian:_be}.so.1"
+#define GLIBC_DYNAMIC_LINKER RUNTIME_ROOT_PREFIX "/lib/ld-linux-aarch64%{mbig-endian:_be}%{mabi=ilp32:_ilp32}.so.1"
 
 #define CPP_SPEC "%{pthread:-D_REENTRANT}"
 
@@ -36,7 +36,7 @@
    -dynamic-linker " GNU_USER_DYNAMIC_LINKER "	\
    -X						\
    %{mbig-endian:-EB} %{mlittle-endian:-EL}     \
-   -maarch64linux%{mbig-endian:b}"
+   -maarch64linux%{mabi=ilp32:32}%{mbig-endian:b}"
 
 #define LINK_SPEC LINUX_TARGET_LINK_SPEC
 

@@ -67,6 +67,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-ssa-address.h"
 #include "cfgexpand.h"
+#include "builtins.h"
 
 #ifndef STACK_PUSH_CODE
 #ifdef STACK_GROWS_DOWNWARD
@@ -4838,15 +4839,29 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	  if (GET_MODE (offset_rtx) != address_mode)
 	    offset_rtx = convert_to_mode (address_mode, offset_rtx, 0);
 
-	  /* The check for a constant address in TO_RTX not having VOIDmode
-	     is probably no longer necessary.  */
-	  if (MEM_P (to_rtx)
-	      && GET_MODE (to_rtx) == BLKmode
-	      && GET_MODE (XEXP (to_rtx, 0)) != VOIDmode
+	  /* If we have an expression in OFFSET_RTX and a non-zero
+	     byte offset in BITPOS, adding the byte offset before the
+	     OFFSET_RTX results in better intermediate code, which makes
+	     later rtl optimization passes perform better.
+
+	     We prefer intermediate code like this:
+
+	     r124:DI=r123:DI+0x18
+	     [r124:DI]=r121:DI
+
+	     ... instead of ...
+
+	     r124:DI=r123:DI+0x10
+	     [r124:DI+0x8]=r121:DI
+
+	     This is only done for aligned data values, as these can
+	     be expected to result in single move instructions.  */
+	  if (mode1 != VOIDmode
+	      && bitpos != 0
 	      && bitsize > 0
 	      && (bitpos % bitsize) == 0
 	      && (bitsize % GET_MODE_ALIGNMENT (mode1)) == 0
-	      && MEM_ALIGN (to_rtx) == GET_MODE_ALIGNMENT (mode1))
+	      && MEM_ALIGN (to_rtx) >= GET_MODE_ALIGNMENT (mode1))
 	    {
 	      to_rtx = adjust_address (to_rtx, mode1, bitpos / BITS_PER_UNIT);
 	      bitregion_start = 0;
@@ -9095,6 +9110,20 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
 	return target;
       }
 
+      case SAD_EXPR:
+      {
+	tree oprnd0 = treeop0;
+	tree oprnd1 = treeop1;
+	tree oprnd2 = treeop2;
+	rtx op2;
+
+	expand_operands (oprnd0, oprnd1, NULL_RTX, &op0, &op1, EXPAND_NORMAL);
+	op2 = expand_normal (oprnd2);
+	target = expand_widen_pattern_expr (ops, op0, op1, op2,
+					    target, unsignedp);
+	return target;
+      }
+
     case REALIGN_LOAD_EXPR:
       {
         tree oprnd0 = treeop0;
@@ -10090,14 +10119,13 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    if (GET_MODE (offset_rtx) != address_mode)
 	      offset_rtx = convert_to_mode (address_mode, offset_rtx, 0);
 
-	    if (GET_MODE (op0) == BLKmode
-		/* The check for a constant address in OP0 not having VOIDmode
-		   is probably no longer necessary.  */
-		&& GET_MODE (XEXP (op0, 0)) != VOIDmode
-		&& bitsize != 0
+	    /* See the comment in expand_assignment for the rationale.  */
+	    if (mode1 != VOIDmode
+		&& bitpos != 0
+		&& bitsize > 0
 		&& (bitpos % bitsize) == 0
 		&& (bitsize % GET_MODE_ALIGNMENT (mode1)) == 0
-		&& MEM_ALIGN (op0) == GET_MODE_ALIGNMENT (mode1))
+		&& MEM_ALIGN (op0) >= GET_MODE_ALIGNMENT (mode1))
 	      {
 		op0 = adjust_address (op0, mode1, bitpos / BITS_PER_UNIT);
 		bitpos = 0;
