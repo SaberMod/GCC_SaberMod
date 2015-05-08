@@ -2577,7 +2577,6 @@ const pass_data pass_data_early_inline =
   GIMPLE_PASS, /* type */
   "einline", /* name */
   OPTGROUP_INLINE, /* optinfo_flags */
-  true, /* has_execute */
   TV_EARLY_INLINING, /* tv_id */
   PROP_ssa, /* properties_required */
   0, /* properties_provided */
@@ -2718,7 +2717,6 @@ const pass_data pass_data_ipa_inline =
   IPA_PASS, /* type */
   "inline", /* name */
   OPTGROUP_INLINE, /* optinfo_flags */
-  true, /* has_execute */
   TV_IPA_INLINING, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

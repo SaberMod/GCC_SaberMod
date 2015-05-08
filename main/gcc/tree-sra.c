@@ -3576,7 +3576,6 @@ const pass_data pass_data_sra_early =
   GIMPLE_PASS, /* type */
   "esra", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_SRA, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
@@ -3613,7 +3612,6 @@ const pass_data pass_data_sra =
   GIMPLE_PASS, /* type */
   "sra", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_SRA, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
@@ -5132,7 +5130,6 @@ const pass_data pass_data_early_ipa_sra =
   GIMPLE_PASS, /* type */
   "eipa_sra", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_IPA_SRA, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

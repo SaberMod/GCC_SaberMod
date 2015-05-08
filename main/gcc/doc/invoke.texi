@@ -267,7 +267,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wreturn-type -Wself-assign -Wself-assign-non-pod -Wsequence-point  -Wshadow @gol
 -Wno-shadow-ivar -Wshadow-compatible-local -Wshadow-local @gol
 -Wsign-compare  -Wsign-conversion -Wfloat-conversion @gol
--Wsizeof-pointer-memaccess @gol
+-Wsizeof-pointer-memaccess  -Wsizeof-array-argument @gol
 -Wstack-protector -Wstack-usage=@var{len} -Wstrict-aliasing @gol
 -Wstrict-aliasing=n @gol -Wstrict-overflow -Wstrict-overflow=@var{n} @gol
 -Wsuggest-attribute=@r{[}pure@r{|}const@r{|}noreturn@r{|}format@r{]} @gol
@@ -527,7 +527,7 @@ Objective-C and Objective-C++ Dialects}.
 -mapcs-float  -mno-apcs-float @gol
 -mapcs-reentrant  -mno-apcs-reentrant @gol
 -msched-prolog  -mno-sched-prolog @gol
--mlittle-endian  -mbig-endian  -mwords-little-endian @gol
+-mlittle-endian  -mbig-endian @gol
 -mfloat-abi=@var{name} @gol
 -mfp16-format=@var{name}
 -mthumb-interwork  -mno-thumb-interwork @gol
@@ -4806,6 +4806,13 @@ but a pointer, and suggests a possible fix, or about
 @code{memcpy (&foo, ptr, sizeof (&foo));}.  This warning is enabled by
 @option{-Wall}.
 
+@item -Wsizeof-array-argument
+@opindex Wsizeof-array-argument
+@opindex Wno-sizeof-array-argument
+Warn when the @code{sizeof} operator is applied to a parameter that is
+declared as an array in a function definition.  This warning is enabled by
+default for C and C++ programs.
+
 @item -Waddress
 @opindex Waddress
 @opindex Wno-address
@@ -5536,26 +5543,22 @@ at runtime.  Current suboptions are:
 
 @item -fsanitize=shift
 @opindex fsanitize=shift
-
 This option enables checking that the result of a shift operation is
 not undefined.  Note that what exactly is considered undefined differs
 slightly between C and C++, as well as between ISO C90 and C99, etc.
 
 @item -fsanitize=integer-divide-by-zero
 @opindex fsanitize=integer-divide-by-zero
-
 Detect integer division by zero as well as @code{INT_MIN / -1} division.
 
 @item -fsanitize=unreachable
 @opindex fsanitize=unreachable
-
 With this option, the compiler will turn the @code{__builtin_unreachable}
 call into a diagnostics message call instead.  When reaching the
 @code{__builtin_unreachable} call, the behavior is undefined.
 
 @item -fsanitize=vla-bound
 @opindex fsanitize=vla-bound
-
 This option instructs the compiler to check that the size of a variable
 length array is positive.  This option does not have any effect in
 @option{-std=c++1y} mode, as the standard requires the exception be thrown
@@ -5563,7 +5566,6 @@ instead.
 
 @item -fsanitize=null
 @opindex fsanitize=null
-
 This option enables pointer checking.  Particularly, the application
 built with this option turned on will issue an error message when it
 tries to dereference a NULL pointer, or if a reference (possibly an
@@ -5571,7 +5573,6 @@ rvalue reference) is bound to a NULL pointer.
 
 @item -fsanitize=return
 @opindex fsanitize=return
-
 This option enables return statement checking.  Programs
 built with this option turned on will issue an error message
 when the end of a non-void function is reached without actually
@@ -5579,7 +5580,6 @@ returning a value.  This option works in C++ only.
 
 @item -fsanitize=signed-integer-overflow
 @opindex fsanitize=signed-integer-overflow
-
 This option enables signed integer overflow checking.  We check that
 the result of @code{+}, @code{*}, and both unary and binary @code{-}
 does not overflow in the signed arithmetics.  Note, integer promotion
@@ -5592,20 +5592,12 @@ a++;
 
 @item -fsanitize=bounds
 @opindex fsanitize=bounds
-
 This option enables instrumentation of array bounds.  Various out of bounds
-accesses are detected.  Flexible array members are not instrumented, as well
-as initializers of variables with static storage.
-
-@end table
-
-While @option{-ftrapv} causes traps for signed overflows to be emitted,
-@option{-fsanitize=undefined} gives a diagnostic message.
-This currently works only for the C family of languages.
+accesses are detected.  Flexible array members and initializers of variables
+with static storage are not instrumented.
 
 @item -fsanitize=float-divide-by-zero
 @opindex fsanitize=float-divide-by-zero
-
 Detect floating-point division by zero.  Unlike other similar options,
 @option{-fsanitize=float-divide-by-zero} is not enabled by
 @option{-fsanitize=undefined}, since floating-point division by zero can
@@ -5613,10 +5605,15 @@ be a legitimate way of obtaining infinities and NaNs.
 
 @item -fsanitize=float-cast-overflow
 @opindex fsanitize=float-cast-overflow
-
 This option enables floating-point type to integer conversion checking.
 We check that the result of the conversion does not overflow.
 This option does not work well with @code{FE_INVALID} exceptions enabled.
+
+@end table
+
+While @option{-ftrapv} causes traps for signed overflows to be emitted,
+@option{-fsanitize=undefined} gives a diagnostic message.
+This currently works only for the C family of languages.
 
 @item -fsanitize-recover
 @opindex fsanitize-recover
@@ -12667,15 +12664,6 @@ the default for all standard configurations.
 @opindex mbig-endian
 Generate code for a processor running in big-endian mode; the default is
 to compile code for a little-endian processor.
-
-@item -mwords-little-endian
-@opindex mwords-little-endian
-This option only applies when generating code for big-endian processors.
-Generate code for a little-endian word order but a big-endian byte
-order.  That is, a byte order of the form @samp{32107654}.  Note: this
-option should only be used if you require compatibility with code for
-big-endian ARM processors generated by versions of the compiler prior to
-2.8.  This option is now deprecated.
 
 @item -march=@var{name}
 @opindex march

@@ -48,9 +48,6 @@ static int gcov_error (const char *, ...);
 
 #include "gcov-io.c"
 
-extern gcov_unsigned_t __gcov_sampling_period;
-extern gcov_unsigned_t __gcov_has_sampling;
-static int gcov_sampling_period_initialized = 0;
 
 /* Unique identifier assigned to each module (object file).  */
 static gcov_unsigned_t gcov_cur_module_id = 0;
@@ -68,6 +65,11 @@ extern void reset_gcov_dump_complete (void) ATTRIBUTE_HIDDEN;
 extern int get_gcov_dump_complete (void) ATTRIBUTE_HIDDEN;
 extern void set_gcov_list (struct gcov_info *) ATTRIBUTE_HIDDEN;
 __attribute__((weak)) void __coverage_callback (gcov_type, int); 
+
+#if !defined(IN_GCOV_TOOL)
+extern gcov_unsigned_t __gcov_sampling_period;
+extern gcov_unsigned_t __gcov_has_sampling;
+static int gcov_sampling_period_initialized = 0;
 
 /* Create a strong reference to these symbols so that they are
    unconditionally pulled into the instrumented binary, even when
@@ -89,11 +91,12 @@ void (*__gcov_dummy_ref2)(void) = &__gcov_dump;
 extern char *__gcov_get_profile_prefix (void);
 char *(*__gcov_dummy_ref3)(void) = &__gcov_get_profile_prefix;
 extern void __gcov_set_sampling_period (unsigned int period);
-char *(*__gcov_dummy_ref4)(void) = &__gcov_set_sampling_period;
+void (*__gcov_dummy_ref4)(unsigned int) = &__gcov_set_sampling_period;
 extern unsigned int __gcov_sampling_enabled (void);
-char *(*__gcov_dummy_ref5)(void) = &__gcov_sampling_enabled;
+unsigned int (*__gcov_dummy_ref5)(void) = &__gcov_sampling_enabled;
 extern void __gcov_flush (void);
-char *(*__gcov_dummy_ref6)(void) = &__gcov_flush;
+void (*__gcov_dummy_ref6)(void) = &__gcov_flush;
+#endif
 
 /* Default callback function for profile instrumentation callback.  */
 __attribute__((weak)) void
@@ -128,7 +131,11 @@ set_gcov_list (struct gcov_info *head)
 }
 
 /* Size of the longest file name. */
-static size_t gcov_max_filename = 0;
+/* We need to expose this static variable when compiling for gcov-tool.  */
+#ifndef IN_GCOV_TOOL
+static
+#endif
+size_t gcov_max_filename = 0;
 
 /* Flag when the profile has already been dumped via __gcov_dump().  */
 static int gcov_dump_complete;
@@ -1065,6 +1072,7 @@ void
 __gcov_init (struct gcov_info *info)
 {
 
+#if !defined(IN_GCOV_TOOL)
    if (!gcov_sampling_period_initialized)
     {
       const char* env_value_str = getenv ("GCOV_SAMPLING_PERIOD");
@@ -1076,6 +1084,7 @@ __gcov_init (struct gcov_info *info)
         }
       gcov_sampling_period_initialized = 1;
     }
+#endif
 
   if (!info->version || !info->n_functions)
     return;

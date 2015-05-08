@@ -778,7 +778,6 @@ const pass_data pass_data_ipa_free_inline_summary =
   SIMPLE_IPA_PASS, /* type */
   "*free_inline_summary", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_IPA_FREE_INLINE_SUMMARY, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -1090,7 +1089,6 @@ const pass_data pass_data_ipa_cdtor_merge =
   IPA_PASS, /* type */
   "cdtor", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_CGRAPHOPT, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -1316,7 +1314,6 @@ const pass_data pass_data_ipa_single_use =
   IPA_PASS, /* type */
   "single-use", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_CGRAPHOPT, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

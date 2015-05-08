@@ -8850,6 +8850,7 @@ grokdeclarator (const cp_declarator *declarator,
   bool typedef_p = decl_spec_seq_has_spec_p (declspecs, ds_typedef);
   bool constexpr_p = decl_spec_seq_has_spec_p (declspecs, ds_constexpr);
   bool late_return_type_p = false;
+  bool array_parameter_p = false;
   source_location saved_loc = input_location;
   const char *errmsg;
 
@@ -9664,8 +9665,11 @@ grokdeclarator (const cp_declarator *declarator,
 				    "-std=gnu++1y");
 			  }
 			else if (virtualp)
-			  error ("virtual function cannot "
-				 "have deduced return type");
+			  {
+			    error ("virtual function cannot "
+				   "have deduced return type");
+			    virtualp = false;
+			  }
 		      }
 		    else if (!is_auto (type))
 		      {
@@ -10150,9 +10154,16 @@ grokdeclarator (const cp_declarator *declarator,
 
   if (explicitp == 1 || (explicitp && friendp))
     {
-      /* [dcl.fct.spec] The explicit specifier shall only be used in
-	 declarations of constructors within a class definition.  */
-      error ("only declarations of constructors can be %<explicit%>");
+      /* [dcl.fct.spec] (C++11) The explicit specifier shall be used only
+	 in the declaration of a constructor or conversion function within
+	 a class definition.  */
+      if (!current_class_type)
+	error ("%<explicit%> outside class declaration");
+      else if (friendp)
+	error ("%<explicit%> in friend declaration");
+      else
+	error ("only declarations of constructors and conversion operators "
+	       "can be %<explicit%>");
       explicitp = 0;
     }
 
@@ -10488,6 +10499,7 @@ grokdeclarator (const cp_declarator *declarator,
 	  /* Transfer const-ness of array into that of type pointed to.  */
 	  type = build_pointer_type (TREE_TYPE (type));
 	  type_quals = TYPE_UNQUALIFIED;
+	  array_parameter_p = true;
 	}
       else if (TREE_CODE (type) == FUNCTION_TYPE)
 	type = build_pointer_type (type);
@@ -10508,6 +10520,7 @@ grokdeclarator (const cp_declarator *declarator,
     if (decl_context == PARM)
       {
 	decl = cp_build_parm_decl (unqualified_id, type);
+	DECL_ARRAY_PARAMETER_P (decl) = array_parameter_p;
 
 	bad_specifiers (decl, BSP_PARM, virtualp,
 			memfn_quals != TYPE_UNQUALIFIED,

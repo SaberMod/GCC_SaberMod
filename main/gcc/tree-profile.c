@@ -1437,7 +1437,6 @@ const pass_data pass_data_ipa_tree_profile =
   SIMPLE_IPA_PASS, /* type */
   "profile", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_IPA_PROFILE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -1464,13 +1463,12 @@ const pass_data pass_data_direct_call_profile =
   GIMPLE_PASS,
   "dc_profile",				/* name */
   OPTGROUP_NONE,                        /* optinfo_flags */
-  true, /* has_execute */
   TV_BRANCH_PROB,			/* tv_id */
   ( PROP_ssa | PROP_cfg),		/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_update_ssa                      	/* todo_flags_finish */
+  TODO_update_ssa  	/* todo_flags_finish */
 };
 
 class pass_direct_call_profile : public gimple_opt_pass

@@ -14961,7 +14961,8 @@ fold_checksum_tree (const_tree expr, struct md5_ctx *ctx,
 
       if (CODE_CONTAINS_STRUCT (TREE_CODE (expr), TS_DECL_NON_COMMON))
 	{
-	  fold_checksum_tree (DECL_VINDEX (expr), ctx, ht);
+	  if (TREE_CODE (expr) == FUNCTION_DECL)
+	    fold_checksum_tree (DECL_VINDEX (expr), ctx, ht);
 	  fold_checksum_tree (DECL_RESULT_FLD (expr), ctx, ht);
 	  fold_checksum_tree (DECL_ARGUMENT_FLD (expr), ctx, ht);
 	}
@@ -16750,11 +16751,10 @@ fold_ignored_result (tree t)
 /* Return the value of VALUE, rounded up to a multiple of DIVISOR. */
 
 tree
-round_up_loc (location_t loc, tree value, int divisor)
+round_up_loc (location_t loc, tree value, unsigned int divisor)
 {
   tree div = NULL_TREE;
 
-  gcc_assert (divisor > 0);
   if (divisor == 1)
     return value;
 

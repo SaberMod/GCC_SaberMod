@@ -24,15 +24,32 @@ a copy of the GCC Runtime Library Exception along with this program;
 see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
+
+struct dyn_pointer_set;
+struct gcov_info;
+struct gcov_info *__gcov_list __attribute__((hidden));
+
+#ifdef IN_GCOV_TOOL
+struct dyn_imp_mod;
+struct gcov_info;
+
+void __gcov_compute_module_groups (void) {}
+const struct dyn_imp_mod **
+gcov_get_sorted_import_module_array (struct gcov_info *mod_info,
+                                     unsigned *len) {}
+void
+gcov_write_module_infos (struct gcov_info *mod_info) {}
+void
+__gcov_finalize_dyn_callgraph (void) {} 
+#else
+
 #include "tconfig.h"
 #include "tsystem.h"
 #include "coretypes.h"
 #include "tm.h"
 
+
 #include "libgcov.h"
-
-struct dyn_pointer_set;
-
 #define XNEWVEC(type,ne) (type *)malloc(sizeof(type) * (ne))
 #define XCNEWVEC(type,ne) (type *)calloc(1, sizeof(type) * (ne))
 #define XNEW(type) (type *)malloc(sizeof(type))
@@ -306,7 +323,6 @@ get_module_info (gcov_unsigned_t module_id)
   return the_dyn_call_graph.modules[module_id - 1];
 }
 
-struct gcov_info *__gcov_list ATTRIBUTE_HIDDEN;
 
 static inline unsigned
 cgraph_node_get_key (const void *p)
@@ -2396,3 +2412,4 @@ debug_dump_exported_to (const struct dyn_pointer_set *p)
   fprintf (stderr, "\n");
 }
 #endif
+#endif /* IN_GCOV_TOOL */

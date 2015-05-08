@@ -2524,7 +2524,6 @@ const pass_data pass_data_insert_vzeroupper =
   RTL_PASS, /* type */
   "vzeroupper", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -5040,8 +5039,11 @@ ix86_in_large_data_p (tree exp)
       HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
 
       /* If this is an incomplete type with size 0, then we can't put it
-	 in data because it might be too big when completed.  */
-      if (!size || size > ix86_section_threshold)
+	 in data because it might be too big when completed.  Also,
+	 int_size_in_bytes returns -1 if size can vary or is larger than
+	 an integer in which case also it is safer to assume that it goes in
+	 large data.  */
+      if (size <= 0 || size > ix86_section_threshold)
 	return true;
     }
 
@@ -16687,7 +16689,8 @@ ix86_avx_emit_vzeroupper (HARD_REG_SET regs_live)
    are to be inserted.  */
 
 static void
-ix86_emit_mode_set (int entity, int mode, HARD_REG_SET regs_live)
+ix86_emit_mode_set (int entity, int mode, int prev_mode ATTRIBUTE_UNUSED,
+		    HARD_REG_SET regs_live)
 {
   switch (entity)
     {
@@ -43461,12 +43464,10 @@ expand_vec_perm_pblendv (struct expand_vec_perm_d *d)
   bool ok;
 
   /* Use the same checks as in expand_vec_perm_blend, but skipping
-     AVX2 as it requires more than 2 instructions for general case.  */
+     AVX and AVX2 as they require more than 2 instructions.  */
   if (d->one_operand_p)
     return false;
-  if (TARGET_AVX && (vmode == V4DFmode || vmode == V8SFmode))
-    ;
-  else if (TARGET_SSE4_1 && GET_MODE_SIZE (vmode) == 16)
+  if (TARGET_SSE4_1 && GET_MODE_SIZE (vmode) == 16)
     ;
   else
     return false;

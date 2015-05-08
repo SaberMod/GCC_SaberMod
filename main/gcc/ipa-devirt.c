@@ -860,7 +860,8 @@ maybe_record_node (vec <cgraph_node *> &nodes,
 		   bool can_refer,
 		   bool *completep)
 {
-  struct cgraph_node *target_node;
+  struct cgraph_node *target_node, *alias_target;
+  enum availability avail;
 
   /* cxa_pure_virtual and __builtin_unreachable do not need to be added into
      list of targets; the runtime effect of calling them is undefined.
@@ -883,6 +884,17 @@ maybe_record_node (vec <cgraph_node *> &nodes,
     return;
 
   target_node = cgraph_get_node (target);
+
+  /* Preffer alias target over aliases, so we do not get confused by
+     fake duplicates.  */
+  if (target_node)
+    {
+      alias_target = cgraph_function_or_thunk_node (target_node, &avail);
+      if (target_node != alias_target
+	  && avail >= AVAIL_AVAILABLE
+	  && cgraph_function_body_availability (target_node))
+	target_node = alias_target;
+    }
 
   /* Method can only be called by polymorphic call if any
      of vtables refering to it are alive. 
@@ -910,7 +922,7 @@ maybe_record_node (vec <cgraph_node *> &nodes,
     {
       gcc_assert (!target_node->global.inlined_to);
       gcc_assert (symtab_real_symbol_p (target_node));
-      if (!pointer_set_insert (inserted, target))
+      if (!pointer_set_insert (inserted, target_node->decl))
 	{
 	  pointer_set_insert (cached_polymorphic_call_targets,
 			      target_node);
@@ -1438,6 +1450,99 @@ vtable_pointer_value_to_binfo (const_tree t)
 					 offset, vtable);
 }
 
+/* We know that the instance is stored in variable or parameter
+   (not dynamically allocated) and we want to disprove the fact
+   that it may be in construction at invocation of CALL.
+
+   For the variable to be in construction we actually need to
+   be in constructor of corresponding global variable or
+   the inline stack of CALL must contain the constructor.
+   Check this condition.  This check works safely only before
+   IPA passes, because inline stacks may become out of date
+   later.  */
+
+bool
+decl_maybe_in_construction_p (tree base, tree outer_type,
+			      gimple call, tree function)
+{
+  outer_type = TYPE_MAIN_VARIANT (outer_type);
+  gcc_assert (DECL_P (base));
+
+  /* After inlining the code unification optimizations may invalidate
+     inline stacks.  Also we need to give up on global variables after
+     IPA, because addresses of these may have been propagated to their
+     constructors.  */
+  if (DECL_STRUCT_FUNCTION (function)->after_inlining)
+    return true;
+
+  /* Pure functions can not do any changes on the dynamic type;
+     that require writting to memory.  */
+  if (!auto_var_in_fn_p (base, function)
+      && flags_from_decl_or_type (function) & (ECF_PURE | ECF_CONST))
+    return false;
+
+  for (tree block = gimple_block (call); block && TREE_CODE (block) == BLOCK;
+       block = BLOCK_SUPERCONTEXT (block))
+    if (BLOCK_ABSTRACT_ORIGIN (block)
+	&& TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block)) == FUNCTION_DECL)
+      {
+	tree fn = BLOCK_ABSTRACT_ORIGIN (block);
+
+	if (TREE_CODE (TREE_TYPE (fn)) != METHOD_TYPE
+	    || (!DECL_CXX_CONSTRUCTOR_P (fn)
+		|| !DECL_CXX_DESTRUCTOR_P (fn)))
+	  {
+	    /* Watch for clones where we constant propagated the first
+	       argument (pointer to the instance).  */
+	    fn = DECL_ABSTRACT_ORIGIN (fn);
+	    if (!fn
+		|| !is_global_var (base)
+	        || TREE_CODE (TREE_TYPE (fn)) != METHOD_TYPE
+		|| (!DECL_CXX_CONSTRUCTOR_P (fn)
+		    || !DECL_CXX_DESTRUCTOR_P (fn)))
+	      continue;
+	  }
+	if (flags_from_decl_or_type (fn) & (ECF_PURE | ECF_CONST))
+	  continue;
+
+	/* FIXME: this can go away once we have ODR types equivalency on
+	   LTO level.  */
+	if (in_lto_p && !polymorphic_type_binfo_p (TYPE_BINFO (outer_type)))
+	  return true;
+	tree type = TYPE_MAIN_VARIANT (method_class_type (TREE_TYPE (fn)));
+	if (types_same_for_odr (type, outer_type))
+	  return true;
+      }
+
+  if (TREE_CODE (base) == VAR_DECL
+      && is_global_var (base))
+    {
+      if (TREE_CODE (TREE_TYPE (function)) != METHOD_TYPE
+	  || (!DECL_CXX_CONSTRUCTOR_P (function)
+	      || !DECL_CXX_DESTRUCTOR_P (function)))
+	{
+	  if (!DECL_ABSTRACT_ORIGIN (function))
+	    return false;
+	  /* Watch for clones where we constant propagated the first
+	     argument (pointer to the instance).  */
+	  function = DECL_ABSTRACT_ORIGIN (function);
+	  if (!function
+	      || TREE_CODE (TREE_TYPE (function)) != METHOD_TYPE
+	      || (!DECL_CXX_CONSTRUCTOR_P (function)
+		  || !DECL_CXX_DESTRUCTOR_P (function)))
+	    return false;
+	}
+      /* FIXME: this can go away once we have ODR types equivalency on
+	 LTO level.  */
+      if (in_lto_p && !polymorphic_type_binfo_p (TYPE_BINFO (outer_type)))
+	return true;
+      tree type = TYPE_MAIN_VARIANT (method_class_type (TREE_TYPE (function)));
+      if (types_same_for_odr (type, outer_type))
+	return true;
+    }
+  return false;
+}
+
 /* Proudce polymorphic call context for call method of instance
    that is located within BASE (that is assumed to be a decl) at OFFSET. */
 
@@ -1490,6 +1595,8 @@ get_polymorphic_call_info_from_invariant (ipa_polymorphic_call_context *context,
 
 /* Given REF call in FNDECL, determine class of the polymorphic
    call (OTR_TYPE), its token (OTR_TOKEN) and CONTEXT.
+   CALL is optional argument giving the actual statement (usually call) where
+   the context is used.
    Return pointer to object described by the context  */
 
 tree
@@ -1497,7 +1604,8 @@ get_polymorphic_call_info (tree fndecl,
 			   tree ref,
 			   tree *otr_type,
 			   HOST_WIDE_INT *otr_token,
-			   ipa_polymorphic_call_context *context)
+			   ipa_polymorphic_call_context *context,
+			   gimple call)
 {
   tree base_pointer;
   *otr_type = obj_type_ref_class (ref);
@@ -1561,6 +1669,12 @@ get_polymorphic_call_info (tree fndecl,
 		    }
 		  get_polymorphic_call_info_for_decl (context, base,
 						      context->offset + offset2);
+		  if (context->maybe_in_construction && call)
+		    context->maybe_in_construction
+		     = decl_maybe_in_construction_p (base,
+						     context->outer_type,
+						     call,
+						     current_function_decl);
 		  return NULL;
 		}
 	      else
@@ -2315,7 +2429,6 @@ const pass_data pass_data_ipa_devirt =
   IPA_PASS, /* type */
   "devirt", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_IPA_DEVIRT, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

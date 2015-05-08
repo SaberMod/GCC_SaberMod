@@ -83,6 +83,7 @@ struct bb_info {
   gcov_type pred_count;
 };
 
+extern const char *const ctr_names[];
 #define BB_INFO(b)  ((struct bb_info *) (b)->aux)
 
 
@@ -874,7 +875,6 @@ compute_value_histograms (histogram_values values, unsigned cfg_checksum,
   gcov_type *act_count[GCOV_N_VALUE_COUNTERS];
   gcov_type *aact_count;
   bool warned[GCOV_N_VALUE_COUNTERS];
-  static const char *const ctr_names[] = GCOV_COUNTER_NAMES;
   struct cgraph_node *node;
 
   for (t = 0; t < GCOV_N_VALUE_COUNTERS; t++)
