@@ -6314,6 +6314,7 @@ package body Sem_Attr is
                   declare
                      Index      : Node_Id;
                      Index_Type : Entity_Id;
+                     Lo, Hi     : Node_Id;
 
                   begin
                      if Nkind (First (Choices (Assoc))) /= N_Aggregate then
@@ -6331,14 +6332,27 @@ package body Sem_Attr is
                         Index := First (Choices (Assoc));
                         while Present (Index) loop
                            if Nkind (Index) = N_Range then
-                              Analyze_And_Resolve
-                                (Low_Bound (Index), Etype (Index_Type));
-                              Analyze_And_Resolve
-                                (High_Bound (Index), Etype (Index_Type));
-                              Set_Etype (Index, Etype (Index_Type));
+                              Lo := Low_Bound  (Index);
+                              Hi := High_Bound (Index);
+
+                              Analyze_And_Resolve (Lo, Etype (Index_Type));
+
+                              if not Is_OK_Static_Expression (Lo) then
+                                 Set_Do_Range_Check (Lo);
+                              end if;
+
+                              Analyze_And_Resolve (Hi, Etype (Index_Type));
+
+                              if not Is_OK_Static_Expression (Hi) then
+                                 Set_Do_Range_Check (Hi);
+                              end if;
 
                            else
                               Analyze_And_Resolve (Index, Etype (Index_Type));
+
+                              if not Is_OK_Static_Expression (Index) then
+                                 Set_Do_Range_Check (Index);
+                              end if;
                            end if;
 
                            Next (Index);
@@ -10802,6 +10816,7 @@ package body Sem_Attr is
                Typ   : constant Entity_Id := Etype (Prefix (N));
                Assoc : Node_Id;
                Comp  : Node_Id;
+               Expr  : Node_Id;
 
             begin
                --  Set the Etype of the aggregate to that of the prefix, even
@@ -10814,12 +10829,14 @@ package body Sem_Attr is
                Resolve (Prefix (N), Typ);
 
                --  For an array type, resolve expressions with the component
-               --  type of the array.
+               --  type of the array, and apply constraint checks when needed.
 
                if Is_Array_Type (Typ) then
                   Assoc := First (Component_Associations (Aggr));
                   while Present (Assoc) loop
-                     Resolve (Expression (Assoc), Component_Type (Typ));
+                     Expr  := Expression (Assoc);
+                     Resolve (Expr, Component_Type (Typ));
+                     Aggregate_Constraint_Checks (Expr, Component_Type (Typ));
 
                      --  The choices in the association are static constants,
                      --  or static aggregates each of whose components belongs
@@ -10828,7 +10845,8 @@ package body Sem_Attr is
                      --  may be a subtype (e.g. given by a slice).
 
                      --  Choices may also be identifiers with no staticness
-                     --  requirements, in which case rules are unclear???
+                     --  requirements, in which case they must resolve to the
+                     --  index type.
 
                      declare
                         C    : Node_Id;
@@ -10841,14 +10859,17 @@ package body Sem_Attr is
                            Indx := First_Index (Etype (Prefix (N)));
 
                            if Nkind (C) /= N_Aggregate then
-                              Set_Etype (C, Etype (Indx));
+                              Analyze_And_Resolve (C, Etype (Indx));
+                              Apply_Constraint_Check (C, Etype (Indx));
                               Check_Non_Static_Context (C);
 
                            else
                               C_E := First (Expressions (C));
                               while Present (C_E) loop
-                                 Set_Etype (C_E, Etype (Indx));
+                                 Analyze_And_Resolve (C_E, Etype (Indx));
+                                 Apply_Constraint_Check (C_E, Etype (Indx));
                                  Check_Non_Static_Context (C_E);
+
                                  Next (C_E);
                                  Next_Index (Indx);
                               end loop;

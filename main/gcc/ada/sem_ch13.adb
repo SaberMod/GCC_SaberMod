@@ -33,6 +33,7 @@ with Errout;   use Errout;
 with Exp_Disp; use Exp_Disp;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
+with Freeze;   use Freeze;
 with Lib;      use Lib;
 with Lib.Xref; use Lib.Xref;
 with Namet;    use Namet;
@@ -84,19 +85,7 @@ package body Sem_Ch13 is
    --  type whose inherited alignment is no longer appropriate for the new
    --  size value. In this case, we reset the Alignment to unknown.
 
-   procedure Build_Predicate_Functions (Typ : Entity_Id; N : Node_Id);
-   --  If Typ has predicates (indicated by Has_Predicates being set for Typ),
-   --  then either there are pragma Predicate entries on the rep chain for the
-   --  type (note that Predicate aspects are converted to pragma Predicate), or
-   --  there are inherited aspects from a parent type, or ancestor subtypes.
-   --  This procedure builds the spec and body for the Predicate function that
-   --  tests these predicates. N is the freeze node for the type. The spec of
-   --  the function is inserted before the freeze node, and the body of the
-   --  function is inserted after the freeze node. If the predicate expression
-   --  has at least one Raise_Expression, then this procedure also builds the
-   --  M version of the predicate function for use in membership tests.
-
-   procedure Build_Static_Predicate
+   procedure Build_Discrete_Static_Predicate
      (Typ  : Entity_Id;
       Expr : Node_Id;
       Nam  : Name_Id);
@@ -110,6 +99,18 @@ package body Sem_Ch13 is
    --  returns doing nothing. If the predicate is static, then the predicate
    --  list is stored in Static_Predicate (Typ), and the Expr is rewritten as
    --  a canonicalized membership operation.
+
+   procedure Build_Predicate_Functions (Typ : Entity_Id; N : Node_Id);
+   --  If Typ has predicates (indicated by Has_Predicates being set for Typ),
+   --  then either there are pragma Predicate entries on the rep chain for the
+   --  type (note that Predicate aspects are converted to pragma Predicate), or
+   --  there are inherited aspects from a parent type, or ancestor subtypes.
+   --  This procedure builds the spec and body for the Predicate function that
+   --  tests these predicates. N is the freeze node for the type. The spec of
+   --  the function is inserted before the freeze node, and the body of the
+   --  function is inserted after the freeze node. If the predicate expression
+   --  has at least one Raise_Expression, then this procedure also builds the
+   --  M version of the predicate function for use in membership tests.
 
    procedure Check_Pool_Size_Clash (Ent : Entity_Id; SP, SS : Node_Id);
    --  Called if both Storage_Pool and Storage_Size attribute definition
@@ -133,6 +134,34 @@ package body Sem_Ch13 is
    --  that do not specify a representation characteristic are operational
    --  attributes.
 
+   function Is_Predicate_Static
+     (Expr : Node_Id;
+      Nam  : Name_Id) return Boolean;
+   --  Given predicate expression Expr, tests if Expr is predicate-static in
+   --  the sense of the rules in (RM 3.2.4 (15-24)). Occurrences of the type
+   --  name in the predicate expression have been replaced by references to
+   --  an identifier whose Chars field is Nam. This name is unique, so any
+   --  identifier with Chars matching Nam must be a reference to the type.
+   --  Returns True if the expression is predicate-static and False otherwise,
+   --  but is not in the business of setting flags or issuing error messages.
+   --
+   --  Only scalar types can have static predicates, so False is always
+   --  returned for non-scalar types.
+   --
+   --  Note: the RM seems to suggest that string types can also have static
+   --  predicates. But that really makes lttle sense as very few useful
+   --  predicates can be constructed for strings. Remember that:
+   --
+   --     "ABC" < "DEF"
+   --
+   --  is not a static expression. So even though the clearly faulty RM wording
+   --  allows the following:
+   --
+   --     subtype S is String with Static_Predicate => S < "DEF"
+   --
+   --  We can't allow this, otherwise we have predicate-static applying to a
+   --  larger class than static expressions, which was never intended.
+
    procedure New_Stream_Subprogram
      (N    : Node_Id;
       Ent  : Entity_Id;
@@ -155,14 +184,14 @@ package body Sem_Ch13 is
 
    generic
       with procedure Replace_Type_Reference (N : Node_Id);
-   procedure Replace_Type_References_Generic (N : Node_Id; TName : Name_Id);
+   procedure Replace_Type_References_Generic (N : Node_Id; T : Entity_Id);
    --  This is used to scan an expression for a predicate or invariant aspect
-   --  replacing occurrences of the name TName (the name of the subtype to
-   --  which the aspect applies) with appropriate references to the parameter
-   --  of the predicate function or invariant procedure. The procedure passed
-   --  as a generic parameter does the actual replacement of node N, which is
-   --  either a simple direct reference to TName, or a selected component that
-   --  represents an appropriately qualified occurrence of TName.
+   --  replacing occurrences of the name of the subtype to which the aspect
+   --  applies with appropriate references to the parameter of the predicate
+   --  function or invariant procedure. The procedure passed as a generic
+   --  parameter does the actual replacement of node N, which is either a
+   --  simple direct reference to T, or a selected component that represents
+   --  an appropriately qualified occurrence of T.
 
    procedure Resolve_Iterable_Operation
      (N      : Node_Id;
@@ -889,7 +918,8 @@ package body Sem_Ch13 is
 
                            if Is_Bit_Packed_Array (P) then
                               Set_Is_Bit_Packed_Array (Base_Type (E));
-                              Set_Packed_Array_Type (E, Packed_Array_Type (P));
+                              Set_Packed_Array_Impl_Type
+                                (E, Packed_Array_Impl_Type (P));
                            end if;
                         end if;
 
@@ -1651,6 +1681,22 @@ package body Sem_Ch13 is
 
                   if A_Id = Aspect_Address then
                      Set_Never_Set_In_Source (E, False);
+                  end if;
+
+                  --  Correctness of the profile of a stream operation is
+                  --  verified at the freeze point, but we must detect the
+                  --  illegal specification of this aspect for a subtype now,
+                  --  to prevent malformed rep_item chains.
+
+                  if (A_Id = Aspect_Input
+                       or else A_Id = Aspect_Output
+                       or else A_Id = Aspect_Read
+                       or else A_Id = Aspect_Write)
+                    and not Is_First_Subtype (E)
+                  then
+                     Error_Msg_N
+                       ("local name must be a first subtype", Aspect);
+                     goto Continue;
                   end if;
 
                   --  Construct the attribute definition clause
@@ -3647,18 +3693,11 @@ package body Sem_Ch13 is
                  Attribute_Machine_Radix  |
                  Attribute_Object_Size    |
                  Attribute_Size           |
+                 Attribute_Small          |
                  Attribute_Stream_Size    |
                  Attribute_Value_Size     =>
-               Rewrite (N, Make_Null_Statement (Sloc (N)));
+               Kill_Rep_Clause (N);
                return;
-
-            --  Perhaps 'Small should not be ignored by Ignore_Rep_Clauses ???
-
-            when Attribute_Small =>
-               if Ignore_Rep_Clauses then
-                  Rewrite (N, Make_Null_Statement (Sloc (N)));
-                  return;
-               end if;
 
             --  The following should not be ignored, because in the first place
             --  they are reasonably portable, and should not cause problems in
@@ -3674,6 +3713,13 @@ package body Sem_Ch13 is
                  Attribute_Storage_Pool        |
                  Attribute_Storage_Size        |
                  Attribute_Write               =>
+               null;
+
+            --  We do not do anything here with address clauses, they will be
+            --  removed by Freeze later on, but for now, it works better to
+            --  keep then in the tree.
+
+            when Attribute_Address =>
                null;
 
             --  Other cases are errors ("attribute& cannot be set with
@@ -3830,7 +3876,7 @@ package body Sem_Ch13 is
 
             --  Even when ignoring rep clauses we need to indicate that the
             --  entity has an address clause and thus it is legal to declare
-            --  it imported.
+            --  it imported. Freeze will get rid of the address clause later.
 
             if Ignore_Rep_Clauses then
                if Ekind_In (U_Ent, E_Variable, E_Constant) then
@@ -5365,6 +5411,7 @@ package body Sem_Ch13 is
 
    begin
       if Ignore_Rep_Clauses then
+         Kill_Rep_Clause (N);
          return;
       end if;
 
@@ -5740,6 +5787,7 @@ package body Sem_Ch13 is
 
    begin
       if Ignore_Rep_Clauses then
+         Kill_Rep_Clause (N);
          return;
       end if;
 
@@ -6154,6 +6202,862 @@ package body Sem_Ch13 is
       end if;
    end Analyze_Record_Representation_Clause;
 
+   -------------------------------------
+   -- Build_Discrete_Static_Predicate --
+   -------------------------------------
+
+   procedure Build_Discrete_Static_Predicate
+     (Typ  : Entity_Id;
+      Expr : Node_Id;
+      Nam  : Name_Id)
+   is
+      Loc : constant Source_Ptr := Sloc (Expr);
+
+      Non_Static : exception;
+      --  Raised if something non-static is found
+
+      Btyp : constant Entity_Id := Base_Type (Typ);
+
+      BLo : constant Uint := Expr_Value (Type_Low_Bound  (Btyp));
+      BHi : constant Uint := Expr_Value (Type_High_Bound (Btyp));
+      --  Low bound and high bound value of base type of Typ
+
+      TLo : constant Uint := Expr_Value (Type_Low_Bound  (Typ));
+      THi : constant Uint := Expr_Value (Type_High_Bound (Typ));
+      --  Low bound and high bound values of static subtype Typ
+
+      type REnt is record
+         Lo, Hi : Uint;
+      end record;
+      --  One entry in a Rlist value, a single REnt (range entry) value denotes
+      --  one range from Lo to Hi. To represent a single value range Lo = Hi =
+      --  value.
+
+      type RList is array (Nat range <>) of REnt;
+      --  A list of ranges. The ranges are sorted in increasing order, and are
+      --  disjoint (there is a gap of at least one value between each range in
+      --  the table). A value is in the set of ranges in Rlist if it lies
+      --  within one of these ranges.
+
+      False_Range : constant RList :=
+        RList'(1 .. 0 => REnt'(No_Uint, No_Uint));
+      --  An empty set of ranges represents a range list that can never be
+      --  satisfied, since there are no ranges in which the value could lie,
+      --  so it does not lie in any of them. False_Range is a canonical value
+      --  for this empty set, but general processing should test for an Rlist
+      --  with length zero (see Is_False predicate), since other null ranges
+      --  may appear which must be treated as False.
+
+      True_Range : constant RList := RList'(1 => REnt'(BLo, BHi));
+      --  Range representing True, value must be in the base range
+
+      function "and" (Left : RList; Right : RList) return RList;
+      --  And's together two range lists, returning a range list. This is a set
+      --  intersection operation.
+
+      function "or" (Left : RList; Right : RList) return RList;
+      --  Or's together two range lists, returning a range list. This is a set
+      --  union operation.
+
+      function "not" (Right : RList) return RList;
+      --  Returns complement of a given range list, i.e. a range list
+      --  representing all the values in TLo .. THi that are not in the input
+      --  operand Right.
+
+      function Build_Val (V : Uint) return Node_Id;
+      --  Return an analyzed N_Identifier node referencing this value, suitable
+      --  for use as an entry in the Static_Predicate list. This node is typed
+      --  with the base type.
+
+      function Build_Range (Lo : Uint; Hi : Uint) return Node_Id;
+      --  Return an analyzed N_Range node referencing this range, suitable for
+      --  use as an entry in the Static_Predicate list. This node is typed with
+      --  the base type.
+
+      function Get_RList (Exp : Node_Id) return RList;
+      --  This is a recursive routine that converts the given expression into a
+      --  list of ranges, suitable for use in building the static predicate.
+
+      function Is_False (R : RList) return Boolean;
+      pragma Inline (Is_False);
+      --  Returns True if the given range list is empty, and thus represents a
+      --  False list of ranges that can never be satisfied.
+
+      function Is_True (R : RList) return Boolean;
+      --  Returns True if R trivially represents the True predicate by having a
+      --  single range from BLo to BHi.
+
+      function Is_Type_Ref (N : Node_Id) return Boolean;
+      pragma Inline (Is_Type_Ref);
+      --  Returns if True if N is a reference to the type for the predicate in
+      --  the expression (i.e. if it is an identifier whose Chars field matches
+      --  the Nam given in the call). N must not be parenthesized, if the type
+      --  name appears in parens, this routine will return False.
+
+      function Lo_Val (N : Node_Id) return Uint;
+      --  Given static expression or static range from a Static_Predicate list,
+      --  gets expression value or low bound of range.
+
+      function Hi_Val (N : Node_Id) return Uint;
+      --  Given static expression or static range from a Static_Predicate list,
+      --  gets expression value of high bound of range.
+
+      function Membership_Entry (N : Node_Id) return RList;
+      --  Given a single membership entry (range, value, or subtype), returns
+      --  the corresponding range list. Raises Static_Error if not static.
+
+      function Membership_Entries (N : Node_Id) return RList;
+      --  Given an element on an alternatives list of a membership operation,
+      --  returns the range list corresponding to this entry and all following
+      --  entries (i.e. returns the "or" of this list of values).
+
+      function Stat_Pred (Typ : Entity_Id) return RList;
+      --  Given a type, if it has a static predicate, then return the predicate
+      --  as a range list, otherwise raise Non_Static.
+
+      -----------
+      -- "and" --
+      -----------
+
+      function "and" (Left : RList; Right : RList) return RList is
+         FEnt : REnt;
+         --  First range of result
+
+         SLeft : Nat := Left'First;
+         --  Start of rest of left entries
+
+         SRight : Nat := Right'First;
+         --  Start of rest of right entries
+
+      begin
+         --  If either range is True, return the other
+
+         if Is_True (Left) then
+            return Right;
+         elsif Is_True (Right) then
+            return Left;
+         end if;
+
+         --  If either range is False, return False
+
+         if Is_False (Left) or else Is_False (Right) then
+            return False_Range;
+         end if;
+
+         --  Loop to remove entries at start that are disjoint, and thus just
+         --  get discarded from the result entirely.
+
+         loop
+            --  If no operands left in either operand, result is false
+
+            if SLeft > Left'Last or else SRight > Right'Last then
+               return False_Range;
+
+            --  Discard first left operand entry if disjoint with right
+
+            elsif Left (SLeft).Hi < Right (SRight).Lo then
+               SLeft := SLeft + 1;
+
+            --  Discard first right operand entry if disjoint with left
+
+            elsif Right (SRight).Hi < Left (SLeft).Lo then
+               SRight := SRight + 1;
+
+            --  Otherwise we have an overlapping entry
+
+            else
+               exit;
+            end if;
+         end loop;
+
+         --  Now we have two non-null operands, and first entries overlap. The
+         --  first entry in the result will be the overlapping part of these
+         --  two entries.
+
+         FEnt := REnt'(Lo => UI_Max (Left (SLeft).Lo, Right (SRight).Lo),
+                       Hi => UI_Min (Left (SLeft).Hi, Right (SRight).Hi));
+
+         --  Now we can remove the entry that ended at a lower value, since its
+         --  contribution is entirely contained in Fent.
+
+         if Left (SLeft).Hi <= Right (SRight).Hi then
+            SLeft := SLeft + 1;
+         else
+            SRight := SRight + 1;
+         end if;
+
+         --  Compute result by concatenating this first entry with the "and" of
+         --  the remaining parts of the left and right operands. Note that if
+         --  either of these is empty, "and" will yield empty, so that we will
+         --  end up with just Fent, which is what we want in that case.
+
+         return
+           FEnt & (Left (SLeft .. Left'Last) and Right (SRight .. Right'Last));
+      end "and";
+
+      -----------
+      -- "not" --
+      -----------
+
+      function "not" (Right : RList) return RList is
+      begin
+         --  Return True if False range
+
+         if Is_False (Right) then
+            return True_Range;
+         end if;
+
+         --  Return False if True range
+
+         if Is_True (Right) then
+            return False_Range;
+         end if;
+
+         --  Here if not trivial case
+
+         declare
+            Result : RList (1 .. Right'Length + 1);
+            --  May need one more entry for gap at beginning and end
+
+            Count : Nat := 0;
+            --  Number of entries stored in Result
+
+         begin
+            --  Gap at start
+
+            if Right (Right'First).Lo > TLo then
+               Count := Count + 1;
+               Result (Count) := REnt'(TLo, Right (Right'First).Lo - 1);
+            end if;
+
+            --  Gaps between ranges
+
+            for J in Right'First .. Right'Last - 1 loop
+               Count := Count + 1;
+               Result (Count) := REnt'(Right (J).Hi + 1, Right (J + 1).Lo - 1);
+            end loop;
+
+            --  Gap at end
+
+            if Right (Right'Last).Hi < THi then
+               Count := Count + 1;
+               Result (Count) := REnt'(Right (Right'Last).Hi + 1, THi);
+            end if;
+
+            return Result (1 .. Count);
+         end;
+      end "not";
+
+      ----------
+      -- "or" --
+      ----------
+
+      function "or" (Left : RList; Right : RList) return RList is
+         FEnt : REnt;
+         --  First range of result
+
+         SLeft : Nat := Left'First;
+         --  Start of rest of left entries
+
+         SRight : Nat := Right'First;
+         --  Start of rest of right entries
+
+      begin
+         --  If either range is True, return True
+
+         if Is_True (Left) or else Is_True (Right) then
+            return True_Range;
+         end if;
+
+         --  If either range is False (empty), return the other
+
+         if Is_False (Left) then
+            return Right;
+         elsif Is_False (Right) then
+            return Left;
+         end if;
+
+         --  Initialize result first entry from left or right operand depending
+         --  on which starts with the lower range.
+
+         if Left (SLeft).Lo < Right (SRight).Lo then
+            FEnt := Left (SLeft);
+            SLeft := SLeft + 1;
+         else
+            FEnt := Right (SRight);
+            SRight := SRight + 1;
+         end if;
+
+         --  This loop eats ranges from left and right operands that are
+         --  contiguous with the first range we are gathering.
+
+         loop
+            --  Eat first entry in left operand if contiguous or overlapped by
+            --  gathered first operand of result.
+
+            if SLeft <= Left'Last
+              and then Left (SLeft).Lo <= FEnt.Hi + 1
+            then
+               FEnt.Hi := UI_Max (FEnt.Hi, Left (SLeft).Hi);
+               SLeft := SLeft + 1;
+
+            --  Eat first entry in right operand if contiguous or overlapped by
+            --  gathered right operand of result.
+
+            elsif SRight <= Right'Last
+              and then Right (SRight).Lo <= FEnt.Hi + 1
+            then
+               FEnt.Hi := UI_Max (FEnt.Hi, Right (SRight).Hi);
+               SRight := SRight + 1;
+
+            --  All done if no more entries to eat
+
+            else
+               exit;
+            end if;
+         end loop;
+
+         --  Obtain result as the first entry we just computed, concatenated
+         --  to the "or" of the remaining results (if one operand is empty,
+         --  this will just concatenate with the other
+
+         return
+           FEnt & (Left (SLeft .. Left'Last) or Right (SRight .. Right'Last));
+      end "or";
+
+      -----------------
+      -- Build_Range --
+      -----------------
+
+      function Build_Range (Lo : Uint; Hi : Uint) return Node_Id is
+         Result : Node_Id;
+      begin
+         Result :=
+           Make_Range (Loc,
+              Low_Bound  => Build_Val (Lo),
+              High_Bound => Build_Val (Hi));
+         Set_Etype (Result, Btyp);
+         Set_Analyzed (Result);
+         return Result;
+      end Build_Range;
+
+      ---------------
+      -- Build_Val --
+      ---------------
+
+      function Build_Val (V : Uint) return Node_Id is
+         Result : Node_Id;
+
+      begin
+         if Is_Enumeration_Type (Typ) then
+            Result := Get_Enum_Lit_From_Pos (Typ, V, Loc);
+         else
+            Result := Make_Integer_Literal (Loc, V);
+         end if;
+
+         Set_Etype (Result, Btyp);
+         Set_Is_Static_Expression (Result);
+         Set_Analyzed (Result);
+         return Result;
+      end Build_Val;
+
+      ---------------
+      -- Get_RList --
+      ---------------
+
+      function Get_RList (Exp : Node_Id) return RList is
+         Op  : Node_Kind;
+         Val : Uint;
+
+      begin
+         --  Static expression can only be true or false
+
+         if Is_OK_Static_Expression (Exp) then
+            if Expr_Value (Exp) = 0 then
+               return False_Range;
+            else
+               return True_Range;
+            end if;
+         end if;
+
+         --  Otherwise test node type
+
+         Op := Nkind (Exp);
+
+         case Op is
+
+            --  And
+
+            when N_Op_And | N_And_Then =>
+               return Get_RList (Left_Opnd (Exp))
+                        and
+                      Get_RList (Right_Opnd (Exp));
+
+            --  Or
+
+            when N_Op_Or | N_Or_Else =>
+               return Get_RList (Left_Opnd (Exp))
+                        or
+                      Get_RList (Right_Opnd (Exp));
+
+            --  Not
+
+            when N_Op_Not =>
+               return not Get_RList (Right_Opnd (Exp));
+
+               --  Comparisons of type with static value
+
+            when N_Op_Compare =>
+
+               --  Type is left operand
+
+               if Is_Type_Ref (Left_Opnd (Exp))
+                 and then Is_OK_Static_Expression (Right_Opnd (Exp))
+               then
+                  Val := Expr_Value (Right_Opnd (Exp));
+
+               --  Typ is right operand
+
+               elsif Is_Type_Ref (Right_Opnd (Exp))
+                 and then Is_OK_Static_Expression (Left_Opnd (Exp))
+               then
+                  Val := Expr_Value (Left_Opnd (Exp));
+
+                  --  Invert sense of comparison
+
+                  case Op is
+                     when N_Op_Gt => Op := N_Op_Lt;
+                     when N_Op_Lt => Op := N_Op_Gt;
+                     when N_Op_Ge => Op := N_Op_Le;
+                     when N_Op_Le => Op := N_Op_Ge;
+                     when others  => null;
+                  end case;
+
+               --  Other cases are non-static
+
+               else
+                  raise Non_Static;
+               end if;
+
+               --  Construct range according to comparison operation
+
+               case Op is
+                  when N_Op_Eq =>
+                     return RList'(1 => REnt'(Val, Val));
+
+                  when N_Op_Ge =>
+                     return RList'(1 => REnt'(Val, BHi));
+
+                  when N_Op_Gt =>
+                     return RList'(1 => REnt'(Val + 1, BHi));
+
+                  when N_Op_Le =>
+                     return RList'(1 => REnt'(BLo, Val));
+
+                  when N_Op_Lt =>
+                     return RList'(1 => REnt'(BLo, Val - 1));
+
+                  when N_Op_Ne =>
+                     return RList'(REnt'(BLo, Val - 1), REnt'(Val + 1, BHi));
+
+                  when others  =>
+                     raise Program_Error;
+               end case;
+
+            --  Membership (IN)
+
+            when N_In =>
+               if not Is_Type_Ref (Left_Opnd (Exp)) then
+                  raise Non_Static;
+               end if;
+
+               if Present (Right_Opnd (Exp)) then
+                  return Membership_Entry (Right_Opnd (Exp));
+               else
+                  return Membership_Entries (First (Alternatives (Exp)));
+               end if;
+
+            --  Negative membership (NOT IN)
+
+            when N_Not_In =>
+               if not Is_Type_Ref (Left_Opnd (Exp)) then
+                  raise Non_Static;
+               end if;
+
+               if Present (Right_Opnd (Exp)) then
+                  return not Membership_Entry (Right_Opnd (Exp));
+               else
+                  return not Membership_Entries (First (Alternatives (Exp)));
+               end if;
+
+            --  Function call, may be call to static predicate
+
+            when N_Function_Call =>
+               if Is_Entity_Name (Name (Exp)) then
+                  declare
+                     Ent : constant Entity_Id := Entity (Name (Exp));
+                  begin
+                     if Is_Predicate_Function (Ent)
+                          or else
+                        Is_Predicate_Function_M (Ent)
+                     then
+                        return Stat_Pred (Etype (First_Formal (Ent)));
+                     end if;
+                  end;
+               end if;
+
+               --  Other function call cases are non-static
+
+               raise Non_Static;
+
+            --  Qualified expression, dig out the expression
+
+            when N_Qualified_Expression =>
+               return Get_RList (Expression (Exp));
+
+            when N_Case_Expression =>
+               declare
+                  Alt     : Node_Id;
+                  Choices : List_Id;
+                  Dep     : Node_Id;
+
+               begin
+                  if not Is_Entity_Name (Expression (Expr))
+                    or else Etype (Expression (Expr)) /= Typ
+                  then
+                     Error_Msg_N
+                       ("expression must denaote subtype", Expression (Expr));
+                     return False_Range;
+                  end if;
+
+                  --  Collect discrete choices in all True alternatives
+
+                  Choices := New_List;
+                  Alt := First (Alternatives (Exp));
+                  while Present (Alt) loop
+                     Dep := Expression (Alt);
+
+                     if not Is_Static_Expression (Dep) then
+                        raise Non_Static;
+
+                     elsif Is_True (Expr_Value (Dep)) then
+                        Append_List_To (Choices,
+                          New_Copy_List (Discrete_Choices (Alt)));
+                     end if;
+
+                     Next (Alt);
+                  end loop;
+
+                  return Membership_Entries (First (Choices));
+               end;
+
+            --  Expression with actions: if no actions, dig out expression
+
+            when N_Expression_With_Actions =>
+               if Is_Empty_List (Actions (Exp)) then
+                  return Get_RList (Expression (Exp));
+               else
+                  raise Non_Static;
+               end if;
+
+            --  Xor operator
+
+            when N_Op_Xor =>
+               return (Get_RList (Left_Opnd (Exp))
+                        and not Get_RList (Right_Opnd (Exp)))
+                 or   (Get_RList (Right_Opnd (Exp))
+                        and not Get_RList (Left_Opnd (Exp)));
+
+            --  Any other node type is non-static
+
+            when others =>
+               raise Non_Static;
+         end case;
+      end Get_RList;
+
+      ------------
+      -- Hi_Val --
+      ------------
+
+      function Hi_Val (N : Node_Id) return Uint is
+      begin
+         if Is_Static_Expression (N) then
+            return Expr_Value (N);
+         else
+            pragma Assert (Nkind (N) = N_Range);
+            return Expr_Value (High_Bound (N));
+         end if;
+      end Hi_Val;
+
+      --------------
+      -- Is_False --
+      --------------
+
+      function Is_False (R : RList) return Boolean is
+      begin
+         return R'Length = 0;
+      end Is_False;
+
+      -------------
+      -- Is_True --
+      -------------
+
+      function Is_True (R : RList) return Boolean is
+      begin
+         return R'Length = 1
+           and then R (R'First).Lo = BLo
+           and then R (R'First).Hi = BHi;
+      end Is_True;
+
+      -----------------
+      -- Is_Type_Ref --
+      -----------------
+
+      function Is_Type_Ref (N : Node_Id) return Boolean is
+      begin
+         return Nkind (N) = N_Identifier
+           and then Chars (N) = Nam
+           and then Paren_Count (N) = 0;
+      end Is_Type_Ref;
+
+      ------------
+      -- Lo_Val --
+      ------------
+
+      function Lo_Val (N : Node_Id) return Uint is
+      begin
+         if Is_Static_Expression (N) then
+            return Expr_Value (N);
+         else
+            pragma Assert (Nkind (N) = N_Range);
+            return Expr_Value (Low_Bound (N));
+         end if;
+      end Lo_Val;
+
+      ------------------------
+      -- Membership_Entries --
+      ------------------------
+
+      function Membership_Entries (N : Node_Id) return RList is
+      begin
+         if No (Next (N)) then
+            return Membership_Entry (N);
+         else
+            return Membership_Entry (N) or Membership_Entries (Next (N));
+         end if;
+      end Membership_Entries;
+
+      ----------------------
+      -- Membership_Entry --
+      ----------------------
+
+      function Membership_Entry (N : Node_Id) return RList is
+         Val : Uint;
+         SLo : Uint;
+         SHi : Uint;
+
+      begin
+         --  Range case
+
+         if Nkind (N) = N_Range then
+            if not Is_Static_Expression (Low_Bound  (N))
+                 or else
+               not Is_Static_Expression (High_Bound (N))
+            then
+               raise Non_Static;
+            else
+               SLo := Expr_Value (Low_Bound  (N));
+               SHi := Expr_Value (High_Bound (N));
+               return RList'(1 => REnt'(SLo, SHi));
+            end if;
+
+         --  Static expression case
+
+         elsif Is_Static_Expression (N) then
+            Val := Expr_Value (N);
+            return RList'(1 => REnt'(Val, Val));
+
+         --  Identifier (other than static expression) case
+
+         else pragma Assert (Nkind (N) = N_Identifier);
+
+            --  Type case
+
+            if Is_Type (Entity (N)) then
+
+               --  If type has predicates, process them
+
+               if Has_Predicates (Entity (N)) then
+                  return Stat_Pred (Entity (N));
+
+               --  For static subtype without predicates, get range
+
+               elsif Is_Static_Subtype (Entity (N)) then
+                  SLo := Expr_Value (Type_Low_Bound  (Entity (N)));
+                  SHi := Expr_Value (Type_High_Bound (Entity (N)));
+                  return RList'(1 => REnt'(SLo, SHi));
+
+               --  Any other type makes us non-static
+
+               else
+                  raise Non_Static;
+               end if;
+
+            --  Any other kind of identifier in predicate (e.g. a non-static
+            --  expression value) means this is not a static predicate.
+
+            else
+               raise Non_Static;
+            end if;
+         end if;
+      end Membership_Entry;
+
+      ---------------
+      -- Stat_Pred --
+      ---------------
+
+      function Stat_Pred (Typ : Entity_Id) return RList is
+      begin
+         --  Not static if type does not have static predicates
+
+         if not Has_Predicates (Typ) or else No (Static_Predicate (Typ)) then
+            raise Non_Static;
+         end if;
+
+         --  Otherwise we convert the predicate list to a range list
+
+         declare
+            Result : RList (1 .. List_Length (Static_Predicate (Typ)));
+            P      : Node_Id;
+
+         begin
+            P := First (Static_Predicate (Typ));
+            for J in Result'Range loop
+               Result (J) := REnt'(Lo_Val (P), Hi_Val (P));
+               Next (P);
+            end loop;
+
+            return Result;
+         end;
+      end Stat_Pred;
+
+   --  Start of processing for Build_Discrete_Static_Predicate
+
+   begin
+      --  Analyze the expression to see if it is a static predicate
+
+      declare
+         Ranges : constant RList := Get_RList (Expr);
+         --  Range list from expression if it is static
+
+         Plist : List_Id;
+
+      begin
+         --  Convert range list into a form for the static predicate. In the
+         --  Ranges array, we just have raw ranges, these must be converted
+         --  to properly typed and analyzed static expressions or range nodes.
+
+         --  Note: here we limit ranges to the ranges of the subtype, so that
+         --  a predicate is always false for values outside the subtype. That
+         --  seems fine, such values are invalid anyway, and considering them
+         --  to fail the predicate seems allowed and friendly, and furthermore
+         --  simplifies processing for case statements and loops.
+
+         Plist := New_List;
+
+         for J in Ranges'Range loop
+            declare
+               Lo : Uint := Ranges (J).Lo;
+               Hi : Uint := Ranges (J).Hi;
+
+            begin
+               --  Ignore completely out of range entry
+
+               if Hi < TLo or else Lo > THi then
+                  null;
+
+               --  Otherwise process entry
+
+               else
+                  --  Adjust out of range value to subtype range
+
+                  if Lo < TLo then
+                     Lo := TLo;
+                  end if;
+
+                  if Hi > THi then
+                     Hi := THi;
+                  end if;
+
+                  --  Convert range into required form
+
+                  Append_To (Plist, Build_Range (Lo, Hi));
+               end if;
+            end;
+         end loop;
+
+         --  Processing was successful and all entries were static, so now we
+         --  can store the result as the predicate list.
+
+         Set_Static_Predicate (Typ, Plist);
+
+         --  The processing for static predicates put the expression into
+         --  canonical form as a series of ranges. It also eliminated
+         --  duplicates and collapsed and combined ranges. We might as well
+         --  replace the alternatives list of the right operand of the
+         --  membership test with the static predicate list, which will
+         --  usually be more efficient.
+
+         declare
+            New_Alts : constant List_Id := New_List;
+            Old_Node : Node_Id;
+            New_Node : Node_Id;
+
+         begin
+            Old_Node := First (Plist);
+            while Present (Old_Node) loop
+               New_Node := New_Copy (Old_Node);
+
+               if Nkind (New_Node) = N_Range then
+                  Set_Low_Bound  (New_Node, New_Copy (Low_Bound  (Old_Node)));
+                  Set_High_Bound (New_Node, New_Copy (High_Bound (Old_Node)));
+               end if;
+
+               Append_To (New_Alts, New_Node);
+               Next (Old_Node);
+            end loop;
+
+            --  If empty list, replace by False
+
+            if Is_Empty_List (New_Alts) then
+               Rewrite (Expr, New_Occurrence_Of (Standard_False, Loc));
+
+               --  Else replace by set membership test
+
+            else
+               Rewrite (Expr,
+                 Make_In (Loc,
+                   Left_Opnd    => Make_Identifier (Loc, Nam),
+                   Right_Opnd   => Empty,
+                   Alternatives => New_Alts));
+
+               --  Resolve new expression in function context
+
+               Install_Formals (Predicate_Function (Typ));
+               Push_Scope (Predicate_Function (Typ));
+               Analyze_And_Resolve (Expr, Standard_Boolean);
+               Pop_Scope;
+            end if;
+         end;
+      end;
+
+      --  If non-static, return doing nothing
+
+   exception
+      when Non_Static =>
+         return;
+   end Build_Discrete_Static_Predicate;
+
    -------------------------------------------
    -- Build_Invariant_Procedure_Declaration --
    -------------------------------------------
@@ -6361,7 +7265,7 @@ package body Sem_Ch13 is
                --  with references to the object, converted to type'Class in
                --  the case of Invariant'Class aspects.
 
-               Replace_Type_References (Exp, Chars (T));
+               Replace_Type_References (Exp, T);
 
                --  If this invariant comes from an aspect, find the aspect
                --  specification, and replace the saved expression because
@@ -6413,7 +7317,7 @@ package body Sem_Ch13 is
                      Inv : constant Node_Id :=
                              Expression (Corresponding_Aspect (Ritem));
                   begin
-                     Replace_Type_References (Inv, Chars (T));
+                     Replace_Type_References (Inv, T);
                      Preanalyze_Assert_Expression (Inv, Standard_Boolean);
                   end;
                end if;
@@ -6649,9 +7553,6 @@ package body Sem_Ch13 is
       Raise_Expression_Present : Boolean := False;
       --  Set True if Expr has at least one Raise_Expression
 
-      Static_Predic : Node_Id := Empty;
-      --  Set to N_Pragma node for a static predicate if one is encountered
-
       procedure Add_Call (T : Entity_Id);
       --  Includes a call to the predicate function for type T in Expr if T
       --  has predicates and Predicate_Function (T) is non-empty.
@@ -6697,9 +7598,10 @@ package body Sem_Ch13 is
 
             if No (Expr) then
                Expr := Exp;
+
             else
                Expr :=
-                 Make_And_Then (Loc,
+                 Make_And_Then (Sloc (Expr),
                    Left_Opnd  => Relocate_Node (Expr),
                    Right_Opnd => Exp);
             end if;
@@ -6770,16 +7672,6 @@ package body Sem_Ch13 is
             if Nkind (Ritem) = N_Pragma
               and then Pragma_Name (Ritem) = Name_Predicate
             then
-               --  Save the static predicate of the type for diagnostics and
-               --  error reporting purposes.
-
-               if Present (Corresponding_Aspect (Ritem))
-                 and then Chars (Identifier (Corresponding_Aspect (Ritem))) =
-                            Name_Static_Predicate
-               then
-                  Static_Predic := Ritem;
-               end if;
-
                --  Acquire arguments
 
                Arg1 := First (Pragma_Argument_Associations (Ritem));
@@ -6801,7 +7693,7 @@ package body Sem_Ch13 is
                   --  We need to replace any occurrences of the name of the
                   --  type with references to the object.
 
-                  Replace_Type_References (Arg2, Chars (Typ));
+                  Replace_Type_References (Arg2, Typ);
 
                   --  If this predicate comes from an aspect, find the aspect
                   --  specification, and replace the saved expression because
@@ -7103,915 +7995,82 @@ package body Sem_Ch13 is
             end;
          end if;
 
-         if Is_Scalar_Type (Typ) then
+         --  See if we have a static predicate. Note that the answer may be
+         --  yes even if we have an explicit Dynamic_Predicate present.
 
-            --  Attempt to build a static predicate for a discrete or a real
-            --  subtype. This action may fail because the actual expression may
-            --  not be static. Note that the presence of an inherited or
-            --  explicitly declared dynamic predicate is orthogonal to this
-            --  check because we are only interested in the static predicate.
+         declare
+            PS : constant Boolean := Is_Predicate_Static (Expr, Object_Name);
+            EN : Node_Id;
 
-            if Ekind_In (Typ, E_Decimal_Fixed_Point_Subtype,
-                              E_Enumeration_Subtype,
-                              E_Floating_Point_Subtype,
-                              E_Modular_Integer_Subtype,
-                              E_Ordinary_Fixed_Point_Subtype,
-                              E_Signed_Integer_Subtype)
-            then
-               Build_Static_Predicate (Typ, Expr, Object_Name);
+         begin
+            --  Case where we have a predicate-static aspect
+
+            if PS then
+
+               --  We don't set Has_Static_Predicate_Aspect, since we can have
+               --  any of the three cases (Predicate, Dynamic_Predicate, or
+               --  Static_Predicate) generating a predicate with an expression
+               --  that is predicate-static. We just indicate that we have a
+               --  predicate that can be treated as static.
+
+               Set_Has_Static_Predicate (Typ);
+
+               --  For discrete subtype, build the static predicate list
+
+               if Is_Discrete_Type (Typ) then
+                  Build_Discrete_Static_Predicate (Typ, Expr, Object_Name);
+
+                  --  If we don't get a static predicate list, it means that we
+                  --  have a case where this is not possible, most typically in
+                  --  the case where we inherit a dynamic predicate. We do not
+                  --  consider this an error, we just leave the predicate as
+                  --  dynamic. But if we do succeed in building the list, then
+                  --  we mark the predicate as static.
+
+                  if No (Static_Predicate (Typ)) then
+                     Set_Has_Static_Predicate (Typ, False);
+                  end if;
+               end if;
+
+            --  Case of dynamic predicate (expression is not predicate-static)
+
+            else
+               --  Again, we don't set Has_Dynamic_Predicate_Aspect, since that
+               --  is only set if we have an explicit Dynamic_Predicate aspect
+               --  given. Here we may simply have a Predicate aspect where the
+               --  expression happens not to be predicate-static.
 
                --  Emit an error when the predicate is categorized as static
-               --  but its expression is dynamic.
-
-               if Present (Static_Predic)
-                 and then No (Static_Predicate (Typ))
-               then
-                  Error_Msg_F
-                    ("expression does not have required form for "
-                     & "static predicate",
-                     Next (First (Pragma_Argument_Associations
-                                   (Static_Predic))));
-               end if;
-            end if;
-
-         --  If a static predicate applies on other types, that's an error:
-         --  either the type is scalar but non-static, or it's not even a
-         --  scalar type. We do not issue an error on generated types, as
-         --  these may be duplicates of the same error on a source type.
-
-         elsif Present (Static_Predic) and then Comes_From_Source (Typ) then
-            if Is_Scalar_Type (Typ) then
-               Error_Msg_FE
-                 ("static predicate not allowed for non-static type&",
-                  Typ, Typ);
-            else
-               Error_Msg_FE
-                 ("static predicate not allowed for non-scalar type&",
-                  Typ, Typ);
-            end if;
-         end if;
-      end if;
-   end Build_Predicate_Functions;
-
-   ----------------------------
-   -- Build_Static_Predicate --
-   ----------------------------
-
-   procedure Build_Static_Predicate
-     (Typ  : Entity_Id;
-      Expr : Node_Id;
-      Nam  : Name_Id)
-   is
-      Loc : constant Source_Ptr := Sloc (Expr);
-
-      Non_Static : exception;
-      --  Raised if something non-static is found
-
-      Btyp : constant Entity_Id := Base_Type (Typ);
-
-      BLo : constant Uint := Expr_Value (Type_Low_Bound  (Btyp));
-      BHi : constant Uint := Expr_Value (Type_High_Bound (Btyp));
-      --  Low bound and high bound value of base type of Typ
-
-      TLo : constant Uint := Expr_Value (Type_Low_Bound  (Typ));
-      THi : constant Uint := Expr_Value (Type_High_Bound (Typ));
-      --  Low bound and high bound values of static subtype Typ
-
-      type REnt is record
-         Lo, Hi : Uint;
-      end record;
-      --  One entry in a Rlist value, a single REnt (range entry) value denotes
-      --  one range from Lo to Hi. To represent a single value range Lo = Hi =
-      --  value.
-
-      type RList is array (Nat range <>) of REnt;
-      --  A list of ranges. The ranges are sorted in increasing order, and are
-      --  disjoint (there is a gap of at least one value between each range in
-      --  the table). A value is in the set of ranges in Rlist if it lies
-      --  within one of these ranges.
-
-      False_Range : constant RList :=
-                      RList'(1 .. 0 => REnt'(No_Uint, No_Uint));
-      --  An empty set of ranges represents a range list that can never be
-      --  satisfied, since there are no ranges in which the value could lie,
-      --  so it does not lie in any of them. False_Range is a canonical value
-      --  for this empty set, but general processing should test for an Rlist
-      --  with length zero (see Is_False predicate), since other null ranges
-      --  may appear which must be treated as False.
-
-      True_Range : constant RList := RList'(1 => REnt'(BLo, BHi));
-      --  Range representing True, value must be in the base range
-
-      function "and" (Left : RList; Right : RList) return RList;
-      --  And's together two range lists, returning a range list. This is a set
-      --  intersection operation.
-
-      function "or" (Left : RList; Right : RList) return RList;
-      --  Or's together two range lists, returning a range list. This is a set
-      --  union operation.
-
-      function "not" (Right : RList) return RList;
-      --  Returns complement of a given range list, i.e. a range list
-      --  representing all the values in TLo .. THi that are not in the input
-      --  operand Right.
-
-      function Build_Val (V : Uint) return Node_Id;
-      --  Return an analyzed N_Identifier node referencing this value, suitable
-      --  for use as an entry in the Static_Predicate list. This node is typed
-      --  with the base type.
-
-      function Build_Range (Lo : Uint; Hi : Uint) return Node_Id;
-      --  Return an analyzed N_Range node referencing this range, suitable for
-      --  use as an entry in the Static_Predicate list. This node is typed with
-      --  the base type.
-
-      function Get_RList (Exp : Node_Id) return RList;
-      --  This is a recursive routine that converts the given expression into a
-      --  list of ranges, suitable for use in building the static predicate.
-
-      function Is_False (R : RList) return Boolean;
-      pragma Inline (Is_False);
-      --  Returns True if the given range list is empty, and thus represents a
-      --  False list of ranges that can never be satisfied.
-
-      function Is_True (R : RList) return Boolean;
-      --  Returns True if R trivially represents the True predicate by having a
-      --  single range from BLo to BHi.
-
-      function Is_Type_Ref (N : Node_Id) return Boolean;
-      pragma Inline (Is_Type_Ref);
-      --  Returns if True if N is a reference to the type for the predicate in
-      --  the expression (i.e. if it is an identifier whose Chars field matches
-      --  the Nam given in the call).
-
-      function Lo_Val (N : Node_Id) return Uint;
-      --  Given static expression or static range from a Static_Predicate list,
-      --  gets expression value or low bound of range.
-
-      function Hi_Val (N : Node_Id) return Uint;
-      --  Given static expression or static range from a Static_Predicate list,
-      --  gets expression value of high bound of range.
-
-      function Membership_Entry (N : Node_Id) return RList;
-      --  Given a single membership entry (range, value, or subtype), returns
-      --  the corresponding range list. Raises Static_Error if not static.
-
-      function Membership_Entries (N : Node_Id) return RList;
-      --  Given an element on an alternatives list of a membership operation,
-      --  returns the range list corresponding to this entry and all following
-      --  entries (i.e. returns the "or" of this list of values).
-
-      function Stat_Pred (Typ : Entity_Id) return RList;
-      --  Given a type, if it has a static predicate, then return the predicate
-      --  as a range list, otherwise raise Non_Static.
-
-      -----------
-      -- "and" --
-      -----------
-
-      function "and" (Left : RList; Right : RList) return RList is
-         FEnt : REnt;
-         --  First range of result
-
-         SLeft : Nat := Left'First;
-         --  Start of rest of left entries
-
-         SRight : Nat := Right'First;
-         --  Start of rest of right entries
-
-      begin
-         --  If either range is True, return the other
-
-         if Is_True (Left) then
-            return Right;
-         elsif Is_True (Right) then
-            return Left;
-         end if;
-
-         --  If either range is False, return False
-
-         if Is_False (Left) or else Is_False (Right) then
-            return False_Range;
-         end if;
-
-         --  Loop to remove entries at start that are disjoint, and thus just
-         --  get discarded from the result entirely.
-
-         loop
-            --  If no operands left in either operand, result is false
-
-            if SLeft > Left'Last or else SRight > Right'Last then
-               return False_Range;
-
-            --  Discard first left operand entry if disjoint with right
-
-            elsif Left (SLeft).Hi < Right (SRight).Lo then
-               SLeft := SLeft + 1;
-
-            --  Discard first right operand entry if disjoint with left
-
-            elsif Right (SRight).Hi < Left (SLeft).Lo then
-               SRight := SRight + 1;
-
-            --  Otherwise we have an overlapping entry
-
-            else
-               exit;
-            end if;
-         end loop;
-
-         --  Now we have two non-null operands, and first entries overlap. The
-         --  first entry in the result will be the overlapping part of these
-         --  two entries.
-
-         FEnt := REnt'(Lo => UI_Max (Left (SLeft).Lo, Right (SRight).Lo),
-                       Hi => UI_Min (Left (SLeft).Hi, Right (SRight).Hi));
-
-         --  Now we can remove the entry that ended at a lower value, since its
-         --  contribution is entirely contained in Fent.
-
-         if Left (SLeft).Hi <= Right (SRight).Hi then
-            SLeft := SLeft + 1;
-         else
-            SRight := SRight + 1;
-         end if;
-
-         --  Compute result by concatenating this first entry with the "and" of
-         --  the remaining parts of the left and right operands. Note that if
-         --  either of these is empty, "and" will yield empty, so that we will
-         --  end up with just Fent, which is what we want in that case.
-
-         return
-           FEnt & (Left (SLeft .. Left'Last) and Right (SRight .. Right'Last));
-      end "and";
-
-      -----------
-      -- "not" --
-      -----------
-
-      function "not" (Right : RList) return RList is
-      begin
-         --  Return True if False range
-
-         if Is_False (Right) then
-            return True_Range;
-         end if;
-
-         --  Return False if True range
-
-         if Is_True (Right) then
-            return False_Range;
-         end if;
-
-         --  Here if not trivial case
-
-         declare
-            Result : RList (1 .. Right'Length + 1);
-            --  May need one more entry for gap at beginning and end
-
-            Count : Nat := 0;
-            --  Number of entries stored in Result
-
-         begin
-            --  Gap at start
-
-            if Right (Right'First).Lo > TLo then
-               Count := Count + 1;
-               Result (Count) := REnt'(TLo, Right (Right'First).Lo - 1);
-            end if;
-
-            --  Gaps between ranges
-
-            for J in Right'First .. Right'Last - 1 loop
-               Count := Count + 1;
-               Result (Count) :=
-                 REnt'(Right (J).Hi + 1, Right (J + 1).Lo - 1);
-            end loop;
-
-            --  Gap at end
-
-            if Right (Right'Last).Hi < THi then
-               Count := Count + 1;
-               Result (Count) := REnt'(Right (Right'Last).Hi + 1, THi);
-            end if;
-
-            return Result (1 .. Count);
-         end;
-      end "not";
-
-      ----------
-      -- "or" --
-      ----------
-
-      function "or" (Left : RList; Right : RList) return RList is
-         FEnt : REnt;
-         --  First range of result
-
-         SLeft : Nat := Left'First;
-         --  Start of rest of left entries
-
-         SRight : Nat := Right'First;
-         --  Start of rest of right entries
-
-      begin
-         --  If either range is True, return True
-
-         if Is_True (Left) or else Is_True (Right) then
-            return True_Range;
-         end if;
-
-         --  If either range is False (empty), return the other
-
-         if Is_False (Left) then
-            return Right;
-         elsif Is_False (Right) then
-            return Left;
-         end if;
-
-         --  Initialize result first entry from left or right operand depending
-         --  on which starts with the lower range.
-
-         if Left (SLeft).Lo < Right (SRight).Lo then
-            FEnt := Left (SLeft);
-            SLeft := SLeft + 1;
-         else
-            FEnt := Right (SRight);
-            SRight := SRight + 1;
-         end if;
-
-         --  This loop eats ranges from left and right operands that are
-         --  contiguous with the first range we are gathering.
-
-         loop
-            --  Eat first entry in left operand if contiguous or overlapped by
-            --  gathered first operand of result.
-
-            if SLeft <= Left'Last
-              and then Left (SLeft).Lo <= FEnt.Hi + 1
-            then
-               FEnt.Hi := UI_Max (FEnt.Hi, Left (SLeft).Hi);
-               SLeft := SLeft + 1;
-
-            --  Eat first entry in right operand if contiguous or overlapped by
-            --  gathered right operand of result.
-
-            elsif SRight <= Right'Last
-              and then Right (SRight).Lo <= FEnt.Hi + 1
-            then
-               FEnt.Hi := UI_Max (FEnt.Hi, Right (SRight).Hi);
-               SRight := SRight + 1;
-
-            --  All done if no more entries to eat
-
-            else
-               exit;
-            end if;
-         end loop;
-
-         --  Obtain result as the first entry we just computed, concatenated
-         --  to the "or" of the remaining results (if one operand is empty,
-         --  this will just concatenate with the other
-
-         return
-           FEnt & (Left (SLeft .. Left'Last) or Right (SRight .. Right'Last));
-      end "or";
-
-      -----------------
-      -- Build_Range --
-      -----------------
-
-      function Build_Range (Lo : Uint; Hi : Uint) return Node_Id is
-         Result : Node_Id;
-
-      begin
-         Result :=
-           Make_Range (Loc,
-             Low_Bound  => Build_Val (Lo),
-             High_Bound => Build_Val (Hi));
-         Set_Etype (Result, Btyp);
-         Set_Analyzed (Result);
-
-         return Result;
-      end Build_Range;
-
-      ---------------
-      -- Build_Val --
-      ---------------
-
-      function Build_Val (V : Uint) return Node_Id is
-         Result : Node_Id;
-
-      begin
-         if Is_Enumeration_Type (Typ) then
-            Result := Get_Enum_Lit_From_Pos (Typ, V, Loc);
-         else
-            Result := Make_Integer_Literal (Loc, V);
-         end if;
-
-         Set_Etype (Result, Btyp);
-         Set_Is_Static_Expression (Result);
-         Set_Analyzed (Result);
-         return Result;
-      end Build_Val;
-
-      ---------------
-      -- Get_RList --
-      ---------------
-
-      function Get_RList (Exp : Node_Id) return RList is
-         Op  : Node_Kind;
-         Val : Uint;
-
-      begin
-         --  Static expression can only be true or false
-
-         if Is_OK_Static_Expression (Exp) then
-
-            --  For False
-
-            if Expr_Value (Exp) = 0 then
-               return False_Range;
-            else
-               return True_Range;
-            end if;
-         end if;
-
-         --  Otherwise test node type
-
-         Op := Nkind (Exp);
-
-         case Op is
-
-            --  And
-
-            when N_Op_And | N_And_Then =>
-               return Get_RList (Left_Opnd (Exp))
-                        and
-                      Get_RList (Right_Opnd (Exp));
-
-            --  Or
-
-            when N_Op_Or | N_Or_Else =>
-               return Get_RList (Left_Opnd (Exp))
-                        or
-                      Get_RList (Right_Opnd (Exp));
-
-            --  Not
-
-            when N_Op_Not =>
-               return not Get_RList (Right_Opnd (Exp));
-
-            --  Comparisons of type with static value
-
-            when N_Op_Compare =>
-
-               --  Type is left operand
-
-               if Is_Type_Ref (Left_Opnd (Exp))
-                 and then Is_OK_Static_Expression (Right_Opnd (Exp))
-               then
-                  Val := Expr_Value (Right_Opnd (Exp));
-
-                  --  Typ is right operand
-
-               elsif Is_Type_Ref (Right_Opnd (Exp))
-                 and then Is_OK_Static_Expression (Left_Opnd (Exp))
-               then
-                  Val := Expr_Value (Left_Opnd (Exp));
-
-                  --  Invert sense of comparison
-
-                  case Op is
-                     when N_Op_Gt => Op := N_Op_Lt;
-                     when N_Op_Lt => Op := N_Op_Gt;
-                     when N_Op_Ge => Op := N_Op_Le;
-                     when N_Op_Le => Op := N_Op_Ge;
-                     when others  => null;
-                  end case;
-
-                  --  Other cases are non-static
-
-               else
-                  raise Non_Static;
-               end if;
-
-               --  Construct range according to comparison operation
-
-               case Op is
-                  when N_Op_Eq =>
-                     return RList'(1 => REnt'(Val, Val));
-
-                  when N_Op_Ge =>
-                     return RList'(1 => REnt'(Val, BHi));
-
-                  when N_Op_Gt =>
-                     return RList'(1 => REnt'(Val + 1, BHi));
-
-                  when N_Op_Le =>
-                     return RList'(1 => REnt'(BLo, Val));
-
-                  when N_Op_Lt =>
-                     return RList'(1 => REnt'(BLo, Val - 1));
-
-                  when N_Op_Ne =>
-                     return RList'(REnt'(BLo, Val - 1),
-                                   REnt'(Val + 1, BHi));
-
-                  when others  =>
-                     raise Program_Error;
-               end case;
-
-            --  Membership (IN)
-
-            when N_In =>
-               if not Is_Type_Ref (Left_Opnd (Exp)) then
-                  raise Non_Static;
-               end if;
-
-               if Present (Right_Opnd (Exp)) then
-                  return Membership_Entry (Right_Opnd (Exp));
-               else
-                  return Membership_Entries (First (Alternatives (Exp)));
-               end if;
-
-            --  Negative membership (NOT IN)
-
-            when N_Not_In =>
-               if not Is_Type_Ref (Left_Opnd (Exp)) then
-                  raise Non_Static;
-               end if;
-
-               if Present (Right_Opnd (Exp)) then
-                  return not Membership_Entry (Right_Opnd (Exp));
-               else
-                  return not Membership_Entries (First (Alternatives (Exp)));
-               end if;
-
-            --  Function call, may be call to static predicate
-
-            when N_Function_Call =>
-               if Is_Entity_Name (Name (Exp)) then
-                  declare
-                     Ent : constant Entity_Id := Entity (Name (Exp));
-                  begin
-                     if Is_Predicate_Function (Ent)
-                          or else
-                        Is_Predicate_Function_M (Ent)
-                     then
-                        return Stat_Pred (Etype (First_Formal (Ent)));
-                     end if;
-                  end;
-               end if;
-
-               --  Other function call cases are non-static
-
-               raise Non_Static;
-
-            --  Qualified expression, dig out the expression
-
-            when N_Qualified_Expression =>
-               return Get_RList (Expression (Exp));
-
-            when N_Case_Expression =>
-            declare
-               Alt     : Node_Id;
-               Choices : List_Id;
-               Dep     : Node_Id;
-
-            begin
-               if not Is_Entity_Name (Expression (Expr))
-                 or else Etype (Expression (Expr)) /= Typ
-               then
-                  Error_Msg_N
-                    ("expression must denaote subtype", Expression (Expr));
-                  return False_Range;
-               end if;
-
-               --  Collect discrete choices in all True alternatives
-
-               Choices := New_List;
-               Alt := First (Alternatives (Exp));
-               while Present (Alt) loop
-                  Dep := Expression (Alt);
-
-                  if not Is_Static_Expression (Dep) then
-                     raise Non_Static;
-
-                  elsif Is_True (Expr_Value (Dep)) then
-                     Append_List_To (Choices,
-                       New_Copy_List (Discrete_Choices (Alt)));
-                  end if;
-
-                  Next (Alt);
+               --  but its expression is not predicate-static.
+
+               --  First a little fiddling to get a nice location for the
+               --  message. If the expression is of the form (A and then B),
+               --  then use the left operand for the Sloc. This avoids getting
+               --  confused by a call to a higher-level predicate with a less
+               --  convenient source location.
+
+               EN := Expr;
+               while Nkind (EN) = N_And_Then loop
+                  EN := Left_Opnd (EN);
                end loop;
 
-               return Membership_Entries (First (Choices));
-            end;
+               --  Now post appropriate message
 
-            --  Expression with actions: if no actions, dig out expression
-
-            when N_Expression_With_Actions =>
-               if Is_Empty_List (Actions (Exp)) then
-                  return Get_RList (Expression (Exp));
-               else
-                  raise Non_Static;
-               end if;
-
-            --  Xor operator
-
-            when N_Op_Xor =>
-               return (Get_RList (Left_Opnd (Exp))
-                        and not Get_RList (Right_Opnd (Exp)))
-                 or   (Get_RList (Right_Opnd (Exp))
-                        and not Get_RList (Left_Opnd (Exp)));
-
-            --  Any other node type is non-static
-
-            when others =>
-               raise Non_Static;
-         end case;
-      end Get_RList;
-
-      ------------
-      -- Hi_Val --
-      ------------
-
-      function Hi_Val (N : Node_Id) return Uint is
-      begin
-         if Is_Static_Expression (N) then
-            return Expr_Value (N);
-         else
-            pragma Assert (Nkind (N) = N_Range);
-            return Expr_Value (High_Bound (N));
-         end if;
-      end Hi_Val;
-
-      --------------
-      -- Is_False --
-      --------------
-
-      function Is_False (R : RList) return Boolean is
-      begin
-         return R'Length = 0;
-      end Is_False;
-
-      -------------
-      -- Is_True --
-      -------------
-
-      function Is_True (R : RList) return Boolean is
-      begin
-         return R'Length = 1
-           and then R (R'First).Lo = BLo
-           and then R (R'First).Hi = BHi;
-      end Is_True;
-
-      -----------------
-      -- Is_Type_Ref --
-      -----------------
-
-      function Is_Type_Ref (N : Node_Id) return Boolean is
-      begin
-         return Nkind (N) = N_Identifier and then Chars (N) = Nam;
-      end Is_Type_Ref;
-
-      ------------
-      -- Lo_Val --
-      ------------
-
-      function Lo_Val (N : Node_Id) return Uint is
-      begin
-         if Is_Static_Expression (N) then
-            return Expr_Value (N);
-         else
-            pragma Assert (Nkind (N) = N_Range);
-            return Expr_Value (Low_Bound (N));
-         end if;
-      end Lo_Val;
-
-      ------------------------
-      -- Membership_Entries --
-      ------------------------
-
-      function Membership_Entries (N : Node_Id) return RList is
-      begin
-         if No (Next (N)) then
-            return Membership_Entry (N);
-         else
-            return Membership_Entry (N) or Membership_Entries (Next (N));
-         end if;
-      end Membership_Entries;
-
-      ----------------------
-      -- Membership_Entry --
-      ----------------------
-
-      function Membership_Entry (N : Node_Id) return RList is
-         Val : Uint;
-         SLo : Uint;
-         SHi : Uint;
-
-      begin
-         --  Range case
-
-         if Nkind (N) = N_Range then
-            if not Is_Static_Expression (Low_Bound (N))
-                 or else
-               not Is_Static_Expression (High_Bound (N))
-            then
-               raise Non_Static;
-            else
-               SLo := Expr_Value (Low_Bound  (N));
-               SHi := Expr_Value (High_Bound (N));
-               return RList'(1 => REnt'(SLo, SHi));
-            end if;
-
-         --  Static expression case
-
-         elsif Is_Static_Expression (N) then
-            Val := Expr_Value (N);
-            return RList'(1 => REnt'(Val, Val));
-
-         --  Identifier (other than static expression) case
-
-         else pragma Assert (Nkind (N) = N_Identifier);
-
-            --  Type case
-
-            if Is_Type (Entity (N)) then
-
-               --  If type has predicates, process them
-
-               if Has_Predicates (Entity (N)) then
-                  return Stat_Pred (Entity (N));
-
-               --  For static subtype without predicates, get range
-
-               elsif Is_Static_Subtype (Entity (N)) then
-                  SLo := Expr_Value (Type_Low_Bound  (Entity (N)));
-                  SHi := Expr_Value (Type_High_Bound (Entity (N)));
-                  return RList'(1 => REnt'(SLo, SHi));
-
-               --  Any other type makes us non-static
-
-               else
-                  raise Non_Static;
-               end if;
-
-            --  Any other kind of identifier in predicate (e.g. a non-static
-            --  expression value) means this is not a static predicate.
-
-            else
-               raise Non_Static;
-            end if;
-         end if;
-      end Membership_Entry;
-
-      ---------------
-      -- Stat_Pred --
-      ---------------
-
-      function Stat_Pred (Typ : Entity_Id) return RList is
-      begin
-         --  Not static if type does not have static predicates
-
-         if not Has_Predicates (Typ) or else No (Static_Predicate (Typ)) then
-            raise Non_Static;
-         end if;
-
-         --  Otherwise we convert the predicate list to a range list
-
-         declare
-            Result : RList (1 .. List_Length (Static_Predicate (Typ)));
-            P      : Node_Id;
-
-         begin
-            P := First (Static_Predicate (Typ));
-            for J in Result'Range loop
-               Result (J) := REnt'(Lo_Val (P), Hi_Val (P));
-               Next (P);
-            end loop;
-
-            return Result;
-         end;
-      end Stat_Pred;
-
-   --  Start of processing for Build_Static_Predicate
-
-   begin
-      --  Now analyze the expression to see if it is a static predicate
-
-      declare
-         Ranges : constant RList := Get_RList (Expr);
-         --  Range list from expression if it is static
-
-         Plist : List_Id;
-
-      begin
-         --  Convert range list into a form for the static predicate. In the
-         --  Ranges array, we just have raw ranges, these must be converted
-         --  to properly typed and analyzed static expressions or range nodes.
-
-         --  Note: here we limit ranges to the ranges of the subtype, so that
-         --  a predicate is always false for values outside the subtype. That
-         --  seems fine, such values are invalid anyway, and considering them
-         --  to fail the predicate seems allowed and friendly, and furthermore
-         --  simplifies processing for case statements and loops.
-
-         Plist := New_List;
-
-         for J in Ranges'Range loop
-            declare
-               Lo : Uint := Ranges (J).Lo;
-               Hi : Uint := Ranges (J).Hi;
-
-            begin
-               --  Ignore completely out of range entry
-
-               if Hi < TLo or else Lo > THi then
-                  null;
-
-                  --  Otherwise process entry
-
-               else
-                  --  Adjust out of range value to subtype range
-
-                  if Lo < TLo then
-                     Lo := TLo;
+               if Has_Static_Predicate_Aspect (Typ) then
+                  if Is_Scalar_Type (Typ) then
+                     Error_Msg_F
+                       ("expression is not predicate-static (RM 4.3.2(16-22))",
+                        EN);
+                  else
+                     Error_Msg_FE
+                       ("static predicate not allowed for non-scalar type&",
+                        EN, Typ);
                   end if;
-
-                  if Hi > THi then
-                     Hi := THi;
-                  end if;
-
-                  --  Convert range into required form
-
-                  Append_To (Plist, Build_Range (Lo, Hi));
                end if;
-            end;
-         end loop;
-
-         --  Processing was successful and all entries were static, so now we
-         --  can store the result as the predicate list.
-
-         Set_Static_Predicate (Typ, Plist);
-
-         --  The processing for static predicates put the expression into
-         --  canonical form as a series of ranges. It also eliminated
-         --  duplicates and collapsed and combined ranges. We might as well
-         --  replace the alternatives list of the right operand of the
-         --  membership test with the static predicate list, which will
-         --  usually be more efficient.
-
-         declare
-            New_Alts : constant List_Id := New_List;
-            Old_Node : Node_Id;
-            New_Node : Node_Id;
-
-         begin
-            Old_Node := First (Plist);
-            while Present (Old_Node) loop
-               New_Node := New_Copy (Old_Node);
-
-               if Nkind (New_Node) = N_Range then
-                  Set_Low_Bound  (New_Node, New_Copy (Low_Bound  (Old_Node)));
-                  Set_High_Bound (New_Node, New_Copy (High_Bound (Old_Node)));
-               end if;
-
-               Append_To (New_Alts, New_Node);
-               Next (Old_Node);
-            end loop;
-
-            --  If empty list, replace by False
-
-            if Is_Empty_List (New_Alts) then
-               Rewrite (Expr, New_Occurrence_Of (Standard_False, Loc));
-
-            --  Else replace by set membership test
-
-            else
-               Rewrite (Expr,
-                 Make_In (Loc,
-                   Left_Opnd    => Make_Identifier (Loc, Nam),
-                   Right_Opnd   => Empty,
-                   Alternatives => New_Alts));
-
-               --  Resolve new expression in function context
-
-               Install_Formals (Predicate_Function (Typ));
-               Push_Scope (Predicate_Function (Typ));
-               Analyze_And_Resolve (Expr, Standard_Boolean);
-               Pop_Scope;
             end if;
          end;
-      end;
-
-   --  If non-static, return doing nothing
-
-   exception
-      when Non_Static =>
-         return;
-   end Build_Static_Predicate;
+      end if;
+   end Build_Predicate_Functions;
 
    -----------------------------------------
    -- Check_Aspect_At_End_Of_Declarations --
@@ -8052,7 +8111,8 @@ package body Sem_Ch13 is
       procedure Check_Overloaded_Name is
       begin
          if not Is_Overloaded (End_Decl_Expr) then
-            Err := Entity (End_Decl_Expr) /= Entity (Freeze_Expr);
+            Err := not Is_Entity_Name (End_Decl_Expr)
+                     or else Entity (End_Decl_Expr) /= Entity (Freeze_Expr);
 
          else
             Err := True;
@@ -10295,6 +10355,232 @@ package body Sem_Ch13 is
       end if;
    end Is_Operational_Item;
 
+   -------------------------
+   -- Is_Predicate_Static --
+   -------------------------
+
+   function Is_Predicate_Static
+     (Expr : Node_Id;
+      Nam  : Name_Id) return Boolean
+   is
+      function All_Static_Case_Alternatives (L : List_Id) return Boolean;
+      --  Given a list of case expression alternatives, returns True if
+      --  all the alternatives are static (have all static choices, and a
+      --  static expression).
+
+      function All_Static_Choices (L : List_Id) return Boolean;
+      --  Returns true if all elements of the list are OK static choices
+      --  as defined below for Is_Static_Choice. Used for case expression
+      --  alternatives and for the right operand of a membership test.
+
+      function Is_Static_Choice (N : Node_Id) return Boolean;
+      --  Returns True if N represents a static choice (static subtype, or
+      --  static subtype indication, or static expression, or static range).
+      --
+      --  Note that this is a bit more inclusive than we actually need
+      --  (in particular membership tests do not allow the use of subtype
+      --  indications). But that doesn't matter, we have already checked
+      --  that the construct is legal to get this far.
+
+      function Is_Type_Ref (N : Node_Id) return Boolean;
+      pragma Inline (Is_Type_Ref);
+      --  Returns True if N is a reference to the type for the predicate in
+      --  the expression (i.e. if it is an identifier whose Chars field matches
+      --  the Nam given in the call). N must not be parenthesized, if the type
+      --  name appears in parens, this routine will return False.
+
+      ----------------------------------
+      -- All_Static_Case_Alternatives --
+      ----------------------------------
+
+      function All_Static_Case_Alternatives (L : List_Id) return Boolean is
+         N : Node_Id;
+
+      begin
+         N := First (L);
+         while Present (N) loop
+            if not (All_Static_Choices (Discrete_Choices (N))
+                     and then Is_OK_Static_Expression (Expression (N)))
+            then
+               return False;
+            end if;
+
+            Next (N);
+         end loop;
+
+         return True;
+      end All_Static_Case_Alternatives;
+
+      ------------------------
+      -- All_Static_Choices --
+      ------------------------
+
+      function All_Static_Choices (L : List_Id) return Boolean is
+         N : Node_Id;
+
+      begin
+         N := First (L);
+         while Present (N) loop
+            if not Is_Static_Choice (N) then
+               return False;
+            end if;
+
+            Next (N);
+         end loop;
+
+         return True;
+      end All_Static_Choices;
+
+      ----------------------
+      -- Is_Static_Choice --
+      ----------------------
+
+      function Is_Static_Choice (N : Node_Id) return Boolean is
+      begin
+         return Is_OK_Static_Expression (N)
+           or else (Is_Entity_Name (N) and then Is_Type (Entity (N))
+                     and then Is_OK_Static_Subtype (Entity (N)))
+           or else (Nkind (N) = N_Subtype_Indication
+                     and then Is_OK_Static_Subtype (Entity (N)))
+           or else (Nkind (N) = N_Range and then Is_OK_Static_Range (N));
+      end Is_Static_Choice;
+
+      -----------------
+      -- Is_Type_Ref --
+      -----------------
+
+      function Is_Type_Ref (N : Node_Id) return Boolean is
+      begin
+         return Nkind (N) = N_Identifier
+           and then Chars (N) = Nam
+           and then Paren_Count (N) = 0;
+      end Is_Type_Ref;
+
+   --  Start of processing for Is_Predicate_Static
+
+   begin
+      --  Only scalar types can be predicate-static
+
+      if not Is_Scalar_Type (Etype (Expr)) then
+         return False;
+      end if;
+
+      --  Predicate_Static means one of the following holds. Numbers are the
+      --  corresponding paragraph numbers in (RM 3.2.4(16-22)).
+
+      --  16: A static expression
+
+      if Is_OK_Static_Expression (Expr) then
+         return True;
+
+      --  17: A membership test whose simple_expression is the current
+      --  instance, and whose membership_choice_list meets the requirements
+      --  for a static membership test.
+
+      elsif Nkind (Expr) in N_Membership_Test
+        and then ((Present (Right_Opnd (Expr))
+                    and then Is_Static_Choice (Right_Opnd (Expr)))
+                  or else
+                    (Present (Alternatives (Expr))
+                      and then All_Static_Choices (Alternatives (Expr))))
+      then
+         return True;
+
+      --  18. A case_expression whose selecting_expression is the current
+      --  instance, and whose dependent expressions are static expressions.
+
+      elsif Nkind (Expr) = N_Case_Expression
+        and then Is_Type_Ref (Expression (Expr))
+        and then All_Static_Case_Alternatives (Alternatives (Expr))
+      then
+         return True;
+
+      --  19. A call to a predefined equality or ordering operator, where one
+      --  operand is the current instance, and the other is a static
+      --  expression.
+
+      elsif Nkind (Expr) in N_Op_Compare
+        and then ((Is_Type_Ref (Left_Opnd (Expr))
+                    and then Is_OK_Static_Expression (Right_Opnd (Expr)))
+                  or else
+                    (Is_Type_Ref (Right_Opnd (Expr))
+                      and then Is_OK_Static_Expression (Left_Opnd (Expr))))
+      then
+         return True;
+
+      --  20. A call to a predefined boolean logical operator, where each
+      --  operand is predicate-static.
+
+      elsif (Nkind_In (Expr, N_Op_And, N_Op_Or, N_Op_Xor)
+              and then Is_Predicate_Static (Left_Opnd (Expr), Nam)
+              and then Is_Predicate_Static (Right_Opnd (Expr), Nam))
+        or else
+            (Nkind (Expr) = N_Op_Not
+              and then Is_Predicate_Static (Right_Opnd (Expr), Nam))
+      then
+         return True;
+
+      --  21. A short-circuit control form where both operands are
+      --  predicate-static.
+
+      elsif Nkind (Expr) in N_Short_Circuit
+        and then Is_Predicate_Static (Left_Opnd (Expr), Nam)
+        and then Is_Predicate_Static (Right_Opnd (Expr), Nam)
+      then
+         return True;
+
+      --  22. A parenthesized predicate-static expression. This does not
+      --  require any special test, since we just ignore paren levels in
+      --  all the cases above.
+
+      --  One more test that is an implementation artifact caused by the fact
+      --  that we are analyzing not the original expresesion, but the generated
+      --  expression in the body of the predicate function. This can include
+      --  references to inherited predicates, so that the expression we are
+      --  processing looks like:
+
+      --    expression and then xxPredicate (typ (Inns))
+
+      --  Where the call is to a Predicate function for an inherited predicate.
+      --  We simply ignore such a call (which could be to either a dynamic or
+      --  a static predicate, but remember that we can have Static_Predicate
+      --  for a non-static subtype).
+
+      elsif Nkind (Expr) = N_Function_Call
+        and then Is_Predicate_Function (Entity (Name (Expr)))
+      then
+         return True;
+
+      --  That's an exhaustive list of tests, all other cases are not
+      --  predicate-static, so we return False.
+
+      else
+         return False;
+      end if;
+   end Is_Predicate_Static;
+
+   ---------------------
+   -- Kill_Rep_Clause --
+   ---------------------
+
+   procedure Kill_Rep_Clause (N : Node_Id) is
+   begin
+      pragma Assert (Ignore_Rep_Clauses);
+
+      --  Note: we use Replace rather than Rewrite, because we don't want
+      --  ASIS to be able to use Original_Node to dig out the (undecorated)
+      --  rep clause that is being replaced.
+
+      Replace (N, Make_Null_Statement (Sloc (N)));
+
+      --  The null statement must be marked as not coming from source. This is
+      --  so that ASIS ignores it, and also the back end does not expect bogus
+      --  "from source" null statements in weird places (e.g. in declarative
+      --  regions where such null statements are not allowed).
+
+      Set_Comes_From_Source (N, False);
+   end Kill_Rep_Clause;
+
    ------------------
    -- Minimum_Size --
    ------------------
@@ -10822,7 +11108,8 @@ package body Sem_Ch13 is
    -- Replace_Type_References_Generic --
    -------------------------------------
 
-   procedure Replace_Type_References_Generic (N : Node_Id; TName : Name_Id) is
+   procedure Replace_Type_References_Generic (N : Node_Id; T : Entity_Id) is
+      TName : constant Name_Id := Chars (T);
 
       function Replace_Node (N : Node_Id) return Traverse_Result;
       --  Processes a single node in the traversal procedure below, checking
@@ -10844,9 +11131,18 @@ package body Sem_Ch13 is
 
          if Nkind (N) = N_Identifier then
 
-            --  If not the type name, all done with this node
+            --  If not the type name, check whether it is a reference to
+            --  some other type, which must be frozen before the predicate
+            --  function is analyzed, i.e. before the freeze node of the
+            --  type to which the predicate applies.
 
             if Chars (N) /= TName then
+               if Present (Current_Entity (N))
+                  and then Is_Type (Current_Entity (N))
+               then
+                  Freeze_Before (Freeze_Node (T), Current_Entity (N));
+               end if;
+
                return Skip;
 
             --  Otherwise do the replacement and we are done with this node

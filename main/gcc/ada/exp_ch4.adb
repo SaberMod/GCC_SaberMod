@@ -4490,6 +4490,20 @@ package body Exp_Ch4 is
          end if;
       end if;
 
+      --  If no storage pool has been specified and we have the restriction
+      --  No_Standard_Allocators_After_Elaboration is present, then generate
+      --  a call to Elaboration_Allocators.Check_Standard_Allocator.
+
+      if Nkind (N) = N_Allocator
+        and then No (Storage_Pool (N))
+        and then Restriction_Active (No_Standard_Allocators_After_Elaboration)
+      then
+         Insert_Action (N,
+           Make_Procedure_Call_Statement (Loc,
+             Name =>
+               New_Occurrence_Of (RTE (RE_Check_Standard_Allocator), Loc)));
+      end if;
+
       --  Handle case of qualified expression (other than optimization above)
       --  First apply constraint checks, because the bounds or discriminants
       --  in the aggregate might not match the subtype mark in the allocator.
@@ -6175,9 +6189,9 @@ package body Exp_Ch4 is
          return;
       end if;
 
-      --  For a reference to a component of a bit packed array, we have to
-      --  convert it to a reference to the corresponding Packed_Array_Type.
-      --  We only want to do this for simple references, and not for:
+      --  For a reference to a component of a bit packed array, we convert it
+      --  to a reference to the corresponding Packed_Array_Impl_Type. We only
+      --  want to do this for simple references, and not for:
 
       --    Left side of assignment, or prefix of left side of assignment, or
       --    prefix of the prefix, to handle packed arrays of packed arrays,
@@ -10177,7 +10191,13 @@ package body Exp_Ch4 is
                     and then S_Lov >= D_Lov
                     and then S_Hiv <= D_Hiv
                   then
-                     Set_Do_Range_Check (Operand, False);
+                     --  Unset the range check flag on the current value of
+                     --  Expression (N), since the captured Operand may have
+                     --  been rewritten (such as for the case of a conversion
+                     --  to a fixed-point type).
+
+                     Set_Do_Range_Check (Expression (N), False);
+
                      return;
                   end if;
                end;

@@ -1511,11 +1511,18 @@ package Einfo is
 
 --    Has_Dynamic_Predicate_Aspect (Flag258)
 --       Defined in all types and subtypes. Set if a Dynamic_Predicate aspect
---       applies to the type. Note that we can tell if a dynamic predicate is
---       present by looking at Has_Predicates and Static_Predicate, but that
---       could have come from a Predicate aspect or pragma, and we need to
---       record the difference so that we can use the right set of check
---       policies to figure out if the predicate is active.
+--       was explicitly applied to the type. Generally we treat predicates as
+--       static if possible, regardless of whether they are specified using
+--       Predicate, Static_Predicate, or Dynamic_Predicate. And if a predicate
+--       can be treated as static (i.e. its expression is predicate-static),
+--       then the flag Has_Static_Predicate will be set True. But there are
+--       cases where legality is affected by the presence of an explicit
+--       Dynamic_Predicate aspect. For example, even if a predicate looks
+--       static, you can't use it in a case statement if there is an explicit
+--       Dynamic_Predicate aspect specified. So test Has_Static_Predicate if
+--       you just want to know if the predicate can be evaluated statically,
+--       but test Has_Dynamic_Predicate_Aspect to enforce legality rules about
+--       the use of dynamic predicates.
 
 --    Has_Entries (synthesized)
 --       Applies to concurrent types. True if any entries are declared
@@ -1669,6 +1676,10 @@ package Einfo is
 --       Defined in entities for types and subtypes. Set if an Object_Size
 --       clause has been processed for the type Used to prevent multiple
 --       Object_Size clauses for a given entity.
+
+--    Has_Out_Or_In_Out_Parameter (Flag110)
+--       Present in function and generic function entities. Set if the function
+--       has at least one OUT or IN OUT parameter (allowed only in Ada 2012).
 
 --    Has_Per_Object_Constraint (Flag154)
 --       Defined in E_Component entities. Set if the subtype of the component
@@ -1866,13 +1877,23 @@ package Einfo is
 --       case of a variant record, the component list can be trimmed down to
 --       include only the components corresponding to these discriminants.
 
+--    Has_Static_Predicate (Flag269)
+--       Defined in all types and subtypes. Set if the type (which must be
+--       a discrete, real, or string subtype) has a static predicate, i.e. a
+--       predicate whose expression is predicate-static. This can result from
+--       use of a Predicate, Static_Predicate, or Dynamic_Predicate aspect. We
+--       can distinguish these cases by testing Has_Static_Predicate_Aspect
+--       and Has_Dynamic_Predicate_Aspect. See description of the latter flag
+--       for further information on dynamic predicates which are also static.
+
 --    Has_Static_Predicate_Aspect (Flag259)
 --       Defined in all types and subtypes. Set if a Static_Predicate aspect
 --       applies to the type. Note that we can tell if a static predicate is
---       present by looking at Has_Predicates and Static_Predicate, but that
---       could have come from a Predicate aspect or pragma, and we need to
---       record the difference so that we can use the right set of check
---       policies to figure out if the predicate is active.
+--       present by looking at Has_Static_Predicate, but this could have come
+--       from a Predicate aspect or pragma or even from a Dynamic_Predicate
+--       aspect. When we need to know the difference (e.g. to know what set of
+--       check policies apply, use this flag and Has_Dynamic_Predicate_Aspect
+--       to determine which case we have).
 
 --    Has_Storage_Size_Clause (Flag23) [implementation base type only]
 --       Defined in task types and access types. It is set if a Storage_Size
@@ -2699,16 +2720,19 @@ package Einfo is
 --       out that the component size is not suitable for bit packing, the
 --       Is_Packed flag gets turned off.
 
---    Is_Packed_Array_Type (Flag138)
+--    Is_Packed_Array (synth)
+--       Applies to all entities, true if entity is for a packed array.
+
+--    Is_Packed_Array_Impl_Type (Flag138)
 --       Defined in all entities. This flag is set on the entity for the type
 --       used to implement a packed array (either a modular type, or a subtype
 --       of Packed_Bytes{1,2,4} as appropriate). The flag is set if and only
---       if the type appears in the Packed_Array_Type field of some other type
+--       if the type appears in the Packed_Array_Impl_Type field of some other
 --       entity. It is used by the backend to activate the special processing
 --       for such types (unchecked conversions that would not otherwise be
---       allowed are allowed for such types). If the Is_Packed_Array_Type flag
---       is set in an entity, then the Original_Array_Type field of this entity
---       points to the array type for which this is the packed array type.
+--       allowed are allowed for such types). If Is_Packed_Array_Impl_Type is
+--       set in an entity, then the Original_Array_Type field of this entity
+--       points to the array type for which this is the Packed_Array_Impl_Type.
 
 --    Is_Potentially_Use_Visible (Flag9)
 --       Defined in all entities. Set if entity is potentially use visible,
@@ -3044,11 +3068,11 @@ package Einfo is
 --       initialization, it may or may not be set if the type does have
 --       preelaborable initialization.
 
---    Last_Aggregate_Assignment (Node11)
---       Applies to controlled variables initialized by an aggregate. Points to
---       the last statement associated with the expansion of the aggregate. The
---       attribute is used by the finalization machinery when marking an object
---       as successfully initialized.
+--    Last_Aggregate_Assignment (Node30)
+--       Applies to controlled constants and variables initialized by an
+--       aggregate. Points to the last statement associated with the expansion
+--       of the aggregate. The attribute is used by the finalization machinery
+--       when marking an object as successfully initialized.
 
 --    Last_Assignment (Node26)
 --       Defined in entities for variables, and OUT or IN OUT formals. Set for
@@ -3395,8 +3419,8 @@ package Einfo is
 --       subprogram type.
 
 --    Original_Array_Type (Node21)
---       Defined in modular types and array types and subtypes. Set only
---       if the Is_Packed_Array_Type flag is set, indicating that the type
+--       Defined in modular types and array types and subtypes. Set only if
+--       the Is_Packed_Array_Impl_Type flag is set, indicating that the type
 --       is the implementation type for a packed array, and in this case it
 --       points to the original array type for which this is the packed
 --       array implementation type.
@@ -3445,7 +3469,7 @@ package Einfo is
 --       it should be set in all cases, including package entities associated
 --       with formal packages. ???
 
---    Packed_Array_Type (Node23)
+--    Packed_Array_Impl_Type (Node23)
 --       Defined in array types and subtypes, including the string literal
 --       subtype case, if the corresponding type is packed (either bit packed
 --       or packed to eliminate holes in non-contiguous enumeration type index
@@ -3453,9 +3477,9 @@ package Einfo is
 --       is either a modular type for short static arrays, or an array of
 --       System.Unsigned. Note that in some situations (internal types, and
 --       references to fields of variant records), it is not always possible
---       to construct this type in advance of its use. If Packed_Array_Type
---       is empty, then the necessary type is declared on the fly for each
---       reference to the array.
+--       to construct this type in advance of its use. If this field is empty,
+--       then the necessary type is declared on the fly for each reference to
+--       the array.
 
 --    Parameter_Mode (synthesized)
 --       Applies to formal parameter entities. This is a synonym for Ekind,
@@ -3866,15 +3890,15 @@ package Einfo is
 --       the corresponding parameter entities in the spec.
 
 --    Static_Predicate (List25)
---       Defined in discrete types/subtypes with predicates (Has_Predicates
---       set). Set if the type/subtype has a static predicate. Points to a
---       list of expression and N_Range nodes that represent the predicate
---       in canonical form. The canonical form has entries sorted in ascending
---       order, with duplicates eliminated, and adjacent ranges coalesced, so
---       that there is always a gap in the values between successive entries.
---       The entries in this list are fully analyzed and typed with the base
---       type of the subtype. Note that all entries are static and have values
---       within the subtype range.
+--       Defined in discrete types/subtypes with static predicates (with the
+--       two flags Has_Predicates set and Has_Static_Predicate set). Set if the
+--       type/subtype has a static predicate. Points to a list of expression
+--       and N_Range nodes that represent the predicate in canonical form. The
+--       canonical form has entries sorted in ascending order, with duplicates
+--       eliminated, and adjacent ranges coalesced, so that there is always a
+--       gap in the values between successive entries. The entries in this list
+--       are fully analyzed and typed with the base type of the subtype. Note
+--       that all entries are static and have values within the subtype range.
 
 --    Status_Flag_Or_Transient_Decl (Node15)
 --       Defined in variables and constants. Applies to objects that require
@@ -3884,15 +3908,6 @@ package Einfo is
 --       of a flag which specifies particular behavior over a region of code
 --       or the declaration of a "hook" object.
 --       In which case is it a flag, or a hook object???
-
---    Storage_Size_Variable (Node15) [implementation base type only]
---       Defined in access types and task type entities. This flag is set
---       if a valid and effective pragma Storage_Size applies to the base
---       type. Points to the entity for a variable that is created to
---       hold the value given in a Storage_Size pragma for an access
---       collection or a task type. Note that in the access type case,
---       this field is defined only in the root type (since derived types
---       share the same storage pool).
 
 --    Static_Elaboration_Desired (Flag77)
 --       Defined in library-level packages. Set by the pragma of the same
@@ -3909,12 +3924,25 @@ package Einfo is
 --       This attribute uses the same field as Overridden_Operation, which is
 --       irrelevant in init_procs.
 
+--    Storage_Size_Variable (Node15) [implementation base type only]
+--       Defined in access types and task type entities. This flag is set
+--       if a valid and effective pragma Storage_Size applies to the base
+--       type. Points to the entity for a variable that is created to
+--       hold the value given in a Storage_Size pragma for an access
+--       collection or a task type. Note that in the access type case,
+--       this field is defined only in the root type (since derived types
+--       share the same storage pool).
+
 --    Stored_Constraint (Elist23)
 --       Defined in entities that can have discriminants (concurrent types
 --       subtypes, record types and subtypes, private types and subtypes,
 --       limited private types and subtypes and incomplete types). Points
 --       to an element list containing the expressions for each of the
 --       stored discriminants for the record (sub)type.
+
+--    Stores_Attribute_Old_Prefix (Flag270)
+--       Defined in constants. Set when the constant has been generated to save
+--       the value of attribute 'Old's prefix.
 
 --    Strict_Alignment (Flag145) [implementation base type only]
 --       Defined in all type entities. Indicates that some containing part
@@ -5091,7 +5119,7 @@ package Einfo is
    --    Is_Limited_Record                   (Flag25)
    --    Is_Obsolescent                      (Flag153)
    --    Is_Package_Body_Entity              (Flag160)
-   --    Is_Packed_Array_Type                (Flag138)
+   --    Is_Packed_Array_Impl_Type           (Flag138)
    --    Is_Potentially_Use_Visible          (Flag9)
    --    Is_Preelaborated                    (Flag59)
    --    Is_Primitive_Wrapper                (Flag195)
@@ -5181,6 +5209,7 @@ package Einfo is
    --    Has_Specified_Stream_Output         (Flag191)
    --    Has_Specified_Stream_Read           (Flag192)
    --    Has_Specified_Stream_Write          (Flag193)
+   --    Has_Static_Predicate                (Flag269)
    --    Has_Static_Predicate_Aspect         (Flag259)
    --    Has_Task                            (Flag30)   (base type only)
    --    Has_Unchecked_Union                 (Flag123)  (base type only)
@@ -5302,7 +5331,7 @@ package Einfo is
    --    Component_Type                      (Node20)   (base type only)
    --    Original_Array_Type                 (Node21)
    --    Component_Size                      (Uint22)   (base type only)
-   --    Packed_Array_Type                   (Node23)
+   --    Packed_Array_Impl_Type              (Node23)
    --    Related_Array_Object                (Node25)
    --    Component_Alignment                 (special)  (base type only)
    --    Has_Component_Size_Clause           (Flag68)   (base type only)
@@ -5383,6 +5412,7 @@ package Einfo is
    --    Related_Type                        (Node27)   (constants only)
    --    Initialization_Statements           (Node28)
    --    BIP_Initialization_Call             (Node29)
+   --    Last_Aggregate_Assignment           (Node30)
    --    Linker_Section_Pragma               (Node33)
    --    Has_Alignment_Clause                (Flag46)
    --    Has_Atomic_Components               (Flag86)
@@ -5398,6 +5428,7 @@ package Einfo is
    --    Is_Return_Object                    (Flag209)
    --    Is_True_Constant                    (Flag163)
    --    Is_Volatile                         (Flag16)
+   --    Stores_Attribute_Old_Prefix         (Flag270)  (constants only)
    --    Optimize_Alignment_Space            (Flag241)  (constants only)
    --    Optimize_Alignment_Time             (Flag242)  (constants only)
    --    Treat_As_Volatile                   (Flag41)
@@ -5577,6 +5608,7 @@ package Einfo is
    --    Has_Master_Entity                   (Flag21)
    --    Has_Missing_Return                  (Flag142)
    --    Has_Nested_Block_With_Handler       (Flag101)
+   --    Has_Out_Or_In_Out_Parameter         (Flag110)
    --    Has_Postconditions                  (Flag240)
    --    Has_Recursive_Call                  (Flag143)
    --    Is_Abstract_Subprogram              (Flag19)   (non-generic case only)
@@ -6016,7 +6048,7 @@ package Einfo is
    --    String_Literal_Low_Bound            (Node15)
    --    String_Literal_Length               (Uint16)
    --    First_Index                         (Node17)   (always Empty)
-   --    Packed_Array_Type                   (Node23)
+   --    Packed_Array_Impl_Type              (Node23)
    --    (plus type attributes)
 
    --  E_Subprogram_Body
@@ -6071,7 +6103,6 @@ package Einfo is
    --    Hiding_Loop_Variable                (Node8)
    --    Current_Value                       (Node9)
    --    Encapsulating_State                 (Node10)
-   --    Last_Aggregate_Assignment           (Node11)
    --    Esize                               (Uint12)
    --    Extra_Accessibility                 (Node13)
    --    Alignment                           (Uint14)
@@ -6090,6 +6121,7 @@ package Einfo is
    --    Related_Type                        (Node27)
    --    Initialization_Statements           (Node28)
    --    BIP_Initialization_Call             (Node29)
+   --    Last_Aggregate_Assignment           (Node30)
    --    Linker_Section_Pragma               (Node33)
    --    Contract                            (Node34)
    --    Has_Alignment_Clause                (Flag46)
@@ -6498,6 +6530,7 @@ package Einfo is
    function Has_Nested_Block_With_Handler       (Id : E) return B;
    function Has_Non_Standard_Rep                (Id : E) return B;
    function Has_Object_Size_Clause              (Id : E) return B;
+   function Has_Out_Or_In_Out_Parameter         (Id : E) return B;
    function Has_Per_Object_Constraint           (Id : E) return B;
    function Has_Postconditions                  (Id : E) return B;
    function Has_Pragma_Controlled               (Id : E) return B;
@@ -6531,6 +6564,7 @@ package Einfo is
    function Has_Specified_Stream_Read           (Id : E) return B;
    function Has_Specified_Stream_Write          (Id : E) return B;
    function Has_Static_Discriminants            (Id : E) return B;
+   function Has_Static_Predicate                (Id : E) return B;
    function Has_Static_Predicate_Aspect         (Id : E) return B;
    function Has_Storage_Size_Clause             (Id : E) return B;
    function Has_Stream_Size_Clause              (Id : E) return B;
@@ -6616,7 +6650,7 @@ package Einfo is
    function Is_Optional_Parameter               (Id : E) return B;
    function Is_Package_Body_Entity              (Id : E) return B;
    function Is_Packed                           (Id : E) return B;
-   function Is_Packed_Array_Type                (Id : E) return B;
+   function Is_Packed_Array_Impl_Type           (Id : E) return B;
    function Is_Potentially_Use_Visible          (Id : E) return B;
    function Is_Predicate_Function               (Id : E) return B;
    function Is_Predicate_Function_M             (Id : E) return B;
@@ -6696,7 +6730,7 @@ package Einfo is
    function Overridden_Operation                (Id : E) return E;
    function PPC_Wrapper                         (Id : E) return E;
    function Package_Instantiation               (Id : E) return N;
-   function Packed_Array_Type                   (Id : E) return E;
+   function Packed_Array_Impl_Type              (Id : E) return E;
    function Parent_Subtype                      (Id : E) return E;
    function Part_Of_Constituents                (Id : E) return L;
    function Postcondition_Proc                  (Id : E) return E;
@@ -6750,6 +6784,7 @@ package Einfo is
    function Status_Flag_Or_Transient_Decl       (Id : E) return E;
    function Storage_Size_Variable               (Id : E) return E;
    function Stored_Constraint                   (Id : E) return L;
+   function Stores_Attribute_Old_Prefix         (Id : E) return B;
    function Strict_Alignment                    (Id : E) return B;
    function String_Literal_Length               (Id : E) return U;
    function String_Literal_Low_Bound            (Id : E) return N;
@@ -6868,6 +6903,7 @@ package Einfo is
    function Is_Ghost_Subprogram                 (Id : E) return B;
    function Is_Null_State                       (Id : E) return B;
    function Is_Package_Or_Generic_Package       (Id : E) return B;
+   function Is_Packed_Array                     (Id : E) return B;
    function Is_Prival                           (Id : E) return B;
    function Is_Protected_Component              (Id : E) return B;
    function Is_Protected_Interface              (Id : E) return B;
@@ -7122,6 +7158,7 @@ package Einfo is
    procedure Set_Has_Nested_Block_With_Handler   (Id : E; V : B := True);
    procedure Set_Has_Non_Standard_Rep            (Id : E; V : B := True);
    procedure Set_Has_Object_Size_Clause          (Id : E; V : B := True);
+   procedure Set_Has_Out_Or_In_Out_Parameter     (Id : E; V : B := True);
    procedure Set_Has_Per_Object_Constraint       (Id : E; V : B := True);
    procedure Set_Has_Postconditions              (Id : E; V : B := True);
    procedure Set_Has_Pragma_Controlled           (Id : E; V : B := True);
@@ -7155,6 +7192,7 @@ package Einfo is
    procedure Set_Has_Specified_Stream_Read       (Id : E; V : B := True);
    procedure Set_Has_Specified_Stream_Write      (Id : E; V : B := True);
    procedure Set_Has_Static_Discriminants        (Id : E; V : B := True);
+   procedure Set_Has_Static_Predicate            (Id : E; V : B := True);
    procedure Set_Has_Static_Predicate_Aspect     (Id : E; V : B := True);
    procedure Set_Has_Storage_Size_Clause         (Id : E; V : B := True);
    procedure Set_Has_Stream_Size_Clause          (Id : E; V : B := True);
@@ -7245,7 +7283,7 @@ package Einfo is
    procedure Set_Is_Optional_Parameter           (Id : E; V : B := True);
    procedure Set_Is_Package_Body_Entity          (Id : E; V : B := True);
    procedure Set_Is_Packed                       (Id : E; V : B := True);
-   procedure Set_Is_Packed_Array_Type            (Id : E; V : B := True);
+   procedure Set_Is_Packed_Array_Impl_Type       (Id : E; V : B := True);
    procedure Set_Is_Potentially_Use_Visible      (Id : E; V : B := True);
    procedure Set_Is_Predicate_Function           (Id : E; V : B := True);
    procedure Set_Is_Predicate_Function_M         (Id : E; V : B := True);
@@ -7325,7 +7363,7 @@ package Einfo is
    procedure Set_Overridden_Operation            (Id : E; V : E);
    procedure Set_PPC_Wrapper                     (Id : E; V : E);
    procedure Set_Package_Instantiation           (Id : E; V : N);
-   procedure Set_Packed_Array_Type               (Id : E; V : E);
+   procedure Set_Packed_Array_Impl_Type          (Id : E; V : E);
    procedure Set_Parent_Subtype                  (Id : E; V : E);
    procedure Set_Part_Of_Constituents            (Id : E; V : L);
    procedure Set_Postcondition_Proc              (Id : E; V : E);
@@ -7379,6 +7417,7 @@ package Einfo is
    procedure Set_Status_Flag_Or_Transient_Decl   (Id : E; V : E);
    procedure Set_Storage_Size_Variable           (Id : E; V : E);
    procedure Set_Stored_Constraint               (Id : E; V : L);
+   procedure Set_Stores_Attribute_Old_Prefix     (Id : E; V : B := True);
    procedure Set_Strict_Alignment                (Id : E; V : B := True);
    procedure Set_String_Literal_Length           (Id : E; V : U);
    procedure Set_String_Literal_Low_Bound        (Id : E; V : N);
@@ -7860,6 +7899,7 @@ package Einfo is
    pragma Inline (Has_Nested_Block_With_Handler);
    pragma Inline (Has_Non_Standard_Rep);
    pragma Inline (Has_Object_Size_Clause);
+   pragma Inline (Has_Out_Or_In_Out_Parameter);
    pragma Inline (Has_Per_Object_Constraint);
    pragma Inline (Has_Postconditions);
    pragma Inline (Has_Pragma_Controlled);
@@ -7893,6 +7933,7 @@ package Einfo is
    pragma Inline (Has_Specified_Stream_Read);
    pragma Inline (Has_Specified_Stream_Write);
    pragma Inline (Has_Static_Discriminants);
+   pragma Inline (Has_Static_Predicate);
    pragma Inline (Has_Static_Predicate_Aspect);
    pragma Inline (Has_Storage_Size_Clause);
    pragma Inline (Has_Stream_Size_Clause);
@@ -8014,7 +8055,7 @@ package Einfo is
    pragma Inline (Is_Overloadable);
    pragma Inline (Is_Package_Body_Entity);
    pragma Inline (Is_Packed);
-   pragma Inline (Is_Packed_Array_Type);
+   pragma Inline (Is_Packed_Array_Impl_Type);
    pragma Inline (Is_Potentially_Use_Visible);
    pragma Inline (Is_Predicate_Function);
    pragma Inline (Is_Predicate_Function_M);
@@ -8104,7 +8145,7 @@ package Einfo is
    pragma Inline (Overridden_Operation);
    pragma Inline (PPC_Wrapper);
    pragma Inline (Package_Instantiation);
-   pragma Inline (Packed_Array_Type);
+   pragma Inline (Packed_Array_Impl_Type);
    pragma Inline (Parameter_Mode);
    pragma Inline (Parent_Subtype);
    pragma Inline (Part_Of_Constituents);
@@ -8159,6 +8200,7 @@ package Einfo is
    pragma Inline (Status_Flag_Or_Transient_Decl);
    pragma Inline (Storage_Size_Variable);
    pragma Inline (Stored_Constraint);
+   pragma Inline (Stores_Attribute_Old_Prefix);
    pragma Inline (Strict_Alignment);
    pragma Inline (String_Literal_Length);
    pragma Inline (String_Literal_Low_Bound);
@@ -8332,6 +8374,7 @@ package Einfo is
    pragma Inline (Set_Has_Nested_Block_With_Handler);
    pragma Inline (Set_Has_Non_Standard_Rep);
    pragma Inline (Set_Has_Object_Size_Clause);
+   pragma Inline (Set_Has_Out_Or_In_Out_Parameter);
    pragma Inline (Set_Has_Per_Object_Constraint);
    pragma Inline (Set_Has_Postconditions);
    pragma Inline (Set_Has_Pragma_Controlled);
@@ -8365,6 +8408,7 @@ package Einfo is
    pragma Inline (Set_Has_Specified_Stream_Read);
    pragma Inline (Set_Has_Specified_Stream_Write);
    pragma Inline (Set_Has_Static_Discriminants);
+   pragma Inline (Set_Has_Static_Predicate);
    pragma Inline (Set_Has_Static_Predicate_Aspect);
    pragma Inline (Set_Has_Storage_Size_Clause);
    pragma Inline (Set_Has_Stream_Size_Clause);
@@ -8454,7 +8498,7 @@ package Einfo is
    pragma Inline (Set_Is_Optional_Parameter);
    pragma Inline (Set_Is_Package_Body_Entity);
    pragma Inline (Set_Is_Packed);
-   pragma Inline (Set_Is_Packed_Array_Type);
+   pragma Inline (Set_Is_Packed_Array_Impl_Type);
    pragma Inline (Set_Is_Potentially_Use_Visible);
    pragma Inline (Set_Is_Predicate_Function);
    pragma Inline (Set_Is_Predicate_Function_M);
@@ -8534,7 +8578,7 @@ package Einfo is
    pragma Inline (Set_Overridden_Operation);
    pragma Inline (Set_PPC_Wrapper);
    pragma Inline (Set_Package_Instantiation);
-   pragma Inline (Set_Packed_Array_Type);
+   pragma Inline (Set_Packed_Array_Impl_Type);
    pragma Inline (Set_Parent_Subtype);
    pragma Inline (Set_Part_Of_Constituents);
    pragma Inline (Set_Postcondition_Proc);
@@ -8588,6 +8632,7 @@ package Einfo is
    pragma Inline (Set_Status_Flag_Or_Transient_Decl);
    pragma Inline (Set_Storage_Size_Variable);
    pragma Inline (Set_Stored_Constraint);
+   pragma Inline (Set_Stores_Attribute_Old_Prefix);
    pragma Inline (Set_Strict_Alignment);
    pragma Inline (Set_String_Literal_Length);
    pragma Inline (Set_String_Literal_Low_Bound);
@@ -8625,6 +8670,7 @@ package Einfo is
    pragma Inline (Base_Type);
    pragma Inline (Is_Base_Type);
    pragma Inline (Is_Package_Or_Generic_Package);
+   pragma Inline (Is_Packed_Array);
    pragma Inline (Is_Volatile);
    pragma Inline (Is_Wrapper_Package);
    pragma Inline (Known_RM_Size);

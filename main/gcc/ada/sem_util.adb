@@ -52,6 +52,7 @@ with Sem_Disp; use Sem_Disp;
 with Sem_Eval; use Sem_Eval;
 with Sem_Prag; use Sem_Prag;
 with Sem_Res;  use Sem_Res;
+with Sem_Warn; use Sem_Warn;
 with Sem_Type; use Sem_Type;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
@@ -473,6 +474,123 @@ package body Sem_Util is
              V = 32 or else
              V = 64;
    end Addressable;
+
+   ---------------------------------
+   -- Aggregate_Constraint_Checks --
+   ---------------------------------
+
+   procedure Aggregate_Constraint_Checks
+     (Exp       : Node_Id;
+      Check_Typ : Entity_Id)
+   is
+      Exp_Typ : constant Entity_Id  := Etype (Exp);
+
+   begin
+      if Raises_Constraint_Error (Exp) then
+         return;
+      end if;
+
+      --  Ada 2005 (AI-230): Generate a conversion to an anonymous access
+      --  component's type to force the appropriate accessibility checks.
+
+      --  Ada 2005 (AI-231): Generate conversion to the null-excluding
+      --  type to force the corresponding run-time check
+
+      if Is_Access_Type (Check_Typ)
+        and then ((Is_Local_Anonymous_Access (Check_Typ))
+                    or else (Can_Never_Be_Null (Check_Typ)
+                              and then not Can_Never_Be_Null (Exp_Typ)))
+      then
+         Rewrite (Exp, Convert_To (Check_Typ, Relocate_Node (Exp)));
+         Analyze_And_Resolve (Exp, Check_Typ);
+         Check_Unset_Reference (Exp);
+      end if;
+
+      --  This is really expansion activity, so make sure that expansion is
+      --  on and is allowed. In GNATprove mode, we also want check flags to
+      --  be added in the tree, so that the formal verification can rely on
+      --  those to be present. In GNATprove mode for formal verification, some
+      --  treatment typically only done during expansion needs to be performed
+      --  on the tree, but it should not be applied inside generics. Otherwise,
+      --  this breaks the name resolution mechanism for generic instances.
+
+      if not Expander_Active
+        and (Inside_A_Generic or not Full_Analysis or not GNATprove_Mode)
+      then
+         return;
+      end if;
+
+      --  First check if we have to insert discriminant checks
+
+      if Has_Discriminants (Exp_Typ) then
+         Apply_Discriminant_Check (Exp, Check_Typ);
+
+      --  Next emit length checks for array aggregates
+
+      elsif Is_Array_Type (Exp_Typ) then
+         Apply_Length_Check (Exp, Check_Typ);
+
+      --  Finally emit scalar and string checks. If we are dealing with a
+      --  scalar literal we need to check by hand because the Etype of
+      --  literals is not necessarily correct.
+
+      elsif Is_Scalar_Type (Exp_Typ)
+        and then Compile_Time_Known_Value (Exp)
+      then
+         if Is_Out_Of_Range (Exp, Base_Type (Check_Typ)) then
+            Apply_Compile_Time_Constraint_Error
+              (Exp, "value not in range of}??", CE_Range_Check_Failed,
+               Ent => Base_Type (Check_Typ),
+               Typ => Base_Type (Check_Typ));
+
+         elsif Is_Out_Of_Range (Exp, Check_Typ) then
+            Apply_Compile_Time_Constraint_Error
+              (Exp, "value not in range of}??", CE_Range_Check_Failed,
+               Ent => Check_Typ,
+               Typ => Check_Typ);
+
+         elsif not Range_Checks_Suppressed (Check_Typ) then
+            Apply_Scalar_Range_Check (Exp, Check_Typ);
+         end if;
+
+      --  Verify that target type is also scalar, to prevent view anomalies
+      --  in instantiations.
+
+      elsif (Is_Scalar_Type (Exp_Typ)
+              or else Nkind (Exp) = N_String_Literal)
+        and then Is_Scalar_Type (Check_Typ)
+        and then Exp_Typ /= Check_Typ
+      then
+         if Is_Entity_Name (Exp)
+           and then Ekind (Entity (Exp)) = E_Constant
+         then
+            --  If expression is a constant, it is worthwhile checking whether
+            --  it is a bound of the type.
+
+            if (Is_Entity_Name (Type_Low_Bound (Check_Typ))
+                 and then Entity (Exp) = Entity (Type_Low_Bound (Check_Typ)))
+              or else
+               (Is_Entity_Name (Type_High_Bound (Check_Typ))
+                 and then Entity (Exp) = Entity (Type_High_Bound (Check_Typ)))
+            then
+               return;
+
+            else
+               Rewrite (Exp, Convert_To (Check_Typ, Relocate_Node (Exp)));
+               Analyze_And_Resolve (Exp, Check_Typ);
+               Check_Unset_Reference (Exp);
+            end if;
+
+         --  Could use a comment on this case ???
+
+         else
+            Rewrite (Exp, Convert_To (Check_Typ, Relocate_Node (Exp)));
+            Analyze_And_Resolve (Exp, Check_Typ);
+            Check_Unset_Reference (Exp);
+         end if;
+
+      end if;
+   end Aggregate_Constraint_Checks;
 
    -----------------------
    -- Alignment_In_Bits --
@@ -1087,9 +1205,13 @@ package body Sem_Util is
       --  If T is non-private but its base type is private, this is the
       --  completion of a subtype declaration whose parent type is private
       --  (see Complete_Private_Subtype in Sem_Ch3). The proper discriminants
-      --  are to be found in the full view of the base.
+      --  are to be found in the full view of the base. Check that the private
+      --  status of T and its base differ.
 
-      if Is_Private_Type (Bas) and then Present (Full_View (Bas)) then
+      if Is_Private_Type (Bas)
+        and then not Is_Private_Type (T)
+        and then Present (Full_View (Bas))
+      then
          Bas := Full_View (Bas);
       end if;
 
@@ -1201,7 +1323,6 @@ package body Sem_Util is
             if Denotes_Discriminant (Node (D)) then
                D_Val :=
                  New_Occurrence_Of (Discriminal (Entity (Node (D))), Loc);
-
             else
                D_Val := New_Copy_Tree (Node (D));
             end if;
@@ -1219,7 +1340,8 @@ package body Sem_Util is
       if Ekind (T) = E_Array_Subtype then
          Id := First_Index (T);
          while Present (Id) loop
-            if Denotes_Discriminant (Type_Low_Bound  (Etype (Id))) or else
+            if Denotes_Discriminant (Type_Low_Bound  (Etype (Id)))
+                 or else
                Denotes_Discriminant (Type_High_Bound (Etype (Id)))
             then
                return Build_Component_Subtype
@@ -1489,7 +1611,8 @@ package body Sem_Util is
                  N_Op_Rem
             =>
                if Do_Division_Check (Expr)
-                 or else Do_Overflow_Check (Expr)
+                    or else
+                  Do_Overflow_Check (Expr)
                then
                   return False;
                else
@@ -1572,12 +1695,13 @@ package body Sem_Util is
    begin
       --  When the predicate is static and the value of the expression is known
       --  at compile time, evaluate the predicate check. A type is non-static
-      --  when it has aspect Dynamic_Predicate.
+      --  when it has aspect Dynamic_Predicate, but if the dynamic predicate
+      --  was predicate-static, we still check it statically. After all this
+      --  is only a warning, not an error.
 
       if Compile_Time_Known_Value (Expr)
         and then Has_Predicates (Typ)
-        and then Present (Static_Predicate (Typ))
-        and then not Has_Dynamic_Predicate_Aspect (Typ)
+        and then Has_Static_Predicate (Typ)
       then
          --  Either -gnatc is enabled or the expression is ok
 
@@ -1586,12 +1710,25 @@ package body Sem_Util is
          then
             null;
 
-         --  The expression is prohibited by the static predicate
+         --  The expression is prohibited by the static predicate. There has
+         --  been some debate if this is an illegality (in the case where
+         --  the static predicate was explicitly given as such), but that
+         --  discussion decided this was not illegal, just a warning situation.
 
          else
             Error_Msg_NE
-              ("??static expression fails static predicate check on &",
-               Expr, Typ);
+              ("??static expression fails predicate check on &", Expr, Typ);
+
+            --  We now reset the static expression indication on the expression
+            --  since it is no longer static if it fails a predicate test. We
+            --  do not do this if the predicate was officially dynamic, since
+            --  dynamic predicates don't affect legality in this manner.
+
+            if not Has_Dynamic_Predicate_Aspect (Typ) then
+               Error_Msg_N
+                 ("\??expression is no longer considered static", Expr);
+               Set_Is_Static_Expression (Expr, False);
+            end if;
          end if;
       end if;
    end Check_Expression_Against_Static_Predicate;
@@ -1632,12 +1769,13 @@ package body Sem_Util is
            and then not Comes_From_Source (T)
            and then Nkind (N) = N_Object_Declaration
          then
-            Error_Msg_NE ("type of& has incomplete component", N,
-              Defining_Identifier (N));
-
+            Error_Msg_NE
+              ("type of& has incomplete component",
+               N, Defining_Identifier (N));
          else
             Error_Msg_NE
-              ("premature usage of incomplete}", N, First_Subtype (T));
+              ("premature usage of incomplete}",
+               N, First_Subtype (T));
          end if;
       end if;
    end Check_Fully_Declared;
@@ -1750,6 +1888,7 @@ package body Sem_Util is
                   end if;
 
                   Append_Elmt (N, Writable_Actuals_List);
+
                else
                   if Identifiers_List = No_Elist then
                      Identifiers_List := New_Elmt_List;
@@ -1805,9 +1944,7 @@ package body Sem_Util is
             return;
          end if;
 
-         if Nkind (N) in N_Subexpr
-           and then Is_Static_Expression (N)
-         then
+         if Nkind (N) in N_Subexpr and then Is_Static_Expression (N) then
             return;
          end if;
 
@@ -1898,6 +2035,7 @@ package body Sem_Util is
          when N_Op | N_Membership_Test =>
             declare
                Expr : Node_Id;
+
             begin
                Collect_Identifiers (Left_Opnd (N));
 
@@ -2014,7 +2152,8 @@ package body Sem_Util is
                  and then Present (Aggregate_Bounds (N))
                  and then Compile_Time_Known_Bounds (Etype (N))
                  and then Expr_Value (High_Bound (Aggregate_Bounds (N)))
-                            > Expr_Value (Low_Bound (Aggregate_Bounds (N)))
+                            >
+                          Expr_Value (Low_Bound (Aggregate_Bounds (N)))
                then
                   declare
                      Count_Components   : Uint := Uint_0;
@@ -3274,7 +3413,14 @@ package body Sem_Util is
             Etyp := Designated_Type (Etyp);
          end if;
 
-         return Base_Type (Etyp) = B_Type;
+         --  In Ada 2012 a primitive operation may have a formal of an
+         --  incomplete view of the parent type.
+
+         return Base_Type (Etyp) = B_Type
+           or else
+             (Ada_Version >= Ada_2012
+               and then Ekind (Etyp) = E_Incomplete_Type
+               and then Full_View (Etyp) = B_Type);
       end Match;
 
    --  Start of processing for Collect_Primitive_Operations
@@ -3328,6 +3474,17 @@ package body Sem_Util is
            and then In_Private_Part (B_Scope)
          then
             Id := Next_Entity (T);
+
+         --  In Ada 2012, If the type has an incomplete partial view, there
+         --  may be primitive operations declared before the full view, so
+         --  we need to start scanning from the incomplete view, which is
+         --  earlier on the entity chain.
+
+         elsif Nkind (Parent (B_Type)) = N_Full_Type_Declaration
+           and then Present (Incomplete_View (Parent (B_Type)))
+         then
+            Id := Defining_Entity (Incomplete_View (Parent (B_Type)));
+
          else
             Id := Next_Entity (B_Type);
          end if;
@@ -8539,6 +8696,19 @@ package body Sem_Util is
             Prag := Original_Node (Par);
             exit;
 
+         --  The expansion of attribute 'Old generates a constant to capture
+         --  the result of the prefix. If the parent traversal reaches
+         --  one of these constants, then the node technically came from a
+         --  postcondition-like pragma. Note that the Ekind is not tested here
+         --  because N may be the expression of an object declaration which is
+         --  currently being analyzed. Such objects carry Ekind of E_Void.
+
+         elsif Nkind (Par) = N_Object_Declaration
+           and then Constant_Present (Par)
+           and then Stores_Attribute_Old_Prefix (Defining_Entity (Par))
+         then
+            return True;
+
          --  Prevent the search from going too far
 
          elsif Is_Body_Or_Package_Declaration (Par) then
@@ -13041,9 +13211,9 @@ package body Sem_Util is
             end if;
 
             if Is_Packed (New_Itype) then
-               Set_Packed_Array_Type (New_Itype,
+               Set_Packed_Array_Impl_Type (New_Itype,
                  Copy_Node_With_Replacement
-                   (Packed_Array_Type (New_Itype)));
+                   (Packed_Array_Impl_Type (New_Itype)));
             end if;
          end if;
       end Copy_Itype_With_Replacement;
@@ -13549,7 +13719,7 @@ package body Sem_Util is
             end if;
 
             if Is_Packed (Old_Itype) then
-               Visit_Field (Union_Id (Packed_Array_Type (Old_Itype)),
+               Visit_Field (Union_Id (Packed_Array_Impl_Type (Old_Itype)),
                             Old_Itype);
             end if;
          end if;
@@ -15931,10 +16101,10 @@ package body Sem_Util is
             --  also need it for the former if we need it for the latter.
 
             if Is_Packed (T) then
-               Set_Debug_Info_Needed_If_Not_Set (Packed_Array_Type (T));
+               Set_Debug_Info_Needed_If_Not_Set (Packed_Array_Impl_Type (T));
             end if;
 
-            if Is_Packed_Array_Type (T) then
+            if Is_Packed_Array_Impl_Type (T) then
                Set_Debug_Info_Needed_If_Not_Set (Original_Array_Type (T));
             end if;
 

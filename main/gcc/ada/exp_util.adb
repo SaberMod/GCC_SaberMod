@@ -6272,8 +6272,10 @@ package body Exp_Util is
       elsif Esize (Typ) /= 0 and then Esize (Typ) <= 256 then
          return False;
 
-      elsif Is_Array_Type (Typ) and then Present (Packed_Array_Type (Typ)) then
-         return May_Generate_Large_Temp (Packed_Array_Type (Typ));
+      elsif Is_Array_Type (Typ)
+        and then Present (Packed_Array_Impl_Type (Typ))
+      then
+         return May_Generate_Large_Temp (Packed_Array_Impl_Type (Typ));
 
       --  We could do more here to find other small types ???
 
@@ -6340,11 +6342,10 @@ package body Exp_Util is
       if Restriction_Active (No_Finalization) then
          return False;
 
-      --  C, C++, CIL and Java types are not considered controlled. It is
-      --  assumed that the non-Ada side will handle their clean up.
+      --  C++, CIL and Java types are not considered controlled. It is assumed
+      --  that the non-Ada side will handle their clean up.
 
-      elsif Convention (T) = Convention_C
-        or else Convention (T) = Convention_CIL
+      elsif Convention (T) = Convention_CIL
         or else Convention (T) = Convention_CPP
         or else Convention (T) = Convention_Java
       then
@@ -6404,7 +6405,7 @@ package body Exp_Util is
         or else Is_Access_Type (Typ)
         or else
           (Is_Bit_Packed_Array (Typ)
-            and then Is_Modular_Integer_Type (Packed_Array_Type (Typ)))
+            and then Is_Modular_Integer_Type (Packed_Array_Impl_Type (Typ)))
       then
          return False;
 
@@ -6666,13 +6667,19 @@ package body Exp_Util is
 
          --  When wrapping the statements of an iterator loop, check whether
          --  the loop requires secondary stack management and if so, propagate
-         --  the flag to the block. This way the secondary stack is marked and
-         --  released at each iteration of the loop.
+         --  the appropriate flags to the block. This ensures that the cursor
+         --  is properly cleaned up at each iteration of the loop.
 
          Iter_Loop := Find_Enclosing_Iterator_Loop (Scop);
 
-         if Present (Iter_Loop) and then Uses_Sec_Stack (Iter_Loop) then
-            Set_Uses_Sec_Stack (Block_Id);
+         if Present (Iter_Loop) then
+            Set_Uses_Sec_Stack (Block_Id, Uses_Sec_Stack (Iter_Loop));
+
+            --  Secondary stack reclamation is suppressed when the associated
+            --  iterator loop contains a return statement which uses the stack.
+
+            Set_Sec_Stack_Needed_For_Return
+              (Block_Id, Sec_Stack_Needed_For_Return (Iter_Loop));
          end if;
 
          return Block_Nod;
@@ -7284,7 +7291,7 @@ package body Exp_Util is
    begin
       return Is_Scalar_Type (UT)
         or else (Is_Bit_Packed_Array (UT)
-                  and then Is_Scalar_Type (Packed_Array_Type (UT)));
+                  and then Is_Scalar_Type (Packed_Array_Impl_Type (UT)));
    end Represented_As_Scalar;
 
    ------------------------------
@@ -7714,8 +7721,8 @@ package body Exp_Util is
       --  Conversions to and from packed array types are always ignored and
       --  hence are safe.
 
-      elsif Is_Packed_Array_Type (Otyp)
-        or else Is_Packed_Array_Type (Ityp)
+      elsif Is_Packed_Array_Impl_Type (Otyp)
+        or else Is_Packed_Array_Impl_Type (Ityp)
       then
          return True;
       end if;

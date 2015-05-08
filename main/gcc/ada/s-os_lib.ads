@@ -152,6 +152,17 @@ package System.OS_Lib is
    --  provides a representation of it as a set of component parts, to be
    --  interpreted as a date point in UTC.
 
+   function GM_Time_Of
+     (Year   : Year_Type;
+      Month  : Month_Type;
+      Day    : Day_Type;
+      Hour   : Hour_Type;
+      Minute : Minute_Type;
+      Second : Second_Type) return OS_Time;
+   --  Analogous to the Time_Of routine in Ada.Calendar, takes a set of time
+   --  component parts and returns an OS_Time. Returns Invalid_Time if the
+   --  creation fails.
+
    ----------------
    -- File Stuff --
    ----------------
@@ -383,6 +394,10 @@ package System.OS_Lib is
    --
    --  Note: this procedure is not supported on VMS and VxWorks 5. On these
    --  platforms, Success is always set to False.
+
+   procedure Set_File_Last_Modify_Time_Stamp (Name : String; Time : OS_Time);
+   --  Given the name of a file or directory, Name, set the last modification
+   --  time stamp. This function must be used for an unopened file.
 
    function Read
      (FD : File_Descriptor;

@@ -142,10 +142,6 @@ package ALI is
       --  line. A value of -1 indicates that no T=xxx parameter was found, or
       --  no M line was present. Not set if 'M' appears in Ignore_Lines.
 
-      Allocator_In_Body : Boolean;
-      --  Set True if an AB switch appears on the main program line. False
-      --  if no M line, or AB not present, or 'M appears in Ignore_Lines.
-
       WC_Encoding : Character;
       --  Wide character encoding if main procedure. Otherwise not relevant.
       --  Not set if 'M' appears in Ignore_Lines.
@@ -771,6 +767,8 @@ package ALI is
       Subunit_Name : Name_Id;
       --  Name_Id for subunit name if present, else No_Name
 
+      Unit_Name : Name_Id;
+      --  Name_Id for the unit name if not a subunit (No_Name for a subunit)
       Rfile : File_Name_Type;
       --  Reference file name. Same as Sfile unless a Source_Reference pragma
       --  was used, in which case it reflects the name used in the pragma.

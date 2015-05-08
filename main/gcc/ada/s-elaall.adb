@@ -2,11 +2,11 @@
 --                                                                          --
 --                         GNAT RUN-TIME COMPONENTS                         --
 --                                                                          --
---                     G N A T . M E M O R Y _ D U M P                      --
+--         S Y S T E M . E L A B O R A T I O N _ A L L O C A T O R S        --
 --                                                                          --
---                                 S p e c                                  --
+--                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2003-2014, AdaCore                     --
+--            Copyright (C) 2014, Free Software Foundation, Inc.            --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,49 +29,44 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  A routine for dumping memory to either standard output or standard error.
---  Uses GNAT.IO for actual output (use the controls in GNAT.IO to specify
---  the destination of the output, which by default is Standard_Output).
+package body System.Elaboration_Allocators is
 
-with System;
+   Elaboration_In_Progress : Boolean;
+   pragma Atomic (Elaboration_In_Progress);
+   --  Flag to show if elaboration is active. We don't attempt to initialize
+   --  this because we want to be sure it gets reset if we are in a multiple
+   --  elaboration situation of some kind. Make it atomic to prevent race
+   --  conditions of any kind (not clearly necessary, but harmless!)
 
-package GNAT.Memory_Dump is
-   pragma Preelaborate;
+   ------------------------------
+   -- Check_Standard_Allocator --
+   ------------------------------
 
-   type Prefix_Type is (Absolute_Address, Offset, None);
+   procedure Check_Standard_Allocator is
+   begin
+      if not Elaboration_In_Progress then
+         raise Program_Error with
+           "standard allocator after elaboration is complete is not allowed "
+           & "(No_Standard_Allocators_After_Elaboration restriction active)";
+      end if;
+   end Check_Standard_Allocator;
 
-   procedure Dump
-     (Addr   : System.Address;
-      Count  : Natural);
-   --  Dumps indicated number (Count) of bytes, starting at the address given
-   --  by Addr. The coding of this routine in its current form assumes the case
-   --  of a byte addressable machine (and is therefore inapplicable to machines
-   --  like the AAMP, where the storage unit is not 8 bits). The output is one
-   --  or more lines in the following format, which is for the case of 32-bit
-   --  addresses (64-bit addresses are handled appropriately):
-   --
-   --    0234_3368: 66 67 68 . . .  73 74 75 "fghijklmnopqstuv"
-   --
-   --  All but the last line have 16 bytes. A question mark is used in the
-   --  string data to indicate a non-printable character.
+   -----------------------------
+   -- Mark_End_Of_Elaboration --
+   -----------------------------
 
-   procedure Dump
-     (Addr   : System.Address;
-      Count  : Natural;
-      Prefix : Prefix_Type);
-   --  Same as above, but allows the selection of different line formats.
-   --  If Prefix is set to Absolute_Address, the output is identical to the
-   --  above version, each line starting with the absolute address of the
-   --  first dumped storage element.
-   --
-   --  If Prefix is set to Offset, then instead each line starts with the
-   --  indication of the offset relative to Addr:
-   --
-   --    00: 66 67 68 . . .  73 74 75 "fghijklmnopqstuv"
-   --
-   --  Finally if Prefix is set to None, the prefix is suppressed altogether,
-   --  and only the memory contents are displayed:
-   --
-   --    66 67 68 . . .  73 74 75 "fghijklmnopqstuv"
+   procedure Mark_End_Of_Elaboration is
+   begin
+      Elaboration_In_Progress := False;
+   end Mark_End_Of_Elaboration;
 
-end GNAT.Memory_Dump;
+   -------------------------------
+   -- Mark_Start_Of_Elaboration --
+   -------------------------------
+
+   procedure Mark_Start_Of_Elaboration is
+   begin
+      Elaboration_In_Progress := True;
+   end Mark_Start_Of_Elaboration;
+
+end System.Elaboration_Allocators;

@@ -2464,6 +2464,8 @@ package body Sem_Ch3 is
       Prev := Find_Type_Name (N);
 
       --  The full view, if present, now points to the current type
+      --  If there is an incomplete partial view, set a link to it, to
+      --  simplify the retrieval of primitive operations of the type.
 
       --  Ada 2005 (AI-50217): If the type was previously decorated when
       --  imported through a LIMITED WITH clause, it appears as incomplete
@@ -2472,6 +2474,7 @@ package body Sem_Ch3 is
       if Ekind (Prev) = E_Incomplete_Type and then Present (Full_View (Prev))
       then
          T := Full_View (Prev);
+         Set_Incomplete_View (N, Parent (Prev));
       else
          T := Prev;
       end if;
@@ -5165,7 +5168,7 @@ package body Sem_Ch3 is
          Set_Component_Type    (Implicit_Base, Element_Type);
          Set_Has_Task          (Implicit_Base, Has_Task (Element_Type));
          Set_Component_Size    (Implicit_Base, Uint_0);
-         Set_Packed_Array_Type (Implicit_Base, Empty);
+         Set_Packed_Array_Impl_Type (Implicit_Base, Empty);
          Set_Has_Controlled_Component
                                (Implicit_Base, Has_Controlled_Component
                                                         (Element_Type)
@@ -5198,7 +5201,7 @@ package body Sem_Ch3 is
       --  Common attributes for both cases
 
       Set_Component_Type (Base_Type (T), Element_Type);
-      Set_Packed_Array_Type (T, Empty);
+      Set_Packed_Array_Impl_Type (T, Empty);
 
       if Aliased_Present (Component_Definition (Def)) then
          Check_SPARK_Restriction
@@ -5269,7 +5272,9 @@ package body Sem_Ch3 is
       --  types created for packed entities do not need such, they are
       --  compatible with the user-defined type.
 
-      if Number_Dimensions (T) = 1 and then not Is_Packed_Array_Type (T) then
+      if Number_Dimensions (T) = 1
+        and then not Is_Packed_Array_Impl_Type (T)
+      then
          New_Concatenation_Op (T);
       end if;
 
@@ -11473,13 +11478,13 @@ package body Sem_Ch3 is
       Set_Is_Private_Composite (Def_Id, Is_Private_Composite (T));
       Set_Is_Limited_Composite (Def_Id, Is_Limited_Composite (T));
 
-      --  A subtype does not inherit the packed_array_type of is parent. We
-      --  need to initialize the attribute because if Def_Id is previously
+      --  A subtype does not inherit the Packed_Array_Impl_Type of is parent.
+      --  We need to initialize the attribute because if Def_Id is previously
       --  analyzed through a limited_with clause, it will have the attributes
       --  of an incomplete type, one of which is an Elist that overlaps the
-      --  Packed_Array_Type field.
+      --  Packed_Array_Impl_Type field.
 
-      Set_Packed_Array_Type (Def_Id, Empty);
+      Set_Packed_Array_Impl_Type (Def_Id, Empty);
 
       --  Build a freeze node if parent still needs one. Also make sure that
       --  the Depends_On_Private status is set because the subtype will need
@@ -11913,7 +11918,7 @@ package body Sem_Ch3 is
            and then Is_Packed (Compon_Type)
            and then Is_Frozen (Current_Scope)
          then
-            Create_Packed_Array_Type (Array_Comp);
+            Create_Packed_Array_Impl_Type (Array_Comp);
          end if;
 
          return Array_Comp;
@@ -12775,7 +12780,7 @@ package body Sem_Ch3 is
       Set_Convention           (T1, Convention            (T2));
       Set_Is_Limited_Composite (T1, Is_Limited_Composite  (T2));
       Set_Is_Private_Composite (T1, Is_Private_Composite  (T2));
-      Set_Packed_Array_Type    (T1, Packed_Array_Type     (T2));
+      Set_Packed_Array_Impl_Type    (T1, Packed_Array_Impl_Type     (T2));
    end Copy_Array_Subtype_Attributes;
 
    -----------------------------------
@@ -13535,6 +13540,7 @@ package body Sem_Ch3 is
       ------------------
 
       procedure Replace_Type (Id, New_Id : Entity_Id) is
+         Id_Type  : constant Entity_Id := Etype (Id);
          Acc_Type : Entity_Id;
          Par      : constant Node_Id := Parent (Derived_Type);
 
@@ -13545,9 +13551,9 @@ package body Sem_Ch3 is
          --  be out of the proper scope for Gigi, so we insert a reference to
          --  it after the derivation.
 
-         if Ekind (Etype (Id)) = E_Anonymous_Access_Type then
+         if Ekind (Id_Type) = E_Anonymous_Access_Type then
             declare
-               Desig_Typ : Entity_Id := Designated_Type (Etype (Id));
+               Desig_Typ : Entity_Id := Designated_Type (Id_Type);
 
             begin
                if Ekind (Desig_Typ) = E_Record_Type_With_Private
@@ -13565,7 +13571,7 @@ package body Sem_Ch3 is
                  or else (Is_Interface (Desig_Typ)
                            and then not Is_Class_Wide_Type (Desig_Typ))
                then
-                  Acc_Type := New_Copy (Etype (Id));
+                  Acc_Type := New_Copy (Id_Type);
                   Set_Etype (Acc_Type, Acc_Type);
                   Set_Scope (Acc_Type, New_Subp);
 
@@ -13597,16 +13603,23 @@ package body Sem_Ch3 is
                   Build_Itype_Reference (Acc_Type, Parent (Derived_Type));
 
                else
-                  Set_Etype (New_Id, Etype (Id));
+                  Set_Etype (New_Id, Id_Type);
                end if;
             end;
 
-         elsif Base_Type (Etype (Id)) = Base_Type (Parent_Type)
+         --  In Ada2012, a formal may have an incomplete type but the type
+         --  derivation that inherits the primitive follows the full view.
+
+         elsif Base_Type (Id_Type) = Base_Type (Parent_Type)
            or else
-             (Ekind (Etype (Id)) = E_Record_Type_With_Private
-               and then Present (Full_View (Etype (Id)))
+             (Ekind (Id_Type) = E_Record_Type_With_Private
+               and then Present (Full_View (Id_Type))
                and then
-                 Base_Type (Full_View (Etype (Id))) = Base_Type (Parent_Type))
+                 Base_Type (Full_View (Id_Type)) = Base_Type (Parent_Type))
+           or else
+             (Ada_Version >= Ada_2012
+               and then Ekind (Id_Type) = E_Incomplete_Type
+               and then Full_View (Id_Type) = Parent_Type)
          then
             --  Constraint checks on formals are generated during expansion,
             --  based on the signature of the original subprogram. The bounds

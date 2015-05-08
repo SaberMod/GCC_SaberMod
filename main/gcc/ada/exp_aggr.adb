@@ -75,6 +75,15 @@ package body Exp_Aggr is
    type Case_Table_Type is array (Nat range <>) of Case_Bounds;
    --  Table type used by Check_Case_Choices procedure
 
+   procedure Collect_Initialization_Statements
+     (Obj        : Entity_Id;
+      N          : Node_Id;
+      Node_After : Node_Id);
+   --  If Obj is not frozen, collect actions inserted after N until, but not
+   --  including, Node_After, for initialization of Obj, and move them to an
+   --  expression with actions, which becomes the Initialization_Statements for
+   --  Obj.
+
    function Has_Default_Init_Comps (N : Node_Id) return Boolean;
    --  N is an aggregate (record or array). Checks the presence of default
    --  initialization (<>) in any component (Ada 2005: AI-287).
@@ -102,15 +111,6 @@ package body Exp_Aggr is
    --  A simple insertion sort is used since the number of choices in a case
    --  statement of variant part will usually be small and probably in near
    --  sorted order.
-
-   procedure Collect_Initialization_Statements
-     (Obj        : Entity_Id;
-      N          : Node_Id;
-      Node_After : Node_Id);
-   --  If Obj is not frozen, collect actions inserted after N until, but not
-   --  including, Node_After, for initialization of Obj, and move them to an
-   --  expression with actions, which becomes the Initialization_Statements for
-   --  Obj.
 
    ------------------------------------------------------
    -- Local subprograms for Record Aggregate Expansion --
@@ -1607,7 +1607,7 @@ package body Exp_Aggr is
 
       if Present (Typ)
         and then Is_Bit_Packed_Array (Typ)
-        and then Is_Modular_Integer_Type (Packed_Array_Type (Typ))
+        and then Is_Modular_Integer_Type (Packed_Array_Impl_Type (Typ))
       then
          Append_To (New_Code,
            Make_Assignment_Statement (Loc,
@@ -5233,6 +5233,19 @@ package body Exp_Aggr is
              Index       => First_Index (Typ),
              Into        => Target,
              Scalar_Comp => Is_Scalar_Type (Ctyp));
+
+         --  Save the last assignment statement associated with the aggregate
+         --  when building a controlled object. This reference is utilized by
+         --  the finalization machinery when marking an object as successfully
+         --  initialized.
+
+         if Needs_Finalization (Typ)
+           and then Is_Entity_Name (Target)
+           and then Present (Entity (Target))
+           and then Ekind_In (Entity (Target), E_Constant, E_Variable)
+         then
+            Set_Last_Aggregate_Assignment (Entity (Target), Last (Aggr_Code));
+         end if;
       end;
 
       --  If the aggregate is the expression in a declaration, the expanded
@@ -6210,23 +6223,8 @@ package body Exp_Aggr is
       if Is_Record_Type (Etype (N)) then
          Aggr_Code := Build_Record_Aggr_Code (N, Typ, Target);
 
-         --  Save the last assignment statement associated with the aggregate
-         --  when building a controlled object. This reference is utilized by
-         --  the finalization machinery when marking an object as successfully
-         --  initialized.
-
-         if Needs_Finalization (Typ)
-           and then Is_Entity_Name (Target)
-           and then Present (Entity (Target))
-           and then Ekind (Entity (Target)) = E_Variable
-         then
-            Set_Last_Aggregate_Assignment (Entity (Target), Last (Aggr_Code));
-         end if;
-
-         return Aggr_Code;
-
       else pragma Assert (Is_Array_Type (Etype (N)));
-         return
+         Aggr_Code :=
            Build_Array_Aggr_Code
              (N           => N,
               Ctype       => Component_Type (Etype (N)),
@@ -6235,6 +6233,21 @@ package body Exp_Aggr is
               Scalar_Comp => Is_Scalar_Type (Component_Type (Typ)),
               Indexes     => No_List);
       end if;
+
+      --  Save the last assignment statement associated with the aggregate
+      --  when building a controlled object. This reference is utilized by
+      --  the finalization machinery when marking an object as successfully
+      --  initialized.
+
+      if Needs_Finalization (Typ)
+        and then Is_Entity_Name (Target)
+        and then Present (Entity (Target))
+        and then Ekind_In (Entity (Target), E_Constant, E_Variable)
+      then
+         Set_Last_Aggregate_Assignment (Entity (Target), Last (Aggr_Code));
+      end if;
+
+      return Aggr_Code;
    end Late_Expansion;
 
    ----------------------------------
@@ -6317,14 +6330,14 @@ package body Exp_Aggr is
       end if;
 
       --  If two-dimensional, check whether it can be folded, and transformed
-      --  into a one-dimensional aggregate for the Packed_Array_Type of the
-      --  original type.
+      --  into a one-dimensional aggregate for the Packed_Array_Impl_Type of
+      --  the original type.
 
       if Number_Dimensions (Typ) = 2 then
          return Two_Dim_Packed_Array_Handled (N);
       end if;
 
-      if not Is_Modular_Integer_Type (Packed_Array_Type (Typ)) then
+      if not Is_Modular_Integer_Type (Packed_Array_Impl_Type (Typ)) then
          return False;
       end if;
 
@@ -6523,7 +6536,7 @@ package body Exp_Aggr is
               Unchecked_Convert_To (Typ,
                 Make_Qualified_Expression (Loc,
                   Subtype_Mark =>
-                    New_Occurrence_Of (Packed_Array_Type (Typ), Loc),
+                    New_Occurrence_Of (Packed_Array_Impl_Type (Typ), Loc),
                   Expression   => Lit)));
 
             Analyze_And_Resolve (N, Typ);
@@ -6705,10 +6718,11 @@ package body Exp_Aggr is
 
    function Two_Dim_Packed_Array_Handled (N : Node_Id) return Boolean is
       Loc          : constant Source_Ptr := Sloc (N);
-      Typ          : constant Entity_Id := Etype (N);
-      Ctyp         : constant Entity_Id := Component_Type (Typ);
-      Comp_Size    : constant Int := UI_To_Int (Component_Size (Typ));
-      Packed_Array : constant Entity_Id := Packed_Array_Type (Base_Type (Typ));
+      Typ          : constant Entity_Id  := Etype (N);
+      Ctyp         : constant Entity_Id  := Component_Type (Typ);
+      Comp_Size    : constant Int        := UI_To_Int (Component_Size (Typ));
+      Packed_Array : constant Entity_Id  :=
+                       Packed_Array_Impl_Type (Base_Type (Typ));
 
       One_Comp  : Node_Id;
       --  Expression in original aggregate

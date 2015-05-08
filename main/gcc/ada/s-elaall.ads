@@ -2,11 +2,11 @@
 --                                                                          --
 --                         GNAT RUN-TIME COMPONENTS                         --
 --                                                                          --
---                     G N A T . M E M O R Y _ D U M P                      --
+--         S Y S T E M . E L A B O R A T I O N _ A L L O C A T O R S        --
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                     Copyright (C) 2003-2014, AdaCore                     --
+--            Copyright (C) 2014, Free Software Foundation, Inc.            --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,49 +29,29 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  A routine for dumping memory to either standard output or standard error.
---  Uses GNAT.IO for actual output (use the controls in GNAT.IO to specify
---  the destination of the output, which by default is Standard_Output).
+--  This package provides the interfaces for proper handling of restriction
+--  No_Standard_Allocators_After_Elaboration. It is used only by programs
+--  which use this restriction.
 
-with System;
-
-package GNAT.Memory_Dump is
+package System.Elaboration_Allocators is
    pragma Preelaborate;
 
-   type Prefix_Type is (Absolute_Address, Offset, None);
+   procedure Mark_Start_Of_Elaboration;
+   --  Called right at the start of main elaboration if the program activates
+   --  restriction No_Standard_Allocators_After_Elaboration. We don't want to
+   --  rely on the normal elaboration mechanism for marking this event, since
+   --  that would require us to be sure to elaborate this first, which would
+   --  be awkward, and it is convenient to have this package be Preelaborate.
 
-   procedure Dump
-     (Addr   : System.Address;
-      Count  : Natural);
-   --  Dumps indicated number (Count) of bytes, starting at the address given
-   --  by Addr. The coding of this routine in its current form assumes the case
-   --  of a byte addressable machine (and is therefore inapplicable to machines
-   --  like the AAMP, where the storage unit is not 8 bits). The output is one
-   --  or more lines in the following format, which is for the case of 32-bit
-   --  addresses (64-bit addresses are handled appropriately):
-   --
-   --    0234_3368: 66 67 68 . . .  73 74 75 "fghijklmnopqstuv"
-   --
-   --  All but the last line have 16 bytes. A question mark is used in the
-   --  string data to indicate a non-printable character.
+   procedure Mark_End_Of_Elaboration;
+   --  Called when main elaboration is complete if the program has activated
+   --  restriction No_Standard_Allocators_After_Elaboration. This is the point
+   --  beyond which any standard allocator use will violate the restriction.
 
-   procedure Dump
-     (Addr   : System.Address;
-      Count  : Natural;
-      Prefix : Prefix_Type);
-   --  Same as above, but allows the selection of different line formats.
-   --  If Prefix is set to Absolute_Address, the output is identical to the
-   --  above version, each line starting with the absolute address of the
-   --  first dumped storage element.
-   --
-   --  If Prefix is set to Offset, then instead each line starts with the
-   --  indication of the offset relative to Addr:
-   --
-   --    00: 66 67 68 . . .  73 74 75 "fghijklmnopqstuv"
-   --
-   --  Finally if Prefix is set to None, the prefix is suppressed altogether,
-   --  and only the memory contents are displayed:
-   --
-   --    66 67 68 . . .  73 74 75 "fghijklmnopqstuv"
+   procedure Check_Standard_Allocator;
+   --  Called as part of every allocator in a program for which the restriction
+   --  No_Standard_Allocators_After_Elaboration is active. This will raise an
+   --  exception (Program_Error with an appropriate message) if it is called
+   --  after the call to Mark_End_Of_Elaboration.
 
-end GNAT.Memory_Dump;
+end System.Elaboration_Allocators;
