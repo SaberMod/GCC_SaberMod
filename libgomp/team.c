@@ -916,7 +916,7 @@ gomp_team_end (void)
 static void __attribute__((constructor))
 initialize_team (void)
 {
-#if defined HAVE_TLS || defined USE_EMUTLS
+#ifdef HAVE_TLS
   static struct gomp_thread initial_thread_tls_data;
 
   pthread_key_create (&gomp_tls_key, NULL);

@@ -770,6 +770,7 @@ enable_maintainer_mode
 enable_linux_futex
 enable_tls
 enable_symvers
+gcc_cv_use_emutls
 '
       ac_precious_vars='build_alias
 host_alias
@@ -15547,6 +15548,7 @@ $as_echo "$gcc_cv_use_emutls" >&6; }
   if test "$gcc_cv_use_emutls" = "yes" ; then
 
 $as_echo "#define USE_EMUTLS 1" >>confdefs.h
+
 
   fi
 
