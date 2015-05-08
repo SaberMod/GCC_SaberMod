@@ -218,11 +218,11 @@ struct gcov_ctr_info
 
 struct gcov_fn_info
 {
-  const struct gcov_info *key;          /* comdat key */
-  gcov_unsigned_t ident;                /* unique ident of function */
-  gcov_unsigned_t lineno_checksum;      /* function lineo_checksum */
-  gcov_unsigned_t cfg_checksum; /* function cfg checksum */
-  struct gcov_ctr_info ctrs[1];         /* instrumented counters */
+  const struct gcov_info *key;		/* comdat key */
+  gcov_unsigned_t ident;		/* unique ident of function */
+  gcov_unsigned_t lineno_checksum;	/* function lineo_checksum */
+  gcov_unsigned_t cfg_checksum;		/* function cfg checksum */
+  struct gcov_ctr_info ctrs[1];		/* instrumented counters */
 };
 
 /* Type of function used to merge counters.  */

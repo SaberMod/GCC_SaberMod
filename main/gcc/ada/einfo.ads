@@ -1528,11 +1528,6 @@ package Einfo is
 --       that this does not imply a representation with holes, since the rep
 --       clause may merely confirm the default 0..N representation.
 
---    Has_External_Tag_Rep_Clause (Flag110)
---       Defined in tagged types. Set if an external_tag rep. clause has been
---       given for this type. Use to avoid the generation of the default
---       external_tag.
-
 --    Has_Exit (Flag47)
 --       Defined in loop entities. Set if the loop contains an exit statement.
 
@@ -5951,7 +5946,6 @@ package Einfo is
    --    Component_Alignment                 (special)  (base type only)
    --    C_Pass_By_Copy                      (Flag125)  (base type only)
    --    Has_Dispatch_Table                  (Flag220)  (base tagged type only)
-   --    Has_External_Tag_Rep_Clause         (Flag110)
    --    Has_Pragma_Pack                     (Flag121)  (impl base type only)
    --    Has_Private_Ancestor                (Flag151)
    --    Has_Record_Rep_Clause               (Flag65)   (base type only)
@@ -5983,7 +5977,6 @@ package Einfo is
    --    Has_Completion                      (Flag26)
    --    Has_Private_Ancestor                (Flag151)
    --    Has_Record_Rep_Clause               (Flag65)   (base type only)
-   --    Has_External_Tag_Rep_Clause         (Flag110)
    --    Is_Concurrent_Record_Type           (Flag20)
    --    Is_Constrained                      (Flag12)
    --    Is_Controlled                       (Flag42)   (base type only)
@@ -6488,7 +6481,6 @@ package Einfo is
    function Has_Dynamic_Predicate_Aspect        (Id : E) return B;
    function Has_Enumeration_Rep_Clause          (Id : E) return B;
    function Has_Exit                            (Id : E) return B;
-   function Has_External_Tag_Rep_Clause         (Id : E) return B;
    function Has_Forward_Instantiation           (Id : E) return B;
    function Has_Fully_Qualified_Name            (Id : E) return B;
    function Has_Gigi_Rep_Item                   (Id : E) return B;
@@ -6944,9 +6936,9 @@ package Einfo is
    --  It would be cleaner to use No_Uint in all these cases, but historically
    --  we chose to use Uint_0 at first, and the change over will take time ???
    --  This is particularly true for the RM_Size field, where a value of zero
-   --  is legitimate. We deal with this by a nasty kludge that knows that the
-   --  value is always known static for discrete types (and no other types can
-   --  have an RM_Size value of zero).
+   --  is legitimate. We deal with this by a considering that the value is
+   --  always known static for discrete types (and no other types can have
+   --  an RM_Size value of zero).
 
    --  In two cases, Known_Static_Esize and Known_Static_RM_Size, there is one
    --  more consideration, which is that we always return False for generic
@@ -7114,7 +7106,6 @@ package Einfo is
    procedure Set_Has_Dynamic_Predicate_Aspect    (Id : E; V : B := True);
    procedure Set_Has_Enumeration_Rep_Clause      (Id : E; V : B := True);
    procedure Set_Has_Exit                        (Id : E; V : B := True);
-   procedure Set_Has_External_Tag_Rep_Clause     (Id : E; V : B := True);
    procedure Set_Has_Forward_Instantiation       (Id : E; V : B := True);
    procedure Set_Has_Fully_Qualified_Name        (Id : E; V : B := True);
    procedure Set_Has_Gigi_Rep_Item               (Id : E; V : B := True);
@@ -7448,7 +7439,7 @@ package Einfo is
    --  It would be cleaner to use No_Uint in all these cases, but historically
    --  we chose to use Uint_0 at first, and the change over will take time ???
    --  This is particularly true for the RM_Size field, where a value of zero
-   --  is legitimate and causes some kludges around the code.
+   --  is legitimate and causes some special tests around the code.
 
    --  Contrary to the corresponding Set procedures above, these routines
    --  do NOT check the entity kind of their argument, instead they set the
@@ -7853,7 +7844,6 @@ package Einfo is
    pragma Inline (Has_Dynamic_Predicate_Aspect);
    pragma Inline (Has_Enumeration_Rep_Clause);
    pragma Inline (Has_Exit);
-   pragma Inline (Has_External_Tag_Rep_Clause);
    pragma Inline (Has_Forward_Instantiation);
    pragma Inline (Has_Fully_Qualified_Name);
    pragma Inline (Has_Gigi_Rep_Item);
@@ -8326,7 +8316,6 @@ package Einfo is
    pragma Inline (Set_Has_Dynamic_Predicate_Aspect);
    pragma Inline (Set_Has_Enumeration_Rep_Clause);
    pragma Inline (Set_Has_Exit);
-   pragma Inline (Set_Has_External_Tag_Rep_Clause);
    pragma Inline (Set_Has_Forward_Instantiation);
    pragma Inline (Set_Has_Fully_Qualified_Name);
    pragma Inline (Set_Has_Gigi_Rep_Item);

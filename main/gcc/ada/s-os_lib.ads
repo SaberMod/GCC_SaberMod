@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1995-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1995-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -533,8 +533,15 @@ package System.OS_Lib is
    --  This renaming is provided for backwards compatibility with previous
    --  versions. The use of Set_Non_Writable is preferred (clearer name).
 
-   procedure Set_Executable (Name : String);
-   --  Change permissions on the named file to make it executable for its owner
+   S_Owner  : constant := 1;
+   S_Group  : constant := 2;
+   S_Others : constant := 4;
+   --  Constants for use in Mode parameter to Set_Executable
+
+   procedure Set_Executable (Name : String; Mode : Positive := S_Owner);
+   --  Change permissions on the file given by Name to make it executable
+   --  for its owner, group or others, according to the setting of Mode.
+   --  As indicated, the default if no Mode parameter is given is owner.
 
    procedure Set_Readable (Name : String);
    --  Change permissions on the named file to make it readable for its

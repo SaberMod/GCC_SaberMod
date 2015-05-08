@@ -1,3 +1,110 @@
+2014-07-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50961
+	* call.c (standard_conversion): Use resolve_nondeduced_context
+	for type_unknown_p (EXPR) && TREE_CODE (TO) == BOOLEAN_TYPE.
+
+2014-07-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/61804
+	* parser.c (cp_parser_tokens_start_cast_expression): Return -1
+	for '++' and '--'.
+
+2014-07-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/61811
+	* decl2.c (maybe_emit_vtables): Return true for -fuse-all-virtuals.
+
+	PR c++/60848
+	PR c++/61723
+	* call.c (is_std_init_list): Don't check CLASSTYPE_TEMPLATE_INFO.
+	* class.c (finish_struct): Reject invalid definition of
+	std::initializer_list.
+
+2014-07-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* call.c (convert_like_real): Call print_z_candidate and inform only
+	if permerror returns true.
+
+2014-07-14  Jan Hubicka  <hubicka@ucw.cz>
+
+	* class.c (build_clone): Do not clear assembler names of
+	templates.
+	* decl.c (cp_tree_node_structure): Add TEMPLATE_DECL.
+	* cp-objcp-common.c (cp_tree_size): Add TEMPLATE_DECL
+	as a special case return sizeof (struct tree_decl_non_common)
+	for other decls.
+	(cp_common_init_ts): Do not initialize NAMESPACE_DECL;
+	initialize TEMPLATE_DECL as MARK_TS_DECL_COMMON.
+	* cp/cp-tree.h (tree_template_decl): New structure.
+	(cp_tree_node_structure_enum): Add TS_CP_TEMPLATE_DECL.
+	(union cp_lang_tree_node): Add template_decl.
+	(DECL_TEMPLATE_PARMS, DECL_TEMPLATE_RESULT): Update.
+
+2014-07-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/61445
+	PR c++/56947
+	* pt.c (instantiate_decl): Don't check defer_ok for local class
+	members.
+
+2014-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/61294
+	* cp-tree.h (LITERAL_ZERO_P): Define.
+	* parser.c (cp_parser_parenthesized_expression_list): Add
+	want_literal_zero_p argument, if true, for literal zeros
+	insert INTEGER_CSTs with LITERAL_ZERO_P flag set.
+	(cp_parser_postfix_expression): Adjust
+	cp_parser_parenthesized_expression_list caller, handle
+	-Wmemset-transposed-args.
+	(literal_zeros): New variable.
+
+2014-07-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/58511
+	* semantics.c (is_instantiation_of_constexpr): Return true for
+	defaulted functions, too.
+	(explain_invalid_constexpr_fn): Only use
+	explain_implicit_non_constexpr if !DECL_DECLARED_CONSTEXPR_P.
+	* method.c (explain_implicit_non_constexpr): Pass
+	DECL_INHERITED_CTOR_BASE to explain_implicit_non_constexpr.
+
+	PR c++/58611
+	* decl.c (check_initializer): Don't finish_compound_literal
+	on erroneous constexpr init.
+
+	PR c++/58612
+	* tree.c (bot_replace): Only replace a dummy 'this' parm.
+
+	PR c++/60628
+	* decl.c (create_array_type_for_decl): Only check for auto once.
+
+	PR c++/58636
+	* call.c (build_list_conv): Don't try to build a list of references.
+
+2014-07-13  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR C++/60209 - Declaration of user-defined literal operator cause error
+	* parser.c (cp_parser_operator): Fold treatment of strings
+	and user-defined string literals.  Use the full string parser.
+	(cp_parser_string_literal): Add flag to not look for literal operator.
+
+2014-07-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/22434
+	PR c++/61288
+	* call.c (build_conditional_expr_1): Avoid reading freed memory.
+
+2014-07-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53159
+	* call.c (build_user_type_conversion_1): Copy LOOKUP_NO_NARROWING
+	into convflags.
+	* decl.c (check_initializer): Don't call check_narrowing here,
+	set LOOKUP_NO_NARROWING.
+	* typeck2.c (digest_init_r): Likewise.
+
 2014-07-10  Jason Merrill  <jason@redhat.com>
 
 	PR c++/61661
@@ -56,9 +163,9 @@
 	PR c++/58781
 	PR c++/60249
 	PR c++/59867
-	* parser.c (cp_parser_userdef_string_literal()): Take a tree
-	not a cp_token*. (cp_parser_string_literal(): Don't hack
-	the token stream!
+	* parser.c (cp_parser_userdef_string_literal): Take a tree
+	not a cp_token*.
+	(cp_parser_string_literal): Don't hack the token stream.
 
 2014-06-30  Jason Merrill  <jason@redhat.com>
 

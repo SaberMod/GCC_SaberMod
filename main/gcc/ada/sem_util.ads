@@ -28,6 +28,7 @@
 with Einfo;   use Einfo;
 with Exp_Tss; use Exp_Tss;
 with Namet;   use Namet;
+with Opt;     use Opt;
 with Snames;  use Snames;
 with Types;   use Types;
 with Uintp;   use Uintp;
@@ -1689,8 +1690,17 @@ package Sem_Util is
    procedure Reset_Analyzed_Flags (N : Node_Id);
    --  Reset the Analyzed flags in all nodes of the tree whose root is N
 
+   procedure Restore_SPARK_Mode (Mode : SPARK_Mode_Type);
+   --  Set the current SPARK_Mode to whatever Mode denotes. This routime must
+   --  be used in tandem with Save_SPARK_Mode_And_Set.
+
    function Returns_Unconstrained_Type (Subp : Entity_Id) return Boolean;
    --  Return true if Subp is a function that returns an unconstrained type
+
+   function Root_Type_Of_Full_View (T : Entity_Id) return Entity_Id;
+   --  Similar to attribute Root_Type, but this version always follows the
+   --  Full_View of a private type (if available) while searching for the
+   --  ultimate derivation ancestor.
 
    function Safe_To_Capture_Value
      (N    : Node_Id;
@@ -1740,6 +1750,13 @@ package Sem_Util is
    --  A result of False does not necessarily mean they have different values,
    --  just that it is not possible to determine they have the same value.
 
+   procedure Save_SPARK_Mode_And_Set
+     (Context : Entity_Id;
+      Mode    : out SPARK_Mode_Type);
+   --  Save the current SPARK_Mode in effect in Mode. Establish the SPARK_Mode
+   --  (if any) of a package or a subprogram denoted by Context. This routine
+   --  must be used in tandem with Restore_SPARK_Mode.
+
    function Scope_Within_Or_Same (Scope1, Scope2 : Entity_Id) return Boolean;
    --  Determines if the entity Scope1 is the same as Scope2, or if it is
    --  inside it, where both entities represent scopes. Note that scopes
@@ -1783,6 +1800,9 @@ package Sem_Util is
    --
    --    If restriction No_Dynamic_Attachment is set, then it checks that the
    --    entity is not one of the restricted names for this restriction.
+   --
+   --    If restriction No_Long_Long_Integers is set, then it checks that the
+   --    entity is not Standard.Long_Long_Integer.
    --
    --    If restriction No_Implementation_Identifiers is set, then it checks
    --    that the entity is not implementation defined.

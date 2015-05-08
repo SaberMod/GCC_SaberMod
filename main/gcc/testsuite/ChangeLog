@@ -1,3 +1,175 @@
+2014-07-17  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/mips/umips-lwp-1.c (foo): Use a shift/add sequence
+	involving both inputs rather than a multiplication involving one.
+	* gcc.target/mips/umips-lwp-2.c (foo): Likewise.
+	* gcc.target/mips/umips-lwp-3.c (foo): Likewise.
+	* gcc.target/mips/umips-lwp-4.c (foo): Likewise.
+
+2014-07-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50961
+	* g++.dg/template/operator13.C: New.
+
+2014-07-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/simd/vfma_f64.c: New test.
+	* gcc.target/aarch64/simd/vmla_f64.c: Likewise.
+	* gcc.target/aarch64/simd/vfms_f64.c: Likewise.
+	* gcc.target/aarch64/simd/vmls_f64.c: Likewise.
+
+2014-07-17  Max Ostapenko  <m.ostapenko@partner.samsung.com>
+
+	* c-c++-common/ubsan/bounds-2.c: Change output pattern.
+	* c-c++-common/ubsan/bounds-5.c: Likewise.
+	* c-c++-common/ubsan/bounds-6.c: Likewise.
+	* c-c++-common/ubsan/bounds-7.c: Likewise.
+	* c-c++-common/ubsan/float-cast-overflow-1.c: Likewise.
+	* c-c++-common/ubsan/float-cast-overflow-10.c: Likewise.
+	* c-c++-common/ubsan/float-cast-overflow-2.c: Likewise.
+	* c-c++-common/ubsan/float-cast-overflow-3.c: Likewise.
+	* c-c++-common/ubsan/float-cast-overflow-4.c: Likewise.
+	* c-c++-common/ubsan/float-cast-overflow-5.c: Likewise.
+	* c-c++-common/ubsan/float-cast-overflow-6.c: Likewise.
+	* c-c++-common/ubsan/float-cast-overflow-8.c: Likewise.
+	* gcc.dg/ubsan/float-cast-overflow-bf.c: Likewise.
+	* g++.dg/ubsan/float-cast-overflow-bf.C: Likewise.
+
+2014-07-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/simd/vcaled_f64.c: Mark expected value volatile.
+	* gcc.target/aarch64/simd/vcales_f32.c: Likewise.
+	* gcc.target/aarch64/simd/vcaltd_f64.c: Likewise.
+	* gcc.target/aarch64/simd/vcalts_f32.c: Likewise.
+
+2014-07-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/atomic/c11-atomic-exec-5.c (dg-additional-options): Use
+	-mfp-trap-mode=sui instead of -miee-with-inexact for alpha*-*-*.
+	* gfortran.dg/ieee/ieee_1.F90 (dg-additional-options): Ditto.
+
+2014-07-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/61804
+	* g++.dg/parse/pr61804.C: New.
+
+2014-07-16  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat.db/specs/alignment2.ads, gnat.db/specs/size_clause1.ads,
+	gnat.db/specs/size_clause2.ads: Update test case.
+
+2014-07-16  Dodji Seketeli  <dodji@redhat.com>
+
+	PR preprocessor/60723 - missing system-ness marks for macro tokens
+	* gcc.dg/cpp/syshdr{4,5}.{c,h}: New test files.
+
+2014-07-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gfortran.dg/ieee/rounding_1.f90: Rename from ieee_rounding_1.f90.
+	* gfortran.dg/ieee/ieee_1.F90 (dg-additional-options): Add
+	-mieee-with-inexact for alpha*-*-*.
+
+2014-07-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* lib/target-supports.exp (check_effective_target_fenv_exceptions):
+	Add IEEE options to compile flags.
+	* gcc.dg/atomic/c11-atomic-exec-5.c: Ditto.  Add -mieee-with-inexact
+	additional option and lower ITER_COUNT to 100 for alpha*-*-* targets.
+
+2014-07-15  Michael Matz  <matz@suse.de>
+
+	PR rtl-optimization/61772
+	* gcc.dg/torture/pr61772.c: New test.
+
+2014-07-15  Marek Polacek  <polacek@redhat.com>
+
+	* gcc.dg/ubsan/bounds-1.c: New test.
+
+2014-06-15  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/coarray_34.f90: New.
+	* gfortran.dg/coarray_6.f90: Update test case.
+
+2014-07-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61779
+	* gcc.dg/tree-ssa/ssa-copyprop-2.c: New testcase.
+
+2014-07-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61786
+	* gcc.dg/torture/pr61786.c: New testcase.
+	* gcc.dg/lto/pr61786_0.c: Likewise.
+	* gcc.dg/lto/pr61786_1.c: Likewise.
+
+2014-07-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61757
+	PR tree-optimization/61783
+	PR tree-optimization/61787
+	* gcc.dg/torture/pr61757.c: New testcase.
+	* gcc.dg/torture/pr61787.c: Likewise.
+
+2014-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/61294
+	* c-c++-common/Wmemset-transposed-args1.c: New test.
+	* c-c++-common/Wmemset-transposed-args2.c: New test.
+	* g++.dg/warn/Wmemset-transposed-args-1.C: New test.
+
+2014-07-13  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/pr36901.h: Simplify because non-zero symbol folding no
+	longer happens during parsing.
+	* gcc.dg/pr44024.c: Update template.
+	* g++.dg/tree-ssa/nonzero-2.C: New testcase.
+	* g++.dg/tree-ssa/nonzero-1.C: New testcase.
+	* gcc.dg/tree-ssa/nonzero-1.c: New testcase.
+
+2014-07-13  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.target/i386/fuse-caller-save-xmm-run.c: New test.
+	* gcc.target/i386/fuse-caller-save-xmm.c: New test.
+
+2014-07-13  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR C++/60209 - Declaration of user-defined literal operator cause error
+	* g++.dg/cpp0x/pr60209-neg.C: New.
+	* g++.dg/cpp0x/pr60209.C: New.
+	* g++.dg/cpp1y/udlit-empty-string-neg.C: Adjust messages.
+
+2014-07-13  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60967
+	* g++.dg/cilk-plus/pr60967.C: New.
+
+2014-07-13  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/coarray_atomic_4.f90: Avoid using a kind=16 integer.
+
+2014-07-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/61780
+	* gfortran.dg/dependency_44.f90 : New test
+
+2014-07-12  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/coarray_atomic_1.f90: Update dg-error.
+	* gfortran.dg/coarray_atomic_2.f90: New.
+	* gfortran.dg/coarray_atomic_3.f90: New.
+	* gfortran.dg/coarray_atomic_4.f90: New.
+	* gfortran.dg/coarray/atomic_2.f90: New.
+
+2014-07-11  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR c++/57644 - [C++1y] Cannot bind bitfield to lvalue reference
+	* g++.dg/cpp0x/pr57644.C: New.
+
+2014-07-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53159
+	* g++.dg/cpp0x/Wnarrowing1.C: New.
+
 2014-07-11  Andreas Schwab  <schwab@linux-m68k.org>
 
 	PR preprocessor/61389
@@ -79,7 +251,7 @@
 2014-07-09  Edward Smith-Rowland  <3dw4rd@verizon.net>
 
 	PR c++/58155 - -Wliteral-suffix warns about tokens which are skipped
-	g++.dg/cpp0x/pr58155.C: New.
+	* g++.dg/cpp0x/pr58155.C: New.
 
 2014-07-09  Dominique d'Humieres <dominiq@lps.ens.fr>
 
@@ -193,7 +365,7 @@
 	* c-c++-common/sizeof-array-argument.c: New test.
 	* gcc.dg/vla-5.c: Add dg-warnings.
 
-2014-07-05  Jan Hubicka   <hubicka@ucw.cz>
+2014-07-05  Jan Hubicka  <hubicka@ucw.cz>
 
 	* g++.dg/ipa/devirt-26.C: Update testcase.
 	* g++.dg/ipa/imm-devirt-1.C: Update testcase.

@@ -302,17 +302,17 @@ package body Sem_Ch13 is
                        and then CSZ mod System_Storage_Unit = 0
                      then
                         Error_Msg_N
-                          ("multi-byte field specified with non-standard"
-                           & " Bit_Order??", CLC);
+                          ("info: multi-byte field specified with "
+                           & "non-standard Bit_Order?V?", CLC);
 
                         if Bytes_Big_Endian then
                            Error_Msg_N
-                             ("bytes are not reversed "
-                              & "(component is big-endian)??", CLC);
+                             ("\bytes are not reversed "
+                              & "(component is big-endian)?V?", CLC);
                         else
                            Error_Msg_N
-                             ("bytes are not reversed "
-                              & "(component is little-endian)??", CLC);
+                             ("\bytes are not reversed "
+                              & "(component is little-endian)?V?", CLC);
                         end if;
 
                         --  Do not allow non-contiguous field
@@ -338,13 +338,13 @@ package body Sem_Ch13 is
                        and then Warn_On_Reverse_Bit_Order
                      then
                         Error_Msg_N
-                          ("Bit_Order clause does not affect " &
+                          ("info: Bit_Order clause does not affect " &
                            "byte ordering?V?", Pos);
                         Error_Msg_Uint_1 :=
                           Intval (Pos) + Intval (FB) /
                           System_Storage_Unit;
                         Error_Msg_N
-                          ("position normalized to ^ before bit " &
+                          ("info: position normalized to ^ before bit " &
                            "order interpreted?V?", Pos);
                      end if;
 
@@ -431,7 +431,7 @@ package body Sem_Ch13 is
 
                            if Warn_On_Reverse_Bit_Order then
                               Error_Msg_N
-                                ("multi-byte field specified with "
+                                ("info: multi-byte field specified with "
                                  & "  non-standard Bit_Order?V?", CC);
 
                               if Bytes_Big_Endian then
@@ -661,14 +661,12 @@ package body Sem_Ch13 is
 
                            if Bytes_Big_Endian then
                               Error_Msg_NE
-                                ("\big-endian range for "
-                                 & "component & is ^ .. ^?V?",
-                                 First_Bit (CC), Comp);
+                                ("\big-endian range for component "
+                                 & "& is ^ .. ^?V?", First_Bit (CC), Comp);
                            else
                               Error_Msg_NE
-                                ("\little-endian range "
-                                 & "for component & is ^ .. ^?V?",
-                                 First_Bit (CC), Comp);
+                                ("\little-endian range for component"
+                                 & "& is ^ .. ^?V?", First_Bit (CC), Comp);
                            end if;
                         end if;
 
@@ -1158,6 +1156,15 @@ package body Sem_Ch13 is
       --  Establish the linkages between an aspect and its corresponding
       --  pragma. Flag Delayed should be set when both constructs are delayed.
 
+      procedure Insert_After_SPARK_Mode
+        (Prag    : Node_Id;
+         Ins_Nod : Node_Id;
+         Decls   : List_Id);
+      --  Subsidiary to the analysis of aspects Abstract_State, Initializes and
+      --  Initial_Condition. Insert node Prag before node Ins_Nod. If Ins_Nod
+      --  denotes pragma SPARK_Mode, then SPARK_Mode is skipped. Decls is the
+      --  associated declarative list where Prag is to reside.
+
       procedure Insert_Delayed_Pragma (Prag : Node_Id);
       --  Insert a postcondition-like pragma into the tree depending on the
       --  context. Prag must denote one of the following: Pre, Post, Depends,
@@ -1181,6 +1188,37 @@ package body Sem_Ch13 is
          Set_Is_Delayed_Aspect         (Asp,  Delayed);
          Set_Parent                    (Prag, Asp);
       end Decorate_Aspect_And_Pragma;
+
+      -----------------------------
+      -- Insert_After_SPARK_Mode --
+      -----------------------------
+
+      procedure Insert_After_SPARK_Mode
+        (Prag    : Node_Id;
+         Ins_Nod : Node_Id;
+         Decls   : List_Id)
+      is
+         Decl : Node_Id := Ins_Nod;
+
+      begin
+         --  Skip SPARK_Mode
+
+         if Present (Decl)
+           and then Nkind (Decl) = N_Pragma
+           and then Pragma_Name (Decl) = Name_SPARK_Mode
+         then
+            Decl := Next (Decl);
+         end if;
+
+         if Present (Decl) then
+            Insert_Before (Decl, Prag);
+
+         --  Aitem acts as the last declaration
+
+         else
+            Append_To (Decls, Prag);
+         end if;
+      end Insert_After_SPARK_Mode;
 
       ---------------------------
       -- Insert_Delayed_Pragma --
@@ -1659,7 +1697,6 @@ package body Sem_Ch13 is
                --  Corresponds to pragma Implemented, construct the pragma
 
                when Aspect_Synchronization =>
-
                   Make_Aitem_Pragma
                     (Pragma_Argument_Associations => New_List (
                        Make_Pragma_Argument_Association (Loc,
@@ -2007,50 +2044,9 @@ package body Sem_Ch13 is
                --  immediately.
 
                when Aspect_Abstract_State => Abstract_State : declare
-                  procedure Insert_After_SPARK_Mode
-                    (Ins_Nod : Node_Id;
-                     Decls   : List_Id);
-                  --  Insert Aitem before node Ins_Nod. If Ins_Nod denotes
-                  --  pragma SPARK_Mode, then SPARK_Mode is skipped. Decls is
-                  --  the associated declarative list where Aitem is to reside.
-
-                  -----------------------------
-                  -- Insert_After_SPARK_Mode --
-                  -----------------------------
-
-                  procedure Insert_After_SPARK_Mode
-                    (Ins_Nod : Node_Id;
-                     Decls   : List_Id)
-                  is
-                     Decl : Node_Id := Ins_Nod;
-
-                  begin
-                     --  Skip SPARK_Mode
-
-                     if Present (Decl)
-                       and then Nkind (Decl) = N_Pragma
-                       and then Pragma_Name (Decl) = Name_SPARK_Mode
-                     then
-                        Decl := Next (Decl);
-                     end if;
-
-                     if Present (Decl) then
-                        Insert_Before (Decl, Aitem);
-
-                     --  Aitem acts as the last declaration
-
-                     else
-                        Append_To (Decls, Aitem);
-                     end if;
-                  end Insert_After_SPARK_Mode;
-
-                  --  Local variables
-
                   Context : Node_Id := N;
                   Decl    : Node_Id;
                   Decls   : List_Id;
-
-               --  Start of processing for Abstract_State
 
                begin
                   --  When aspect Abstract_State appears on a generic package,
@@ -2080,6 +2076,7 @@ package body Sem_Ch13 is
                      --  inserted after the association renamings.
 
                      if Present (Decls) then
+                        Decl := First (Decls);
 
                         --  The visible declarations of a generic instance have
                         --  the following structure:
@@ -2089,34 +2086,25 @@ package body Sem_Ch13 is
                         --    <first source declaration>
 
                         --  The pragma must be inserted before the first source
-                        --  declaration.
+                        --  declaration, skip the instance "header".
 
                         if Is_Generic_Instance (Defining_Entity (Context)) then
-
-                           --  Skip the instance "header"
-
-                           Decl := First (Decls);
                            while Present (Decl)
                              and then not Comes_From_Source (Decl)
                            loop
                               Decl := Next (Decl);
                            end loop;
-
-                           --  Pragma Abstract_State must be inserted after
-                           --  pragma SPARK_Mode in the tree. This ensures that
-                           --  any error messages dependent on SPARK_Mode will
-                           --  be properly enabled/suppressed.
-
-                           Insert_After_SPARK_Mode (Decl, Decls);
-
-                        --  The related package is not a generic instance, the
-                        --  corresponding pragma must be the first declaration
-                        --  except when SPARK_Mode is already in the list. In
-                        --  that case pragma Abstract_State is placed second.
-
-                        else
-                           Insert_After_SPARK_Mode (First (Decls), Decls);
                         end if;
+
+                        --  Pragma Abstract_State must be inserted after pragma
+                        --  SPARK_Mode in the tree. This ensures that any error
+                        --  messages dependent on SPARK_Mode will be properly
+                        --  enabled/suppressed.
+
+                        Insert_After_SPARK_Mode
+                          (Prag    => Aitem,
+                           Ins_Nod => Decl,
+                           Decls   => Decls);
 
                      --  Otherwise the pragma forms a new declarative list
 
@@ -2211,7 +2199,15 @@ package body Sem_Ch13 is
                         Set_Visible_Declarations (Context, Decls);
                      end if;
 
-                     Prepend_To (Decls, Aitem);
+                     --  When aspects Abstract_State, Initial_Condition and
+                     --  Initializes are out of order, ensure that pragma
+                     --  SPARK_Mode is always at the top of the declarative
+                     --  list to properly enable/suppress errors.
+
+                     Insert_After_SPARK_Mode
+                       (Prag    => Aitem,
+                        Ins_Nod => First (Decls),
+                        Decls   => Decls);
 
                   else
                      Error_Msg_NE
@@ -2233,9 +2229,9 @@ package body Sem_Ch13 is
                   Decls   : List_Id;
 
                begin
-                  --  When aspect Abstract_State appears on a generic package,
-                  --  it is propageted to the package instance. The context in
-                  --  this case is the instance spec.
+                  --  When aspect Initializes appears on a generic package,
+                  --  it is propageted to the package instance. The context
+                  --  in this case is the instance spec.
 
                   if Nkind (Context) = N_Package_Instantiation then
                      Context := Instance_Spec (Context);
@@ -2260,7 +2256,15 @@ package body Sem_Ch13 is
                         Set_Visible_Declarations (Context, Decls);
                      end if;
 
-                     Prepend_To (Decls, Aitem);
+                     --  When aspects Abstract_State, Initial_Condition and
+                     --  Initializes are out of order, ensure that pragma
+                     --  SPARK_Mode is always at the top of the declarative
+                     --  list to properly enable/suppress errors.
+
+                     Insert_After_SPARK_Mode
+                       (Prag    => Aitem,
+                        Ins_Nod => First (Decls),
+                        Decls   => Decls);
 
                   else
                      Error_Msg_NE
@@ -2474,6 +2478,81 @@ package body Sem_Ch13 is
                         goto Continue;
                      end;
                   end if;
+
+               --  Case 2e: Annotate aspect
+
+               when Aspect_Annotate =>
+                  declare
+                     Args  : List_Id;
+                     Pargs : List_Id;
+                     Arg   : Node_Id;
+
+                  begin
+                     --  The argument can be a single identifier
+
+                     if Nkind (Expr) = N_Identifier then
+
+                        --  One level of parens is allowed
+
+                        if Paren_Count (Expr) > 1 then
+                           Error_Msg_F ("extra parentheses ignored", Expr);
+                        end if;
+
+                        Set_Paren_Count (Expr, 0);
+
+                        --  Add the single item to the list
+
+                        Args := New_List (Expr);
+
+                     --  Otherwise we must have an aggregate
+
+                     elsif Nkind (Expr) = N_Aggregate then
+
+                        --  Must be positional
+
+                        if Present (Component_Associations (Expr)) then
+                           Error_Msg_F
+                             ("purely positional aggregate required", Expr);
+                           goto Continue;
+                        end if;
+
+                        --  Must not be parenthesized
+
+                        if Paren_Count (Expr) /= 0 then
+                           Error_Msg_F ("extra parentheses ignored", Expr);
+                        end if;
+
+                        --  List of arguments is list of aggregate expressions
+
+                        Args := Expressions (Expr);
+
+                     --  Anything else is illegal
+
+                     else
+                        Error_Msg_F ("wrong form for Annotate aspect", Expr);
+                        goto Continue;
+                     end if;
+
+                     --  Prepare pragma arguments
+
+                     Pargs := New_List;
+                     Arg := First (Args);
+                     while Present (Arg) loop
+                        Append_To (Pargs,
+                          Make_Pragma_Argument_Association (Sloc (Arg),
+                            Expression => Relocate_Node (Arg)));
+                        Next (Arg);
+                     end loop;
+
+                     Append_To (Pargs,
+                       Make_Pragma_Argument_Association (Sloc (Ent),
+                         Chars      => Name_Entity,
+                         Expression => Ent));
+
+                     Make_Aitem_Pragma
+                       (Pragma_Argument_Associations => Pargs,
+                        Pragma_Name                  => Name_Annotate);
+                  end;
 
                --  Case 3 : Aspects that don't correspond to pragma/attribute
                --  definition clause.
@@ -4346,9 +4425,7 @@ package body Sem_Ch13 is
                     ("static string required for tag name!", Nam);
                end if;
 
-               if VM_Target = No_VM then
-                  Set_Has_External_Tag_Rep_Clause (U_Ent);
-               else
+               if VM_Target /= No_VM then
                   Error_Msg_Name_1 := Attr;
                   Error_Msg_N
                     ("% attribute unsupported in this configuration", Nam);
@@ -6141,6 +6218,11 @@ package body Sem_Ch13 is
       PDecl : Node_Id;
       PBody : Node_Id;
 
+      Nam : Name_Id;
+      --  Name for Check pragma, usually Invariant, but might be Type_Invariant
+      --  if we come from a Type_Invariant aspect, we make sure to build the
+      --  Check pragma with the right name, so that Check_Policy works right.
+
       Visible_Decls : constant List_Id := Visible_Declarations (N);
       Private_Decls : constant List_Id := Private_Declarations (N);
 
@@ -6295,6 +6377,10 @@ package body Sem_Ch13 is
                      --  Loop to find corresponding aspect, note that this
                      --  must be present given the pragma is marked delayed.
 
+                     --  Note: in practice Next_Rep_Item (Ritem) is Empty so
+                     --  this loop does nothing. Furthermore, why isn't this
+                     --  simply Corresponding_Aspect ???
+
                      Aitem := Next_Rep_Item (Ritem);
                      while Present (Aitem) loop
                         if Nkind (Aitem) = N_Aspect_Specification
@@ -6322,7 +6408,7 @@ package body Sem_Ch13 is
                --  analyze the original expression in the aspect specification
                --  because it is part of the original tree.
 
-               if ASIS_Mode then
+               if ASIS_Mode and then From_Aspect_Specification (Ritem) then
                   declare
                      Inv : constant Node_Id :=
                              Expression (Corresponding_Aspect (Ritem));
@@ -6332,13 +6418,22 @@ package body Sem_Ch13 is
                   end;
                end if;
 
+               --  Get name to be used for Check pragma
+
+               if not From_Aspect_Specification (Ritem) then
+                  Nam := Name_Invariant;
+               else
+                  Nam := Chars (Identifier (Corresponding_Aspect (Ritem)));
+               end if;
+
                --  Build first two arguments for Check pragma
 
-               Assoc := New_List (
-                 Make_Pragma_Argument_Association (Loc,
-                   Expression => Make_Identifier (Loc, Name_Invariant)),
-                 Make_Pragma_Argument_Association (Loc,
-                   Expression => Exp));
+               Assoc :=
+                 New_List (
+                   Make_Pragma_Argument_Association (Loc,
+                     Expression => Make_Identifier (Loc, Chars => Nam)),
+                   Make_Pragma_Argument_Association (Loc,
+                     Expression => Exp));
 
                --  Add message if present in Invariant pragma
 
@@ -7577,12 +7672,47 @@ package body Sem_Ch13 is
             when N_Qualified_Expression =>
                return Get_RList (Expression (Exp));
 
+            when N_Case_Expression =>
+            declare
+               Alt     : Node_Id;
+               Choices : List_Id;
+               Dep     : Node_Id;
+
+            begin
+               if not Is_Entity_Name (Expression (Expr))
+                 or else Etype (Expression (Expr)) /= Typ
+               then
+                  Error_Msg_N
+                    ("expression must denaote subtype", Expression (Expr));
+                  return False_Range;
+               end if;
+
+               --  Collect discrete choices in all True alternatives
+
+               Choices := New_List;
+               Alt := First (Alternatives (Exp));
+               while Present (Alt) loop
+                  Dep := Expression (Alt);
+
+                  if not Is_Static_Expression (Dep) then
+                     raise Non_Static;
+
+                  elsif Is_True (Expr_Value (Dep)) then
+                     Append_List_To (Choices,
+                       New_Copy_List (Discrete_Choices (Alt)));
+                  end if;
+
+                  Next (Alt);
+               end loop;
+
+               return Membership_Entries (First (Choices));
+            end;
+
             --  Expression with actions: if no actions, dig out expression
 
             when N_Expression_With_Actions =>
                if Is_Empty_List (Actions (Exp)) then
                   return Get_RList (Expression (Exp));
-
                else
                   raise Non_Static;
                end if;
@@ -7991,6 +8121,11 @@ package body Sem_Ch13 is
       --  All other cases
 
       else
+         --  Indicate that the expression comes from an aspect specification,
+         --  which is used in subsequent analysis even if expansion is off.
+
+         Set_Parent (End_Decl_Expr, ASN);
+
          --  In a generic context the aspect expressions have not been
          --  preanalyzed, so do it now. There are no conformance checks
          --  to perform in this case.
@@ -8010,6 +8145,7 @@ package body Sem_Ch13 is
             and then Is_Private_Type (T)
          then
             Preanalyze_Spec_Expression (End_Decl_Expr, Full_View (T));
+
          else
             Preanalyze_Spec_Expression (End_Decl_Expr, T);
          end if;
@@ -8017,11 +8153,12 @@ package body Sem_Ch13 is
          Err := not Fully_Conformant_Expressions (End_Decl_Expr, Freeze_Expr);
       end if;
 
-      --  Output error message if error
+      --  Output error message if error. Force error on aspect specification
+      --  even if there is an error on the expression itself.
 
       if Err then
          Error_Msg_NE
-           ("visibility of aspect for& changes after freeze point",
+           ("!visibility of aspect for& changes after freeze point",
             ASN, Ent);
          Error_Msg_NE
            ("info: & is frozen here, aspects evaluated at this point??",
@@ -8226,6 +8363,7 @@ package body Sem_Ch13 is
          --  Here is the list of aspects that don't require delay analysis
 
          when Aspect_Abstract_State       |
+              Aspect_Annotate             |
               Aspect_Contract_Cases       |
               Aspect_Dimension            |
               Aspect_Dimension_System     |
@@ -12017,8 +12155,8 @@ package body Sem_Ch13 is
             --  If the alignment of both is specified, we can do it here.
 
             if Serious_Errors_Detected = 0
-              and then Ekind (Source) in Access_Kind
-              and then Ekind (Target) in Access_Kind
+              and then Is_Access_Type (Source)
+              and then Is_Access_Type (Target)
               and then Target_Strict_Alignment
               and then Present (Designated_Type (Source))
               and then Present (Designated_Type (Target))

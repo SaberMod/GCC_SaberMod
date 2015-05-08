@@ -189,7 +189,8 @@ in the following sections.
 -fno-pretty-templates @gol
 -frepo  -fno-rtti  -fstats  -ftemplate-backtrace-limit=@var{n} @gol
 -ftemplate-depth=@var{n} @gol
--fno-threadsafe-statics -fuse-cxa-atexit  -fno-weak  -nostdinc++ @gol
+-fno-threadsafe-statics  -fno-use-all-virtuals  -fuse-cxa-atexit @gol
+-fno-weak  -nostdinc++ @gol
 -fvisibility-inlines-hidden @gol
 -fvtable-verify=@var{std|preinit|none} @gol
 -fvtv-counts -fvtv-debug @gol
@@ -257,9 +258,9 @@ Objective-C and Objective-C++ Dialects}.
 -Wno-int-to-pointer-cast -Wno-invalid-offsetof @gol
 -Winvalid-pch -Wlarger-than=@var{len}  -Wunsafe-loop-optimizations @gol
 -Wlogical-op -Wlogical-not-parentheses -Wlong-long @gol
--Wmain -Wmaybe-uninitialized -Wmissing-braces  -Wmissing-field-initializers @gol
--Wmissing-include-dirs @gol
--Wno-multichar  -Wnonnull  -Wno-overflow -Wopenmp-simd @gol
+-Wmain -Wmaybe-uninitialized -Wmemset-transposed-args -Wmissing-braces @gol
+-Wmissing-field-initializers -Wmissing-include-dirs @gol
+-Wno-multichar  -Wnonnull  -Wodr  -Wno-overflow  -Wopenmp-simd @gol
 -Woverlength-strings  -Wpacked  -Wpacked-bitfield-compat  -Wpadded @gol
 -Wparentheses  -Wpedantic-ms-format -Wno-pedantic-ms-format @gol
 -Wpointer-arith  -Wno-pointer-to-int-cast @gol
@@ -472,7 +473,7 @@ Objective-C and Objective-C++ Dialects}.
 -static-libasan -static-libtsan -static-liblsan -static-libubsan @gol
 -shared -shared-libgcc  -symbolic @gol
 -T @var{script}  -Wl,@var{option}  -Xlinker @var{option} @gol
--u @var{symbol}}
+-u @var{symbol} -z @var{keyword}}
 
 @item Directory Options
 @xref{Directory Options,,Options for Directory Search}.
@@ -2335,6 +2336,16 @@ Do not emit the extra code to use the routines specified in the C++
 ABI for thread-safe initialization of local statics.  You can use this
 option to reduce code size slightly in code that doesn't need to be
 thread-safe.
+
+@item -fno-use-all-virtuals
+@opindex fno-use-all-virtuals
+By default, G++ now treats all virtual functions declared in a
+translation unit as odr-used, so they will be instantiated or
+synthesized if possible even if they are not needed for the final
+output.  This is done so that such functions can be inlined after
+devirtualization changes an indirect call into a direct call.  If this
+instantiation and synthesis prevents your code from compiling
+successfully, you can disable it with this option.
 
 @item -fuse-cxa-atexit
 @opindex fuse-cxa-atexit
@@ -4813,6 +4824,18 @@ Warn when the @code{sizeof} operator is applied to a parameter that is
 declared as an array in a function definition.  This warning is enabled by
 default for C and C++ programs.
 
+@item -Wmemset-transposed-args
+@opindex Wmemset-transposed-args
+@opindex Wno-memset-transposed-args
+Warn for suspicious calls to the @code{memset} built-in function, if the
+second argument is not zero and the third argument is zero.  This warns e.g.@
+about @code{memset (buf, sizeof buf, 0)} where most probably
+@code{memset (buf, 0, sizeof buf)} was meant instead.  The diagnostics
+is only emitted if the third argument is literal zero, if it is some expression
+that is folded to zero, or e.g. a cast of zero to some type etc., it
+is far less likely that user has mistakenly exchanged the arguments and
+no warning is emitted.  This warning is enabled by @option{-Wall}.
+
 @item -Waddress
 @opindex Waddress
 @opindex Wno-address
@@ -5033,6 +5056,12 @@ attribute.
 @opindex Wno-overflow
 @opindex Woverflow
 Do not warn about compile-time overflow in constant expressions.
+
+@opindex Wodr
+@opindex Wno-odr
+@opindex Wodr
+Warn about One Definition Rule violations during link time optimization.
+Require @option{-flto-odr-type-merging} to be enabled. Enabled by default
 
 @item -Wopenmp-simd
 @opindex Wopenm-simd
@@ -10921,6 +10950,12 @@ linker.  When using the GNU linker, you can also get the same effect with
 Pretend the symbol @var{symbol} is undefined, to force linking of
 library modules to define it.  You can use @option{-u} multiple times with
 different symbols to force loading of additional library modules.
+
+@item -z @var{keyword}
+@opindex z
+@option{-z} is passed directly on to the linker along with the keyword
+@var{keyword}. See the section in the documentation of your linker for
+permitted values and their meanings.
 @end table
 
 @node Directory Options

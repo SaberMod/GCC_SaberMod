@@ -1185,10 +1185,11 @@ package body Sem_Ch3 is
       if Present (Formals) then
          Push_Scope (Desig_Type);
 
-         --  A bit of a kludge here. These kludges will be removed when Itypes
-         --  have proper parent pointers to their declarations???
+         --  Some special tests here. These special tests can be removed
+         --  if and when Itypes always have proper parent pointers to their
+         --  declarations???
 
-         --  Kludge 1) Link defining_identifier of formals. Required by
+         --  Special test 1) Link defining_identifier of formals. Required by
          --  First_Formal to provide its functionality.
 
          declare
@@ -1224,8 +1225,8 @@ package body Sem_Ch3 is
 
          Process_Formals (Formals, Parent (T_Def));
 
-         --  Kludge 2) End_Scope requires that the parent pointer be set to
-         --  something reasonable, but Itypes don't have parent pointers. So
+         --  Special test 2) End_Scope requires that the parent pointer be set
+         --  to something reasonable, but Itypes don't have parent pointers. So
          --  we set it and then unset it ???
 
          Set_Parent (Desig_Type, T_Name);
@@ -4369,8 +4370,8 @@ package body Sem_Ch3 is
       --  If ancestor has predicates then so does the subtype, and in addition
       --  we must delay the freeze to properly arrange predicate inheritance.
 
-      --  The Ancestor_Type test is a big kludge, there seem to be cases in
-      --  which T = ID, so the above tests and assignments do nothing???
+      --  The Ancestor_Type test is really unpleasant, there seem to be cases
+      --  in which T = ID, so the above tests and assignments do nothing???
 
       if Has_Predicates (T)
         or else (Present (Ancestor_Subtype (T))
@@ -11220,7 +11221,7 @@ package body Sem_Ch3 is
               or else Is_Incomplete_Or_Private_Type (Desig_Type))
         and then not Is_Constrained (Desig_Type)
       then
-         --  ??? The following code is a temporary kludge to ignore a
+         --  ??? The following code is a temporary bypass to ignore a
          --  discriminant constraint on access type if it is constraining
          --  the current record. Avoid creating the implicit subtype of the
          --  record we are currently compiling since right now, we cannot
@@ -11400,7 +11401,7 @@ package body Sem_Ch3 is
    begin
       T := Entity (Subtype_Mark (SI));
 
-      if Ekind (T) in Access_Kind then
+      if Is_Access_Type (T) then
          T := Designated_Type (T);
       end if;
 
@@ -11950,7 +11951,7 @@ package body Sem_Ch3 is
       T_Val : Entity_Id;
 
    begin
-      if Ekind (T_Ent) in Access_Kind then
+      if Is_Access_Type (T_Ent) then
          T_Ent := Designated_Type (T_Ent);
       end if;
 
@@ -12154,7 +12155,7 @@ package body Sem_Ch3 is
 
       T := Base_Type (Entity (Subtype_Mark (S)));
 
-      if Ekind (T) in Access_Kind then
+      if Is_Access_Type (T) then
          T := Designated_Type (T);
       end if;
 
@@ -15567,6 +15568,16 @@ package body Sem_Ch3 is
                Prev_Par := Parent (Prev);
             end if;
 
+            if Nkind (N) = N_Full_Type_Declaration
+              and then Nkind_In
+                         (Type_Definition (N), N_Record_Definition,
+                                               N_Derived_Type_Definition)
+              and then Interface_Present (Type_Definition (N))
+            then
+               Error_Msg_N
+                 ("completion of private type cannot be an interface", N);
+            end if;
+
             if Nkind (Parent (Prev)) /= N_Private_Extension_Declaration then
                if Etype (Prev) /= Prev then
 
@@ -15596,15 +15607,6 @@ package body Sem_Ch3 is
                         ("completion of tagged private type must be tagged",
                          N);
                   end if;
-
-               elsif Nkind (N) = N_Full_Type_Declaration
-                 and then Nkind_In
-                            (Type_Definition (N), N_Record_Definition,
-                                                  N_Derived_Type_Definition)
-                 and then Interface_Present (Type_Definition (N))
-               then
-                  Error_Msg_N
-                    ("completion of private type cannot be an interface", N);
                end if;
 
             --  Ada 2005 (AI-251): Private extension declaration of a task
@@ -17443,6 +17445,10 @@ package body Sem_Ch3 is
          M_Val := 2 ** System_Max_Binary_Modulus_Power;
       end if;
 
+      if M_Val > 2 ** Standard_Long_Integer_Size then
+         Check_Restriction (No_Long_Long_Integers, Mod_Expr);
+      end if;
+
       Set_Modulus (T, M_Val);
 
       --   Create bounds for the modular type based on the modulus given in
@@ -18753,7 +18759,7 @@ package body Sem_Ch3 is
       if Known_To_Have_Preelab_Init (Priv_T) then
 
          --  Case where there is a pragma Preelaborable_Initialization. We
-         --  always allow this in predefined units, which is a bit of a kludge,
+         --  always allow this in predefined units, which is cheating a bit,
          --  but it means we don't have to struggle to meet the requirements in
          --  the RM for having Preelaborable Initialization. Otherwise we
          --  require that the type meets the RM rules. But we can't check that
@@ -20620,6 +20626,7 @@ package body Sem_Ch3 is
             Base_Typ := Base_Type (Standard_Long_Integer);
 
          elsif Can_Derive_From (Standard_Long_Long_Integer) then
+            Check_Restriction (No_Long_Long_Integers, Def);
             Base_Typ := Base_Type (Standard_Long_Long_Integer);
 
          else

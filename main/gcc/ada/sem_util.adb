@@ -41,7 +41,6 @@ with Namet.Sp; use Namet.Sp;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Output;   use Output;
-with Opt;      use Opt;
 with Restrict; use Restrict;
 with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
@@ -1290,18 +1289,43 @@ package body Sem_Util is
    --  Start of processing for Build_Elaboration_Entity
 
    begin
-      --  Ignore if already constructed
+      --  Ignore call if already constructed
 
       if Present (Elaboration_Entity (Spec_Id)) then
          return;
-      end if;
 
       --  Ignore in ASIS mode, elaboration entity is not in source and plays
       --  no role in analysis.
 
-      if ASIS_Mode then
+      elsif ASIS_Mode then
+         return;
+
+      --  See if we need elaboration entity. We always need it for the dynamic
+      --  elaboration model, since it is needed to properly generate the PE
+      --  exception for access before elaboration.
+
+      elsif Dynamic_Elaboration_Checks then
+         null;
+
+      --  For the static model, we don't need the elaboration counter if this
+      --  unit is sure to have no elaboration code, since that means there
+      --  is no elaboration unit to be called. Note that we can't just decide
+      --  after the fact by looking to see whether there was elaboration code,
+      --  because that's too late to make this decision.
+
+      elsif Restriction_Active (No_Elaboration_Code) then
+         return;
+
+      --  Similarly, for the static model, we can skip the elaboration counter
+      --  if we have the No_Multiple_Elaboration restriction, since for the
+      --  static model, that's the only purpose of the counter (to avoid
+      --  multiple elaboration).
+
+      elsif Restriction_Active (No_Multiple_Elaboration) then
          return;
       end if;
+
+      --  Here we need the elaboration entity
 
       --  Construct name of elaboration entity as xxx_E, where xxx is the unit
       --  name with dots replaced by double underscore. We have to manually
@@ -1352,8 +1376,8 @@ package body Sem_Util is
       Disc : Entity_Id)
    is
       Loc : constant Source_Ptr := Sloc (Expr);
-   begin
 
+   begin
       --  An entity of a type with a reference aspect is overloaded with
       --  both interpretations: with and without the dereference. Now that
       --  the dereference is made explicit, set the type of the node properly,
@@ -1368,6 +1392,17 @@ package body Sem_Util is
       end if;
 
       Set_Is_Overloaded (Expr, False);
+
+      --  The expression will often be a generalized indexing that yields a
+      --  container element that is then dereferenced, in which case the
+      --  generalized indexing call is also non-overloaded.
+
+      if Nkind (Expr) = N_Indexed_Component
+        and then Present (Generalized_Indexing (Expr))
+      then
+         Set_Is_Overloaded (Generalized_Indexing (Expr), False);
+      end if;
+
       Rewrite (Expr,
         Make_Explicit_Dereference (Loc,
           Prefix =>
@@ -5045,6 +5080,7 @@ package body Sem_Util is
          --  visibility list (see below).
 
          elsif Nkind (Parent (Def_Id)) = N_Full_Type_Declaration
+           and then Ekind (Def_Id) = E_Record_Type
            and then Present (Corresponding_Remote_Type (Def_Id))
          then
             null;
@@ -7430,7 +7466,14 @@ package body Sem_Util is
                   while Present (Prop) loop
                      Prop_Nam := First (Choices (Prop));
 
-                     if Chars (Prop_Nam) = Property then
+                     --  The property can be represented in two ways:
+                     --      others   => <value>
+                     --    <property> => <value>
+
+                     if Nkind (Prop_Nam) = N_Others_Choice
+                       or else (Nkind (Prop_Nam) = N_Identifier
+                                  and then Chars (Prop_Nam) = Property)
+                     then
                         return Is_True (Expr_Value (Expression (Prop)));
                      end if;
 
@@ -9718,7 +9761,7 @@ package body Sem_Util is
          return True;
       end if;
 
-      if Ekind (T) not in Access_Kind then
+      if not Is_Access_Type (T) then
 
          --  A delegate is a managed pointer. If no designated type is defined
          --  it means that it's not a delegate.
@@ -11865,8 +11908,11 @@ package body Sem_Util is
                return Is_Variable_Prefix (Prefix (Orig_Node));
 
             when N_Selected_Component =>
-               return Is_Variable_Prefix (Prefix (Orig_Node))
-                 and then Is_Variable (Selector_Name (Orig_Node));
+               return (Is_Variable (Selector_Name (Orig_Node))
+                        and then Is_Variable_Prefix (Prefix (Orig_Node)))
+                 or else
+                   (Nkind (N) = N_Expanded_Name
+                     and then Scope (Entity (N)) = Entity (Prefix (N)));
 
             --  For an explicit dereference, the type of the prefix cannot
             --  be an access to constant or an access to subprogram.
@@ -14623,6 +14669,7 @@ package body Sem_Util is
 
       return Name;
    end Original_Aspect_Name;
+
    --------------------------------------
    -- Original_Corresponding_Operation --
    --------------------------------------
@@ -15313,6 +15360,15 @@ package body Sem_Util is
       Reset_Analyzed (N);
    end Reset_Analyzed_Flags;
 
+   ------------------------
+   -- Restore_SPARK_Mode --
+   ------------------------
+
+   procedure Restore_SPARK_Mode (Mode : SPARK_Mode_Type) is
+   begin
+      SPARK_Mode := Mode;
+   end Restore_SPARK_Mode;
+
    --------------------------------
    -- Returns_Unconstrained_Type --
    --------------------------------
@@ -15324,6 +15380,24 @@ package body Sem_Util is
         and then not Is_Access_Type (Etype (Subp))
         and then not Is_Constrained (Etype (Subp));
    end Returns_Unconstrained_Type;
+
+   ----------------------------
+   -- Root_Type_Of_Full_View --
+   ----------------------------
+
+   function Root_Type_Of_Full_View (T : Entity_Id) return Entity_Id is
+      Rtyp : constant Entity_Id := Root_Type (T);
+
+   begin
+      --  The root type of the full view may itself be a private type. Keep
+      --  looking for the ultimate derivation parent.
+
+      if Is_Private_Type (Rtyp) and then Present (Full_View (Rtyp)) then
+         return Root_Type_Of_Full_View (Full_View (Rtyp));
+      else
+         return Rtyp;
+      end if;
+   end Root_Type_Of_Full_View;
 
    ---------------------------
    -- Safe_To_Capture_Value --
@@ -15615,6 +15689,29 @@ package body Sem_Util is
          return False;
       end if;
    end Same_Value;
+
+   -----------------------------
+   -- Save_SPARK_Mode_And_Set --
+   -----------------------------
+
+   procedure Save_SPARK_Mode_And_Set
+     (Context : Entity_Id;
+      Mode    : out SPARK_Mode_Type)
+   is
+   begin
+      --  Save the current mode in effect
+
+      Mode := SPARK_Mode;
+
+      --  Do not consider illegal or partially decorated constructs
+
+      if Ekind (Context) = E_Void or else Error_Posted (Context) then
+         null;
+
+      elsif Present (SPARK_Pragma (Context)) then
+         SPARK_Mode := Get_SPARK_Mode_From_Pragma (SPARK_Pragma (Context));
+      end if;
+   end Save_SPARK_Mode_And_Set;
 
    ------------------------
    -- Scope_Is_Transient --
@@ -15926,6 +16023,10 @@ package body Sem_Util is
         and then not In_Same_Extended_Unit (N, Val)
       then
          Check_Restriction (No_Abort_Statements, Post_Node);
+      end if;
+
+      if Val = Standard_Long_Long_Integer then
+         Check_Restriction (No_Long_Long_Integers, Post_Node);
       end if;
 
       --  Check for violation of No_Dynamic_Attachment
@@ -16429,7 +16530,7 @@ package body Sem_Util is
       --  the cases of access parameters, return objects of an anonymous access
       --  type, and, in Ada 95, access discriminants of limited types.
 
-      if Ekind (Btyp) in Access_Kind then
+      if Is_Access_Type (Btyp) then
          if Ekind (Btyp) = E_Anonymous_Access_Type then
 
             --  If the type is a nonlocal anonymous access type (such as for

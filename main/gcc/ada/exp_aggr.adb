@@ -1952,13 +1952,13 @@ package body Exp_Aggr is
                         Assoc := Expression (Assoc);
                      end if;
 
-                     --  If the located association directly denotes a
-                     --  discriminant, then use the value of a saved
-                     --  association of the aggregate. This is a kludge to
-                     --  handle certain cases involving multiple discriminants
-                     --  mapped to a single discriminant of a descendant. It's
-                     --  not clear how to locate the appropriate discriminant
-                     --  value for such cases. ???
+                     --  If the located association directly denotes
+                     --  a discriminant, then use the value of a saved
+                     --  association of the aggregate. This is an approach
+                     --  used to handle certain cases involving multiple
+                     --  discriminants mapped to a single discriminant of
+                     --  a descendant. It's not clear how to locate the
+                     --  appropriate discriminant value for such cases. ???
 
                      if Is_Entity_Name (Assoc)
                        and then Ekind (Entity (Assoc)) = E_Discriminant
@@ -3033,7 +3033,7 @@ package body Exp_Aggr is
       Loc          : constant Source_Ptr := Sloc (N);
       Init_Actions : constant List_Id    := New_List;
       Init_Node    : Node_Id;
-      EA           : Node_Id;
+      Comp_Stmt    : Node_Id;
 
    begin
       --  Nothing to do if Obj is already frozen, as in this case we known we
@@ -3049,12 +3049,9 @@ package body Exp_Aggr is
       end loop;
 
       if not Is_Empty_List (Init_Actions) then
-         EA :=
-           Make_Expression_With_Actions (Loc,
-             Actions    => Init_Actions,
-             Expression => Make_Null_Statement (Loc));
-         Insert_Action_After (Init_Node, EA);
-         Set_Initialization_Statements (Obj, EA);
+         Comp_Stmt := Make_Compound_Statement (Loc, Actions => Init_Actions);
+         Insert_Action_After (Init_Node, Comp_Stmt);
+         Set_Initialization_Statements (Obj, Comp_Stmt);
       end if;
    end Collect_Initialization_Statements;
 
@@ -5238,7 +5235,17 @@ package body Exp_Aggr is
              Scalar_Comp => Is_Scalar_Type (Ctyp));
       end;
 
-      if Comes_From_Source (Tmp) then
+      --  If the aggregate is the expression in a declaration, the expanded
+      --  code must be inserted after it. The defining entity might not come
+      --  from source if this is part of an inlined body, but the declaration
+      --  itself will.
+
+      if Comes_From_Source (Tmp)
+        or else
+          (Nkind (Parent (N)) = N_Object_Declaration
+            and then Comes_From_Source (Parent (N))
+            and then Tmp = Defining_Entity (Parent (N)))
+      then
          declare
             Node_After : constant Node_Id := Next (Parent_Node);
 
