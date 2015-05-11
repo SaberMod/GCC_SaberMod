@@ -39,6 +39,9 @@ along with GCC; see the file COPYING3.  If not see
   "%{!msoft-float: %{!msingle-float: %{!mfp*: %{!mmsa: %{mabi=32: %{"	\
   MIPS_FPXX_OPTION_SPEC ": -mfpxx}}}}}}",				\
 									\
+  /* If no odd-spreg option is specified, infer one from the ISA.  */	\
+  "%{!modd-spreg: %{mabi=32: %{mips32r6: -mno-odd-spreg}}}",		\
+									\
   /* Base SPECs.  */							\
   BASE_DRIVER_SELF_SPECS,						\
 									\
