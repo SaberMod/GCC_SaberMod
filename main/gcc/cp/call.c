@@ -6862,13 +6862,13 @@ mark_versions_used (tree fn)
 
   gcc_assert (TREE_CODE (fn) == FUNCTION_DECL);
 
-  node = cgraph_get_node (fn);
+  node = cgraph_node::get (fn);
   if (node == NULL)
     return;
 
   gcc_assert (node->dispatcher_function);
 
-  node_v = get_cgraph_node_version (node);
+  node_v = node->function_version ();
   if (node_v == NULL)
     return;
 
@@ -9431,7 +9431,7 @@ make_temporary_var_for_ref_to_temp (tree decl, tree type)
       TREE_STATIC (var) = TREE_STATIC (decl);
       /* Capture the current module info for statics.  */
       if (L_IPO_COMP_MODE && TREE_STATIC (var))
-        varpool_node_for_decl (var);
+        varpool_node::get_create (var);
       set_decl_tls_model (var, DECL_TLS_MODEL (decl));
       name = mangle_ref_init_variable (decl);
       DECL_NAME (var) = name;

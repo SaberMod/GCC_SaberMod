@@ -605,7 +605,7 @@ cp_save_built_in_decl_post_parsing (void)
       if (!TREE_STATIC (bi->decl) || DECL_ARTIFICIAL (bi->decl))
        	continue;
       /* Remember the defining module.  */
-      cgraph_link_node (cgraph_get_create_node (bi->decl));
+      cgraph_link_node (cgraph_node::get_create (bi->decl));
       if (!bi->decl_fini_copy)
         bi->decl_fini_copy = lipo_save_decl (bi->decl);
       else

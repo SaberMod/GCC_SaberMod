@@ -139,6 +139,9 @@ tree_is_indexable (tree t)
      definition.  */
   if (TREE_CODE (t) == PARM_DECL || TREE_CODE (t) == RESULT_DECL)
     return variably_modified_type_p (TREE_TYPE (DECL_CONTEXT (t)), NULL_TREE);
+  /* IMPORTED_DECL is put into BLOCK and thus it never can be shared.  */
+  else if (TREE_CODE (t) == IMPORTED_DECL)
+    return false;
   else if (((TREE_CODE (t) == VAR_DECL && !TREE_STATIC (t))
 	    || TREE_CODE (t) == TYPE_DECL
 	    || TREE_CODE (t) == CONST_DECL
@@ -335,7 +338,7 @@ get_symbol_initial_value (lto_symtab_encoder_t encoder, tree expr)
       /* Extra section needs about 30 bytes; do not produce it for simple
 	 scalar values.  */
       if (TREE_CODE (DECL_INITIAL (expr)) == CONSTRUCTOR
-	  || !(vnode = varpool_get_node (expr))
+	  || !(vnode = varpool_node::get (expr))
 	  || !lto_symtab_encoder_encode_initializer_p (encoder, vnode))
         initial = error_mark_node;
     }
@@ -2316,10 +2319,10 @@ write_symbol (struct streamer_tree_cache_d *cache,
 
       /* When something is defined, it should have node attached.  */
       gcc_assert (alias || TREE_CODE (t) != VAR_DECL
-		  || varpool_get_node (t)->definition);
+		  || varpool_node::get (t)->definition);
       gcc_assert (alias || TREE_CODE (t) != FUNCTION_DECL
-		  || (cgraph_get_node (t)
-		      && cgraph_get_node (t)->definition));
+		  || (cgraph_node::get (t)
+		      && cgraph_node::get (t)->definition));
     }
 
   /* Imitate what default_elf_asm_output_external do.
@@ -2377,7 +2380,7 @@ bool
 output_symbol_p (symtab_node *node)
 {
   struct cgraph_node *cnode;
-  if (!symtab_real_symbol_p (node))
+  if (!node->real_symbol_p ())
     return false;
   /* We keep external functions in symtab for sake of inlining
      and devirtualization.  We do not want to see them in symbol table as

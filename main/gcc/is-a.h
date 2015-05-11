@@ -174,6 +174,7 @@ is_a (U *p)
   return is_a_helper<T>::test (p);
 }
 
+
 /* A generic conversion from a base type U to a derived type T.  See the
    discussion above for when to use this function.  */
 

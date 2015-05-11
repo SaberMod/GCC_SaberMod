@@ -604,7 +604,7 @@ decl_assembler_name (tree decl)
 tree
 decl_comdat_group (const_tree node)
 {
-  struct symtab_node *snode = symtab_get_node (node);
+  struct symtab_node *snode = symtab_node::get (node);
   if (!snode)
     return NULL;
   return snode->get_comdat_group ();
@@ -614,7 +614,7 @@ decl_comdat_group (const_tree node)
 tree
 decl_comdat_group_id (const_tree node)
 {
-  struct symtab_node *snode = symtab_get_node (node);
+  struct symtab_node *snode = symtab_node::get (node);
   if (!snode)
     return NULL;
   return snode->get_comdat_group_id ();
@@ -625,7 +625,7 @@ decl_comdat_group_id (const_tree node)
 const char *
 decl_section_name (const_tree node)
 {
-  struct symtab_node *snode = symtab_get_node (node);
+  struct symtab_node *snode = symtab_node::get (node);
   if (!snode)
     return NULL;
   return snode->get_section ();
@@ -640,14 +640,14 @@ set_decl_section_name (tree node, const char *value)
 
   if (value == NULL)
     {
-      snode = symtab_get_node (node);
+      snode = symtab_node::get (node);
       if (!snode)
 	return;
     }
   else if (TREE_CODE (node) == VAR_DECL)
-    snode = varpool_node_for_decl (node);
+    snode = varpool_node::get_create (node);
   else
-    snode = cgraph_get_create_node (node);
+    snode = cgraph_node::get_create (node);
   snode->set_section (value);
 }
 
@@ -655,7 +655,7 @@ set_decl_section_name (tree node, const char *value)
 enum tls_model
 decl_tls_model (const_tree node)
 {
-  struct varpool_node *snode = varpool_get_node (node);
+  struct varpool_node *snode = varpool_node::get (node);
   if (!snode)
     return TLS_MODEL_NONE;
   return snode->tls_model;
@@ -669,12 +669,12 @@ set_decl_tls_model (tree node, enum tls_model model)
 
   if (model == TLS_MODEL_NONE)
     {
-      vnode = varpool_get_node (node);
+      vnode = varpool_node::get (node);
       if (!vnode)
 	return;
     }
   else
-    vnode = varpool_node_for_decl (node);
+    vnode = varpool_node::get_create (node);
   vnode->tls_model = model;
 }
 
@@ -5063,7 +5063,7 @@ need_assembler_name_p (tree decl)
 	return false;
 
       /* Functions represented in the callgraph need an assembler name.  */
-      if (cgraph_get_node (decl) != NULL)
+      if (cgraph_node::get (decl) != NULL)
 	return true;
 
       /* Unused and not public functions don't need an assembler name.  */
@@ -5106,11 +5106,11 @@ free_lang_data_in_decl (tree decl)
  if (TREE_CODE (decl) == FUNCTION_DECL)
     {
       struct cgraph_node *node;
-      if (!(node = cgraph_get_node (decl))
+      if (!(node = cgraph_node::get (decl))
 	  || (!node->definition && !node->clones))
 	{
 	  if (node)
-	    cgraph_release_function_body (node);
+	    node->release_body ();
 	  else
 	    {
 	      release_function_body (decl);
@@ -6489,7 +6489,7 @@ tree_decl_map_hash (const void *item)
 priority_type
 decl_init_priority_lookup (tree decl)
 {
-  symtab_node *snode = symtab_get_node (decl);
+  symtab_node *snode = symtab_node::get (decl);
 
   if (!snode)
     return DEFAULT_INIT_PRIORITY;
@@ -6502,7 +6502,7 @@ decl_init_priority_lookup (tree decl)
 priority_type
 decl_fini_priority_lookup (tree decl)
 {
-  cgraph_node *node = cgraph_get_node (decl);
+  cgraph_node *node = cgraph_node::get (decl);
 
   if (!node)
     return DEFAULT_INIT_PRIORITY;
@@ -6519,14 +6519,14 @@ decl_init_priority_insert (tree decl, priority_type priority)
 
   if (priority == DEFAULT_INIT_PRIORITY)
     {
-      snode = symtab_get_node (decl);
+      snode = symtab_node::get (decl);
       if (!snode)
 	return;
     }
   else if (TREE_CODE (decl) == VAR_DECL)
-    snode = varpool_node_for_decl (decl);
+    snode = varpool_node::get_create (decl);
   else
-    snode = cgraph_get_create_node (decl);
+    snode = cgraph_node::get_create (decl);
   snode->set_init_priority (priority);
 }
 
@@ -6539,12 +6539,12 @@ decl_fini_priority_insert (tree decl, priority_type priority)
 
   if (priority == DEFAULT_INIT_PRIORITY)
     {
-      node = cgraph_get_node (decl);
+      node = cgraph_node::get (decl);
       if (!node)
 	return;
     }
   else
-    node = cgraph_get_create_node (decl);
+    node = cgraph_node::get_create (decl);
   node->set_fini_priority (priority);
 }
 

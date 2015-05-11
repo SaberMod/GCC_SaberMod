@@ -1301,8 +1301,8 @@ init_node_map (bool local)
     return;
 
   FOR_EACH_DEFINED_FUNCTION (n)
-    if (cgraph_function_with_gimple_body_p (n)
-	&& !cgraph_only_called_directly_p (n))
+    if (n->has_gimple_body_p ()
+	&& !n->only_called_directly_p ())
       {
 	void **val;
 	if (local)

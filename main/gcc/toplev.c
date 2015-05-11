@@ -406,7 +406,7 @@ wrapup_global_declaration_2 (tree decl)
     {
       varpool_node *node;
       bool needed = true;
-      node = varpool_get_node (decl);
+      node = varpool_node::get (decl);
 
       if (!node && flag_ltrans)
 	needed = false;
@@ -1068,16 +1068,19 @@ output_stack_usage (void)
 
   if (warn_stack_usage >= 0)
     {
+      const location_t loc = DECL_SOURCE_LOCATION (current_function_decl);
+
       if (stack_usage_kind == DYNAMIC)
-	warning (OPT_Wstack_usage_, "stack usage might be unbounded");
+	warning_at (loc, OPT_Wstack_usage_, "stack usage might be unbounded");
       else if (stack_usage > warn_stack_usage)
 	{
 	  if (stack_usage_kind == DYNAMIC_BOUNDED)
-	    warning (OPT_Wstack_usage_, "stack usage might be %wd bytes",
-		     stack_usage);
+	    warning_at (loc,
+			OPT_Wstack_usage_, "stack usage might be %wd bytes",
+			stack_usage);
 	  else
-	    warning (OPT_Wstack_usage_, "stack usage is %wd bytes",
-		     stack_usage);
+	    warning_at (loc, OPT_Wstack_usage_, "stack usage is %wd bytes",
+			stack_usage);
 	}
     }
 }

@@ -167,7 +167,7 @@ init_ic_make_global_vars (void)
   if (targetm.have_tls)
     set_decl_tls_model (ic_void_ptr_var, decl_default_tls_model (ic_void_ptr_var));
 
-  varpool_finalize_decl (ic_void_ptr_var);
+	varpool_node::finalize_decl (ic_void_ptr_var);
 
   gcov_type_ptr = build_pointer_type (get_gcov_type ());
   /* Workaround for binutils bug 14342.  Once it is fixed, remove lto path.  */
@@ -197,14 +197,14 @@ init_ic_make_global_vars (void)
   if (targetm.have_tls)
     set_decl_tls_model (ic_gcov_type_ptr_var, decl_default_tls_model (ic_gcov_type_ptr_var));
 
-  varpool_finalize_decl (ic_gcov_type_ptr_var);
+	varpool_node::finalize_decl (ic_gcov_type_ptr_var);
 
    } /* Indentation not fixed intentionally.  */
 
   if (!flag_dyn_ipa)
     {
-      varpool_finalize_decl (ic_void_ptr_var);
-      varpool_finalize_decl (ic_gcov_type_ptr_var);
+			varpool_node::finalize_decl (ic_void_ptr_var);
+			varpool_node::finalize_decl (ic_gcov_type_ptr_var);
     }
 }
 
@@ -418,14 +418,14 @@ init_comdat_decl (tree decl, int param)
   DECL_ARTIFICIAL (decl) = 1;
   TREE_STATIC (decl) = 1;
   if (TREE_CODE (decl) == VAR_DECL)
-    symbol = varpool_node_for_decl (decl);
+    symbol = varpool_node::get_create (decl);
   else
-    symbol = cgraph_get_create_node (decl);
+    symbol = cgraph_node::get_create (decl);
 	symbol->set_comdat_group (DECL_ASSEMBLER_NAME (decl));
   DECL_INITIAL (decl) = build_int_cst (
       get_gcov_unsigned_t (),
       PARAM_VALUE (param));
-  varpool_finalize_decl (decl);
+	varpool_node::finalize_decl (decl);
 }
 
 /* Initialization function for LIPO runtime parameters.  */
@@ -544,7 +544,7 @@ tree_init_instrumentation (void)
                            prefix_string);
 
       DECL_INITIAL (gcov_profile_prefix_decl) = prefix_ptr;
-      varpool_finalize_decl (gcov_profile_prefix_decl);
+			varpool_node::finalize_decl (gcov_profile_prefix_decl);
     }
 }
 
@@ -568,12 +568,12 @@ tree_init_instrumentation_sampling (void)
       DECL_ARTIFICIAL (gcov_sampling_period_decl) = 1;
       TREE_STATIC (gcov_sampling_period_decl) = 1;
 			symtab_node *symbol;
-      symbol = varpool_node_for_decl (gcov_sampling_period_decl);
+      symbol = varpool_node::get_create (gcov_sampling_period_decl);
 			symbol->set_comdat_group (DECL_ASSEMBLER_NAME (gcov_sampling_period_decl));
       DECL_INITIAL (gcov_sampling_period_decl) = build_int_cst (
           get_gcov_unsigned_t (),
           PARAM_VALUE (PARAM_PROFILE_GENERATE_SAMPLING_PERIOD));
-      varpool_finalize_decl (gcov_sampling_period_decl);
+			varpool_node::finalize_decl (gcov_sampling_period_decl);
     }
 
   if (!gcov_has_sampling_decl)
@@ -590,12 +590,12 @@ tree_init_instrumentation_sampling (void)
       DECL_ARTIFICIAL (gcov_has_sampling_decl) = 1;
       TREE_STATIC (gcov_has_sampling_decl) = 1;
 			symtab_node *symbol;
-	    symbol = varpool_node_for_decl (gcov_has_sampling_decl);
+	    symbol = varpool_node::get_create (gcov_has_sampling_decl);
 			symbol->set_comdat_group (DECL_ASSEMBLER_NAME (gcov_has_sampling_decl));
       DECL_INITIAL (gcov_has_sampling_decl) = build_int_cst (
           get_gcov_unsigned_t (),
           flag_profile_generate_sampling ? 1 : 0);
-      varpool_finalize_decl (gcov_has_sampling_decl);
+			varpool_node::finalize_decl (gcov_has_sampling_decl);
     }
 
   if (flag_profile_generate_sampling && !instrumentation_to_be_sampled)
@@ -1001,12 +1001,12 @@ gimple_gen_ic_profiler (histogram_value value, unsigned tag, unsigned base)
 void
 gimple_gen_ic_func_profiler (void)
 {
-  struct cgraph_node * c_node = cgraph_get_create_node (current_function_decl);
+  struct cgraph_node * c_node = cgraph_node::get_create (current_function_decl);
   gimple_stmt_iterator gsi;
   gimple stmt1, stmt2;
   tree tree_uid, cur_func, void0;
 
-  if (cgraph_only_called_directly_p (c_node))
+  if (c_node->only_called_directly_p ())
     return;
 
   gimple_init_edge_profiler ();
@@ -1025,7 +1025,7 @@ gimple_gen_ic_func_profiler (void)
 				       true, NULL_TREE,
 				       true, GSI_SAME_STMT);
   tree_uid = build_int_cst
-	      (gcov_type_node, cgraph_get_node (current_function_decl)->profile_id);
+	      (gcov_type_node, cgraph_node::get (current_function_decl)->profile_id);
   /* Workaround for binutils bug 14342.  Once it is fixed, remove lto path.  */
   if (flag_lto)
     {
@@ -1297,8 +1297,8 @@ tree_profiling (void)
       if (DECL_SOURCE_LOCATION (node->decl) == BUILTINS_LOCATION)
 	continue;
 
-      cgraph_set_const_flag (node, false, false);
-      cgraph_set_pure_flag (node, false, false);
+      node->set_const_flag (false, false);
+      node->set_pure_flag (false, false);
     }
 
   /* Update call statements and rebuild the cgraph.  */
@@ -1468,7 +1468,7 @@ const pass_data pass_data_direct_call_profile =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_update_ssa  	/* todo_flags_finish */
+  TODO_update_ssa                      	/* todo_flags_finish */
 };
 
 class pass_direct_call_profile : public gimple_opt_pass

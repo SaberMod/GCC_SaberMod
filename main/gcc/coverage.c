@@ -1465,7 +1465,7 @@ coverage_end_function (unsigned lineno_checksum, unsigned cfg_checksum)
 	      TREE_TYPE (var) = array_type;
 	      DECL_SIZE (var) = TYPE_SIZE (array_type);
 	      DECL_SIZE_UNIT (var) = TYPE_SIZE_UNIT (array_type);
-	      varpool_finalize_decl (var);
+	      varpool_node::finalize_decl (var);
 	    }
 	  
 	  fn_b_ctrs[i] = fn_n_ctrs[i] = 0;
@@ -1530,7 +1530,7 @@ coverage_dc_end_function (void)
           TREE_TYPE (var) = array_type;
           DECL_SIZE (var) = TYPE_SIZE (array_type);
           DECL_SIZE_UNIT (var) = TYPE_SIZE_UNIT (array_type);
-          varpool_finalize_decl (var);
+					varpool_node::finalize_decl (var);
         }
 
       fn_n_ctrs[idx] = fn_b_ctrs[idx] = 0;
@@ -1698,7 +1698,7 @@ build_fn_info (const struct coverage_data *data, tree type, tree key)
          * done, so we need to force emitting counter variables even for
          * eliminated functions to avoid unsat.  */
         if (flag_dyn_ipa && var)
-          varpool_finalize_decl (var);
+          varpool_node::finalize_decl (var);
       }
   
   CONSTRUCTOR_APPEND_ELT (v1, fields,
@@ -2174,7 +2174,7 @@ build_gcov_module_info_value (tree mod_type)
   DECL_INITIAL (mod_info) = value;
 
   /* Build structure.  */
-  varpool_finalize_decl (mod_info);
+	varpool_node::finalize_decl (mod_info);
 
   return mod_info;
 }
@@ -2372,7 +2372,7 @@ coverage_obj_fn (vec<constructor_elt, va_gc> *ctor, tree fn,
   tree var = build_var (fn, gcov_fn_info_type, -1);
   
   DECL_INITIAL (var) = init;
-  varpool_finalize_decl (var);
+  varpool_node::finalize_decl (var);
       
   CONSTRUCTOR_APPEND_ELT (ctor, NULL,
 			  build1 (ADDR_EXPR, gcov_fn_info_ptr_type, var));
@@ -2398,14 +2398,14 @@ coverage_obj_finish (vec<constructor_elt, va_gc> *ctor)
   ASM_GENERATE_INTERNAL_LABEL (name_buf, "LPBX", 1);
   DECL_NAME (fn_info_ary) = get_identifier (name_buf);
   DECL_INITIAL (fn_info_ary) = build_constructor (fn_info_ary_type, ctor);
-  varpool_finalize_decl (fn_info_ary);
+  varpool_node::finalize_decl (fn_info_ary);
 
   DECL_INITIAL (gcov_info_var)
     = build_info (TREE_TYPE (gcov_info_var), fn_info_ary);
 
   build_init_ctor (TREE_TYPE (gcov_info_var));
 
-  varpool_finalize_decl (gcov_info_var);
+  varpool_node::finalize_decl (gcov_info_var);
 }
 
 /* Get the da file name, given base file name.  */

@@ -63,7 +63,6 @@ extern void gcov_exit (void) ATTRIBUTE_HIDDEN;
 extern void set_gcov_dump_complete (void) ATTRIBUTE_HIDDEN;
 extern void reset_gcov_dump_complete (void) ATTRIBUTE_HIDDEN;
 extern int get_gcov_dump_complete (void) ATTRIBUTE_HIDDEN;
-extern void set_gcov_list (struct gcov_info *) ATTRIBUTE_HIDDEN;
 __attribute__((weak)) void __coverage_callback (gcov_type, int); 
 
 #if !defined(IN_GCOV_TOOL)

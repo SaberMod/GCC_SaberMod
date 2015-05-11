@@ -133,21 +133,21 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
           if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done)
             callee = cgraph_lipo_get_resolved_node (decl);
           else
-            callee = cgraph_get_node (decl);
+						callee = cgraph_node::get (decl);
 	  gcc_checking_assert (callee);
-	  new_edge = cgraph_create_edge (n, callee, call_stmt, count, freq);
+	  new_edge = n->create_edge (callee, call_stmt, count, freq);
 	}
       else
 	{
-	  new_edge = cgraph_create_indirect_edge (n, call_stmt,
-						  e->indirect_info->ecf_flags,
-						  count, freq);
+	  new_edge = n->create_indirect_edge (call_stmt,
+					      e->indirect_info->ecf_flags,
+					      count, freq);
 	  *new_edge->indirect_info = *e->indirect_info;
 	}
     }
   else
     {
-      new_edge = cgraph_create_edge (n, e->callee, call_stmt, count, freq);
+      new_edge = n->create_edge (e->callee, call_stmt, count, freq);
       if (e->indirect_info)
 	{
 	  new_edge->indirect_info
@@ -309,7 +309,7 @@ static cgraph_node *
 duplicate_thunk_for_node (cgraph_node *thunk, cgraph_node *node)
 {
   cgraph_node *new_thunk, *thunk_of;
-  thunk_of = cgraph_function_or_thunk_node (thunk->callees->callee);
+  thunk_of = thunk->callees->callee->ultimate_alias_target ();
 
   if (thunk_of->thunk.thunk_p)
     node = duplicate_thunk_for_node (thunk_of, node);
@@ -346,7 +346,7 @@ duplicate_thunk_for_node (cgraph_node *thunk, cgraph_node *node)
   DECL_NAME (new_decl) = clone_function_name (thunk->decl, "artificial_thunk");
   SET_DECL_ASSEMBLER_NAME (new_decl, DECL_NAME (new_decl));
 
-  new_thunk = cgraph_create_node (new_decl);
+  new_thunk = cgraph_node::create (new_decl);
   set_new_clone_decl_and_node_flags (new_thunk);
   new_thunk->definition = true;
   new_thunk->thunk = thunk->thunk;
@@ -355,13 +355,13 @@ duplicate_thunk_for_node (cgraph_node *thunk, cgraph_node *node)
   new_thunk->clone.args_to_skip = node->clone.args_to_skip;
   new_thunk->clone.combined_args_to_skip = node->clone.combined_args_to_skip;
 
-  struct cgraph_edge *e = cgraph_create_edge (new_thunk, node, NULL, 0,
-					      CGRAPH_FREQ_BASE);
+  struct cgraph_edge *e = new_thunk->create_edge (node, NULL, 0,
+						  CGRAPH_FREQ_BASE);
   e->call_stmt_cannot_inline_p = true;
   cgraph_call_edge_duplication_hooks (thunk->callees, e);
-  if (!expand_thunk (new_thunk, false, false))
+  if (!new_thunk->expand_thunk (false, false))
     new_thunk->analyzed = true;
-  cgraph_call_node_duplication_hooks (thunk, new_thunk);
+  thunk->call_duplication_hooks (new_thunk);
   return new_thunk;
 }
 
@@ -372,7 +372,7 @@ duplicate_thunk_for_node (cgraph_node *thunk, cgraph_node *node)
 void
 redirect_edge_duplicating_thunks (struct cgraph_edge *e, struct cgraph_node *n)
 {
-  cgraph_node *orig_to = cgraph_function_or_thunk_node (e->callee);
+  cgraph_node *orig_to = e->callee->ultimate_alias_target ();
   if (orig_to->thunk.thunk_p)
     n = duplicate_thunk_for_node (orig_to, n);
 
@@ -395,74 +395,74 @@ redirect_edge_duplicating_thunks (struct cgraph_edge *e, struct cgraph_node *n)
    will see this in node's global.inlined_to, when invoked.  Can be NULL if the
    node is not inlined.  */
 
-struct cgraph_node *
-cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
-		   bool update_original,
-		   vec<cgraph_edge_p> redirect_callers,
-		   bool call_duplication_hook,
-		   struct cgraph_node *new_inlined_to,
-		   bitmap args_to_skip)
+cgraph_node *
+cgraph_node::create_clone (tree decl, gcov_type gcov_count, int freq,
+			   bool update_original,
+			   vec<cgraph_edge *> redirect_callers,
+			   bool call_duplication_hook,
+			   struct cgraph_node *new_inlined_to,
+			   bitmap args_to_skip)
 {
-  struct cgraph_node *new_node = cgraph_create_empty_node ();
+  struct cgraph_node *new_node = cgraph_node::create_empty ();
   struct cgraph_edge *e;
   gcov_type count_scale;
   unsigned i;
 
   new_node->decl = decl;
-  symtab_register_node (new_node);
-  new_node->origin = n->origin;
-  new_node->lto_file_data = n->lto_file_data;
+  new_node->register_symbol ();
+  new_node->origin = origin;
+  new_node->lto_file_data = lto_file_data;
   if (new_node->origin)
     {
       new_node->next_nested = new_node->origin->nested;
       new_node->origin->nested = new_node;
     }
-  new_node->analyzed = n->analyzed;
-  new_node->definition = n->definition;
-  new_node->local = n->local;
+  new_node->analyzed = analyzed;
+  new_node->definition = definition;
+  new_node->local = local;
   new_node->externally_visible = false;
   new_node->local.local = true;
-  new_node->global = n->global;
+  new_node->global = global;
   new_node->global.inlined_to = new_inlined_to;
-  new_node->rtl = n->rtl;
-  new_node->count = count;
-  new_node->max_bb_count = count;
-  if (n->count)
-    new_node->max_bb_count = ((n->max_bb_count + n->count / 2)
-                              / n->count) * count;
-  new_node->frequency = n->frequency;
-  new_node->tp_first_run = n->tp_first_run;
+  new_node->rtl = rtl;
+  new_node->count = gcov_count;
+  new_node->max_bb_count = gcov_count;
+  if (count)
+    new_node->max_bb_count = ((max_bb_count + count / 2)
+                              / count) * gcov_count;
+  new_node->frequency = frequency;
+  new_node->tp_first_run = tp_first_run;
 
   new_node->clone.tree_map = NULL;
   new_node->clone.args_to_skip = args_to_skip;
   if (!args_to_skip)
-    new_node->clone.combined_args_to_skip = n->clone.combined_args_to_skip;
-  else if (n->clone.combined_args_to_skip)
+    new_node->clone.combined_args_to_skip = clone.combined_args_to_skip;
+  else if (clone.combined_args_to_skip)
     {
       new_node->clone.combined_args_to_skip = BITMAP_GGC_ALLOC ();
       bitmap_ior (new_node->clone.combined_args_to_skip,
-		  n->clone.combined_args_to_skip, args_to_skip);
+		  clone.combined_args_to_skip, args_to_skip);
     }
   else
     new_node->clone.combined_args_to_skip = args_to_skip;
 
-  if (n->count)
+  if (count)
     {
-      if (new_node->count > n->count)
+      if (new_node->count > count)
         count_scale = REG_BR_PROB_BASE;
       else
-        count_scale = GCOV_COMPUTE_SCALE (new_node->count, n->count);
+	count_scale = GCOV_COMPUTE_SCALE (new_node->count, count);
     }
   else
     count_scale = 0;
   if (update_original)
     {
-      n->count -= count;
-      if (n->count < 0)
-        n->count = 0;
-      n->max_bb_count -= new_node->max_bb_count;
-      if (n->max_bb_count < 0)
-        n->max_bb_count = 0;
+      count -= gcov_count;
+      if (count < 0)
+	count = 0;
+      max_bb_count -= new_node->max_bb_count;
+      if (max_bb_count < 0)
+        max_bb_count = 0;
     }
 
   FOR_EACH_VEC_ELT (redirect_callers, i, e)
@@ -476,23 +476,23 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
         redirect_edge_duplicating_thunks (e, new_node);
     }
 
-  for (e = n->callees;e; e=e->next_callee)
+  for (e = callees;e; e=e->next_callee)
     cgraph_clone_edge (e, new_node, e->call_stmt, e->lto_stmt_uid,
 		       count_scale, freq, update_original);
 
-  for (e = n->indirect_calls; e; e = e->next_callee)
+  for (e = indirect_calls; e; e = e->next_callee)
     cgraph_clone_edge (e, new_node, e->call_stmt, e->lto_stmt_uid,
 		       count_scale, freq, update_original);
-  new_node->clone_references (n);
+  new_node->clone_references (this);
 
-  new_node->next_sibling_clone = n->clones;
-  if (n->clones)
-    n->clones->prev_sibling_clone = new_node;
-  n->clones = new_node;
-  new_node->clone_of = n;
+  new_node->next_sibling_clone = clones;
+  if (clones)
+    clones->prev_sibling_clone = new_node;
+  clones = new_node;
+  new_node->clone_of = this;
 
   if (call_duplication_hook)
-    cgraph_call_node_duplication_hooks (n, new_node);
+    call_duplication_hooks (new_node);
   return new_node;
 }
 
@@ -528,13 +528,11 @@ clone_function_name (tree decl, const char *suffix)
    bitmap interface.
    */
 struct cgraph_node *
-cgraph_create_virtual_clone (struct cgraph_node *old_node,
-			     vec<cgraph_edge_p> redirect_callers,
-			     vec<ipa_replace_map_p, va_gc> *tree_map,
-			     bitmap args_to_skip,
-			     const char * suffix)
+cgraph_node::create_virtual_clone (vec<cgraph_edge *> redirect_callers,
+				   vec<ipa_replace_map *, va_gc> *tree_map,
+				   bitmap args_to_skip, const char * suffix)
 {
-  tree old_decl = old_node->decl;
+  tree old_decl = decl;
   struct cgraph_node *new_node = NULL;
   tree new_decl;
   size_t len, i;
@@ -544,7 +542,7 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
   if (!in_lto_p)
     gcc_checking_assert  (tree_versionable_function_p (old_decl));
 
-  gcc_assert (old_node->local.can_change_signature || !args_to_skip);
+  gcc_assert (local.can_change_signature || !args_to_skip);
 
   /* Make a new FUNCTION_DECL tree node */
   if (!args_to_skip)
@@ -572,9 +570,9 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
   SET_DECL_ASSEMBLER_NAME (new_decl, clone_function_name (old_decl, suffix));
   SET_DECL_RTL (new_decl, NULL);
 
-  new_node = cgraph_clone_node (old_node, new_decl, old_node->count,
-				CGRAPH_FREQ_BASE, false,
-				redirect_callers, false, NULL, args_to_skip);
+  new_node = create_clone (new_decl, count, CGRAPH_FREQ_BASE, false,
+			   redirect_callers, false, NULL, args_to_skip);
+
   /* Update the properties.
      Make clone visible only within this translation unit.  Make sure
      that is not weak also.
@@ -593,26 +591,25 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
   FOR_EACH_VEC_SAFE_ELT (tree_map, i, map)
     new_node->maybe_add_reference (map->new_tree, IPA_REF_ADDR, NULL);
 
-  if (old_node->ipa_transforms_to_apply.exists ())
+  if (ipa_transforms_to_apply.exists ())
     new_node->ipa_transforms_to_apply
-      = old_node->ipa_transforms_to_apply.copy ();
+      = ipa_transforms_to_apply.copy ();
 
-  cgraph_call_node_duplication_hooks (old_node, new_node);
-
+  call_duplication_hooks (new_node);
 
   return new_node;
 }
 
-/* NODE is being removed from symbol table; see if its entry can be replaced by
-   other inline clone.  */
-struct cgraph_node *
-cgraph_find_replacement_node (struct cgraph_node *node)
+/* callgraph node being removed from symbol table; see if its entry can be
+   replaced by other inline clone.  */
+cgraph_node *
+cgraph_node::find_replacement (void)
 {
   struct cgraph_node *next_inline_clone, *replacement;
 
-  for (next_inline_clone = node->clones;
+  for (next_inline_clone = clones;
        next_inline_clone
-       && next_inline_clone->decl != node->decl;
+       && next_inline_clone->decl != decl;
        next_inline_clone = next_inline_clone->next_sibling_clone)
     ;
 
@@ -632,32 +629,32 @@ cgraph_find_replacement_node (struct cgraph_node *node)
 	  = next_inline_clone->prev_sibling_clone;
       if (next_inline_clone->prev_sibling_clone)
 	{
-	  gcc_assert (node->clones != next_inline_clone);
+	  gcc_assert (clones != next_inline_clone);
 	  next_inline_clone->prev_sibling_clone->next_sibling_clone
 	    = next_inline_clone->next_sibling_clone;
 	}
       else
 	{
-	  gcc_assert (node->clones == next_inline_clone);
-	  node->clones = next_inline_clone->next_sibling_clone;
+	  gcc_assert (clones == next_inline_clone);
+	  clones = next_inline_clone->next_sibling_clone;
 	}
 
-      new_clones = node->clones;
-      node->clones = NULL;
+      new_clones = clones;
+      clones = NULL;
 
       /* Copy clone info.  */
-      next_inline_clone->clone = node->clone;
+      next_inline_clone->clone = clone;
 
       /* Now place it into clone tree at same level at NODE.  */
-      next_inline_clone->clone_of = node->clone_of;
+      next_inline_clone->clone_of = clone_of;
       next_inline_clone->prev_sibling_clone = NULL;
       next_inline_clone->next_sibling_clone = NULL;
-      if (node->clone_of)
+      if (clone_of)
 	{
-	  if (node->clone_of->clones)
-	    node->clone_of->clones->prev_sibling_clone = next_inline_clone;
-	  next_inline_clone->next_sibling_clone = node->clone_of->clones;
-	  node->clone_of->clones = next_inline_clone;
+	  if (clone_of->clones)
+	    clone_of->clones->prev_sibling_clone = next_inline_clone;
+	  next_inline_clone->next_sibling_clone = clone_of->clones;
+	  clone_of->clones = next_inline_clone;
 	}
 
       /* Merge the clone list.  */
@@ -669,7 +666,7 @@ cgraph_find_replacement_node (struct cgraph_node *node)
 	    {
 	      n = next_inline_clone->clones;
 	      while (n->next_sibling_clone)
-		n =  n->next_sibling_clone;
+		n = n->next_sibling_clone;
 	      n->next_sibling_clone = new_clones;
 	      new_clones->prev_sibling_clone = n;
 	    }
@@ -695,21 +692,20 @@ cgraph_find_replacement_node (struct cgraph_node *node)
    call.  */
 
 void
-cgraph_set_call_stmt_including_clones (struct cgraph_node *orig,
-				       gimple old_stmt, gimple new_stmt,
-				       bool update_speculative)
+cgraph_node::set_call_stmt_including_clones (gimple old_stmt, gimple new_stmt,
+					     bool update_speculative)
 {
   struct cgraph_node *node;
-  struct cgraph_edge *edge = cgraph_edge (orig, old_stmt);
+  struct cgraph_edge *edge = get_edge (old_stmt);
 
   if (edge)
     cgraph_set_call_stmt (edge, new_stmt, update_speculative);
 
-  node = orig->clones;
+  node = clones;
   if (node)
-    while (node != orig)
+    while (node != this)
       {
-	struct cgraph_edge *edge = cgraph_edge (node, old_stmt);
+	struct cgraph_edge *edge = node->get_edge (old_stmt);
 	if (edge)
 	  {
 	    cgraph_set_call_stmt (edge, new_stmt, update_speculative);
@@ -734,9 +730,9 @@ cgraph_set_call_stmt_including_clones (struct cgraph_node *orig,
 	  node = node->next_sibling_clone;
 	else
 	  {
-	    while (node != orig && !node->next_sibling_clone)
+	    while (node != this && !node->next_sibling_clone)
 	      node = node->clone_of;
-	    if (node != orig)
+	    if (node != this)
 	      node = node->next_sibling_clone;
 	  }
       }
@@ -750,27 +746,26 @@ cgraph_set_call_stmt_including_clones (struct cgraph_node *orig,
    frequencies of the clones.  */
 
 void
-cgraph_create_edge_including_clones (struct cgraph_node *orig,
-				     struct cgraph_node *callee,
-				     gimple old_stmt,
-				     gimple stmt, gcov_type count,
-				     int freq,
-				     cgraph_inline_failed_t reason)
+cgraph_node::create_edge_including_clones (struct cgraph_node *callee,
+					   gimple old_stmt, gimple stmt,
+					   gcov_type count,
+					   int freq,
+					   cgraph_inline_failed_t reason)
 {
   struct cgraph_node *node;
   struct cgraph_edge *edge;
 
-  if (!cgraph_edge (orig, stmt))
+  if (!get_edge (stmt))
     {
-      edge = cgraph_create_edge (orig, callee, stmt, count, freq);
+      edge = create_edge (callee, stmt, count, freq);
       edge->inline_failed = reason;
     }
 
-  node = orig->clones;
+  node = clones;
   if (node)
-    while (node != orig)
+    while (node != this)
       {
-	struct cgraph_edge *edge = cgraph_edge (node, old_stmt);
+	struct cgraph_edge *edge = node->get_edge (old_stmt);
 
         /* It is possible that clones already contain the edge while
 	   master didn't.  Either we promoted indirect call into direct
@@ -778,10 +773,9 @@ cgraph_create_edge_including_clones (struct cgraph_node *orig,
 	   master where edges has been removed.  */
 	if (edge)
 	  cgraph_set_call_stmt (edge, stmt);
-	else if (!cgraph_edge (node, stmt))
+	else if (! node->get_edge (stmt))
 	  {
-	    edge = cgraph_create_edge (node, callee, stmt, count,
-				       freq);
+	    edge = node->create_edge (callee, stmt, count, freq);
 	    edge->inline_failed = reason;
 	  }
 
@@ -791,9 +785,9 @@ cgraph_create_edge_including_clones (struct cgraph_node *orig,
 	  node = node->next_sibling_clone;
 	else
 	  {
-	    while (node != orig && !node->next_sibling_clone)
+	    while (node != this && !node->next_sibling_clone)
 	      node = node->clone_of;
-	    if (node != orig)
+	    if (node != this)
 	      node = node->next_sibling_clone;
 	  }
       }
@@ -805,23 +799,23 @@ cgraph_create_edge_including_clones (struct cgraph_node *orig,
    tree.  */
 
 bool
-cgraph_remove_node_and_inline_clones (struct cgraph_node *node, struct cgraph_node *forbidden_node)
+cgraph_node::remove_symbol_and_inline_clones (cgraph_node *forbidden_node)
 {
   struct cgraph_edge *e, *next;
   bool found = false;
 
-  if (node == forbidden_node)
+  if (this == forbidden_node)
     {
-      cgraph_remove_edge (node->callers);
+      cgraph_remove_edge (callers);
       return true;
     }
-  for (e = node->callees; e; e = next)
+  for (e = callees; e; e = next)
     {
       next = e->next_callee;
       if (!e->inline_failed)
-        found |= cgraph_remove_node_and_inline_clones (e->callee, forbidden_node);
+	found |= e->callee->remove_symbol_and_inline_clones (forbidden_node);
     }
-  cgraph_remove_node (node);
+  remove ();
   return found;
 }
 
@@ -847,9 +841,9 @@ update_call_expr (struct cgraph_node *new_version)
 
 
 /* Create a new cgraph node which is the new version of
-   OLD_VERSION node.  REDIRECT_CALLERS holds the callers
+   callgraph node.  REDIRECT_CALLERS holds the callers
    edges which should be redirected to point to
-   NEW_VERSION.  ALL the callees edges of OLD_VERSION
+   NEW_VERSION.  ALL the callees edges of the node
    are cloned to the new version node.  Return the new
    version node. 
 
@@ -857,38 +851,35 @@ update_call_expr (struct cgraph_node *new_version)
    was copied to prevent duplications of calls that are dead
    in the clone.  */
 
-struct cgraph_node *
-cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
-				 tree new_decl,
-				 vec<cgraph_edge_p> redirect_callers,
-				 bitmap bbs_to_copy)
+cgraph_node *
+cgraph_node::create_version_clone (tree new_decl,
+				  vec<cgraph_edge *> redirect_callers,
+				  bitmap bbs_to_copy)
  {
    struct cgraph_node *new_version;
    struct cgraph_edge *e;
    unsigned i;
 
-   gcc_assert (old_version);
+   new_version = cgraph_node::create (new_decl);
 
-   new_version = cgraph_create_node (new_decl);
-
-   new_version->analyzed = old_version->analyzed;
-   new_version->definition = old_version->definition;
-   new_version->local = old_version->local;
+   new_version->analyzed = analyzed;
+   new_version->definition = definition;
+   new_version->local = local;
    new_version->externally_visible = false;
    new_version->local.local = new_version->definition;
-   new_version->global = old_version->global;
-   new_version->rtl = old_version->rtl;
-   new_version->count = old_version->count;
-   new_version->max_bb_count = old_version->max_bb_count;
+   new_version->global = global;
+   new_version->rtl = rtl;
+   new_version->count = count;
+   new_version->max_bb_count = max_bb_count;
 
-   for (e = old_version->callees; e; e=e->next_callee)
+   for (e = callees; e; e=e->next_callee)
      if (!bbs_to_copy
 	 || bitmap_bit_p (bbs_to_copy, gimple_bb (e->call_stmt)->index))
        cgraph_clone_edge (e, new_version, e->call_stmt,
 			  e->lto_stmt_uid, REG_BR_PROB_BASE,
 			  CGRAPH_FREQ_BASE,
 			  true);
-   for (e = old_version->indirect_calls; e; e=e->next_callee)
+   for (e = indirect_calls; e; e=e->next_callee)
      if (!bbs_to_copy
 	 || bitmap_bit_p (bbs_to_copy, gimple_bb (e->call_stmt)->index))
        cgraph_clone_edge (e, new_version, e->call_stmt,
@@ -902,7 +893,7 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
        cgraph_redirect_edge_callee (e, new_version);
      }
 
-   cgraph_call_node_duplication_hooks (old_version, new_version);
+   call_duplication_hooks (new_version);
 
    return new_version;
  }
@@ -917,7 +908,6 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
 
    TREE_MAP is a mapping of tree nodes we want to replace with
    new ones (according to results of prior analysis).
-   OLD_VERSION_NODE is the node that is versioned.
 
    If non-NULL ARGS_TO_SKIP determine function parameters to remove
    from new version.
@@ -927,24 +917,21 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
 
    Return the new version's cgraph node.  */
 
-struct cgraph_node *
-cgraph_function_versioning (struct cgraph_node *old_version_node,
-			    vec<cgraph_edge_p> redirect_callers,
-			    vec<ipa_replace_map_p, va_gc> *tree_map,
-			    bitmap args_to_skip,
-			    bool skip_return,
-			    bitmap bbs_to_copy,
-			    basic_block new_entry_block,
-			    const char *clone_name)
+cgraph_node *
+cgraph_node::create_version_clone_with_body
+  (vec<cgraph_edge *> redirect_callers,
+   vec<ipa_replace_map *, va_gc> *tree_map, bitmap args_to_skip,
+   bool skip_return, bitmap bbs_to_copy, basic_block new_entry_block,
+   const char *clone_name)
 {
-  tree old_decl = old_version_node->decl;
+  tree old_decl = decl;
   struct cgraph_node *new_version_node = NULL;
   tree new_decl;
 
   if (!tree_versionable_function_p (old_decl))
     return NULL;
 
-  gcc_assert (old_version_node->local.can_change_signature || !args_to_skip);
+  gcc_assert (local.can_change_signature || !args_to_skip);
 
   /* Make a new FUNCTION_DECL tree node for the new version. */
   if (!args_to_skip && !skip_return)
@@ -964,13 +951,12 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
 
   /* Create the new version's call-graph node.
      and update the edges of the new node. */
-  new_version_node =
-    cgraph_copy_node_for_versioning (old_version_node, new_decl,
-				     redirect_callers, bbs_to_copy);
+  new_version_node = create_version_clone (new_decl, redirect_callers,
+					  bbs_to_copy);
 
-  if (old_version_node->ipa_transforms_to_apply.exists ())
+  if (ipa_transforms_to_apply.exists ())
     new_version_node->ipa_transforms_to_apply
-      = old_version_node->ipa_transforms_to_apply.copy ();
+      = ipa_transforms_to_apply.copy ();
   /* Copy the OLD_VERSION_NODE function tree to the new version.  */
   tree_function_versioning (old_decl, new_decl, tree_map, false, args_to_skip,
 			    skip_return, bbs_to_copy, new_entry_block);
@@ -980,7 +966,7 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
      that is not weak also.
      ??? We cannot use COMDAT linkage because there is no
      ABI support for this.  */
-  symtab_make_decl_local (new_version_node->decl);
+  new_version_node->make_decl_local ();
   DECL_VIRTUAL_P (new_version_node->decl) = 0;
   new_version_node->externally_visible = 0;
   new_version_node->local.local = 1;
@@ -996,7 +982,7 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
   /* Update the call_expr on the edges to call the new version node. */
   update_call_expr (new_version_node);
 
-  cgraph_call_function_insertion_hooks (new_version_node);
+  new_version_node->call_function_insertion_hooks ();
   return new_version_node;
 }
 
@@ -1031,8 +1017,8 @@ cgraph_materialize_clone (struct cgraph_node *node)
   node->prev_sibling_clone = NULL;
   if (!node->clone_of->analyzed && !node->clone_of->clones)
     {
-      cgraph_release_function_body (node->clone_of);
-      cgraph_node_remove_callees (node->clone_of);
+      node->clone_of->release_body ();
+      node->clone_of->remove_callees ();
       node->clone_of->remove_all_references ();
     }
   node->clone_of = NULL;
@@ -1055,7 +1041,7 @@ cgraph_materialize_all_clones (void)
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "Materializing clones\n");
 #ifdef ENABLE_CHECKING
-  verify_cgraph ();
+  cgraph_node::verify_cgraph_nodes ();
 #endif
 
   /* We can also do topological order, but number of iterations should be
@@ -1070,7 +1056,7 @@ cgraph_materialize_all_clones (void)
 	      && !gimple_has_body_p (node->decl))
 	    {
 	      if (!node->clone_of->clone_of)
-		cgraph_get_body (node->clone_of);
+		node->clone_of->get_body ();
 	      if (gimple_has_body_p (node->clone_of->decl))
 	        {
 		  if (cgraph_dump_file)
@@ -1117,7 +1103,7 @@ cgraph_materialize_all_clones (void)
   FOR_EACH_FUNCTION (node)
     if (!node->analyzed && node->callees)
       {
-        cgraph_node_remove_callees (node);
+	node->remove_callees ();
 	node->remove_all_references ();
       }
     else
@@ -1125,7 +1111,7 @@ cgraph_materialize_all_clones (void)
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "Materialization Call site updates done.\n");
 #ifdef ENABLE_CHECKING
-  verify_cgraph ();
+  cgraph_node::verify_cgraph_nodes ();
 #endif
   symtab_remove_unreachable_nodes (false, cgraph_dump_file);
 }

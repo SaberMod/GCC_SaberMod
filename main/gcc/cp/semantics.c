@@ -2630,7 +2630,7 @@ finish_compound_literal (tree type, tree compound_literal,
 
       /* Capture the current module info for statics.  */
       if (L_IPO_COMP_MODE)
-        varpool_node_for_decl (decl);
+        varpool_node::get_create (decl);
 
       /* Make sure the destructor is callable.  */
       tree clean = cxx_maybe_build_cleanup (decl, complain);
@@ -3939,7 +3939,7 @@ emit_associated_thunks (tree fn)
           /* In LIPO mode, multiple copies of definitions for the same function
              may exist, but assembler hash table keeps only one copy which might
              have been deleted at this point.  */
-          struct cgraph_node *n = cgraph_get_create_node (fn);
+          struct cgraph_node *n = cgraph_node::get_create (fn);
 	  #ifdef FIXME_LIPO
           insert_to_assembler_name_hash ((symtab_node)n);
 	  #endif

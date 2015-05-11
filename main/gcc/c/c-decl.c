@@ -2636,9 +2636,9 @@ duplicate_decls (tree newdecl, tree olddecl)
   if (TREE_CODE (newdecl) == FUNCTION_DECL
       || TREE_CODE (newdecl) == VAR_DECL)
     {
-      struct symtab_node *snode = symtab_get_node (newdecl);
+      struct symtab_node *snode = symtab_node::get (newdecl);
       if (snode)
-	symtab_remove_node (snode);
+	snode->remove ();
     }
   ggc_free (newdecl);
   return true;
@@ -3017,18 +3017,18 @@ pushdecl_top_level (tree x)
 }
 
 static void
-implicit_decl_warning (tree id, tree olddecl)
+implicit_decl_warning (location_t loc, tree id, tree olddecl)
 {
   if (warn_implicit_function_declaration)
     {
       bool warned;
 
       if (flag_isoc99)
-	warned = pedwarn (input_location, OPT_Wimplicit_function_declaration,
+	warned = pedwarn (loc, OPT_Wimplicit_function_declaration,
 			  "implicit declaration of function %qE", id);
       else
-	warned = warning (OPT_Wimplicit_function_declaration,
-			  G_("implicit declaration of function %qE"), id);
+	warned = warning_at (loc, OPT_Wimplicit_function_declaration,
+			     G_("implicit declaration of function %qE"), id);
       if (olddecl && warned)
 	locate_old_decl (olddecl);
     }
@@ -3081,7 +3081,7 @@ implicitly_declare (location_t loc, tree functionid)
 	     then recycle the old declaration but with the new type.  */
 	  if (!C_DECL_IMPLICIT (decl))
 	    {
-	      implicit_decl_warning (functionid, decl);
+	      implicit_decl_warning (loc, functionid, decl);
 	      C_DECL_IMPLICIT (decl) = 1;
 	    }
 	  if (DECL_BUILT_IN (decl))
@@ -3118,7 +3118,7 @@ implicitly_declare (location_t loc, tree functionid)
   DECL_EXTERNAL (decl) = 1;
   TREE_PUBLIC (decl) = 1;
   C_DECL_IMPLICIT (decl) = 1;
-  implicit_decl_warning (functionid, 0);
+  implicit_decl_warning (loc, functionid, 0);
   asmspec_tree = maybe_apply_renaming_pragma (decl, /*asmname=*/NULL);
   if (asmspec_tree)
     set_user_assembler_name (decl, TREE_STRING_POINTER (asmspec_tree));
@@ -4608,7 +4608,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
              enough so that module id of the current source file being
              parsed is captured.  */
           if (flag_dyn_ipa && TREE_CODE (decl) == VAR_DECL)
-            varpool_node_for_decl (decl);
+            varpool_node::get_create (decl);
 
 	  if (asmspec && C_DECL_REGISTER (decl))
 	    DECL_HARD_REGISTER (decl) = 1;
@@ -4620,7 +4620,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
           if (flag_dyn_ipa
               && TREE_CODE (decl) == VAR_DECL
               && TREE_STATIC (decl))
-            varpool_node_for_decl (decl);
+            varpool_node::get_create (decl);
 
 	  /* In conjunction with an ASMSPEC, the `register'
 	     keyword indicates that we should place the variable
@@ -8778,7 +8778,7 @@ finish_function (void)
 	     This should be cleaned up later and this conditional removed.  */
 	  if (cgraph_global_info_ready)
 	    {
-	      cgraph_add_new_function (fndecl, false);
+	      cgraph_node::add_new_function (fndecl, false);
 	      return;
 	    }
 	  cgraph_finalize_function (fndecl, false);
@@ -8788,7 +8788,7 @@ finish_function (void)
 	  /* Register this function with cgraph just far enough to get it
 	    added to our parent's nested function list.  Handy, since the
 	    C front end doesn't have such a list.  */
-	  (void) cgraph_get_create_node (fndecl);
+	  (void) cgraph_node::get_create (fndecl);
 	}
     }
 
@@ -10752,7 +10752,7 @@ c_save_built_in_decl_post_parsing (void)
           || !DECL_STRUCT_FUNCTION (bi->decl))
         continue;
       /* Remember the defining module.  */
-      cgraph_link_node (cgraph_get_create_node (bi->decl));
+      cgraph_link_node (cgraph_node::get_create (bi->decl));
       if (!bi->decl_copy_post)
         bi->decl_copy_post = lipo_save_decl (bi->decl);
     }

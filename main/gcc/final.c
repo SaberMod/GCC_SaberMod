@@ -4444,7 +4444,7 @@ leaf_renumber_regs_insn (rtx in_rtx)
 static void
 dump_cgraph_profiles (void)
 {
-  struct cgraph_node *node = cgraph_get_node (current_function_decl);
+  struct cgraph_node *node = cgraph_node::get (current_function_decl);
   struct cgraph_edge *e;
   struct cgraph_node *callee;
 
@@ -4466,7 +4466,7 @@ static gcov_type
 get_max_count (tree decl, bool cold)
 {
   basic_block bb;
-  gcov_type max_count = cold ? 0 :(cgraph_get_node (decl))->count;
+  gcov_type max_count = cold ? 0 :(cgraph_node::get (decl))->count;
 
   FOR_EACH_BB_FN (bb, cfun)
     {
@@ -4554,9 +4554,9 @@ rest_of_handle_final (void)
      add ".gnu.callgraph.text" section for storing profiling information. */
   if ((flag_reorder_functions > 1)
       && flag_profile_use
-      && cgraph_get_node (current_function_decl) != NULL
-      && ((cgraph_get_node (current_function_decl))->callees != NULL
-	  || (cgraph_get_node (current_function_decl))->count > 0))
+      && cgraph_node::get (current_function_decl) != NULL
+      && ((cgraph_node::get (current_function_decl))->callees != NULL
+	  || (cgraph_node::get (current_function_decl))->count > 0))
     {
       flags = SECTION_DEBUG | SECTION_EXCLUDE;
       asprintf (&profile_fnname, ".gnu.callgraph.text.%s", fnname);
@@ -4567,7 +4567,7 @@ rest_of_handle_final (void)
                             " "
 														"%"PRId64
                             "\"\n",
-              (cgraph_get_node (current_function_decl))->count,
+              (cgraph_node::get (current_function_decl))->count,
               get_max_count (current_function_decl, false));
       /* If this function is split into a cold section, record that weight
         here.  */

@@ -1423,7 +1423,7 @@ cgraph_lipo_get_resolved_node_1 (tree decl, bool do_assert)
              is to modify the callgraph so that they are not eliminated
              in the first place -- this will allow inlining to happen.  */
 
-          struct cgraph_node *n = cgraph_get_create_node (decl);
+          struct cgraph_node *n = cgraph_node::get_create (decl);
           if (!n->analyzed)
             {
               gcc_assert (DECL_EXTERNAL (decl)
@@ -1465,7 +1465,7 @@ cgraph_lipo_get_resolved_node (tree decl)
          modules. Skip the real resolution here to avoid merging '__builtin_xxx'
          with 'xxx'.  */
       || DECL_BUILT_IN (decl))
-    return cgraph_get_create_node (decl);
+    return cgraph_node::get_create (decl);
 
   node = cgraph_lipo_get_resolved_node_1 (decl, true);
   return node;
@@ -1556,8 +1556,8 @@ resolve_cgraph_node (struct cgraph_sym **slot, struct cgraph_node *node)
          where we remove the resolved node and later try to access
          it for the remaining non-removable copy.  E.g. one may be
          extern and the other weak, only the extern copy can be removed.  */
-      if (cgraph_can_remove_if_no_direct_calls_and_refs_p ((*slot)->rep_node)
-          && !cgraph_can_remove_if_no_direct_calls_and_refs_p (node))
+      if ((*slot)->rep_node->can_remove_if_no_direct_calls_and_refs_p ()
+          && !node->can_remove_if_no_direct_calls_and_refs_p ())
         {
           (*slot)->rep_node = node;
           (*slot)->rep_decl = decl2;
@@ -1580,7 +1580,7 @@ resolve_cgraph_node (struct cgraph_sym **slot, struct cgraph_node *node)
      is consistent with alias target  */
   if (node->alias && !node->thunk.thunk_p)
     {
-      struct cgraph_node *decl2_tgt = cgraph_function_or_thunk_node (node, NULL);
+      struct cgraph_node *decl2_tgt = node->ultimate_alias_target ();
       if (cgraph_lipo_get_resolved_node_1 (decl2_tgt->decl, false) == decl2_tgt)
         {
           (*slot)->rep_node = node;
@@ -1861,10 +1861,10 @@ promote_static_var_func (unsigned module_id, tree decl, bool is_extern)
   if (DECL_ASSEMBLER_NAME_SET_P (decl))
     {
       if (TREE_CODE (decl) == FUNCTION_DECL)
-        unlink_from_assembler_name_hash (cgraph_get_create_node (decl),
+        unlink_from_assembler_name_hash (cgraph_node::get_create (decl),
                                          false);
       else
-        unlink_from_assembler_name_hash (varpool_get_node (decl), false);
+        unlink_from_assembler_name_hash (varpool_node::get (decl), false);
     }
 
   SET_DECL_ASSEMBLER_NAME (decl, assemb_id);
@@ -1874,14 +1874,14 @@ promote_static_var_func (unsigned module_id, tree decl, bool is_extern)
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
-      struct cgraph_node *node = cgraph_get_create_node (decl);
+      struct cgraph_node *node = cgraph_node::get_create (decl);
 
       node->resolution = LDPR_UNKNOWN;
       insert_to_assembler_name_hash (node, false);
     }
   else
     {
-      struct varpool_node *node = varpool_get_node (decl);
+      struct varpool_node *node = varpool_node::get (decl);
       node->resolution = LDPR_UNKNOWN;
       /* Statics from exported primary module are very likely
          referenced by other modules, so they should be made
@@ -2150,10 +2150,10 @@ real_varpool_node_1 (tree decl, bool assert)
   tree name;
 
   if (!L_IPO_COMP_MODE || !varpool_symtab)
-    return varpool_get_node (decl);
+    return varpool_node::get (decl);
 
   if (!TREE_PUBLIC (decl) || DECL_ARTIFICIAL (decl))
-    return varpool_get_node (decl);
+    return varpool_node::get (decl);
 
   name = DECL_ASSEMBLER_NAME (decl);
   slot = htab_find_slot_with_hash (varpool_symtab, name,
@@ -2296,7 +2296,7 @@ fixup_reference_list (struct varpool_node *node)
 {
   int i;
   struct ipa_ref *ref;
-  vec<cgraph_node_ptr> new_refered;
+  vec<cgraph_node *> new_refered;
   vec<int> new_refered_type;
   struct cgraph_node *c;
   enum ipa_ref_use use_type = IPA_REF_LOAD;

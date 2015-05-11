@@ -19934,7 +19934,7 @@ instantiate_decl (tree d, int defer_ok,
         if (L_IPO_COMP_MODE)
           /* Capture module info.  */
           if (TREE_CODE (d) == VAR_DECL)
-            varpool_node_for_decl (d);
+            varpool_node::get_create (d);
         goto out;
       }
     }
