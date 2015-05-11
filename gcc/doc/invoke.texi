@@ -266,12 +266,13 @@ Objective-C and Objective-C++ Dialects}.
 -Wmissing-field-initializers -Wmissing-include-dirs @gol
 -Wno-multichar  -Wnonnull  -Wnormalized=@r{[}none@r{|}id@r{|}nfc@r{|}nfkc@r{]} @gol
 -Wodr  -Wno-overflow  -Wopenmp-simd @gol
+-Woverride-init-side-effects @gol
 -Woverlength-strings  -Wpacked  -Wpacked-bitfield-compat  -Wpadded @gol
 -Wparentheses  -Wpedantic-ms-format -Wno-pedantic-ms-format @gol
 -Wpointer-arith  -Wno-pointer-to-int-cast @gol
 -Wredundant-decls  -Wno-return-local-addr @gol
 -Wreturn-type  -Wsequence-point  -Wshadow  -Wno-shadow-ivar @gol
--Wshift-count-negative -Wshift-count-overflow @gol
+-Wshift-count-negative -Wshift-count-overflow -Wshift-negative-value @gol
 -Wsign-compare  -Wsign-conversion -Wfloat-conversion @gol
 -Wsizeof-pointer-memaccess  -Wsizeof-array-argument @gol
 -Wstack-protector -Wstack-usage=@var{len} -Wstrict-aliasing @gol
@@ -668,7 +669,7 @@ Objective-C and Objective-C++ Dialects}.
 -mcpu=@var{cpu}}
 
 @emph{GNU/Linux Options}
-@gccoptlist{-mglibc -muclibc -mbionic -mandroid @gol
+@gccoptlist{-mglibc -muclibc -mmusl -mbionic -mandroid @gol
 -tno-android-cc -tno-android-ld}
 
 @emph{H8/300 Options}
@@ -2688,7 +2689,7 @@ For example:
 
 int main() @{
   int64_t i64 = 123;
-  printf("My int64: %"PRId64"\n", i64);
+  printf("My int64: %" PRId64"\n", i64);
 @}
 @end smallexample
 
@@ -3489,6 +3490,7 @@ name is still supported, but the newer name is more descriptive.)
 -Wsign-compare  @gol
 -Wtype-limits  @gol
 -Wuninitialized  @gol
+-Wshift-negative-value  @gol
 -Wunused-parameter @r{(only with} @option{-Wunused} @r{or} @option{-Wall}@r{)} @gol
 -Wunused-but-set-parameter @r{(only with} @option{-Wunused} @r{or} @option{-Wall}@r{)}  @gol
 }
@@ -3921,6 +3923,12 @@ Warn if shift count is negative. This warning is enabled by default.
 @opindex Wshift-count-overflow
 @opindex Wno-shift-count-overflow
 Warn if shift count >= width of type. This warning is enabled by default.
+
+@item -Wshift-negative-value
+@opindex Wshift-negative-value
+@opindex Wno-shift-negative-value
+Warn if left shifting a negative value.  This warning is enabled by
+@option{-Wextra} in C99 and C++11 modes (and newer).
 
 @item -Wswitch
 @opindex Wswitch
@@ -5190,6 +5198,13 @@ This warning is included in @option{-Wextra}.  To get other
 @option{-Wextra} warnings without this one, use @option{-Wextra
 -Wno-override-init}.
 
+@item -Woverride-init-side-effects @r{(C and Objective-C only)}
+@opindex Woverride-init-side-effects
+@opindex Wno-override-init-side-effects
+Warn if an initialized field with side effects is overridden when
+using designated initializers (@pxref{Designated Inits, , Designated
+Initializers}).  This warning is enabled by default.
+
 @item -Wpacked
 @opindex Wpacked
 @opindex Wno-packed
@@ -5735,6 +5750,13 @@ a++;
 This option enables instrumentation of array bounds.  Various out of bounds
 accesses are detected.  Flexible array members, flexible array member-like
 arrays, and initializers of variables with static storage are not instrumented.
+
+@item -fsanitize=bounds-strict
+@opindex fsanitize=bounds-strict
+This option enables strict instrumentation of array bounds.  Most out of bounds
+accesses are detected, including flexible array members and flexible array
+member-like arrays.  Initializers of variables with static storage are not
+instrumented.
 
 @item -fsanitize=alignment
 @opindex fsanitize=alignment
@@ -15362,12 +15384,18 @@ These @samp{-m} options are defined for GNU/Linux targets:
 @item -mglibc
 @opindex mglibc
 Use the GNU C library.  This is the default except
-on @samp{*-*-linux-*uclibc*} and @samp{*-*-linux-*android*} targets.
+on @samp{*-*-linux-*uclibc*}, @samp{*-*-linux-*musl*} and
+@samp{*-*-linux-*android*} targets.
 
 @item -muclibc
 @opindex muclibc
 Use uClibc C library.  This is the default on
 @samp{*-*-linux-*uclibc*} targets.
+
+@item -mmusl
+@opindex mmusl
+Use the musl C library.  This is the default on
+@samp{*-*-linux-*musl*} targets.
 
 @item -mbionic
 @opindex mbionic

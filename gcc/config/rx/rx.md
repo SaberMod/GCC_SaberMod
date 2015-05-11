@@ -679,11 +679,11 @@
 
   flags = gen_rtx_REG (CCmode, CC_REG);
   x = gen_rtx_COMPARE (CCmode, operands[2], operands[3]);
-  x = gen_rtx_SET (VOIDmode, flags, x);
+  x = gen_rtx_SET (flags, x);
   emit_insn (x);
 
   x = gen_rtx_fmt_ee (GET_CODE (operands[1]), SImode, flags, const0_rtx);
-  x = gen_rtx_SET (VOIDmode, operands[0], x);
+  x = gen_rtx_SET (operands[0], x);
   emit_insn (x);
   DONE;
 })
@@ -711,11 +711,11 @@
 
   flags = gen_rtx_REG (CC_Fmode, CC_REG);
   x = gen_rtx_COMPARE (CC_Fmode, operands[2], operands[3]);
-  x = gen_rtx_SET (VOIDmode, flags, x);
+  x = gen_rtx_SET (flags, x);
   emit_insn (x);
 
   x = gen_rtx_fmt_ee (GET_CODE (operands[1]), SImode, flags, const0_rtx);
-  x = gen_rtx_SET (VOIDmode, operands[0], x);
+  x = gen_rtx_SET (operands[0], x);
   emit_insn (x);
   DONE;
 })
@@ -756,7 +756,7 @@
 
   flags = gen_rtx_REG (CCmode, CC_REG);
   x = gen_rtx_COMPARE (CCmode, operands[3], operands[4]);
-  emit_insn (gen_rtx_SET (VOIDmode, flags, x));
+  emit_insn (gen_rtx_SET (flags, x));
 
   cmp_code = GET_CODE (operands[5]);
   op0 = operands[0];
@@ -781,7 +781,7 @@
 
   x = gen_rtx_fmt_ee (cmp_code, VOIDmode, flags, const0_rtx);
   x = gen_rtx_IF_THEN_ELSE (SImode, x, op1, op0);
-  emit_insn (gen_rtx_SET (VOIDmode, op0, x));
+  emit_insn (gen_rtx_SET (op0, x));
   DONE;
 })
 
@@ -1734,9 +1734,9 @@
 					 (match_dup 2)))
 	      (clobber (reg:CC CC_REG))])]
   "peep2_regno_dead_p (2, REGNO (operands[0])) && (optimize < 3 || optimize_size)"
-  [(parallel [(set:SI (match_dup 2)
-		      (memex_commutative:SI (match_dup 2)
-					    (extend_types:SI (match_dup 1))))
+  [(parallel [(set (match_dup 2)
+		   (memex_commutative:SI (match_dup 2)
+					 (extend_types:SI (match_dup 1))))
 	      (clobber (reg:CC CC_REG))])]
 )
 
@@ -1748,9 +1748,9 @@
 					 (match_dup 0)))
 	      (clobber (reg:CC CC_REG))])]
   "peep2_regno_dead_p (2, REGNO (operands[0])) && (optimize < 3 || optimize_size)"
-  [(parallel [(set:SI (match_dup 2)
-		      (memex_commutative:SI (match_dup 2)
-					    (extend_types:SI (match_dup 1))))
+  [(parallel [(set (match_dup 2)
+		   (memex_commutative:SI (match_dup 2)
+					 (extend_types:SI (match_dup 1))))
 	      (clobber (reg:CC CC_REG))])]
 )
 
@@ -1762,9 +1762,9 @@
 				     (match_dup 0)))
 	      (clobber (reg:CC CC_REG))])]
   "peep2_regno_dead_p (2, REGNO (operands[0])) && (optimize < 3 || optimize_size)"
-  [(parallel [(set:SI (match_dup 2)
-		      (memex_noncomm:SI (match_dup 2)
-					(extend_types:SI (match_dup 1))))
+  [(parallel [(set (match_dup 2)
+		   (memex_noncomm:SI (match_dup 2)
+				     (extend_types:SI (match_dup 1))))
 	      (clobber (reg:CC CC_REG))])]
 )
 
@@ -1775,9 +1775,9 @@
 	(memex_nocc:SI (match_dup 0)
 		       (match_dup 2)))]
   "peep2_regno_dead_p (2, REGNO (operands[0])) && (optimize < 3 || optimize_size)"
-  [(set:SI (match_dup 2)
-	   (memex_nocc:SI (match_dup 2)
-			  (extend_types:SI (match_dup 1))))]
+  [(set (match_dup 2)
+	(memex_nocc:SI (match_dup 2)
+		       (extend_types:SI (match_dup 1))))]
 )
 
 (define_peephole2
@@ -1787,9 +1787,9 @@
 	(memex_nocc:SI (match_dup 2)
 		       (match_dup 0)))]
   "peep2_regno_dead_p (2, REGNO (operands[0])) && (optimize < 3 || optimize_size)"
-  [(set:SI (match_dup 2)
-	   (memex_nocc:SI (match_dup 2)
-			  (extend_types:SI (match_dup 1))))]
+  [(set (match_dup 2)
+	(memex_nocc:SI (match_dup 2)
+		       (extend_types:SI (match_dup 1))))]
 )
 
 (define_insn "<memex_commutative:code>si3_<extend_types:code><small_int_modes:mode>"
@@ -2057,7 +2057,7 @@
   flags = gen_rtx_REG (CC_ZSmode, CC_REG);
   x = gen_rtx_AND (SImode, operands[2], const1_rtx);
   x = gen_rtx_COMPARE (CC_ZSmode, x, const0_rtx);
-  x = gen_rtx_SET (VOIDmode, flags, x);
+  x = gen_rtx_SET (flags, x);
   emit_insn (x);
 
   /* Emit bmne.  */
@@ -2083,7 +2083,7 @@
 
   flags = gen_rtx_REG (CCmode, CC_REG);
   x = gen_rtx_COMPARE (CCmode, operands[2], operands[3]);
-  x = gen_rtx_SET (VOIDmode, flags, x);
+  x = gen_rtx_SET (flags, x);
   emit_insn (x);
 
   operands[4] = gen_rtx_fmt_ee (GET_CODE (operands[4]), SImode,
@@ -2623,8 +2623,8 @@
 )
 
 (define_insn "movdi"
-  [(set:DI (match_operand:DI 0 "nonimmediate_operand" "=rm")
-	   (match_operand:DI 1 "general_operand"      "rmi"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=rm")
+        (match_operand:DI 1 "general_operand"      "rmi"))]
   "TARGET_ENABLE_LRA"
   { return rx_gen_move_template (operands, false); }
   [(set_attr "length" "16")
@@ -2632,8 +2632,8 @@
 )
 
 (define_insn "movdf"
-  [(set:DF (match_operand:DF 0 "nonimmediate_operand" "=rm")
-	   (match_operand:DF 1 "general_operand"      "rmi"))]
+  [(set (match_operand:DF 0 "nonimmediate_operand" "=rm")
+        (match_operand:DF 1 "general_operand"      "rmi"))]
   "TARGET_ENABLE_LRA"
   { return rx_gen_move_template (operands, false); }
   [(set_attr "length" "16")

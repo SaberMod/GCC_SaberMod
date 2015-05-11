@@ -1769,7 +1769,7 @@ setup_prohibited_mode_move_regs (void)
   ira_prohibited_mode_move_regs_initialized_p = true;
   test_reg1 = gen_rtx_REG (VOIDmode, 0);
   test_reg2 = gen_rtx_REG (VOIDmode, 0);
-  move_pat = gen_rtx_SET (VOIDmode, test_reg1, test_reg2);
+  move_pat = gen_rtx_SET (test_reg1, test_reg2);
   move_insn = gen_rtx_INSN (VOIDmode, 0, 0, 0, move_pat, 0, -1, 0);
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {
@@ -2045,8 +2045,8 @@ decrease_live_ranges_number (void)
 {
   basic_block bb;
   rtx_insn *insn;
-  rtx set, src, dest, dest_death, q, note;
-  rtx_insn *p;
+  rtx set, src, dest, dest_death, note;
+  rtx_insn *p, *q;
   int sregno, dregno;
 
   if (! flag_expensive_optimizations)
@@ -2506,12 +2506,12 @@ calculate_allocation_cost (void)
   if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
     {
       fprintf (ira_dump_file,
-	       "+++Costs: overall %"PRId64
-	       ", reg %"PRId64
-	       ", mem %"PRId64
-	       ", ld %"PRId64
-	       ", st %"PRId64
-	       ", move %"PRId64,
+	       "+++Costs: overall %" PRId64
+	       ", reg %" PRId64
+	       ", mem %" PRId64
+	       ", ld %" PRId64
+	       ", st %" PRId64
+	       ", move %" PRId64,
 	       ira_overall_cost, ira_reg_cost, ira_mem_cost,
 	       ira_load_cost, ira_store_cost, ira_shuffle_cost);
       fprintf (ira_dump_file, "\n+++       move loops %d, new jumps %d\n",
@@ -5442,7 +5442,7 @@ do_reload (void)
 
   if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL
       && overall_cost_before != ira_overall_cost)
-    fprintf (ira_dump_file, "+++Overall after reload %"PRId64 "\n",
+    fprintf (ira_dump_file, "+++Overall after reload %" PRId64 "\n",
 	     ira_overall_cost);
 
   flag_ira_share_spill_slots = saved_flag_ira_share_spill_slots;

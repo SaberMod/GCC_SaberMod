@@ -256,9 +256,9 @@ const char *constant_string_class_name;
 
 int flag_use_repository;
 
-/* The C++ dialect being used. C++98 is the default.  */
+/* The C++ dialect being used.  Default set in c_common_post_options.  */
 
-enum cxx_dialect cxx_dialect = cxx98;
+enum cxx_dialect cxx_dialect = cxx_unset;
 
 /* Maximum template instantiation depth.  This limit exists to limit the
    time it takes to notice excessively recursive template instantiations.
@@ -1361,6 +1361,14 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
 	  && !TREE_OVERFLOW_P (op0)
 	  && !TREE_OVERFLOW_P (op1))
 	overflow_warning (EXPR_LOCATION (expr), ret);
+      if (code == LSHIFT_EXPR
+	  && TREE_CODE (orig_op0) != INTEGER_CST
+	  && TREE_CODE (TREE_TYPE (orig_op0)) == INTEGER_TYPE
+	  && TREE_CODE (op0) == INTEGER_CST
+	  && c_inhibit_evaluation_warnings == 0
+	  && tree_int_cst_sgn (op0) < 0)
+	warning_at (loc, OPT_Wshift_negative_value,
+		    "left shift of negative value");
       if ((code == LSHIFT_EXPR || code == RSHIFT_EXPR)
 	  && TREE_CODE (orig_op1) != INTEGER_CST
 	  && TREE_CODE (op1) == INTEGER_CST

@@ -64,8 +64,6 @@ tree gfc_copy_only_alloc_comp (gfc_symbol *, tree, tree, int);
 
 tree gfc_alloc_allocatable_for_assignment (gfc_loopinfo*, gfc_expr*, gfc_expr*);
 
-bool gfc_is_reallocatable_lhs (gfc_expr *);
-
 /* Add initialization for deferred arrays.  */
 void gfc_trans_deferred_array (gfc_symbol *, gfc_wrapped_block *);
 /* Generate an initializer for a static pointer or allocatable array.  */
@@ -104,6 +102,8 @@ gfc_ss *gfc_get_array_ss (gfc_ss *, gfc_expr *, int, gfc_ss_type);
 gfc_ss *gfc_get_temp_ss (tree, tree, int);
 /* Allocate a new scalar type ss.  */
 gfc_ss *gfc_get_scalar_ss (gfc_ss *, gfc_expr *);
+
+bool gfc_scalar_elemental_arg_saved_as_reference (gfc_ss_info *);
 
 /* Calculates the lower bound and stride of array sections.  */
 void gfc_conv_ss_startstride (gfc_loopinfo *);

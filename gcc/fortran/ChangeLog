@@ -1,3 +1,42 @@
+2015-05-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/66041
+	* frontend-passes.c (scalarized_expr): Set correct dimension and
+	shape for the expression to be passed to lbound. Remove trailing
+	references after array refrence.
+	(inline_matmul_assign):  Remove gfc_copy_expr from calls
+	to scalarized_expr().
+
+2015-05-10  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* simplify.c (simplify_bound_dim): Don't check for emptyness
+	in the case of cobound simplification.  Factor lower/upper
+	bound differenciation before the actual simplification.
+	(simplify_bound): Remove assumed shape specific simplification.
+	Don't give up early for the lbound of an assumed shape.
+
+2015-05-09  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/65894
+	* trans-array.h (gfc_scalar_elemental_arg_saved_as_reference):
+	New prototype.
+	* trans-array.c (gfc_scalar_elemental_arg_saved_as_reference):
+	New function.
+	(gfc_add_loop_ss_code): Use gfc_scalar_elemental_arg_saved_as_reference
+	as conditional.
+	(gfc_walk_elemental_function_args): Set the dummy_arg field.
+	* trans.h (gfc_ss_info): New subfield dummy_arg.
+	* trans-expr.c (gfc_conv_procedure_call): Revert the change
+	of revision 222361.
+	(gfc_conv_expr): Use gfc_scalar_elemental_arg_saved_as_reference
+	as conditional.
+
+2015-05-08  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* trans-array.c (gfc_walk_elemental_function_args):
+	Don't skip the advance to the next dummy argument when skipping
+	absent optional args.
+
 2015-05-05  David Malcolm  <dmalcolm@redhat.com>
 
 	* expr.c (check_inquiry): Fix indentation so that it reflects the

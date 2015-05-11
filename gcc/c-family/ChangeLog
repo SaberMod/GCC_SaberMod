@@ -1,3 +1,43 @@
+2015-05-09  Jason Merrill  <jason@redhat.com>
+
+	* c-opts.c (c_common_post_options): Also clear
+	cpp_opts->cpp_warn_cxx11_compat.
+
+	* c-common.h (enum cxx_dialect): Add cxx_unset.
+	* c-common.c (cxx_dialect): Initialize to cxx_unset.
+	* c-opts.c (c_common_post_options): Set C++ dialect to C++98 if unset.
+
+	* c.opt (std=c++14): Remove Undocumented flag and experimental warning.
+	(std=gnu++0x): Mark as Undocumented.
+	(std=gnu++1y): Add deprecated message.
+
+2015-05-08  Jason Merrill  <jason@redhat.com>
+
+	* c.opt (Wc++11-compat): Make primary.  Rename var warn_cxx11_compat.
+	* c-opts.c: Adjust.
+
+	* c.opt (Wc++0x-compat): Also set cpp_warn_cxx11_compat.
+
+2015-05-08  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64918
+	* c.opt (Woverride-init-side-effects): New option.
+
+2015-05-07  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65179
+	* c-common.c (c_fully_fold_internal): Warn when left shifting a
+	negative value.
+	* c.opt (Wshift-negative-value): New option.
+	* c-opts.c (c_common_post_options): Set warn_shift_negative_value
+	when -Wextra and C99/C++11 mode.
+
+2015-05-07  Marek Polacek  <polacek@redhat.com>
+	    Martin Uecker  <uecker@eecs.berkeley.edu>
+
+	* c-ubsan.c (ubsan_instrument_bounds): Don't skip instrumenting
+	flexible member array-like members if SANITIZE_BOUNDS_STRICT.
+
 2015-05-05  Jason Merrill  <jason@redhat.com>
 
 	* c.opt (Wterminate): New.
@@ -9,8 +49,8 @@
 
 2015-04-29  Josh Triplett  <josh@joshtriplett.org>
 
-        * c-common.c (handle_section_attribute): Refactor to reduce
-        nesting and distinguish between error cases.
+	* c-common.c (handle_section_attribute): Refactor to reduce
+	nesting and distinguish between error cases.
 
 2015-04-29  Marek Polacek  <polacek@redhat.com>
 
@@ -30,7 +70,7 @@
 	* c-common.c (build_va_arg): Mark va_arg ap argument as addressable.
 
 2015-04-28  Eric Botcazou  <ebotcazou@adacore.com>
-            Pierre-Marie de Rodat  <derodat@adacore.com>
+	    Pierre-Marie de Rodat  <derodat@adacore.com>
 
 	* c-ada-spec.c (in_function): Delete.
 	(dump_generic_ada_node): Do not change in_function and remove the
