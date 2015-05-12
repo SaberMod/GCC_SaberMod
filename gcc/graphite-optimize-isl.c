@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include <isl/band.h>
 #include <isl/aff.h>
 #include <isl/options.h>
+#include <isl/union_set.h>
 #endif
 
 #include "system.h"

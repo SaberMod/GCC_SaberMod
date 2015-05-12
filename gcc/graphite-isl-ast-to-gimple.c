@@ -21,9 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 
 #ifdef HAVE_isl
-#include <isl/set.h>
-#include <isl/map.h>
 #include <isl/union_map.h>
+#include <isl/union_set.h>
 #include <isl/ast_build.h>
 
 /* Since ISL-0.13, the extern is in val_gmp.h.  */
