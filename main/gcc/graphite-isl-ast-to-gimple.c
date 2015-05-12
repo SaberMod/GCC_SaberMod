@@ -122,10 +122,16 @@ gcc_expression_from_isl_expression (tree type, __isl_take isl_ast_expr *,
 				    ivs_params &ip);
 
 /* Return the tree variable that corresponds to the given isl ast identifier
- expression (an isl_ast_expr of type isl_ast_expr_id).  */
+   expression (an isl_ast_expr of type isl_ast_expr_id).
+
+   FIXME: We should replace blind conversation of id's type with derivation
+   of the optimal type when we get the corresponding isl support. Blindly
+   converting type sizes may be problematic when we switch to smaller
+   types.  */
 
 static tree
-gcc_expression_from_isl_ast_expr_id (__isl_keep isl_ast_expr *expr_id,
+gcc_expression_from_isl_ast_expr_id (tree type,
+				     __isl_keep isl_ast_expr *expr_id,
 				     ivs_params &ip)
 {
   gcc_assert (isl_ast_expr_get_type (expr_id) == isl_ast_expr_id);
@@ -136,7 +142,7 @@ gcc_expression_from_isl_ast_expr_id (__isl_keep isl_ast_expr *expr_id,
   gcc_assert (res != ip.end () &&
               "Could not map isl_id to tree expression");
   isl_ast_expr_free (expr_id);
-  return res->second;
+  return fold_convert (type, res->second);
 }
 
 /* Converts an isl_ast_expr_int expression E to a GCC expression tree of
@@ -351,7 +357,7 @@ gcc_expression_from_isl_expression (tree type, __isl_take isl_ast_expr *expr,
   switch (isl_ast_expr_get_type (expr))
     {
     case isl_ast_expr_id:
-      return gcc_expression_from_isl_ast_expr_id (expr, ip);
+      return gcc_expression_from_isl_ast_expr_id (type, expr, ip);
 
     case isl_ast_expr_int:
       return gcc_expression_from_isl_expr_int (type, expr);
@@ -645,6 +651,43 @@ translate_isl_ast_node_block (loop_p context_loop,
   isl_ast_node_list_free (node_list);
   return next_e;
 }
+ 
+/* Creates a new if region corresponding to ISL's cond.  */
+
+static edge
+graphite_create_new_guard (edge entry_edge, __isl_take isl_ast_expr *if_cond,
+			   ivs_params &ip)
+{
+  tree type =
+    build_nonstandard_integer_type (graphite_expression_type_precision, 0);
+  tree cond_expr = gcc_expression_from_isl_expression (type, if_cond, ip);
+  edge exit_edge = create_empty_if_region_on_edge (entry_edge, cond_expr);
+  return exit_edge;
+}
+
+/* Translates an isl_ast_node_if to Gimple.  */
+
+static edge
+translate_isl_ast_node_if (loop_p context_loop,
+			   __isl_keep isl_ast_node *node,
+			   edge next_e, ivs_params &ip)
+{
+  gcc_assert (isl_ast_node_get_type (node) == isl_ast_node_if);
+  isl_ast_expr *if_cond = isl_ast_node_if_get_cond (node);
+  edge last_e = graphite_create_new_guard (next_e, if_cond, ip);
+
+  edge true_e = get_true_edge_from_guard_bb (next_e->dest);
+  isl_ast_node *then_node = isl_ast_node_if_get_then (node);
+  translate_isl_ast (context_loop, then_node, true_e, ip);
+  isl_ast_node_free (then_node);
+
+  edge false_e = get_false_edge_from_guard_bb (next_e->dest);
+  isl_ast_node *else_node = isl_ast_node_if_get_else (node);
+  if (isl_ast_node_get_type (else_node) != isl_ast_node_error)
+    translate_isl_ast (context_loop, else_node, false_e, ip);
+  isl_ast_node_free (else_node);
+  return last_e;
+}
 
 /* Translates an ISL AST node NODE to GCC representation in the
    context of a SESE.  */
@@ -663,7 +706,8 @@ translate_isl_ast (loop_p context_loop, __isl_keep isl_ast_node *node,
 					 next_e, ip);
 
     case isl_ast_node_if:
-      return next_e;
+      return translate_isl_ast_node_if (context_loop, node,
+					next_e, ip);
 
     case isl_ast_node_user:
       return translate_isl_ast_node_user (node, next_e, ip);

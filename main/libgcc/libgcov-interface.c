@@ -44,22 +44,21 @@ void __gcov_dump (void) {}
 
 extern void gcov_clear (void) ATTRIBUTE_HIDDEN;
 extern void gcov_exit (void) ATTRIBUTE_HIDDEN;
-extern void set_gcov_dump_complete (void) ATTRIBUTE_HIDDEN;
-extern void reset_gcov_dump_complete (void) ATTRIBUTE_HIDDEN;
+extern __gthread_mutex_t __gcov_flush_mx ATTRIBUTE_HIDDEN;
 
 #ifdef L_gcov_flush
-
 #ifdef __GTHREAD_MUTEX_INIT
-ATTRIBUTE_HIDDEN __gthread_mutex_t __gcov_flush_mx = __GTHREAD_MUTEX_INIT;
+__gthread_mutex_t __gcov_flush_mx = __GTHREAD_MUTEX_INIT;
 #define init_mx_once()
 #else
-__gthread_mutex_t __gcov_flush_mx ATTRIBUTE_HIDDEN;
+__gthread_mutex_t __gcov_flush_mx;
 
 static void
 init_mx (void)
 {
   __GTHREAD_MUTEX_INIT_FUNCTION (&__gcov_flush_mx);
 }
+
 static void
 init_mx_once (void)
 {
@@ -95,9 +94,6 @@ void
 __gcov_reset (void)
 {
   gcov_clear ();
-  /* Re-enable dumping to support collecting profile in multiple regions
-     of interest.  */
-  reset_gcov_dump_complete ();
 }
 
 #endif /* L_gcov_reset */
@@ -111,8 +107,6 @@ void
 __gcov_dump (void)
 {
   gcov_exit ();
-  /* Prevent profile from being dumped a second time on application exit.  */
-  set_gcov_dump_complete ();
 }
 
 #endif /* L_gcov_dump */
@@ -206,8 +200,8 @@ __gcov_execl (const char *path, char *arg, ...)
 #endif
 
 #ifdef L_gcov_execlp
-/* A wrapper for the execlp function.  Flushes the accumulated profiling data, so
-   that they are not lost.  */
+/* A wrapper for the execlp function.  Flushes the accumulated
+   profiling data, so that they are not lost.  */
 
 int
 __gcov_execlp (const char *path, char *arg, ...)
@@ -237,8 +231,8 @@ __gcov_execlp (const char *path, char *arg, ...)
 #endif
 
 #ifdef L_gcov_execle
-/* A wrapper for the execle function.  Flushes the accumulated profiling data, so
-   that they are not lost.  */
+/* A wrapper for the execle function.  Flushes the accumulated
+   profiling data, so that they are not lost.  */
 
 int
 __gcov_execle (const char *path, char *arg, ...)
@@ -270,8 +264,8 @@ __gcov_execle (const char *path, char *arg, ...)
 #endif
 
 #ifdef L_gcov_execv
-/* A wrapper for the execv function.  Flushes the accumulated profiling data, so
-   that they are not lost.  */
+/* A wrapper for the execv function.  Flushes the accumulated
+   profiling data, so that they are not lost.  */
 
 int
 __gcov_execv (const char *path, char *const argv[])
@@ -282,8 +276,8 @@ __gcov_execv (const char *path, char *const argv[])
 #endif
 
 #ifdef L_gcov_execvp
-/* A wrapper for the execvp function.  Flushes the accumulated profiling data, so
-   that they are not lost.  */
+/* A wrapper for the execvp function.  Flushes the accumulated
+   profiling data, so that they are not lost.  */
 
 int
 __gcov_execvp (const char *path, char *const argv[])
@@ -294,8 +288,8 @@ __gcov_execvp (const char *path, char *const argv[])
 #endif
 
 #ifdef L_gcov_execve
-/* A wrapper for the execve function.  Flushes the accumulated profiling data, so
-   that they are not lost.  */
+/* A wrapper for the execve function.  Flushes the accumulated
+   profiling data, so that they are not lost.  */
 
 int
 __gcov_execve (const char *path, char *const argv[], char *const envp[])

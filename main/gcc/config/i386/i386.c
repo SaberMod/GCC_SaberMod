@@ -3268,12 +3268,13 @@ ix86_option_override_internal (bool main_args_p,
 	| PTA_FMA | PTA_PRFCHW | PTA_FXSR | PTA_XSAVE 
 	| PTA_XSAVEOPT | PTA_FSGSBASE},
      {"bdver4", PROCESSOR_BDVER4, CPU_BDVER4,
-        PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
-        | PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_SSSE3 | PTA_SSE4_1
-        | PTA_SSE4_2 | PTA_AES | PTA_PCLMUL | PTA_AVX | PTA_AVX2 
+	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+	| PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_SSSE3 | PTA_SSE4_1
+	| PTA_SSE4_2 | PTA_AES | PTA_PCLMUL | PTA_AVX | PTA_AVX2 
 	| PTA_FMA4 | PTA_XOP | PTA_LWP | PTA_BMI | PTA_BMI2 
 	| PTA_TBM | PTA_F16C | PTA_FMA | PTA_PRFCHW | PTA_FXSR 
-	| PTA_XSAVE | PTA_XSAVEOPT | PTA_FSGSBASE},
+	| PTA_XSAVE | PTA_XSAVEOPT | PTA_FSGSBASE | PTA_RDRND
+	| PTA_MOVBE},
       {"btver1", PROCESSOR_BTVER1, CPU_GENERIC,
 	PTA_64BIT | PTA_MMX |  PTA_SSE  | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4A |PTA_ABM | PTA_CX16 | PTA_PRFCHW
@@ -8019,7 +8020,7 @@ ix86_libcall_value (enum machine_mode mode)
 /* Return true iff type is returned in memory.  */
 
 static bool
-ix86_return_in_memory (const_tree type, const_tree fntype)
+ix86_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
 #ifdef SUBTARGET_RETURN_IN_MEMORY
   return SUBTARGET_RETURN_IN_MEMORY (type, fntype);
@@ -25310,7 +25311,7 @@ assign_386_stack_local (enum machine_mode mode, enum ix86_stack_slot n)
 
   s->next = ix86_stack_locals;
   ix86_stack_locals = s;
-  return validize_mem (s->rtl);
+  return validize_mem (copy_rtx (s->rtl));
 }
 
 static void
@@ -26056,6 +26057,9 @@ ix86_macro_fusion_pair_p (rtx condgen, rtx condjmp)
   enum rtx_code ccode;
   rtx compare_set = NULL_RTX, test_if, cond;
   rtx alu_set = NULL_RTX, addr = NULL_RTX;
+
+  if (!any_condjump_p (condjmp))
+    return false;
 
   if (get_attr_type (condgen) != TYPE_TEST
       && get_attr_type (condgen) != TYPE_ICMP

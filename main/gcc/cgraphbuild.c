@@ -501,7 +501,6 @@ pass_build_cgraph_edges::execute (function *fun)
 {
   basic_block bb;
   struct cgraph_node *node = cgraph_node::get (current_function_decl);
-  struct pointer_set_t *visited_nodes = pointer_set_create ();
   gimple_stmt_iterator gsi;
   tree decl;
   unsigned ix;
@@ -566,7 +565,6 @@ pass_build_cgraph_edges::execute (function *fun)
       varpool_node::finalize_decl (decl);
   record_eh_tables (node, fun);
 
-  pointer_set_destroy (visited_nodes);
   return 0;
 }
 
@@ -585,15 +583,14 @@ make_pass_build_cgraph_edges (gcc::context *ctxt)
 void
 record_references_in_initializer (tree decl, bool only_vars)
 {
-  struct pointer_set_t *visited_nodes = pointer_set_create ();
   varpool_node *node = varpool_node::get_create (decl);
+  hash_set<tree> visited_nodes;
   struct record_reference_ctx ctx = {false, NULL};
 
   ctx.varpool_node = node;
   ctx.only_vars = only_vars;
   walk_tree (&DECL_INITIAL (decl), record_reference,
-             &ctx, visited_nodes);
-  pointer_set_destroy (visited_nodes);
+             &ctx, &visited_nodes);
 }
 
 /* In LIPO mode, before tree_profiling, the call graph edge

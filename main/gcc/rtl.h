@@ -1983,7 +1983,6 @@ extern unsigned int rtx_size (const_rtx);
 extern rtx shallow_copy_rtx_stat (const_rtx MEM_STAT_DECL);
 #define shallow_copy_rtx(a) shallow_copy_rtx_stat (a MEM_STAT_INFO)
 extern int rtx_equal_p (const_rtx, const_rtx);
-extern hashval_t iterative_hash_rtx (const_rtx, hashval_t);
 
 /* In emit-rtl.c */
 extern rtvec gen_rtvec_v (int, rtx *);
@@ -2292,6 +2291,7 @@ extern int replace_label (rtx *, void *);
 extern int rtx_referenced_p (rtx, rtx);
 extern bool tablejump_p (const_rtx, rtx *, rtx *);
 extern int computed_jump_p (const_rtx);
+extern bool tls_referenced_p (rtx);
 
 typedef int (*rtx_function) (rtx *, void *);
 extern int for_each_rtx (rtx *, rtx_function, void *);
@@ -2517,7 +2517,6 @@ struct GTY(()) target_rtl {
 
   /* Track if RTL has been initialized.  */
   bool target_specific_initialized;
-  bool lang_dependent_initialized;
 };
 
 extern GTY(()) struct target_rtl default_target_rtl;

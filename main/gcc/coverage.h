@@ -77,6 +77,7 @@ extern void emit_function_name (void);
 extern tree get_gcov_type (void);
 extern tree get_gcov_unsigned_t (void);
 extern tree get_const_string_type (void);
+extern bool coverage_node_map_initialized_p (void);
 
 /* Mark this module as containing asm statements.  */
 extern void coverage_has_asm_stmt (void);

@@ -36,7 +36,7 @@ struct gcov_info;
 void __gcov_compute_module_groups (void) {}
 const struct dyn_imp_mod **
 gcov_get_sorted_import_module_array (struct gcov_info *mod_info,
-                                     unsigned *len) {}
+                                     unsigned *len) {return 0;}
 void
 gcov_write_module_infos (struct gcov_info *mod_info) {}
 void

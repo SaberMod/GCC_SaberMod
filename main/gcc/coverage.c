@@ -68,6 +68,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "filenames.h"
 #include "dwarf2asm.h"
 #include "target.h"
+#include "params.h"
 
 #include "gcov-io.h"
 #include "gcov-io.c"
@@ -1013,7 +1014,13 @@ get_coverage_counts_entry (struct function *func, unsigned counter)
 {
   counts_entry_t *entry, elt;
 
-  elt.ident = FUNC_DECL_GLOBAL_ID (func);
+  if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID) || flag_dyn_ipa)
+    elt.ident = FUNC_DECL_GLOBAL_ID (func);
+  else
+    {
+      gcc_assert (coverage_node_map_initialized_p ());
+      elt.ident = cgraph_node::get (cfun->decl)->profile_id;
+    }
   elt.ctr = counter;
   entry = counts_hash->find (&elt);
 
@@ -1091,13 +1098,13 @@ get_coverage_counts (unsigned counter, unsigned expected,
 
       return NULL;
     }
-    else if (entry->lineno_checksum != lineno_checksum)
-      {
-        warning (OPT_Wripa_opt_mismatch,
-                 "Source location for function %qE have changed,"
-                 " the profile data may be out of date",
-                 DECL_ASSEMBLER_NAME (current_function_decl));
-      }
+  else if (entry->lineno_checksum != lineno_checksum)
+    {
+      warning (OPT_Wcoverage_mismatch,
+               "source locations for function %qE have changed,"
+	       " the profile data may be out of date",
+	       DECL_ASSEMBLER_NAME (current_function_decl));
+    }
 
   if (summary)
     *summary = &entry->summary;
@@ -1340,12 +1347,14 @@ coverage_compute_profile_id (struct cgraph_node *n)
     {
       expanded_location xloc
 	= expand_location (DECL_SOURCE_LOCATION (n->decl));
+      bool use_name_only 
+          = (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID) == 0);
 
-      chksum = xloc.line;
+      chksum = (use_name_only ? 0 : xloc.line);
       chksum = coverage_checksum_string (chksum, xloc.file);
       chksum = coverage_checksum_string
 	(chksum, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (n->decl)));
-      if (first_global_object_name)
+      if (!use_name_only && first_global_object_name)
 	chksum = coverage_checksum_string
 	  (chksum, first_global_object_name);
       chksum = coverage_checksum_string
@@ -1404,7 +1413,15 @@ coverage_begin_function (unsigned lineno_checksum, unsigned cfg_checksum)
 
   /* Announce function */
   offset = gcov_write_tag (GCOV_TAG_FUNCTION);
-  gcov_write_unsigned (FUNC_DECL_FUNC_ID (cfun));
+  if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID) || flag_dyn_ipa)
+    gcov_write_unsigned (FUNC_DECL_FUNC_ID (cfun));
+  else
+    {
+      gcc_assert (coverage_node_map_initialized_p ());
+      gcov_write_unsigned (
+        cgraph_node::get (current_function_decl)->profile_id);
+    }
+
   gcov_write_unsigned (lineno_checksum);
   gcov_write_unsigned (cfg_checksum);
   gcov_write_string (IDENTIFIER_POINTER
@@ -1441,8 +1458,15 @@ coverage_end_function (unsigned lineno_checksum, unsigned cfg_checksum)
       if (!DECL_EXTERNAL (current_function_decl))
 	{
 	  item = ggc_alloc<coverage_data> ();
-	  
-	  item->ident = FUNC_DECL_FUNC_ID (cfun);
+
+          if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID) || flag_dyn_ipa)
+	    item->ident = FUNC_DECL_FUNC_ID (cfun);
+          else
+            {
+              gcc_assert (coverage_node_map_initialized_p ());
+              item->ident = cgraph_node::get (cfun->decl)->profile_id;
+            }
+
 	  item->lineno_checksum = lineno_checksum;
 	  item->cfg_checksum = cfg_checksum;
 
@@ -1498,8 +1522,13 @@ coverage_dc_end_function (void)
   if (fn_ctr_mask)
     {
       const unsigned idx = GCOV_COUNTER_DIRECT_CALL;
+      unsigned ident;
       struct coverage_data *item = functions_head;
-      while (item && item->ident != (unsigned) FUNC_DECL_FUNC_ID (cfun))
+      if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID) || flag_dyn_ipa)
+        ident = FUNC_DECL_GLOBAL_ID (cfun);
+      else
+          ident = cgraph_node::get (cfun->decl)->profile_id;
+      while (item && item->ident != ident)
 	item = item->next;
 
       /* If a matching function entry hasn't been found, either this function

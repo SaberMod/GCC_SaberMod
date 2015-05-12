@@ -217,7 +217,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Queue of cgraph nodes scheduled to be added into cgraph.  This is a
    secondary queue used during optimization to accommodate passes that
    may generate new functions that need to be optimized and expanded.  */
-cgraph_node_set cgraph_new_nodes;
+vec<cgraph_node *> cgraph_new_nodes;
 
 static void expand_all_functions (void);
 static void mark_functions_to_output (void);
@@ -309,17 +309,16 @@ void
 cgraph_process_new_functions (void)
 {
   tree fndecl;
-  struct cgraph_node *node;
-  cgraph_node_set_iterator csi;
 
-  if (!cgraph_new_nodes)
+  if (!cgraph_new_nodes.exists ())
     return;
+
   handle_alias_pairs ();
   /*  Note that this queue may grow as its being processed, as the new
       functions may generate new ones.  */
-  for (csi = csi_start (cgraph_new_nodes); !csi_end_p (csi); csi_next (&csi))
+  for (unsigned i = 0; i < cgraph_new_nodes.length (); i++)
     {
-      node = csi_node (csi);
+      cgraph_node *node = cgraph_new_nodes[i];
       fndecl = node->decl;
       switch (cgraph_state)
 	{
@@ -366,8 +365,8 @@ cgraph_process_new_functions (void)
 	  break;
 	}
     }
-  free_cgraph_node_set (cgraph_new_nodes);
-  cgraph_new_nodes = NULL;
+
+  cgraph_new_nodes.release ();
 }
 
 /* As an GCC extension we allow redefinition of the function.  The
@@ -511,9 +510,7 @@ cgraph_node::add_new_function (tree fndecl, bool lowered)
 	node = cgraph_node::get_create (fndecl);
 	if (lowered)
 	  node->lowered = true;
-	if (!cgraph_new_nodes)
-	  cgraph_new_nodes = cgraph_node_set_new ();
-	cgraph_node_set_add (cgraph_new_nodes, node);
+	cgraph_new_nodes.safe_push (node);
         break;
 
       case CGRAPH_STATE_IPA:
@@ -539,9 +536,7 @@ cgraph_node::add_new_function (tree fndecl, bool lowered)
 	  }
 	if (lowered)
 	  node->lowered = true;
-	if (!cgraph_new_nodes)
-	  cgraph_new_nodes = cgraph_node_set_new ();
-	cgraph_node_set_add (cgraph_new_nodes, node);
+	cgraph_new_nodes.safe_push (node);
         break;
 
       case CGRAPH_STATE_FINISHED:
@@ -854,7 +849,7 @@ varpool_node::finalize_decl (tree decl)
    avoid udplicate work.  */
 
 static void
-walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
+walk_polymorphic_call_targets (hash_set<void *> *reachable_call_targets,
 			       struct cgraph_edge *edge)
 {
   unsigned int i;
@@ -864,8 +859,7 @@ walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
     = possible_polymorphic_call_targets
 	(edge, &final, &cache_token);
 
-  if (!pointer_set_insert (reachable_call_targets,
-			   cache_token))
+  if (!reachable_call_targets->add (cache_token))
     {
       if (cgraph_dump_file)
 	dump_possible_polymorphic_call_targets 
@@ -945,7 +939,7 @@ analyze_functions (void)
   struct cgraph_node *first_handled = first_analyzed;
   static varpool_node *first_analyzed_var;
   varpool_node *first_handled_var = first_analyzed_var;
-  struct pointer_set_t *reachable_call_targets = pointer_set_create ();
+  hash_set<void *> reachable_call_targets;
 
   symtab_node *node;
   symtab_node *next;
@@ -1045,7 +1039,7 @@ analyze_functions (void)
 		    {
 		      next = edge->next_callee;
 		      if (edge->indirect_info->polymorphic)
-			walk_polymorphic_call_targets (reachable_call_targets,
+			walk_polymorphic_call_targets (&reachable_call_targets,
 						       edge);
 		    }
 		}
@@ -1057,7 +1051,7 @@ analyze_functions (void)
 	      if (DECL_ABSTRACT_ORIGIN (decl))
 		{
 		  struct cgraph_node *origin_node
-	    	  = cgraph_node::get (DECL_ABSTRACT_ORIGIN (decl));
+		    = cgraph_node::get_create (DECL_ABSTRACT_ORIGIN (decl));
 		  origin_node->used_as_abstract_origin = true;
 		}
 	    }
@@ -1133,7 +1127,6 @@ analyze_functions (void)
       symtab_node::dump_table (cgraph_dump_file);
     }
   bitmap_obstack_release (NULL);
-  pointer_set_destroy (reachable_call_targets);
   ggc_collect ();
   /* Initialize assembler name hash, in particular we want to trigger C++
      mangling and same body alias creation before we free DECL_ARGUMENTS

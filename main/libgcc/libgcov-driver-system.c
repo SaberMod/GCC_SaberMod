@@ -83,55 +83,46 @@ create_file_directory (char *filename)
 }
 
 static void
-allocate_filename_struct (struct gcov_filename_aux *gf)
+allocate_filename_struct (struct gcov_filename *gf)
 {
   const char *gcov_prefix;
-  int gcov_prefix_strip = 0;
   size_t prefix_length;
-  char *gi_filename_up;
+  int strip = 0;
 
-  gcc_assert (gf);
   {
     /* Check if the level of dirs to strip off specified. */
     char *tmp = getenv("GCOV_PREFIX_STRIP");
     if (tmp)
       {
-        gcov_prefix_strip = atoi (tmp);
+        strip = atoi (tmp);
         /* Do not consider negative values. */
-        if (gcov_prefix_strip < 0)
-          gcov_prefix_strip = 0;
+        if (strip < 0)
+          strip = 0;
       }
   }
+  gf->strip = strip;
 
   /* Get file name relocation prefix.  Non-absolute values are ignored. */
   gcov_prefix = getenv("GCOV_PREFIX");
-  if (gcov_prefix)
-    {
-      prefix_length = strlen(gcov_prefix);
-
-      /* Remove an unnecessary trailing '/' */
-      if (IS_DIR_SEPARATOR (gcov_prefix[prefix_length - 1]))
-        prefix_length--;
-    }
-  else
-    prefix_length = 0;
+  prefix_length = gcov_prefix ? strlen (gcov_prefix) : 0;
+  
+  /* Remove an unnecessary trailing '/' */
+  if (prefix_length && IS_DIR_SEPARATOR (gcov_prefix[prefix_length - 1]))
+    prefix_length--;
 
   /* If no prefix was specified and a prefix stip, then we assume
      relative.  */
-  if (gcov_prefix_strip != 0 && prefix_length == 0)
+  if (!prefix_length && gf->strip)
     {
       gcov_prefix = ".";
       prefix_length = 1;
     }
-  /* Allocate and initialize the filename scratch space plus one.  */
-  gi_filename = (char *) xmalloc (prefix_length + gcov_max_filename + 2);
-  if (prefix_length)
-    memcpy (gi_filename, gcov_prefix, prefix_length);
-  gi_filename_up = gi_filename + prefix_length;
+  gf->prefix = prefix_length;
 
-  gf->gi_filename_up = gi_filename_up;
-  gf->prefix_length = prefix_length;
-  gf->gcov_prefix_strip = gcov_prefix_strip;
+  /* Allocate and initialize the filename scratch space.  */
+  gf->filename = (char *) xmalloc (gf->max_length + prefix_length + 2);
+  if (prefix_length)
+    memcpy (gf->filename, gcov_prefix, prefix_length);
 }
 
 static int
@@ -155,7 +146,6 @@ gcov_open_by_filename (char *gi_filename)
   return 0;
 }
 
-
 #define GCOV_GET_FILENAME gcov_strip_leading_dirs
 
 /* Strip GCOV_PREFIX_STRIP levels of leading '/' from FILENAME and
@@ -173,17 +163,20 @@ gcov_strip_leading_dirs (int prefix_length, int gcov_prefix_strip,
      directories from the initial filename if requested. */
   if (gcov_prefix_strip > 0)
     {
-      int level = 0;
-      const char *s = filename;
-      if (IS_DIR_SEPARATOR(*s))
-      	++s;
+      const char *probe = filename;
+      int level;
 
-      /* Skip selected directory levels. */
-      for (; (*s != '\0') && (level < gcov_prefix_strip); s++)
-        if (IS_DIR_SEPARATOR(*s))
+      /* Remove a leading separator, without counting it.  */
+      if (IS_DIR_SEPARATOR (*probe))
+	probe++;
+
+      /* Skip selected directory levels.  If we fall off the end, we
+	 keep the final part.  */
+      for (level = gcov_prefix_strip; *probe && level; probe++)
+        if (IS_DIR_SEPARATOR (*probe))
           {
-            filename = s;
-            level++;
+            filename = probe;
+            level--;
           }
     }
 
@@ -198,23 +191,22 @@ gcov_strip_leading_dirs (int prefix_length, int gcov_prefix_strip,
     strcpy (gi_filename_up, filename);
 }
 
-
 /* Open a gcda file specified by GI_FILENAME.
    Return -1 on error.  Return 0 on success.  */
 
 static int
-gcov_exit_open_gcda_file (struct gcov_info *gi_ptr, struct gcov_filename_aux *gf)
+gcov_exit_open_gcda_file (struct gcov_info *gi_ptr, struct gcov_filename *gf)
 {
   int gcov_prefix_strip;
   size_t prefix_length;
   char *gi_filename_up;
 
-  gcov_prefix_strip = gf->gcov_prefix_strip;
-  gi_filename_up = gf->gi_filename_up;
-  prefix_length = gf->prefix_length;
+  gcov_prefix_strip = gf->strip;
+  gi_filename_up = gf->filename + gf->prefix;
+  prefix_length = gf->prefix;
 
   GCOV_GET_FILENAME (prefix_length, gcov_prefix_strip, gi_ptr->filename,
                      gi_filename_up);
 
-  return gcov_open_by_filename (gi_filename);
+  return gcov_open_by_filename (gf->filename);
 }
