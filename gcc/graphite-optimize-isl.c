@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include <isl/band.h>
 #include <isl/aff.h>
 #include <isl/options.h>
+#include <isl/union_set.h>
 #ifdef HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE
 #include <isl/deprecated/int.h>
 #include <isl/deprecated/aff_int.h>
