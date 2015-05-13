@@ -432,6 +432,7 @@ cgraph_node::create_clone (tree decl, gcov_type gcov_count, int freq,
                               / count) * gcov_count;
   new_node->frequency = frequency;
   new_node->tp_first_run = tp_first_run;
+  new_node->tm_clone = tm_clone;
 
   new_node->clone.tree_map = NULL;
   new_node->clone.args_to_skip = args_to_skip;

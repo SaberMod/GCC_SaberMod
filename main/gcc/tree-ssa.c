@@ -107,11 +107,12 @@ redirect_edge_var_map_dup (edge newe, edge olde)
   if (!edge_var_maps)
     return;
 
-  auto_vec<edge_var_map> *head = edge_var_maps->get (olde);
-  if (!head)
+  auto_vec<edge_var_map> *new_head = &edge_var_maps->get_or_insert (newe);
+  auto_vec<edge_var_map> *old_head = edge_var_maps->get (olde);
+  if (!old_head)
     return;
 
-  edge_var_maps->get_or_insert (newe).safe_splice (*head);
+  new_head->safe_splice (*old_head);
 }
 
 
@@ -1158,7 +1159,7 @@ delete_tree_ssa (void)
   cfun->gimple_df->default_defs = NULL;
   pt_solution_reset (&cfun->gimple_df->escaped);
   if (cfun->gimple_df->decls_to_pointers != NULL)
-    pointer_map_destroy (cfun->gimple_df->decls_to_pointers);
+    delete cfun->gimple_df->decls_to_pointers;
   cfun->gimple_df->decls_to_pointers = NULL;
   cfun->gimple_df->modified_noreturn_calls = NULL;
   cfun->gimple_df = NULL;

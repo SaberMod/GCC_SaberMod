@@ -13670,6 +13670,10 @@ cp_parser_template_id (cp_parser *parser,
       template_id
 	= finish_template_type (templ, arguments, entering_scope);
     }
+  else if (variable_template_p (templ))
+    {
+      template_id = lookup_template_variable (templ, arguments);
+    }
   else
     {
       /* If it's not a class-template or a template-template, it should be
@@ -31962,7 +31966,6 @@ pragma_lex (tree *value)
 void
 c_parse_file (void)
 {
-
   the_parser = cp_parser_new ();
   push_deferring_access_checks (flag_access_control
 				? dk_no_deferred : dk_no_check);

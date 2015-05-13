@@ -130,15 +130,6 @@ struct gcov_filename
   size_t prefix; /* chars to prepend to filename */
 };
 
-/* Chain of per-object gcov structures.  */
-extern struct gcov_info *__gcov_list;
-
-/* Set the head of gcov_list.  */
-void
-set_gcov_list (struct gcov_info *head)
-{
-  __gcov_list = head;
-}
 
 /* Size of the longest file name. */
 /* We need to expose this static variable when compiling for gcov-tool.  */
@@ -301,7 +292,7 @@ gcov_histogram_insert(gcov_bucket_type *histogram, gcov_type value)
 /* Computes a histogram of the arc counters to place in the summary SUM.  */
 
 static void
-gcov_compute_histogram (struct gcov_summary *sum)
+gcov_compute_histogram (struct gcov_info *list, struct gcov_summary *sum)
 {
   struct gcov_info *gi_ptr;
   const struct gcov_fn_info *gfi_ptr;
@@ -327,7 +318,7 @@ gcov_compute_histogram (struct gcov_summary *sum)
 
   /* Walk through all the per-object structures and record each of
      the count values in histogram.  */
-  for (gi_ptr = __gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
+  for (gi_ptr = list; gi_ptr; gi_ptr = gi_ptr->next)
     {
       if (!gi_ptr->merge[t_ix])
         continue;
@@ -358,10 +349,6 @@ gcov_compute_histogram (struct gcov_summary *sum)
 static struct gcov_fn_buffer *fn_buffer;
 /* buffer for summary from other programs to be written out. */
 static struct gcov_summary_buffer *sum_buffer;
-/* If application calls fork or exec multiple times, we end up storing
-   profile repeadely.  We should not account this as multiple runs or
-   functions executed once may mistakely become cold.  */
-static int run_accounted = 0;
 
 /* This function computes the program level summary and the histo-gram.
    It computes and returns CRC32 and stored summary in THIS_PRG.
@@ -383,7 +370,7 @@ compute_summary (struct gcov_info *list, struct gcov_summary *this_prg,
   /* Find the totals for this execution.  */
   memset (this_prg, 0, sizeof (*this_prg));
   *max_length = 0;
-  for (gi_ptr = __gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
+  for (gi_ptr = list; gi_ptr; gi_ptr = gi_ptr->next)
     {
       size_t len = strlen (gi_ptr->filename);
       if (len > *max_length)
@@ -425,7 +412,7 @@ compute_summary (struct gcov_info *list, struct gcov_summary *this_prg,
             }
         }
     }
-  gcov_compute_histogram (this_prg);
+  gcov_compute_histogram (list, this_prg);
   return crc32;
 }
 
@@ -942,14 +929,14 @@ gcov_write_import_file (char *gi_filename, struct gcov_info *gi_ptr)
 }
 
 static void
-gcov_dump_module_info (struct gcov_filename *gf)
+gcov_dump_module_info (struct gcov_info *list, struct gcov_filename *gf)
 {
   struct gcov_info *gi_ptr;
 
   __gcov_compute_module_groups ();
 
   /* Now write out module group info.  */
-  for (gi_ptr = __gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
+  for (gi_ptr = list; gi_ptr; gi_ptr = gi_ptr->next)
     {
       int error; 
 
@@ -978,7 +965,10 @@ gcov_dump_module_info (struct gcov_filename *gf)
    summary and then traverses gcov_list list and dumps the gcov_info
    objects one by one.  */
 
-void ATTRIBUTE_HIDDEN
+#if !IN_GCOV_TOOL
+static
+#endif
+void
 gcov_do_dump (struct gcov_info *list, int run_counted)
 {
   struct gcov_info *gi_ptr;
@@ -996,68 +986,41 @@ gcov_do_dump (struct gcov_info *list, int run_counted)
 #endif
 
   /* Now merge each file.  */
-  for (gi_ptr = __gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
+  for (gi_ptr = list; gi_ptr; gi_ptr = gi_ptr->next)
     {
-			dump_one_gcov (gi_ptr, &gf, run_counted, crc32, &all_prg, &this_prg);
+      dump_one_gcov (gi_ptr, &gf, run_counted, crc32, &all_prg, &this_prg);
 
       /* The IS_PRIMARY field is overloaded to indicate if this module
        is FDO/LIPO.  */
       dump_module_info |= gi_ptr->mod_info->is_primary;
     }
-  run_accounted = 1;
 
   if (dump_module_info)
-    gcov_dump_module_info (&gf);
+    gcov_dump_module_info (list, &gf);
 
   free (gf.filename);
 }
 
 #if !IN_GCOV_TOOL
 void
-gcov_exit (void)
+__gcov_dump_one (struct gcov_root *root)
 {
-  /* Prevent the counters from being dumped a second time on exit when the
-     application already wrote out the profile using __gcov_dump().  */
-  if (gcov_dump_complete)
+  if (root->dumped)
     return;
 
-  gcov_dump_complete = 1;
-
-  gcov_do_dump (__gcov_list, run_accounted);
-  
-  run_accounted = 1;
+  gcov_do_dump (root->list, root->run_counted);
+ 
+  root->dumped = 1;
+  root->run_counted = 1;
 }
 
-/* Reset all counters to zero.  */
+/* Per-program/shared-object gcov state.  */
+struct gcov_root __gcov_root;
 
 void
-gcov_clear (void)
+gcov_exit (void)
 {
-  const struct gcov_info *gi_ptr;
-
-  gcov_dump_complete = 0;
-  for (gi_ptr = __gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
-    {
-      unsigned f_ix;
-
-      for (f_ix = 0; f_ix < gi_ptr->n_functions; f_ix++)
-        {
-          unsigned t_ix;
-          const struct gcov_fn_info *gfi_ptr = gi_ptr->functions[f_ix];
-
-          if (!gfi_ptr || gfi_ptr->key != gi_ptr)
-            continue;
-          const struct gcov_ctr_info *ci_ptr = gfi_ptr->ctrs;
-          for (t_ix = 0; t_ix != GCOV_COUNTERS; t_ix++)
-            {
-              if (!gi_ptr->merge[t_ix])
-                continue;
-
-              memset (ci_ptr->values, 0, sizeof (gcov_type) * ci_ptr->num);
-              ci_ptr++;
-            }
-        }
-    }
+  __gcov_dump_one (&__gcov_root);
 }
 
 /* Add a new object file onto the bb chain.  Invoked automatically
@@ -1091,11 +1054,11 @@ __gcov_init (struct gcov_info *info)
                                                        info->mod_info->ident, 0))
                   == info->mod_info->ident);
 
-      if (!__gcov_list)
+      if (!__gcov_root.list)
         atexit (gcov_exit);
 
-      info->next = __gcov_list;
-      __gcov_list = info;
+      info->next = __gcov_root.list;
+      __gcov_root.list = info;
     }
   info->version = 0;
 }

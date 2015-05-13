@@ -27,7 +27,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 struct dyn_pointer_set;
 struct gcov_info;
-struct gcov_info *__gcov_list __attribute__((hidden));
 
 #ifdef IN_GCOV_TOOL
 struct dyn_imp_mod;
@@ -395,7 +394,7 @@ init_dyn_call_graph (void)
   flag_weak_inclusion = __gcov_lipo_weak_inclusion;
   mem_threshold = __gcov_lipo_max_mem * 1.25;
 
-  gi_ptr = __gcov_list;
+  gi_ptr = __gcov_root.list;
 
   for (; gi_ptr; gi_ptr = gi_ptr->next)
     num_modules++;
@@ -413,7 +412,7 @@ init_dyn_call_graph (void)
   the_dyn_call_graph.call_graph_nodes
     = XNEWVEC (struct dyn_pointer_set *, num_modules);
 
-  gi_ptr = __gcov_list;
+  gi_ptr = __gcov_root.list;
 
   if ((env_str = getenv ("GCOV_DYN_ALG")))
     {

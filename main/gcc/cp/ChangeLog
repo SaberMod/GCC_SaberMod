@@ -1,3 +1,67 @@
+2014-08-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/62043
+	* parser.c (c_parse_file): Change sorry to fatal_error.
+
+	PR c++/61959
+	* semantics.c (cxx_eval_bare_aggregate): Handle POINTER_PLUS_EXPR.
+
+2014-08-07  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* cp-tree.h, pt.c: Use hash_map instead of pointer_map.
+
+2014-08-06  Jason Merrill  <jason@redhat.com>
+
+	* init.c (build_vec_init): Fix constant initialization of
+	trailing elements.
+	(build_value_init_noctor): Call maybe_constant_init.
+	* semantics.c (maybe_constant_init): See through EXPR_STMT and
+	conversion to void.
+
+	PR c++/60417
+	* init.c (build_vec_init): Reorganize earlier change a bit.
+
+	PR c++/61994
+	* init.c (build_vec_init): Leave atype an ARRAY_TYPE
+	if we're just returning an INIT_EXPR.
+
+2014-08-06  Jason Merrill  <jason@redhat.com>
+	    Braden Obrzut  <admin@maniacsvault.net>
+
+	* pt.c (check_explicit_specialization): Don't test
+	DECL_DECLARED_INLINE_P for a variable template.
+
+2014-08-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/43906
+	* typeck.c (cp_build_binary_op): Extend to more cases the
+	-Waddress warning.
+
+2014-08-01  Braden Obrzut  <admin@maniacsvault.net>
+
+	Implement constexpr variable templates
+	* decl.c (grokvardecl): Handle specializations of variable templates.
+	(grokdeclarator): Handle variable template id expressions and NULL_TREE
+	return from grokvardecl.
+	* decl2.c (check_member_template): Allow declaration of template member
+	variables.
+	* parser.c (cp_parser_template_id): Build a TEMPLATE_ID_EXPR for
+	variable templates.
+	* pt.c (check_template_variable): Accept variable temploids at
+	non-class scope.
+	(push_template_decl_real): The current instantiation of a template
+	can be a VAR_DECL.
+	(determine_specialization): Accept variable templates.
+	(check_explicit_specialization): Handle and check for malformed
+	variable template specializations.
+	(lookup_template_variable): New.
+	(tsubst_decl): Handle variable template specializations.
+	(do_decl_instantiation): Handle template variables.
+	(instantiate_decl): Handle template variables.
+	* semantics.c (finish_template_variable): New.
+	(finish_id_expression): Instantiate variable templates.
+	* cp-tree.h (variable_template_p): New.
+
 2014-08-02  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/15339
