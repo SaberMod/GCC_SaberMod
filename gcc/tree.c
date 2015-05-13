@@ -5100,7 +5100,13 @@ free_lang_data_in_type (tree type)
       if (TYPE_VFIELD (type) && TREE_CODE (TYPE_VFIELD (type)) != FIELD_DECL)
         TYPE_VFIELD (type) = NULL_TREE;
 
-      TYPE_METHODS (type) = NULL_TREE;
+      /* Remove TYPE_METHODS list.  While it would be nice to keep it
+ 	 to enable ODR warnings about different method lists, doing so
+	 seems to impractically increase size of LTO data streamed.
+	 Keep the infrmation if TYPE_METHODS was non-NULL. This is used
+	 by function.c and pretty printers.  */
+      if (TYPE_METHODS (type))
+        TYPE_METHODS (type) = error_mark_node;
       if (TYPE_BINFO (type))
 	{
 	  free_lang_data_in_binfo (TYPE_BINFO (type));
@@ -5154,27 +5160,33 @@ free_lang_data_in_type (tree type)
 static inline bool
 need_assembler_name_p (tree decl)
 {
-  /* We use DECL_ASSEMBLER_NAME to hold mangled type names for One Definition Rule
-     merging.  */
+  /* We use DECL_ASSEMBLER_NAME to hold mangled type names for One Definition
+     Rule merging.  This makes type_odr_p to return true on those types during
+     LTO and by comparing the mangled name, we can say what types are intended
+     to be equivalent across compilation unit.
+
+     We do not store names of type_in_anonymous_namespace_p.
+
+     Record, union and enumeration type have linkage that allows use
+     to check type_in_anonymous_namespace_p. We do not mangle compound types
+     that always can be compared structurally.
+
+     Similarly for builtin types, we compare properties of their main variant.
+     A special case are integer types where mangling do make differences
+     between char/signed char/unsigned char etc.  Storing name for these makes
+     e.g.  -fno-signed-char/-fsigned-char mismatches to be handled well.
+     See cp/mangle.c:write_builtin_type for details.  */
+
   if (flag_lto_odr_type_mering
       && TREE_CODE (decl) == TYPE_DECL
       && DECL_NAME (decl)
       && decl == TYPE_NAME (TREE_TYPE (decl))
-      && !is_lang_specific (TREE_TYPE (decl))
-      /* Save some work. Names of builtin types are always derived from
-	 properties of its main variant.  A special case are integer types
-	 where mangling do make differences between char/signed char/unsigned
-	 char etc.  Storing name for these makes e.g.
-	 -fno-signed-char/-fsigned-char mismatches to be handled well.
-
-	 See cp/mangle.c:write_builtin_type for details.  */
-      && (TREE_CODE (TREE_TYPE (decl)) != VOID_TYPE
-	  && TREE_CODE (TREE_TYPE (decl)) != BOOLEAN_TYPE
-	  && TREE_CODE (TREE_TYPE (decl)) != REAL_TYPE
-	  && TREE_CODE (TREE_TYPE (decl)) != FIXED_POINT_TYPE)
       && !TYPE_ARTIFICIAL (TREE_TYPE (decl))
-      && !variably_modified_type_p (TREE_TYPE (decl), NULL_TREE)
-      && !type_in_anonymous_namespace_p (TREE_TYPE (decl)))
+      && (((RECORD_OR_UNION_TYPE_P (TREE_TYPE (decl))
+	   || TREE_CODE (TREE_TYPE (decl)) == ENUMERAL_TYPE)
+	   && !type_in_anonymous_namespace_p (TREE_TYPE (decl)))
+	  || TREE_CODE (TREE_TYPE (decl)) == INTEGER_TYPE)
+      && !variably_modified_type_p (TREE_TYPE (decl), NULL_TREE))
     return !DECL_ASSEMBLER_NAME_SET_P (decl);
   /* Only FUNCTION_DECLs and VAR_DECLs are considered.  */
   if (TREE_CODE (decl) != FUNCTION_DECL
@@ -6573,6 +6585,12 @@ build_distinct_type_copy (tree type)
   /* Make it its own variant.  */
   TYPE_MAIN_VARIANT (t) = t;
   TYPE_NEXT_VARIANT (t) = 0;
+
+  /* We do not record methods in type copies nor variants
+     so we do not need to keep them up to date when new method
+     is inserted.  */
+  if (RECORD_OR_UNION_TYPE_P (t))
+    TYPE_METHODS (t) = NULL_TREE;
 
   /* Note that it is now possible for TYPE_MIN_VALUE to be a value
      whose TREE_TYPE is not t.  This can also happen in the Ada
@@ -12025,18 +12043,6 @@ obj_type_ref_class (tree ref)
   return TREE_TYPE (ref);
 }
 
-/* Return true if T is in anonymous namespace.  */
-
-bool
-type_in_anonymous_namespace_p (const_tree t)
-{
-  /* TREE_PUBLIC of TYPE_STUB_DECL may not be properly set for
-     bulitin types; those have CONTEXT NULL.  */
-  if (!TYPE_CONTEXT (t))
-    return false;
-  return (TYPE_STUB_DECL (t) && !TREE_PUBLIC (TYPE_STUB_DECL (t)));
-}
-
 /* Lookup sub-BINFO of BINFO of TYPE at offset POS.  */
 
 static tree
@@ -12528,13 +12534,9 @@ verify_type_variant (const_tree t, tree tv)
       debug_tree (tv);
       return false;
     }
-  /* FIXME: this check triggers during libstdc++ build that is a bug.
-     It affects non-LTO debug output only, because free_lang_data clears
-     this anyway.  */
-  if (RECORD_OR_UNION_TYPE_P (t) && COMPLETE_TYPE_P (t) && 0
-      && TYPE_METHODS (t) != TYPE_METHODS (tv))
+  if (RECORD_OR_UNION_TYPE_P (t) && TYPE_METHODS (t))
     {
-      error ("type variant has different TYPE_METHODS");
+      error ("type variant has TYPE_METHODS");
       debug_tree (tv);
       return false;
     }
@@ -12749,9 +12751,10 @@ verify_type (const_tree t)
   if (RECORD_OR_UNION_TYPE_P (t))
     {
       if (TYPE_METHODS (t) && TREE_CODE (TYPE_METHODS (t)) != FUNCTION_DECL
-	  && TREE_CODE (TYPE_METHODS (t)) != TEMPLATE_DECL)
+	  && TREE_CODE (TYPE_METHODS (t)) != TEMPLATE_DECL
+	  && TYPE_METHODS (t) != error_mark_node)
 	{
-	  error ("TYPE_METHODS is not FUNCTION_DECL nor TEMPLATE_DECL");
+	  error ("TYPE_METHODS is not FUNCTION_DECL, TEMPLATE_DECL nor error_mark_node");
 	  debug_tree (TYPE_METHODS (t));
 	  error_found = true;
 	}
