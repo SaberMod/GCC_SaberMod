@@ -1,3 +1,213 @@
+2014-08-15  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-ssa-loop-ivopts.c (ivopts_data): New field
+	name_expansion_cache.
+	(tree_ssa_iv_optimize_init): Initialize name_expansion_cache.
+	(tree_ssa_iv_optimize_finalize): Free name_expansion_cache.
+	(strip_wrap_conserving_type_conversions, expr_equal_p): Delete.
+	(difference_cannot_overflow_p): New parameter.  Use affine
+	expansion for equality check.
+	(iv_elimination_compare_lt): Pass new argument.
+
+2014-08-14  DJ Delorie  <dj@redhat.com>
+
+	* config/rl78/rl78-real.md (addqi3_real): Allow adding global
+	variables to the accumulator.
+
+	* config/rl78/predicates.md (rl78_near_mem_operand): New.
+	* config/rl78/rl78-virt.md (movqi_virt_mm, movqi_virt)
+	(movhi_virt_mm): Split out near mem-mem moves to avoid problems
+	with far-far moves.
+
+	* config/rl78/rl78-expand.md (umulqihi3): Disable for G10.
+	* config/rl78/rl78-virt.md (umulhi3_shift_virt): Likewise.
+	(umulqihi3_virt): Likewise.
+	* config/rl78/rl78-real.md (umulhi3_shift_real): Likewise.
+	(umulqihi3_real): Likewise.
+
+	* config/rl78/rl78-virt.md (movhi_virt): Allow const->far moves.
+
+2014-08-14  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR tree-optimization/62091
+	* tree-ssa-alias.c (walk_aliased_vdefs_1): Do not clear
+	function_entry_reached.
+	(walk_aliased_vdefs): Clear it here.
+	* ipa-devirt.c (check_stmt_for_type_change): Handle static storage.
+
+2014-08-14  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-utils.h (compare_virtual_tables): Declare.
+	* ipa-devirt.c (odr_subtypes_equivalent_p): New function
+
+2014-08-14  Marek Polacek  <polacek@redhat.com>
+
+	DR 458
+	* ginclude/stdatomic.h (__atomic_type_lock_free): Remove.
+	(ATOMIC_*_LOCK_FREE): Map to __GCC_ATOMIC_*_LOCK_FREE.
+
+2014-08-14  Tom de Vries  <tom@codesourcery.com>
+
+	* emit-rtl.h (mem_attrs_eq_p): Remove duplicate declaration.
+
+2014-08-14  Tom de Vries  <tom@codesourcery.com>
+
+	PR rtl-optimization/62004
+	PR rtl-optimization/62030
+	* ifcvt.c (rtx_interchangeable_p): New function.
+	(noce_try_move, noce_process_if_block): Use rtx_interchangeable_p.
+	* emit-rtl.h (mem_attrs_eq_p): Declare.
+
+2014-08-14  Roman Gareev  <gareevroman@gmail.com>
+
+	* graphite-scop-detection.c:
+	Add inclusion of cp-tree.h.
+	(graphite_can_represent_scev): Disables the handling of SSA_NAME nodes
+	in case they are pointers to object types
+
+2014-08-14  Richard Biener  <rguenther@suse.de>
+
+	* BASE-VER: Change to 5.0.0
+
+2014-08-14  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+        * config/i386/sse.md (define_mode_attr avx512): New.
+	(define_mode_attr sse2_avx_avx512f): Allow V8HI, V16HI, V32HI, V2DI,
+	V4DI modes.
+	(define_mode_attr sse2_avx2): Allow V64QI, V32HI, V4TI modes.
+	(define_mode_attr ssse3_avx2): Ditto.
+	(define_mode_attr sse4_1_avx2): Allow V64QI, V32HI, V8DI modes.
+	(define_mode_attr avx2_avx512bw): New.
+	(define_mode_attr ssedoublemodelower): New.
+	(define_mode_attr ssedoublemode): Allow V8SF, V8SI, V4DI, V4DF, V4SI,
+	V32HI, V64QI modes.
+	(define_mode_attr ssebytemode): Allow V8DI modes.
+	(define_mode_attr sseinsnmode): Allow V4TI, V32HI, V64QI modes.
+	(define_mode_attr sseintvecmodelower): Allow V8DF, V4TI modes.
+	(define_mode_attr ssePSmode2): New.
+	(define_mode_attr ssescalarsize): Allow V64QI, V32QI, V16QI, V8HI,
+	V16HI, V32HI modes.
+	(define_mode_attr dbpsadbwmode): New.
+	(define_mode_attr bcstscalarsuff): Allow V64QI, V32QI, V16QI, V32HI,
+	V16HI, V8HI, V8SI, V4SI, V4DI, V2DI, V8SF, V4SF, V4DF, V2DF modes.
+	(vi8_sse4_1_avx2_avx512): New.
+	(define_insn <sse4_1_avx2>_movntdqa): Use <vi8_sse4_1_avx2_avx512>
+	mode attribute.
+	(define_mode_attr blendbits): Move before its immediate use.
+
+2014-08-14  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/sse.md: Allow V64QI, V32QI, V32HI, V4HI modes.
+	* config/i386/subst.md
+	(define_mode_iterator SUBST_V): Update.
+	(define_mode_iterator SUBST_A): Ditto.
+	(define_subst_attr "mask_operand7"): New.
+	(define_subst_attr "mask_operand10"): New.
+	(define_subst_attr "mask_operand_arg34") : New.
+	(define_subst_attr "mask_expand_op3"): New.
+	(define_subst_attr "mask_mode512bit_condition"): Handle TARGET_AVX512VL.
+	(define_subst_attr "sd_mask_mode512bit_condition"): Ditto.
+	(define_subst_attr "mask_avx512vl_condition"): New.
+	(define_subst_attr "round_mask_operand4"): Ditto.
+	(define_subst_attr "round_mask_scalar_op3"): Delete.
+	(define_subst_attr "round_mask_op4"): New.
+	(define_subst_attr "round_mode512bit_condition"): Allow V8DImode,
+	V16SImode.
+	(define_subst_attr "round_modev8sf_condition"): New.
+	(define_subst_attr "round_modev4sf_condition"): GET_MODE instead of
+	<MODE>mode.
+	(define_subst_attr "round_saeonly_mask_operand4"): New.
+	(define_subst_attr "round_saeonly_mask_op4"): New.
+	(define_subst_attr "round_saeonly_mode512bit_condition"): Allow
+	V8DImode, V16SImode.
+	(define_subst_attr "round_saeonly_modev8sf_condition"): New.
+	(define_subst_attr "mask_expand4_name" "mask_expand4"): New.
+	(define_subst_attr "mask_expand4_args"): New.
+	(define_subst "mask_expand4"): New.
+
+2014-08-14  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+        * config/i386/i386.md
+	(define_attr "isa"): Add avx512bw,noavx512bw.
+	(define_attr "enabled"): Ditto.
+	(define_split): Add 32/64-bit mask logic.
+	(define_insn "*k<logic>qi"): New.
+	(define_insn "*k<logic>hi"): New.
+	(define_insn "*anddi_1"): Add mask version.
+	(define_insn "*andsi_1"): Ditto.
+	(define_insn "*<code><mode>_1"): Ditto.
+	(define_insn "*<code>hi_1"): Ditto.
+	(define_insn "kxnor<mode>"): New.
+	(define_insn "kunpcksi"): New.
+	(define_insn "kunpckdi"): New.
+	(define_insn "*one_cmpl<mode>2_1"): Add mask version.
+	(define_insn "*one_cmplhi2_1"): Ditto.
+
+2014-08-14  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/i386.c (ix86_preferred_simd_mode): Allow V64QImode and
+	V32HImode.
+
+2014-08-14  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/i386.c (print_reg): Сorrectly print 64-bit mask
+	registers.
+	(inline_secondary_memory_needed): Allow 64 bit wide mask registers.
+	(ix86_hard_regno_mode_ok): Allow 32/64-bit mask registers and
+	xmm/ymm16+ when availble.
+	* config/i386/i386.h
+	(HARD_REGNO_NREGS): Add mask regs.
+	(VALID_AVX512F_REG_MODE): Ditto.
+	(VALID_AVX512F_REG_MODE) : Define.
+	(VALID_MASK_AVX512BW_MODE): Ditto.
+	(reg_class) (MASK_REG_P(X)): Define.
+	* config/i386/i386.md: Do not split long moves with mask register,
+	use kmovb if avx512bw is availible.
+	(movdi_internal): Handle mask registers.
+
+2014-08-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62081
+	* tree-ssa-loop.c (pass_fix_loops): New pass.
+	(pass_tree_loop::gate):  Do not fixup loops here.
+	* tree-pass.h (make_pass_fix_loops): Declare.
+	* passes.def: Schedule pass_fix_loops before GIMPLE loop passes.
+
 2014-08-14  Richard Biener  <rguenther@suse.de>
 
 	* tree.c (type_hash_lookup, type_hash_add): Merge into ...

@@ -1,3 +1,45 @@
+2014-08-15  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/tree-ssa/ivopts-lt-2.c: New test.
+
+2014-08-14  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR tree-optimization/62091
+	* g++.dg/ipa/devirt-38.C: New testcase.
+
+2014-08-14  Marek Polacek  <polacek@redhat.com>
+
+	DR 458
+	* gcc.dg/c11-stdatomic-2.c: New test.
+
+2014-08-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/62106
+	* gfortran.dg/array_constructor_49.f90:  New test.
+
+2014-08-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/54377
+	* g++.dg/template/pr54377.C: New.
+	* g++.dg/cpp0x/pr54377.C: Likewise.
+	* g++.dg/cpp0x/alias-decl-2.C: Adjust.
+	* g++.dg/cpp0x/pr51226.C: Likewise.
+	* g++.dg/cpp0x/variadic2.C: Likewise.
+	* g++.dg/parse/too-many-tmpl-args1.C: Likewise.
+	* g++.dg/template/dtor3.C: Likewise.
+	* g++.dg/template/qualttp4.C: Likewise.
+	* g++.dg/template/spec28.C: Likewise.
+	* g++.old-deja/g++.brendan/crash8.C: Likewise.
+	* g++.old-deja/g++.pt/ttp7.C: Likewise.
+
+2014-08-14  Tom de Vries  <tom@codesourcery.com>
+
+	PR rtl-optimization/62004
+	PR rtl-optimization/62030
+	* gcc.dg/pr62004.c: New test.
+	* gcc.dg/pr62030.c: Same.
+	* gcc.target/mips/pr62030-octeon.c: Same.
+
 2014-08-14  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* g++.dg/cpp0x/alias-decl-4.C: Adjust for parser change.
@@ -92,7 +134,7 @@
 
 	PR tree-optimization/62073
 	* gcc.dg/vect/pr62073.c: New test.
-	
+
 2014-08-11  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/62070

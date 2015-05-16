@@ -1,3 +1,49 @@
+2014-08-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/62106
+	* gfortran.h (symbol_attribute):  Add fe_temp flag.
+	* frontend-passes.c (is_fe_temp):  New function.
+	(create_var):  Don't add a temporary for an already
+	created variable or for a constant.
+	(combine_ARRAY_constructor):  Remove special handling
+	for constants.
+
+2014-08-14  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.texi (caf_register_t): Add CAF_REGTYPE_CRITICAL.
+	(_gfortran_caf_register): Update for locking/critical.
+	(_gfortran_caf_lock, _gfortran_caf_unlock): Add.
+	* resolve.c (resolve_critical): New.
+	(gfc_resolve_code): Call it.
+	* trans-decl.c (gfor_fndecl_caf_critical,
+	gfor_fndecl_caf_end_critical): Remove.
+	(gfor_fndecl_caf_lock, gfor_fndecl_caf_unlock): Add.
+	(gfc_build_builtin_function_decls): Remove critical,
+	assign locking declarations.
+	(generate_coarray_sym_init): Handle locking and
+	critical variables.
+	* trans-stmt.c (gfc_trans_critical): Add calls to
+	lock/unlock libcaf functions.
+	* trans.h (gfc_coarray_type): Update locking, add
+	critical enum values.
+	(gfor_fndecl_caf_critical, gfor_fndecl_caf_end_critical): Remove.
+	(gfor_fndecl_caf_lock, gfor_fndecl_caf_unlock): Add.
+
+2014-08-14  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.texi (Coarray Programming): Add first ABI
+	documentation.
+
+2014-08-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/62076
+	* openmp.c (gfc_match_omp_clauses): When failed to match
+	operator name, defined op name or name, set buffer to
+	empty string.  Don't call gfc_find_omp_udr if buffer is empty
+	string.
+	(gfc_match_omp_declare_reduction): Call gfc_undo_symbols ()
+	before calling gfc_free_omp_udr.
+
 2014-08-11  Richard Biener  <rguenther@suse.de>
 
 	PR fortran/61950

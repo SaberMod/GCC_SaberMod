@@ -14941,7 +14941,7 @@ print_reg (rtx x, int code, FILE *file)
     case 8:
     case 4:
     case 12:
-      if (! ANY_FP_REG_P (x))
+      if (! ANY_FP_REG_P (x) && ! ANY_MASK_REG_P (x))
 	putc (code == 8 && TARGET_64BIT ? 'r' : 'e', file);
       /* FALLTHRU */
     case 16:
@@ -37643,6 +37643,11 @@ inline_secondary_memory_needed (enum reg_class class1, enum reg_class class2,
   if (FLOAT_CLASS_P (class1) != FLOAT_CLASS_P (class2))
     return true;
 
+  /* Between mask and general, we have moves no larger than word size.  */
+  if ((MAYBE_MASK_CLASS_P (class1) != MAYBE_MASK_CLASS_P (class2))
+      && (GET_MODE_SIZE (mode) > UNITS_PER_WORD))
+  return true;
+
   /* ??? This is a lie.  We do have moves between mmx/general, and for
      mmx/sse2.  But by saying we need secondary memory we discourage the
      register allocator from using the mmx registers unless needed.  */
@@ -37948,7 +37953,8 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (STACK_REGNO_P (regno))
     return VALID_FP_MODE_P (mode);
   if (MASK_REGNO_P (regno))
-    return VALID_MASK_REG_MODE (mode);
+    return (VALID_MASK_REG_MODE (mode)
+	    || (TARGET_AVX512BW && VALID_MASK_AVX512BW_MODE (mode)));
   if (SSE_REGNO_P (regno))
     {
       /* We implement the move patterns for all vector modes into and
@@ -37963,6 +37969,15 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
 	  && (mode == XImode
 	      || VALID_AVX512F_REG_MODE (mode)
 	      || VALID_AVX512F_SCALAR_MODE (mode)))
+	return true;
+
+      /* TODO check for QI/HI scalars.  */
+      /* AVX512VL allows sse regs16+ for 128/256 bit modes.  */
+      if (TARGET_AVX512VL
+	  && (mode == OImode
+	      || mode == TImode
+	      || VALID_AVX256_REG_MODE (mode)
+	      || VALID_AVX512VL_128_REG_MODE (mode)))
 	return true;
 
       /* xmm16-xmm31 are only available for AVX-512.  */
@@ -46709,9 +46724,11 @@ ix86_preferred_simd_mode (enum machine_mode mode)
   switch (mode)
     {
     case QImode:
-      return (TARGET_AVX && !TARGET_PREFER_AVX128) ? V32QImode : V16QImode;
+      return TARGET_AVX512BW ? V64QImode :
+       (TARGET_AVX && !TARGET_PREFER_AVX128) ? V32QImode : V16QImode;
     case HImode:
-      return (TARGET_AVX && !TARGET_PREFER_AVX128) ? V16HImode : V8HImode;
+      return TARGET_AVX512BW ? V32HImode :
+       (TARGET_AVX && !TARGET_PREFER_AVX128) ? V16HImode : V8HImode;
     case SImode:
       return TARGET_AVX512F ? V16SImode :
 	(TARGET_AVX && !TARGET_PREFER_AVX128) ? V8SImode : V4SImode;
