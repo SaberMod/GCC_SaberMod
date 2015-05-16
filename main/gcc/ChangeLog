@@ -1,3 +1,19 @@
+2014-08-14  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* ipa-devirt.c (get_polymorphic_call_info): Use fndecl instead of
+	current_function_decl.
+
+2014-08-14  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* cgraph.c (cgraph_node::function_symbol): Fix wrong
+	cgraph_function_node to cgraph_node::function_symbol
+	refactoring.
+
+2014-08-14  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	* config/arm/arm.c (arm_option_override): Set max_insns_skipped
+	to MAX_INSN_PER_IT_BLOCK when optimize_size for THUMB2.
+
 2014-08-13  Chen Gang  gang.chen.5i5j@gmail.com
 
 	* microblaze/microblaze.md: Remove redundant '@' to avoid compiling
