@@ -75,7 +75,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "dbgcnt.h"
 #include "input.h"
-#include "pointer-set.h"
 
 struct GTY((chain_next ("%h.next"))) coverage_data
 {
@@ -693,7 +692,7 @@ read_counts_file (const char *da_file_name, unsigned module_id)
   gcov_unsigned_t tag;
   int is_error = 0;
   unsigned module_infos_read = 0;
-  struct pointer_set_t *modset = 0;
+  hash_set <void*> modset;
   unsigned max_group = PARAM_VALUE (PARAM_MAX_LIPO_GROUP);
   unsigned lineno_checksum = 0;
   unsigned cfg_checksum = 0;
@@ -867,10 +866,9 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	  /* The first MODULE_INFO record must be for the primary module.  */
 	  if (module_infos_read == 0)
 	    {
-	      gcc_assert (mod_info->is_primary && !modset);
+	      gcc_assert (mod_info->is_primary);// && !modset.elements ());
 	      module_infos_read++;
-              modset = pointer_set_create ();
-              pointer_set_insert (modset, (void *)(size_t)mod_info->ident);
+              modset.add ((void *)(size_t)mod_info->ident);
 	      primary_module_id = mod_info->ident;
               include_all_aux = MODULE_INCLUDE_ALL_AUX_FLAG (mod_info);
               module_infos = XCNEWVEC (struct gcov_module_info *, 1);
@@ -882,7 +880,7 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	      int fd;
 	      char *aux_da_filename = get_da_file_name (mod_info->da_filename);
               gcc_assert (!mod_info->is_primary);
-	      if (pointer_set_insert (modset, (void *)(size_t)mod_info->ident))
+	      if (modset.add ((void *)(size_t)mod_info->ident))
                 {
                   if (dump_enabled_p ())
                     dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
@@ -995,8 +993,6 @@ read_counts_file (const char *da_file_name, unsigned module_id)
      together with command line (-combine) based ipo -- add a nice
      warning and bail out instead of asserting.  */
 
-  if (modset)
-    pointer_set_destroy (modset);
   gcc_assert (module_infos_read == 0
               || module_infos_read == num_in_fnames);
 

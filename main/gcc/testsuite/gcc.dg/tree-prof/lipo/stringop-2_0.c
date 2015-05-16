@@ -15,6 +15,6 @@ main()
 }
 /* { dg-final-use { scan-ipa-dump "Single value 4 stringop" "profile"} } */
 /* The versioned memset of size 4 should be optimized to an assignment.  */
-/* { dg-final-use { scan-tree-dump "a\\\[0\\\] = 168430090" "optimized"} } */
+/* { dg-final-use { scan-tree-dump "MEM.* = 168430090" "optimized"} } */
 /* { dg-final-use { cleanup-tree-dump "optimized" } } */
 /* { dg-final-use { cleanup-ipa-dump "profile" } } */

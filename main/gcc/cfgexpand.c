@@ -36,7 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "bitmap.h"
 #include "hash-set.h"
-#include "pointer-set.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
@@ -3313,7 +3312,7 @@ expand_gimple_stmt_1 (gimple stmt)
 	      ;
 	    else if (promoted)
 	      {
-		int unsignedp = SUBREG_PROMOTED_UNSIGNED_P (target);
+		int unsignedp = SUBREG_PROMOTED_SIGN (target);
 		/* If TEMP is a VOIDmode constant, use convert_modes to make
 		   sure that we properly convert it.  */
 		if (CONSTANT_P (temp) && GET_MODE (temp) == VOIDmode)
@@ -3325,7 +3324,13 @@ expand_gimple_stmt_1 (gimple stmt)
 					  GET_MODE (target), temp, unsignedp);
 		  }
 
-		convert_move (SUBREG_REG (target), temp, unsignedp);
+		if ((SUBREG_PROMOTED_GET (target) == SRP_SIGNED_AND_UNSIGNED)
+		    && (GET_CODE (temp) == SUBREG)
+		    && (GET_MODE (target) == GET_MODE (temp))
+		    && (GET_MODE (SUBREG_REG (target)) == GET_MODE (SUBREG_REG (temp))))
+		  emit_move_insn (SUBREG_REG (target), SUBREG_REG (temp));
+		else
+		  convert_move (SUBREG_REG (target), temp, unsignedp);
 	      }
 	    else if (nontemporal && emit_storent_insn (target, temp))
 	      ;

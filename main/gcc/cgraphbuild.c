@@ -24,7 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "tree-eh.h"
-#include "pointer-set.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "tree-ssa-operands.h"

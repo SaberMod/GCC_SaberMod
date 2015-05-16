@@ -40,7 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "tree-iterator.h"
 #include "bitmap.h"
-#include "pointer-set.h"
 #include "basic-block.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
@@ -2511,7 +2510,7 @@ build_array_ref (location_t loc, tree array, tree index)
 	    return error_mark_node;
 	}
 
-      if (pedantic)
+      if (pedantic || warn_c90_c99_compat)
 	{
 	  tree foo = array;
 	  while (TREE_CODE (foo) == COMPONENT_REF)
@@ -2519,9 +2518,10 @@ build_array_ref (location_t loc, tree array, tree index)
 	  if (TREE_CODE (foo) == VAR_DECL && C_DECL_REGISTER (foo))
 	    pedwarn (loc, OPT_Wpedantic,
 		     "ISO C forbids subscripting %<register%> array");
-	  else if (!flag_isoc99 && !lvalue_p (foo))
-	    pedwarn (loc, OPT_Wpedantic,
-		     "ISO C90 forbids subscripting non-lvalue array");
+	  else if (!lvalue_p (foo))
+	    pedwarn_c90 (loc, OPT_Wpedantic,
+			 "ISO C90 forbids subscripting non-lvalue "
+			 "array");
 	}
 
       type = TREE_TYPE (TREE_TYPE (array));

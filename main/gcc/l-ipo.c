@@ -27,7 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "basic-block.h"
 #include "stor-layout.h"
-#include "pointer-set.h"
 #include "stringpool.h"
 #include "c-family/c-common.h"
 #include "toplev.h"
@@ -73,6 +72,7 @@ bool parser_parsing_start = false;
 int at_eof;
 
 static int aggr_has_equiv_id (tree t1, tree t2);
+static hash_set <void *> *type_set = NULL;
 
 /* Module scope hash function.  */
 
@@ -465,7 +465,6 @@ struct type_ec
 };
 
 static vec<tree> *pending_types = NULL;
-static struct pointer_set_t *type_set = NULL;
 static htab_t type_hash_tab = NULL;
 
 /* Hash function for the type table.  */
@@ -784,7 +783,7 @@ find_struct_types (tree *tp,
                     || ANON_AGGRNAME_P (DECL_NAME (name))))
               return NULL_TREE;
 
-            if (!pointer_set_insert (type_set, cano_type))
+            if (!type_set->add (cano_type))
               pending_types->safe_push (cano_type);
             else
               return NULL_TREE; /* Or use walk tree without dups.  */
@@ -904,7 +903,7 @@ cgraph_build_type_equivalent_classes (void)
 
 static void
 re_record_component_aliases (tree type,
-                             struct pointer_set_t *processed)
+                             hash_set <void *> *processed)
 {
   alias_set_type superset = get_alias_set (type);
   tree field;
@@ -912,7 +911,7 @@ re_record_component_aliases (tree type,
   if (superset == 0)
     return;
 
-  if (pointer_set_insert (processed, type))
+  if (processed->add (type))
     return;
 
   switch (TREE_CODE (type))
@@ -1050,17 +1049,15 @@ static void
 record_components_for_parent_types (void)
 {
   unsigned n, i;
-  struct pointer_set_t *processed_types;
+  hash_set <void *> processed_types;
 
-  processed_types = pointer_set_create ();
   n = pending_types->length ();
   for (i = 0; i < n; i++)
     {
       tree type = (*pending_types)[i];
-      re_record_component_aliases (type, processed_types);
+      re_record_component_aliases (type, &processed_types);
     }
 
-  pointer_set_destroy (processed_types);
 }
 
 /* Unify type alias sets for equivalent types.  */
@@ -1070,7 +1067,9 @@ cgraph_unify_type_alias_sets (void)
 {
   struct cgraph_node *node;
   struct varpool_node *pv;
+  hash_set <void *> the_type_set;
 
+  type_set = &the_type_set;
   /* Only need to do type unification when we are in LIPO mode
      and have a non-trivial module group (size is >1). However,
      override the size check under non-zero PARAM_LIPO_RANDOM_GROUP_SIZE,
@@ -1083,7 +1082,6 @@ cgraph_unify_type_alias_sets (void)
     return;
 
   vec_alloc (pending_types, 100);
-  type_set = pointer_set_create ();
   type_hash_tab = htab_create (10, type_hash_hash,
                                type_hash_eq, type_hash_del);
   l_ipo_type_tab = htab_create_ggc (10, type_addr_hash,
@@ -1112,7 +1110,6 @@ cgraph_unify_type_alias_sets (void)
   /* Finally re-populating parent's alias set.  */
   record_components_for_parent_types ();
 
-  pointer_set_destroy (type_set);
   vec_free (pending_types);
   htab_delete (type_hash_tab);
 }

@@ -63,7 +63,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "tree-cfgcleanup.h"
 #include "tree-nested.h"
-#include "pointer-set.h"
 
 /* Default name for coverage callback function.  */
 #define COVERAGE_CALLBACK_FUNC_NAME "__coverage_callback"
@@ -210,7 +209,7 @@ init_ic_make_global_vars (void)
 
 /* A pointer-set of the first statement in each block of statements that need to
    be applied a sampling wrapper.  */
-static struct pointer_set_t *instrumentation_to_be_sampled = NULL;
+static hash_set <void *> *instrumentation_to_be_sampled = NULL;
 
 /* extern __thread gcov_unsigned_t __gcov_sample_counter  */
 static GTY(()) tree gcov_sample_counter_decl = NULL_TREE;
@@ -363,7 +362,7 @@ add_execonce_wrapper (gimple stmt_start, gimple stmt_end)
 static bool
 is_instrumentation_to_be_sampled (gimple stmt)
 {
-  return pointer_set_contains (instrumentation_to_be_sampled, stmt);
+  return instrumentation_to_be_sampled->contains (stmt);
 }
 
 /* Add sampling wrappers around edge counter code in current function.  */
@@ -501,7 +500,7 @@ cleanup_instrumentation_sampling (void)
   /* Free the bitmap.  */
   if (flag_profile_generate_sampling && instrumentation_to_be_sampled)
     {
-      pointer_set_destroy (instrumentation_to_be_sampled);
+      delete instrumentation_to_be_sampled;
       instrumentation_to_be_sampled = NULL;
     }
 }
@@ -600,7 +599,7 @@ tree_init_instrumentation_sampling (void)
 
   if (flag_profile_generate_sampling && !instrumentation_to_be_sampled)
     {
-      instrumentation_to_be_sampled = pointer_set_create ();
+      instrumentation_to_be_sampled = new hash_set <void *> ();
       gcov_sample_counter_decl = build_decl (
           UNKNOWN_LOCATION,
           VAR_DECL,
@@ -615,7 +614,7 @@ tree_init_instrumentation_sampling (void)
     }
   if (PARAM_VALUE (PARAM_COVERAGE_EXEC_ONCE)
       && instrumentation_to_be_sampled == 0)
-    instrumentation_to_be_sampled = pointer_set_create ();
+    instrumentation_to_be_sampled = new hash_set <void *> ();
 }
 
 /* Create the type and function decls for the interface with gcov.  */
@@ -862,7 +861,7 @@ gimple_gen_edge_profiler (int edgeno, edge e)
 
   if (flag_profile_generate_sampling
       || PARAM_VALUE (PARAM_COVERAGE_EXEC_ONCE))
-    pointer_set_insert (instrumentation_to_be_sampled, stmt3);
+    instrumentation_to_be_sampled->add (stmt3);
 
   if (!is_atomic)
     {
