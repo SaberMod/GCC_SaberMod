@@ -389,41 +389,9 @@ c_common_handle_option (size_t scode, const char *arg, int value,
     case OPT_Wall:
       /* ??? Don't add new options here. Use LangEnabledBy in c.opt.  */
 
-      cpp_opts->warn_trigraphs = value;
       cpp_opts->warn_num_sign_change = value;
       break;
 
-    case OPT_Wbuiltin_macro_redefined:
-      cpp_opts->warn_builtin_macro_redefined = value;
-      break;
-
-    case OPT_Wc___compat:
-      cpp_opts->warn_cxx_operator_names = value;
-      break;
-
-    case OPT_Wdeprecated:
-      cpp_opts->cpp_warn_deprecated = value;
-      break;
-
-    case OPT_Wendif_labels:
-      cpp_opts->warn_endif_labels = value;
-      break;
-
-    case OPT_Winvalid_pch:
-      cpp_opts->warn_invalid_pch = value;
-      break;
-
-    case OPT_Wliteral_suffix:
-      cpp_opts->warn_literal_suffix = value;
-      break;
-
-    case OPT_Wlong_long:
-      cpp_opts->cpp_warn_long_long = value;
-      break;
-
-    case OPT_Wmissing_include_dirs:
-      cpp_opts->warn_missing_include_dirs = value;
-      break;
     case OPT_Wnormalized_:
       /* FIXME: Move all this to c.opt.  */
       if (kind == DK_ERROR)
@@ -446,18 +414,6 @@ c_common_handle_option (size_t scode, const char *arg, int value,
 	    error ("argument %qs to %<-Wnormalized%> not recognized", arg);
 	  break;
 	}
-
-    case OPT_Wtraditional:
-      cpp_opts->cpp_warn_traditional = value;
-      break;
-
-    case OPT_Wtrigraphs:
-      cpp_opts->warn_trigraphs = value;
-      break;
-
-    case OPT_Wundef:
-      cpp_opts->warn_undef = value;
-      break;
 
     case OPT_Wunknown_pragmas:
       /* Set to greater than 1, so that even unknown pragmas in
@@ -672,14 +628,6 @@ c_common_handle_option (size_t scode, const char *arg, int value,
 	out_fname = arg;
       else
 	error ("output filename specified twice");
-      break;
-
-      /* We need to handle the -Wpedantic switch here, rather than in
-	 c_common_post_options, so that a subsequent -Wno-endif-labels
-	 is not overridden.  */
-    case OPT_Wpedantic:
-      cpp_opts->cpp_pedantic = 1;
-      cpp_opts->warn_endif_labels = 1;
       break;
 
     case OPT_print_objc_runtime_info:
@@ -1364,20 +1312,19 @@ sanitize_cpp_opts (void)
 
   cpp_opts->unsigned_char = !flag_signed_char;
   cpp_opts->stdc_0_in_system_headers = STDC_0_IN_SYSTEM_HEADERS;
-  cpp_opts->cpp_warn_c90_c99_compat = warn_c90_c99_compat;
 
   /* Wlong-long is disabled by default. It is enabled by:
       [-Wpedantic | -Wtraditional] -std=[gnu|c]++98 ; or
-      [-Wpedantic | -Wtraditional] -std=non-c99 ; or
-      -Wc90-c99-compat, if specified.
+      [-Wpedantic | -Wtraditional] -std=non-c99 
 
-      Either -Wlong-long or -Wno-long-long override any other settings.  */
-  if (warn_long_long == -1 && warn_c90_c99_compat != -1)
-    warn_long_long = warn_c90_c99_compat;
-  else if (warn_long_long == -1)
-    warn_long_long = ((pedantic || warn_traditional)
-		      && (c_dialect_cxx () ? cxx_dialect == cxx98 : !flag_isoc99));
-  cpp_opts->cpp_warn_long_long = warn_long_long;
+      Either -Wlong-long or -Wno-long-long override any other settings.
+      ??? These conditions should be handled in c.opt.  */
+  if (warn_long_long == -1)
+    {
+      warn_long_long = ((pedantic || warn_traditional)
+			&& (c_dialect_cxx () ? cxx_dialect == cxx98 : !flag_isoc99));
+      cpp_opts->cpp_warn_long_long = warn_long_long;
+    }
 
   /* If we're generating preprocessor output, emit current directory
      if explicitly requested or if debugging information is enabled.

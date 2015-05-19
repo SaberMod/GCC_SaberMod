@@ -54,6 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dce.h"
 #include "dbgcnt.h"
 #include "emit-rtl.h"
+#include "rtl-iter.h"
 
 #define FORWARDER_BLOCK_P(BB) ((BB)->flags & BB_FORWARDER_BLOCK)
 
@@ -81,7 +82,6 @@ static edge thread_jump (edge, basic_block);
 static bool mark_effect (rtx, bitmap);
 static void notice_new_block (basic_block);
 static void update_forwarder_flag (basic_block);
-static int mentions_nonequal_regs (rtx *, void *);
 static void merge_memattrs (rtx, rtx);
 
 /* Set flags for newly created block.  */
@@ -235,29 +235,31 @@ mark_effect (rtx exp, regset nonequal)
     }
 }
 
-/* Return nonzero if X is a register set in regset DATA.
-   Called via for_each_rtx.  */
-static int
-mentions_nonequal_regs (rtx *x, void *data)
+/* Return true if X contains a register in NONEQUAL.  */
+static bool
+mentions_nonequal_regs (const_rtx x, regset nonequal)
 {
-  regset nonequal = (regset) data;
-  if (REG_P (*x))
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, x, NONCONST)
     {
-      int regno;
-
-      regno = REGNO (*x);
-      if (REGNO_REG_SET_P (nonequal, regno))
-	return 1;
-      if (regno < FIRST_PSEUDO_REGISTER)
+      const_rtx x = *iter;
+      if (REG_P (x))
 	{
-	  int n = hard_regno_nregs[regno][GET_MODE (*x)];
-	  while (--n > 0)
-	    if (REGNO_REG_SET_P (nonequal, regno + n))
-	      return 1;
+	  unsigned int regno = REGNO (x);
+	  if (REGNO_REG_SET_P (nonequal, regno))
+	    return true;
+	  if (regno < FIRST_PSEUDO_REGISTER)
+	    {
+	      int n = hard_regno_nregs[regno][GET_MODE (x)];
+	      while (--n > 0)
+		if (REGNO_REG_SET_P (nonequal, regno + n))
+		  return true;
+	    }
 	}
     }
-  return 0;
+  return false;
 }
+
 /* Attempt to prove that the basic block B will have no side effects and
    always continues in the same edge if reached via E.  Return the edge
    if exist, NULL otherwise.  */
@@ -381,7 +383,7 @@ thread_jump (edge e, basic_block b)
 
   /* cond2 must not mention any register that is not equal to the
      former block.  */
-  if (for_each_rtx (&cond2, mentions_nonequal_regs, nonequal))
+  if (mentions_nonequal_regs (cond2, nonequal))
     goto failed_exit;
 
   EXECUTE_IF_SET_IN_REG_SET (nonequal, 0, i, rsi)
@@ -1717,15 +1719,11 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 
 	      if (identical)
 		{
-		  replace_label_data rr;
 		  bool match;
 
 		  /* Temporarily replace references to LABEL1 with LABEL2
 		     in BB1->END so that we could compare the instructions.  */
-		  rr.r1 = label1;
-		  rr.r2 = label2;
-		  rr.update_label_nuses = false;
-		  for_each_rtx_in_insn (&BB_END (bb1), replace_label, &rr);
+		  replace_label_in_insn (BB_END (bb1), label1, label2, false);
 
 		  match = (old_insns_match_p (mode, BB_END (bb1), BB_END (bb2))
 			   == dir_both);
@@ -1737,9 +1735,7 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 		  /* Set the original label in BB1->END because when deleting
 		     a block whose end is a tablejump, the tablejump referenced
 		     from the instruction is deleted too.  */
-		  rr.r1 = label2;
-		  rr.r2 = label1;
-		  for_each_rtx_in_insn (&BB_END (bb1), replace_label, &rr);
+		  replace_label_in_insn (BB_END (bb1), label2, label1, false);
 
 		  return match;
 		}
@@ -1986,20 +1982,16 @@ try_crossjump_to_edge (int mode, edge e1, edge e2,
 	  && tablejump_p (BB_END (osrc2), &label2, &table2)
 	  && label1 != label2)
 	{
-	  replace_label_data rr;
 	  rtx_insn *insn;
 
 	  /* Replace references to LABEL1 with LABEL2.  */
-	  rr.r1 = label1;
-	  rr.r2 = label2;
-	  rr.update_label_nuses = true;
 	  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	    {
 	      /* Do not replace the label in SRC1->END because when deleting
 		 a block whose end is a tablejump, the tablejump referenced
 		 from the instruction is deleted too.  */
 	      if (insn != BB_END (osrc1))
-		for_each_rtx_in_insn (&insn, replace_label, &rr);
+		replace_label_in_insn (insn, label1, label2, true);
 	    }
 	}
     }

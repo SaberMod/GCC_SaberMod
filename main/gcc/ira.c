@@ -392,6 +392,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lra.h"
 #include "dce.h"
 #include "dbgcnt.h"
+#include "rtl-iter.h"
 
 struct target_ira default_target_ira;
 struct target_ira_int default_target_ira_int;
@@ -2015,7 +2016,8 @@ decrease_live_ranges_number (void)
 {
   basic_block bb;
   rtx_insn *insn;
-  rtx set, src, dest, dest_death, p, q, note;
+  rtx set, src, dest, dest_death, q, note;
+  rtx_insn *p;
   int sregno, dregno;
 
   if (! flag_expensive_optimizations)
@@ -2580,9 +2582,10 @@ setup_reg_equiv_init (void)
    to update equiv info for register shuffles on the region borders
    and for caller save/restore insns.  */
 void
-ira_update_equiv_info_by_shuffle_insn (int to_regno, int from_regno, rtx insns)
+ira_update_equiv_info_by_shuffle_insn (int to_regno, int from_regno, rtx_insn *insns)
 {
-  rtx insn, x, note;
+  rtx_insn *insn;
+  rtx x, note;
 
   if (! ira_reg_equiv[from_regno].defined_p
       && (! ira_reg_equiv[to_regno].defined_p
@@ -2931,9 +2934,9 @@ validate_equiv_mem_from_store (rtx dest, const_rtx set ATTRIBUTE_UNUSED,
 
    Return 1 if MEMREF remains valid.  */
 static int
-validate_equiv_mem (rtx start, rtx reg, rtx memref)
+validate_equiv_mem (rtx_insn *start, rtx reg, rtx memref)
 {
-  rtx insn;
+  rtx_insn *insn;
   rtx note;
 
   equiv_mem = memref;
@@ -3207,9 +3210,9 @@ memref_referenced_p (rtx memref, rtx x)
 /* TRUE if some insn in the range (START, END] references a memory location
    that would be affected by a store to MEMREF.  */
 static int
-memref_used_between_p (rtx memref, rtx start, rtx end)
+memref_used_between_p (rtx memref, rtx_insn *start, rtx_insn *end)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   for (insn = NEXT_INSN (start); insn != NEXT_INSN (end);
        insn = NEXT_INSN (insn))
@@ -3266,23 +3269,20 @@ no_equiv (rtx reg, const_rtx store ATTRIBUTE_UNUSED,
 /* Check whether the SUBREG is a paradoxical subreg and set the result
    in PDX_SUBREGS.  */
 
-static int
-set_paradoxical_subreg (rtx *subreg, void *pdx_subregs)
+static void
+set_paradoxical_subreg (rtx_insn *insn, bool *pdx_subregs)
 {
-  rtx reg;
-
-  if ((*subreg) == NULL_RTX)
-    return 1;
-  if (GET_CODE (*subreg) != SUBREG)
-    return 0;
-  reg = SUBREG_REG (*subreg);
-  if (!REG_P (reg))
-    return 0;
-
-  if (paradoxical_subreg_p (*subreg))
-    ((bool *)pdx_subregs)[REGNO (reg)] = true;
-
-  return 0;
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, PATTERN (insn), NONCONST)
+    {
+      const_rtx subreg = *iter;
+      if (GET_CODE (subreg) == SUBREG)
+	{
+	  const_rtx reg = SUBREG_REG (subreg);
+	  if (REG_P (reg) && paradoxical_subreg_p (subreg))
+	    pdx_subregs[REGNO (reg)] = true;
+	}
+    }
 }
 
 /* In DEBUG_INSN location adjust REGs from CLEARED_REGS bitmap to the
@@ -3345,8 +3345,7 @@ update_equiv_regs (void)
   FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
       if (NONDEBUG_INSN_P (insn))
-	for_each_rtx_in_insn (&insn, set_paradoxical_subreg,
-			      (void *) pdx_subregs);
+	set_paradoxical_subreg (insn, pdx_subregs);
 
   /* Scan the insns and find which registers have equivalences.  Do this
      in a separate scan of the insns because (due to -fcse-follow-jumps)

@@ -540,9 +540,16 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token,
 	SYNTAX_ERROR_AT (virtual_location,
 			 "no digits in hexadecimal floating constant");
 
-      if (radix == 16 && CPP_PEDANTIC (pfile) && !CPP_OPTION (pfile, c99))
-	cpp_error_with_line (pfile, CPP_DL_PEDWARN, virtual_location, 0,
-			     "use of C99 hexadecimal floating constant");
+      if (radix == 16 && CPP_PEDANTIC (pfile)
+	  && !CPP_OPTION (pfile, extended_numbers))
+	{
+	  if (CPP_OPTION (pfile, cplusplus))
+	    cpp_error_with_line (pfile, CPP_DL_PEDWARN, virtual_location, 0,
+				 "use of C++11 hexadecimal floating constant");
+	  else
+	    cpp_error_with_line (pfile, CPP_DL_PEDWARN, virtual_location, 0,
+				 "use of C99 hexadecimal floating constant");
+	}
 
       if (float_flag == AFTER_EXPON)
 	{
@@ -1873,8 +1880,8 @@ num_binary_op (cpp_reader *pfile, cpp_num lhs, cpp_num rhs, enum cpp_ttype op)
     default: /* case CPP_COMMA: */
       if (CPP_PEDANTIC (pfile) && (!CPP_OPTION (pfile, c99)
 				   || !pfile->state.skip_eval))
-	cpp_error (pfile, CPP_DL_PEDWARN,
-		   "comma operator in operand of #if");
+	cpp_pedwarning (pfile, CPP_W_PEDANTIC,
+			"comma operator in operand of #if");
       lhs = rhs;
       break;
     }

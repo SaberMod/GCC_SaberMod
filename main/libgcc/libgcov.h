@@ -295,8 +295,11 @@ extern void __gcov_set_sampling_rate (unsigned int rate);
 /* Called before fork, to avoid double counting.  */
 extern void __gcov_flush (void) ATTRIBUTE_HIDDEN;
 
-/* Function to reset all counters to 0.  */
+/* Function to reset all counters to 0.  Both externally visible (and
+   overridable) and internal version.  */
 extern void __gcov_reset (void);
+extern void __gcov_reset_int (void) ATTRIBUTE_HIDDEN;
+
 /* Function to enable early write of profile information so far.  */
 extern void __gcov_dump (void);
 

@@ -103,7 +103,7 @@ static const struct lang_flags lang_defaults[] =
   /* STDC99   */  { 1,  0,  1,  0,  0,  1,  1,  1,  0,   0,   0,    0,     0,     1 },
   /* STDC11   */  { 1,  0,  1,  0,  1,  1,  1,  1,  1,   0,   0,    0,     0,     1 },
   /* GNUCXX   */  { 0,  1,  1,  0,  0,  0,  1,  1,  0,   0,   0,    0,     0,     0 },
-  /* CXX98    */  { 0,  1,  1,  0,  0,  1,  1,  1,  0,   0,   0,    0,     0,     1 },
+  /* CXX98    */  { 0,  1,  0,  0,  0,  1,  1,  1,  0,   0,   0,    0,     0,     1 },
   /* GNUCXX11 */  { 1,  1,  1,  0,  1,  0,  1,  1,  1,   1,   1,    0,     0,     0 },
   /* CXX11    */  { 1,  1,  1,  0,  1,  1,  1,  1,  1,   1,   1,    0,     0,     1 },
   /* GNUCXX14 */  { 1,  1,  1,  0,  1,  0,  1,  1,  1,   1,   1,    1,     1,     0 },
@@ -185,6 +185,7 @@ cpp_create_reader (enum c_lang lang, cpp_hash_table *table,
   CPP_OPTION (pfile, operator_names) = 1;
   CPP_OPTION (pfile, warn_trigraphs) = 2;
   CPP_OPTION (pfile, warn_endif_labels) = 1;
+  CPP_OPTION (pfile, cpp_warn_c90_c99_compat) = -1;
   CPP_OPTION (pfile, cpp_warn_deprecated) = 1;
   CPP_OPTION (pfile, cpp_warn_long_long) = 0;
   CPP_OPTION (pfile, dollars_in_ident) = 1;
@@ -470,8 +471,7 @@ cpp_init_special_builtins (cpp_reader *pfile)
       cpp_hashnode *hp = cpp_lookup (pfile, b->name, b->len);
       hp->type = NT_MACRO;
       hp->flags |= NODE_BUILTIN;
-      if (b->always_warn_if_redefined
-          || CPP_OPTION (pfile, warn_builtin_macro_redefined))
+      if (b->always_warn_if_redefined)
 	hp->flags |= NODE_WARN;
       hp->value.builtin = (enum cpp_builtin_type) b->value;
     }

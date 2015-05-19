@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "df.h"
 #include "dbgcnt.h"
+#include "rtl-iter.h"
 
 /* This pass implements downward store motion.
    As of May 1, 2009, the pass is not enabled by default on any target,
@@ -278,19 +279,6 @@ store_ops_ok (const_rtx x, int *regs_set)
   return true;
 }
 
-/* Helper for extract_mentioned_regs.  */
-
-static int
-extract_mentioned_regs_1 (rtx *loc, void *data)
-{
-  rtx *mentioned_regs_p = (rtx *) data;
-
-  if (REG_P (*loc))
-    *mentioned_regs_p = alloc_EXPR_LIST (0, *loc, *mentioned_regs_p);
-
-  return 0;
-}
-
 /* Returns a list of registers mentioned in X.
    FIXME: A regset would be prettier and less expensive.  */
 
@@ -298,7 +286,13 @@ static rtx
 extract_mentioned_regs (rtx x)
 {
   rtx mentioned_regs = NULL;
-  for_each_rtx (&x, extract_mentioned_regs_1, &mentioned_regs);
+  subrtx_var_iterator::array_type array;
+  FOR_EACH_SUBRTX_VAR (iter, array, x, NONCONST)
+    {
+      rtx x = *iter;
+      if (REG_P (x))
+	mentioned_regs = alloc_EXPR_LIST (0, x, mentioned_regs);
+    }
   return mentioned_regs;
 }
 
@@ -1017,7 +1011,8 @@ build_store_vectors (void)
 {
   basic_block bb;
   int *regs_set_in_block;
-  rtx insn, st;
+  rtx_insn *insn;
+  rtx_insn_list *st;
   struct st_expr * ptr;
   unsigned int max_gcse_regno = max_reg_num ();
 
@@ -1033,9 +1028,9 @@ build_store_vectors (void)
 
   for (ptr = first_st_expr (); ptr != NULL; ptr = next_st_expr (ptr))
     {
-      for (st = ptr->avail_stores; st != NULL; st = XEXP (st, 1))
+      for (st = ptr->avail_stores; st != NULL; st = st->next ())
 	{
-	  insn = XEXP (st, 0);
+	  insn = st->insn ();
 	  bb = BLOCK_FOR_INSN (insn);
 
 	  /* If we've already seen an available expression in this block,
@@ -1053,9 +1048,9 @@ build_store_vectors (void)
 	  bitmap_set_bit (st_avloc[bb->index], ptr->index);
 	}
 
-      for (st = ptr->antic_stores; st != NULL; st = XEXP (st, 1))
+      for (st = ptr->antic_stores; st != NULL; st = st->next ())
 	{
-	  insn = XEXP (st, 0);
+	  insn = st->insn ();
 	  bb = BLOCK_FOR_INSN (insn);
 	  bitmap_set_bit (st_antloc[bb->index], ptr->index);
 	}

@@ -1619,7 +1619,7 @@ extern bool sel_bb_end_p (insn_t);
 extern bool sel_bb_empty_p (basic_block);
 
 extern bool in_current_region_p (basic_block);
-extern basic_block fallthru_bb_of_jump (rtx);
+extern basic_block fallthru_bb_of_jump (const rtx_insn *);
 
 extern void sel_init_bbs (bb_vec_t);
 extern void sel_finish_bbs (void);
@@ -1628,7 +1628,7 @@ extern struct succs_info * compute_succs_info (insn_t, short);
 extern void free_succs_info (struct succs_info *);
 extern bool sel_insn_has_single_succ_p (insn_t, int);
 extern bool sel_num_cfg_preds_gt_1 (insn_t);
-extern int get_seqno_by_preds (rtx);
+extern int get_seqno_by_preds (rtx_insn *);
 
 extern bool bb_ends_ebb_p (basic_block);
 extern bool in_same_ebb_p (insn_t, insn_t);

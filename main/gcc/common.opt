@@ -619,7 +619,7 @@ Common Var(warn_self_assign) Init(0) Warning
 Warn when a variable is assigned to itself
 
 Wpedantic
-Common Var(pedantic) Warning
+Common Var(pedantic) Init(0) Warning
 Issue warnings needed for strict compliance to the standard
 
 Wreturn-local-addr

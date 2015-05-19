@@ -177,7 +177,7 @@ propagate_for_debug_subst (rtx from, const_rtx old_rtx, void *data)
    of THIS_BASIC_BLOCK.  */
 
 void
-propagate_for_debug (rtx_insn *insn, rtx last, rtx dest, rtx src,
+propagate_for_debug (rtx_insn *insn, rtx_insn *last, rtx dest, rtx src,
 		     basic_block this_basic_block)
 {
   rtx_insn *next, *end = NEXT_INSN (BB_END (this_basic_block));
@@ -536,7 +536,7 @@ dead_debug_add (struct dead_debug_local *debug, df_ref use, unsigned int uregno)
 
 int
 dead_debug_insert_temp (struct dead_debug_local *debug, unsigned int uregno,
-			rtx insn, enum debug_temp_where where)
+			rtx_insn *insn, enum debug_temp_where where)
 {
   struct dead_debug_use **tailp = &debug->head;
   struct dead_debug_use *cur;

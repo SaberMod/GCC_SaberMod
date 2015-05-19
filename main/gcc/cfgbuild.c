@@ -44,7 +44,7 @@ static void compute_outgoing_frequencies (basic_block);
    block.  */
 
 bool
-inside_basic_block_p (const_rtx insn)
+inside_basic_block_p (const rtx_insn *insn)
 {
   switch (GET_CODE (insn))
     {
@@ -284,8 +284,8 @@ make_edges (basic_block min, basic_block max, int update_p)
 	     everything on the forced_labels list.  */
 	  else if (computed_jump_p (insn))
 	    {
-	      for (rtx_expr_list *x = forced_labels; x; x = x->next ())
-		make_label_edge (edge_cache, bb, x->element (), EDGE_ABNORMAL);
+	      for (rtx_insn_list *x = forced_labels; x; x = x->next ())
+		make_label_edge (edge_cache, bb, x->insn (), EDGE_ABNORMAL);
 	    }
 
 	  /* Returns create an exit out.  */
@@ -337,10 +337,10 @@ make_edges (basic_block min, basic_block max, int update_p)
 		     taken, then only calls to those functions or to other
 		     nested functions that use them could possibly do
 		     nonlocal gotos.  */
-		  for (rtx_expr_list *x = nonlocal_goto_handler_labels;
+		  for (rtx_insn_list *x = nonlocal_goto_handler_labels;
 		       x;
 		       x = x->next ())
-		    make_label_edge (edge_cache, bb, x->element (),
+		    make_label_edge (edge_cache, bb, x->insn (),
 				     EDGE_ABNORMAL | EDGE_ABNORMAL_CALL);
 		}
 

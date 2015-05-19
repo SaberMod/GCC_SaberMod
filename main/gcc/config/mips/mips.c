@@ -7455,7 +7455,7 @@ mips_expand_synci_loop (rtx begin, rtx end)
   length = mips_force_binary (Pmode, MINUS, end, begin);
 
   /* Loop back to here.  */
-  label = gen_label_rtx ();
+    label = gen_label_rtx ();
   emit_label (label);
 
   emit_insn (gen_synci (begin));
@@ -11079,7 +11079,6 @@ mips_expand_prologue (void)
   const struct mips_frame_info *frame;
   HOST_WIDE_INT size;
   unsigned int nargs;
-  rtx insn;
 
   if (cfun->machine->global_pointer != INVALID_REGNUM)
     {
@@ -11133,8 +11132,8 @@ mips_expand_prologue (void)
 
 	  /* Build the save instruction.  */
 	  mask = frame->mask;
-	  insn = mips16e_build_save_restore (false, &mask, &offset,
-					     nargs, step1);
+	  rtx insn = mips16e_build_save_restore (false, &mask, &offset,
+						 nargs, step1);
 	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
 	  mips_frame_barrier ();
  	  size -= step1;
@@ -11174,8 +11173,8 @@ mips_expand_prologue (void)
 		}
 
 	      /* Allocate the first part of the frame.  */
-	      insn = gen_add3_insn (stack_pointer_rtx, stack_pointer_rtx,
-				    GEN_INT (-step1));
+	      rtx insn = gen_add3_insn (stack_pointer_rtx, stack_pointer_rtx,
+					GEN_INT (-step1));
 	      RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
 	      mips_frame_barrier ();
 	      size -= step1;
@@ -11235,9 +11234,9 @@ mips_expand_prologue (void)
 	    }
 	  else
 	    {
-	      insn = gen_add3_insn (stack_pointer_rtx,
-				    stack_pointer_rtx,
-				    GEN_INT (-step1));
+	      rtx insn = gen_add3_insn (stack_pointer_rtx,
+					stack_pointer_rtx,
+					GEN_INT (-step1));
 	      RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
 	      mips_frame_barrier ();
 	      size -= step1;
@@ -11291,13 +11290,13 @@ mips_expand_prologue (void)
       offset = frame->hard_frame_pointer_offset;
       if (offset == 0)
 	{
-	  insn = mips_emit_move (hard_frame_pointer_rtx, stack_pointer_rtx);
+	  rtx insn = mips_emit_move (hard_frame_pointer_rtx, stack_pointer_rtx);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
       else if (SMALL_OPERAND (offset))
 	{
-	  insn = gen_add3_insn (hard_frame_pointer_rtx,
-				stack_pointer_rtx, GEN_INT (offset));
+	  rtx insn = gen_add3_insn (hard_frame_pointer_rtx,
+				    stack_pointer_rtx, GEN_INT (offset));
 	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
 	}
       else
@@ -11338,6 +11337,7 @@ mips_expand_prologue (void)
   /* We need to search back to the last use of K0 or K1.  */
   if (cfun->machine->interrupt_handler_p)
     {
+      rtx_insn *insn;
       for (insn = get_last_insn (); insn != NULL_RTX; insn = PREV_INSN (insn))
 	if (INSN_P (insn)
 	    && for_each_rtx (&PATTERN (insn), mips_kernel_reg_p, NULL))
@@ -12465,7 +12465,7 @@ mips_output_conditional_branch (rtx_insn *insn, rtx *operands,
 				const char *branch_if_false)
 {
   unsigned int length;
-  rtx taken, not_taken;
+  rtx taken;
 
   gcc_assert (LABEL_P (operands[0]));
 
@@ -12480,7 +12480,7 @@ mips_output_conditional_branch (rtx_insn *insn, rtx *operands,
   /* Generate a reversed branch around a direct jump.  This fallback does
      not use branch-likely instructions.  */
   mips_branch_likely = false;
-  not_taken = gen_label_rtx ();
+  rtx_code_label *not_taken = gen_label_rtx ();
   taken = operands[0];
 
   /* Generate the reversed branch to NOT_TAKEN.  */
@@ -12496,9 +12496,9 @@ mips_output_conditional_branch (rtx_insn *insn, rtx *operands,
 	 delay slot if is not annulled.  */
       if (!INSN_ANNULLED_BRANCH_P (insn))
 	{
-	  final_scan_insn (XVECEXP (final_sequence, 0, 1),
+	  final_scan_insn (final_sequence->insn (1),
 			   asm_out_file, optimize, 1, NULL);
-	  INSN_DELETED_P (XVECEXP (final_sequence, 0, 1)) = 1;
+	  INSN_DELETED_P (final_sequence->insn (1)) = 1;
 	}
       else
 	output_asm_insn ("nop", 0);
@@ -12521,9 +12521,9 @@ mips_output_conditional_branch (rtx_insn *insn, rtx *operands,
 	 Use INSN's delay slot if is annulled.  */
       if (INSN_ANNULLED_BRANCH_P (insn))
 	{
-	  final_scan_insn (XVECEXP (final_sequence, 0, 1),
+	  final_scan_insn (final_sequence->insn (1),
 			   asm_out_file, optimize, 1, NULL);
-	  INSN_DELETED_P (XVECEXP (final_sequence, 0, 1)) = 1;
+	  INSN_DELETED_P (final_sequence->insn (1)) = 1;
 	}
       else
 	output_asm_insn ("nop", 0);
@@ -16436,7 +16436,8 @@ mips16_split_long_branches (void)
 	    && get_attr_length (insn) > 4
 	    && (any_condjump_p (insn) || any_uncondjump_p (insn)))
 	  {
-	    rtx old_label, new_label, temp, saved_temp;
+	    rtx old_label, temp, saved_temp;
+	    rtx_code_label *new_label;
 	    rtx target;
 	    rtx_insn *jump, *jump_sequence;
 
@@ -16465,7 +16466,7 @@ mips16_split_long_branches (void)
 
 	    if (simplejump_p (insn))
 	      /* We're going to replace INSN with a longer form.  */
-	      new_label = NULL_RTX;
+	      new_label = NULL;
 	    else
 	      {
 		/* Create a branch-around label for the original

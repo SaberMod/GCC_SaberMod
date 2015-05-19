@@ -118,13 +118,19 @@ init_expmed_one_conv (struct init_expmed_rtl *all, enum machine_mode to_mode,
   int to_size, from_size;
   rtx which;
 
-  /* We're given no information about the true size of a partial integer,
-     only the size of the "full" integer it requires for storage.  For
-     comparison purposes here, reduce the bit size by one in that case.  */
-  to_size = (GET_MODE_BITSIZE (to_mode)
-	     - (GET_MODE_CLASS (to_mode) == MODE_PARTIAL_INT));
-  from_size = (GET_MODE_BITSIZE (from_mode)
-	       - (GET_MODE_CLASS (from_mode) == MODE_PARTIAL_INT));
+  to_size = GET_MODE_PRECISION (to_mode);
+  from_size = GET_MODE_PRECISION (from_mode);
+
+  /* Most partial integers have a precision less than the "full"
+     integer it requires for storage.  In case one doesn't, for
+     comparison purposes here, reduce the bit size by one in that
+     case.  */
+  if (GET_MODE_CLASS (to_mode) == MODE_PARTIAL_INT
+      && exact_log2 (to_size) != -1)
+    to_size --;
+  if (GET_MODE_CLASS (from_mode) == MODE_PARTIAL_INT
+      && exact_log2 (from_size) != -1)
+    from_size --;
   
   /* Assume cost of zero-extend and sign-extend is the same.  */
   which = (to_size < from_size ? all->trunc : all->zext);
@@ -1051,16 +1057,17 @@ store_fixed_bit_field_1 (rtx op0, unsigned HOST_WIDE_INT bitsize,
 
   if (CONST_INT_P (value))
     {
-      HOST_WIDE_INT v = INTVAL (value);
+      unsigned HOST_WIDE_INT v = UINTVAL (value);
 
       if (bitsize < HOST_BITS_PER_WIDE_INT)
-	v &= ((HOST_WIDE_INT) 1 << bitsize) - 1;
+	v &= ((unsigned HOST_WIDE_INT) 1 << bitsize) - 1;
 
       if (v == 0)
 	all_zero = 1;
       else if ((bitsize < HOST_BITS_PER_WIDE_INT
-		&& v == ((HOST_WIDE_INT) 1 << bitsize) - 1)
-	       || (bitsize == HOST_BITS_PER_WIDE_INT && v == -1))
+		&& v == ((unsigned HOST_WIDE_INT) 1 << bitsize) - 1)
+	       || (bitsize == HOST_BITS_PER_WIDE_INT
+		   && v == (unsigned HOST_WIDE_INT) -1))
 	all_one = 1;
 
       value = lshift_value (mode, v, bitnum);

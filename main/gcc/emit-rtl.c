@@ -58,6 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "target.h"
 #include "builtins.h"
+#include "rtl-iter.h"
 
 struct target_rtl default_target_rtl;
 #if SWITCHABLE_TARGET
@@ -932,6 +933,25 @@ gen_rtvec_v (int n, rtx *argp)
 
   return rt_val;
 }
+
+rtvec
+gen_rtvec_v (int n, rtx_insn **argp)
+{
+  int i;
+  rtvec rt_val;
+
+  /* Don't allocate an empty rtvec...  */
+  if (n == 0)
+    return NULL_RTVEC;
+
+  rt_val = rtvec_alloc (n);
+
+  for (i = 0; i < n; i++)
+    rt_val->elem[i] = *argp++;
+
+  return rt_val;
+}
+
 
 /* Return the number of bytes between the start of an OUTER_MODE
    in-memory value and the start of an INNER_MODE in-memory value,
@@ -2727,7 +2747,7 @@ reset_insn_used_flags (rtx insn)
 static void
 reset_all_used_flags (void)
 {
-  rtx p;
+  rtx_insn *p;
 
   for (p = get_insns (); p; p = NEXT_INSN (p))
     if (INSN_P (p))
@@ -2766,7 +2786,7 @@ verify_insn_sharing (rtx insn)
 DEBUG_FUNCTION void
 verify_rtl_sharing (void)
 {
-  rtx p;
+  rtx_insn *p;
 
   timevar_push (TV_VERIFY_RTL_SHARING);
 
@@ -2796,7 +2816,7 @@ verify_rtl_sharing (void)
    Assumes the mark bits are cleared at entry.  */
 
 void
-unshare_all_rtl_in_chain (rtx insn)
+unshare_all_rtl_in_chain (rtx_insn *insn)
 {
   for (; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
@@ -3121,10 +3141,10 @@ get_last_insn_anywhere (void)
 /* Return the first nonnote insn emitted in current sequence or current
    function.  This routine looks inside SEQUENCEs.  */
 
-rtx
+rtx_insn *
 get_first_nonnote_insn (void)
 {
-  rtx insn = get_insns ();
+  rtx_insn *insn = get_insns ();
 
   if (insn)
     {
@@ -3137,7 +3157,7 @@ get_first_nonnote_insn (void)
 	{
 	  if (NONJUMP_INSN_P (insn)
 	      && GET_CODE (PATTERN (insn)) == SEQUENCE)
-	    insn = XVECEXP (PATTERN (insn), 0, 0);
+	    insn = as_a <rtx_sequence *> (PATTERN (insn))->insn (0);
 	}
     }
 
@@ -3147,10 +3167,10 @@ get_first_nonnote_insn (void)
 /* Return the last nonnote insn emitted in current sequence or current
    function.  This routine looks inside SEQUENCEs.  */
 
-rtx
+rtx_insn *
 get_last_nonnote_insn (void)
 {
-  rtx insn = get_last_insn ();
+  rtx_insn *insn = get_last_insn ();
 
   if (insn)
     {
@@ -3161,10 +3181,9 @@ get_last_nonnote_insn (void)
 	  continue;
       else
 	{
-	  if (NONJUMP_INSN_P (insn)
-	      && GET_CODE (PATTERN (insn)) == SEQUENCE)
-	    insn = XVECEXP (PATTERN (insn), 0,
-			    XVECLEN (PATTERN (insn), 0) - 1);
+	  if (NONJUMP_INSN_P (insn))
+	    if (rtx_sequence *seq = dyn_cast <rtx_sequence *> (PATTERN (insn)))
+	      insn = seq->insn (seq->len () - 1);
 	}
     }
 
@@ -3196,42 +3215,43 @@ get_max_insn_count (void)
    of the sequence.  */
 
 rtx_insn *
-next_insn (rtx insn)
+next_insn (rtx_insn *insn)
 {
   if (insn)
     {
       insn = NEXT_INSN (insn);
       if (insn && NONJUMP_INSN_P (insn)
 	  && GET_CODE (PATTERN (insn)) == SEQUENCE)
-	insn = XVECEXP (PATTERN (insn), 0, 0);
+	insn = as_a <rtx_sequence *> (PATTERN (insn))->insn (0);
     }
 
-  return safe_as_a <rtx_insn *> (insn);
+  return insn;
 }
 
 /* Return the previous insn.  If it is a SEQUENCE, return the last insn
    of the sequence.  */
 
 rtx_insn *
-previous_insn (rtx insn)
+previous_insn (rtx_insn *insn)
 {
   if (insn)
     {
       insn = PREV_INSN (insn);
-      if (insn && NONJUMP_INSN_P (insn)
-	  && GET_CODE (PATTERN (insn)) == SEQUENCE)
-	insn = XVECEXP (PATTERN (insn), 0, XVECLEN (PATTERN (insn), 0) - 1);
+      if (insn && NONJUMP_INSN_P (insn))
+	if (rtx_sequence *seq = dyn_cast <rtx_sequence *> (PATTERN (insn)))
+	  insn = seq->insn (seq->len () - 1);
     }
 
-  return safe_as_a <rtx_insn *> (insn);
+  return insn;
 }
 
 /* Return the next insn after INSN that is not a NOTE.  This routine does not
    look inside SEQUENCEs.  */
 
 rtx_insn *
-next_nonnote_insn (rtx insn)
+next_nonnote_insn (rtx uncast_insn)
 {
+  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
   while (insn)
     {
       insn = NEXT_INSN (insn);
@@ -3239,7 +3259,7 @@ next_nonnote_insn (rtx insn)
 	break;
     }
 
-  return safe_as_a <rtx_insn *> (insn);
+  return insn;
 }
 
 /* Return the next insn after INSN that is not a NOTE, but stop the
@@ -3247,7 +3267,7 @@ next_nonnote_insn (rtx insn)
    look inside SEQUENCEs.  */
 
 rtx_insn *
-next_nonnote_insn_bb (rtx insn)
+next_nonnote_insn_bb (rtx_insn *insn)
 {
   while (insn)
     {
@@ -3258,15 +3278,17 @@ next_nonnote_insn_bb (rtx insn)
 	return NULL;
     }
 
-  return safe_as_a <rtx_insn *> (insn);
+  return insn;
 }
 
 /* Return the previous insn before INSN that is not a NOTE.  This routine does
    not look inside SEQUENCEs.  */
 
 rtx_insn *
-prev_nonnote_insn (rtx insn)
+prev_nonnote_insn (rtx uncast_insn)
 {
+  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
+
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3274,7 +3296,7 @@ prev_nonnote_insn (rtx insn)
 	break;
     }
 
-  return safe_as_a <rtx_insn *> (insn);
+  return insn;
 }
 
 /* Return the previous insn before INSN that is not a NOTE, but stop
@@ -3282,8 +3304,10 @@ prev_nonnote_insn (rtx insn)
    not look inside SEQUENCEs.  */
 
 rtx_insn *
-prev_nonnote_insn_bb (rtx insn)
+prev_nonnote_insn_bb (rtx uncast_insn)
 {
+  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
+
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3293,15 +3317,17 @@ prev_nonnote_insn_bb (rtx insn)
 	return NULL;
     }
 
-  return safe_as_a <rtx_insn *> (insn);
+  return insn;
 }
 
 /* Return the next insn after INSN that is not a DEBUG_INSN.  This
    routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-next_nondebug_insn (rtx insn)
+next_nondebug_insn (rtx uncast_insn)
 {
+  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
+
   while (insn)
     {
       insn = NEXT_INSN (insn);
@@ -3309,15 +3335,17 @@ next_nondebug_insn (rtx insn)
 	break;
     }
 
-  return safe_as_a <rtx_insn *> (insn);
+  return insn;
 }
 
 /* Return the previous insn before INSN that is not a DEBUG_INSN.
    This routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-prev_nondebug_insn (rtx insn)
+prev_nondebug_insn (rtx uncast_insn)
 {
+  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
+
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3325,15 +3353,17 @@ prev_nondebug_insn (rtx insn)
 	break;
     }
 
-  return safe_as_a <rtx_insn *> (insn);
+  return insn;
 }
 
 /* Return the next insn after INSN that is not a NOTE nor DEBUG_INSN.
    This routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-next_nonnote_nondebug_insn (rtx insn)
+next_nonnote_nondebug_insn (rtx uncast_insn)
 {
+  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
+
   while (insn)
     {
       insn = NEXT_INSN (insn);
@@ -3341,15 +3371,17 @@ next_nonnote_nondebug_insn (rtx insn)
 	break;
     }
 
-  return safe_as_a <rtx_insn *> (insn);
+  return insn;
 }
 
 /* Return the previous insn before INSN that is not a NOTE nor DEBUG_INSN.
    This routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-prev_nonnote_nondebug_insn (rtx insn)
+prev_nonnote_nondebug_insn (rtx uncast_insn)
 {
+  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
+
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3357,7 +3389,7 @@ prev_nonnote_nondebug_insn (rtx insn)
 	break;
     }
 
-  return safe_as_a <rtx_insn *> (insn);
+  return insn;
 }
 
 /* Return the next INSN, CALL_INSN or JUMP_INSN after INSN;
@@ -3365,8 +3397,10 @@ prev_nonnote_nondebug_insn (rtx insn)
    SEQUENCEs.  */
 
 rtx_insn *
-next_real_insn (rtx insn)
+next_real_insn (rtx uncast_insn)
 {
+  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
+
   while (insn)
     {
       insn = NEXT_INSN (insn);
@@ -3374,7 +3408,7 @@ next_real_insn (rtx insn)
 	break;
     }
 
-  return safe_as_a <rtx_insn *> (insn);
+  return insn;
 }
 
 /* Return the last INSN, CALL_INSN or JUMP_INSN before INSN;
@@ -3382,8 +3416,10 @@ next_real_insn (rtx insn)
    SEQUENCEs.  */
 
 rtx_insn *
-prev_real_insn (rtx insn)
+prev_real_insn (rtx uncast_insn)
 {
+  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
+
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3391,7 +3427,7 @@ prev_real_insn (rtx insn)
 	break;
     }
 
-  return safe_as_a <rtx_insn *> (insn);
+  return insn;
 }
 
 /* Return the last CALL_INSN in the current list, or 0 if there is none.
@@ -3426,8 +3462,10 @@ active_insn_p (const_rtx insn)
 }
 
 rtx_insn *
-next_active_insn (rtx insn)
+next_active_insn (rtx uncast_insn)
 {
+  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
+
   while (insn)
     {
       insn = NEXT_INSN (insn);
@@ -3435,7 +3473,7 @@ next_active_insn (rtx insn)
 	break;
     }
 
-  return safe_as_a <rtx_insn *> (insn);
+  return insn;
 }
 
 /* Find the last insn before INSN that really does something.  This routine
@@ -3443,8 +3481,10 @@ next_active_insn (rtx insn)
    standalone USE and CLOBBER insn.  */
 
 rtx_insn *
-prev_active_insn (rtx insn)
+prev_active_insn (rtx uncast_insn)
 {
+  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
+
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3452,7 +3492,7 @@ prev_active_insn (rtx insn)
 	break;
     }
 
-  return safe_as_a <rtx_insn *> (insn);
+  return insn;
 }
 
 #ifdef HAVE_cc0
@@ -3466,8 +3506,10 @@ prev_active_insn (rtx insn)
    Return 0 if we can't find the insn.  */
 
 rtx_insn *
-next_cc0_user (rtx insn)
+next_cc0_user (rtx uncast_insn)
 {
+  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
+
   rtx note = find_reg_note (insn, REG_CC_USER, NULL_RTX);
 
   if (note)
@@ -3475,10 +3517,10 @@ next_cc0_user (rtx insn)
 
   insn = next_nonnote_insn (insn);
   if (insn && NONJUMP_INSN_P (insn) && GET_CODE (PATTERN (insn)) == SEQUENCE)
-    insn = XVECEXP (PATTERN (insn), 0, 0);
+    insn = as_a <rtx_sequence *> (PATTERN (insn))->insn (0);
 
   if (insn && INSN_P (insn) && reg_mentioned_p (cc0_rtx, PATTERN (insn)))
-    return safe_as_a <rtx_insn *> (insn);
+    return insn;
 
   return 0;
 }
@@ -3487,8 +3529,10 @@ next_cc0_user (rtx insn)
    note, it is the previous insn.  */
 
 rtx_insn *
-prev_cc0_setter (rtx insn)
+prev_cc0_setter (rtx uncast_insn)
 {
+  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
+
   rtx note = find_reg_note (insn, REG_CC_SETTER, NULL_RTX);
 
   if (note)
@@ -3497,7 +3541,7 @@ prev_cc0_setter (rtx insn)
   insn = prev_nonnote_insn (insn);
   gcc_assert (sets_cc0_p (PATTERN (insn)));
 
-  return safe_as_a <rtx_insn *> (insn);
+  return insn;
 }
 #endif
 
@@ -3505,30 +3549,17 @@ prev_cc0_setter (rtx insn)
 /* Find a RTX_AUTOINC class rtx which matches DATA.  */
 
 static int
-find_auto_inc (rtx *xp, void *data)
+find_auto_inc (const_rtx x, const_rtx reg)
 {
-  rtx x = *xp;
-  rtx reg = (rtx) data;
-
-  if (GET_RTX_CLASS (GET_CODE (x)) != RTX_AUTOINC)
-    return 0;
-
-  switch (GET_CODE (x))
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, x, NONCONST)
     {
-      case PRE_DEC:
-      case PRE_INC:
-      case POST_DEC:
-      case POST_INC:
-      case PRE_MODIFY:
-      case POST_MODIFY:
-	if (rtx_equal_p (reg, XEXP (x, 0)))
-	  return 1;
-	break;
-
-      default:
-	gcc_unreachable ();
+      const_rtx x = *iter;
+      if (GET_RTX_CLASS (GET_CODE (x)) == RTX_AUTOINC
+	  && rtx_equal_p (reg, XEXP (x, 0)))
+	return true;
     }
-  return -1;
+  return false;
 }
 #endif
 
@@ -3567,27 +3598,29 @@ mark_label_nuses (rtx x)
    returns TRIAL.  If the insn to be returned can be split, it will be.  */
 
 rtx_insn *
-try_split (rtx pat, rtx trial, int last)
+try_split (rtx pat, rtx uncast_trial, int last)
 {
+  rtx_insn *trial = as_a <rtx_insn *> (uncast_trial);
   rtx_insn *before = PREV_INSN (trial);
   rtx_insn *after = NEXT_INSN (trial);
   int has_barrier = 0;
-  rtx note, seq, tem;
+  rtx note;
+  rtx_insn *seq, *tem;
   int probability;
-  rtx insn_last, insn;
+  rtx_insn *insn_last, *insn;
   int njumps = 0;
   rtx call_insn = NULL_RTX;
 
   /* We're not good at redistributing frame information.  */
   if (RTX_FRAME_RELATED_P (trial))
-    return as_a <rtx_insn *> (trial);
+    return trial;
 
   if (any_condjump_p (trial)
       && (note = find_reg_note (trial, REG_BR_PROB, 0)))
     split_branch_probability = XINT (note, 0);
   probability = split_branch_probability;
 
-  seq = split_insns (pat, trial);
+  seq = safe_as_a <rtx_insn *> (split_insns (pat, trial));
 
   split_branch_probability = -1;
 
@@ -3600,7 +3633,7 @@ try_split (rtx pat, rtx trial, int last)
     }
 
   if (!seq)
-    return as_a <rtx_insn *> (trial);
+    return trial;
 
   /* Avoid infinite loop if any insn of the result matches
      the original pattern.  */
@@ -3609,7 +3642,7 @@ try_split (rtx pat, rtx trial, int last)
     {
       if (INSN_P (insn_last)
 	  && rtx_equal_p (PATTERN (insn_last), pat))
-	return as_a <rtx_insn *> (trial);
+	return trial;
       if (!NEXT_INSN (insn_last))
 	break;
       insn_last = NEXT_INSN (insn_last);
@@ -3649,7 +3682,8 @@ try_split (rtx pat, rtx trial, int last)
       for (insn = insn_last; insn ; insn = PREV_INSN (insn))
 	if (CALL_P (insn))
 	  {
-	    rtx next, *p;
+	    rtx_insn *next;
+	    rtx *p;
 
 	    gcc_assert (call_insn == NULL_RTX);
 	    call_insn = insn;
@@ -3715,14 +3749,14 @@ try_split (rtx pat, rtx trial, int last)
 	    {
 	      rtx reg = XEXP (note, 0);
 	      if (!FIND_REG_INC_NOTE (insn, reg)
-		  && for_each_rtx (&PATTERN (insn), find_auto_inc, reg) > 0)
+		  && find_auto_inc (PATTERN (insn), reg))
 		add_reg_note (insn, REG_INC, reg);
 	    }
 	  break;
 #endif
 
 	case REG_ARGS_SIZE:
-	  fixup_args_size_notes (NULL_RTX, insn_last, INTVAL (XEXP (note, 0)));
+	  fixup_args_size_notes (NULL, insn_last, INTVAL (XEXP (note, 0)));
 	  break;
 
 	case REG_CALL_DECL:
@@ -3897,22 +3931,25 @@ link_insn_into_chain (rtx_insn *insn, rtx_insn *prev, rtx_insn *next)
       SET_NEXT_INSN (prev) = insn;
       if (NONJUMP_INSN_P (prev) && GET_CODE (PATTERN (prev)) == SEQUENCE)
 	{
-	  rtx sequence = PATTERN (prev);
-	  SET_NEXT_INSN (XVECEXP (sequence, 0, XVECLEN (sequence, 0) - 1)) = insn;
+	  rtx_sequence *sequence = as_a <rtx_sequence *> (PATTERN (prev));
+	  SET_NEXT_INSN (sequence->insn (sequence->len () - 1)) = insn;
 	}
     }
   if (next != NULL)
     {
       SET_PREV_INSN (next) = insn;
       if (NONJUMP_INSN_P (next) && GET_CODE (PATTERN (next)) == SEQUENCE)
-	SET_PREV_INSN (XVECEXP (PATTERN (next), 0, 0)) = insn;
+	{
+	  rtx_sequence *sequence = as_a <rtx_sequence *> (PATTERN (next));
+	  SET_PREV_INSN (sequence->insn (0)) = insn;
+	}
     }
 
   if (NONJUMP_INSN_P (insn) && GET_CODE (PATTERN (insn)) == SEQUENCE)
     {
-      rtx sequence = PATTERN (insn);
-      SET_PREV_INSN (XVECEXP (sequence, 0, 0)) = prev;
-      SET_NEXT_INSN (XVECEXP (sequence, 0, XVECLEN (sequence, 0) - 1)) = next;
+      rtx_sequence *sequence = as_a <rtx_sequence *> (PATTERN (insn));
+      SET_PREV_INSN (sequence->insn (0)) = prev;
+      SET_NEXT_INSN (sequence->insn (sequence->len () - 1)) = next;
     }
 }
 
@@ -4080,8 +4117,9 @@ set_insn_deleted (rtx insn)
    To really delete an insn and related DF information, use delete_insn.  */
 
 void
-remove_insn (rtx insn)
+remove_insn (rtx uncast_insn)
 {
+  rtx_insn *insn = as_a <rtx_insn *> (uncast_insn);
   rtx_insn *next = NEXT_INSN (insn);
   rtx_insn *prev = PREV_INSN (insn);
   basic_block bb;
@@ -4091,8 +4129,8 @@ remove_insn (rtx insn)
       SET_NEXT_INSN (prev) = next;
       if (NONJUMP_INSN_P (prev) && GET_CODE (PATTERN (prev)) == SEQUENCE)
 	{
-	  rtx sequence = PATTERN (prev);
-	  SET_NEXT_INSN (XVECEXP (sequence, 0, XVECLEN (sequence, 0) - 1)) = next;
+	  rtx_sequence *sequence = as_a <rtx_sequence *> (PATTERN (prev));
+	  SET_NEXT_INSN (sequence->insn (sequence->len () - 1)) = next;
 	}
     }
   else if (get_insns () == insn)
@@ -4119,7 +4157,10 @@ remove_insn (rtx insn)
     {
       SET_PREV_INSN (next) = prev;
       if (NONJUMP_INSN_P (next) && GET_CODE (PATTERN (next)) == SEQUENCE)
-	SET_PREV_INSN (XVECEXP (PATTERN (next), 0, 0)) = prev;
+	{
+	  rtx_sequence *sequence = as_a <rtx_sequence *> (PATTERN (next));
+	  SET_PREV_INSN (sequence->insn (0)) = prev;
+	}
     }
   else if (get_last_insn () == insn)
     set_last_insn (prev);
@@ -4336,7 +4377,7 @@ emit_pattern_before_noloc (rtx x, rtx before, rtx last, basic_block bb,
 /* Make X be output before the instruction BEFORE.  */
 
 rtx_insn *
-emit_insn_before_noloc (rtx x, rtx before, basic_block bb)
+emit_insn_before_noloc (rtx x, rtx_insn *before, basic_block bb)
 {
   return emit_pattern_before_noloc (x, before, before, bb, make_insn_raw);
 }
@@ -4345,7 +4386,7 @@ emit_insn_before_noloc (rtx x, rtx before, basic_block bb)
    and output it before the instruction BEFORE.  */
 
 rtx_insn *
-emit_jump_insn_before_noloc (rtx x, rtx before)
+emit_jump_insn_before_noloc (rtx x, rtx_insn *before)
 {
   return emit_pattern_before_noloc (x, before, NULL_RTX, NULL,
 				    make_jump_insn_raw);
@@ -4355,7 +4396,7 @@ emit_jump_insn_before_noloc (rtx x, rtx before)
    and output it before the instruction BEFORE.  */
 
 rtx_insn *
-emit_call_insn_before_noloc (rtx x, rtx before)
+emit_call_insn_before_noloc (rtx x, rtx_insn *before)
 {
   return emit_pattern_before_noloc (x, before, NULL_RTX, NULL,
 				    make_call_insn_raw);
@@ -4388,7 +4429,7 @@ emit_barrier_before (rtx before)
 /* Emit the label LABEL before the insn BEFORE.  */
 
 rtx_insn *
-emit_label_before (rtx label, rtx before)
+emit_label_before (rtx label, rtx_insn *before)
 {
   gcc_checking_assert (INSN_UID (label) == 0);
   INSN_UID (label) = cur_insn_uid++;
@@ -4399,9 +4440,10 @@ emit_label_before (rtx label, rtx before)
 /* Helper for emit_insn_after, handles lists of instructions
    efficiently.  */
 
-static rtx
-emit_insn_after_1 (rtx_insn *first, rtx after, basic_block bb)
+static rtx_insn *
+emit_insn_after_1 (rtx_insn *first, rtx uncast_after, basic_block bb)
 {
+  rtx_insn *after = safe_as_a <rtx_insn *> (uncast_after);
   rtx_insn *last;
   rtx_insn *after_after;
   if (!bb && !BARRIER_P (after))
@@ -4443,15 +4485,16 @@ emit_insn_after_1 (rtx_insn *first, rtx after, basic_block bb)
 }
 
 static rtx_insn *
-emit_pattern_after_noloc (rtx x, rtx after, basic_block bb,
+emit_pattern_after_noloc (rtx x, rtx uncast_after, basic_block bb,
 			  rtx_insn *(*make_raw)(rtx))
 {
-  rtx last = after;
+  rtx_insn *after = safe_as_a <rtx_insn *> (uncast_after);
+  rtx_insn *last = after;
 
   gcc_assert (after);
 
   if (x == NULL_RTX)
-    return safe_as_a <rtx_insn *> (last);
+    return last;
 
   switch (GET_CODE (x))
     {
@@ -4477,7 +4520,7 @@ emit_pattern_after_noloc (rtx x, rtx after, basic_block bb,
       break;
     }
 
-  return safe_as_a <rtx_insn *> (last);
+  return last;
 }
 
 /* Make X be output after the insn AFTER and set the BB of insn.  If
@@ -4534,7 +4577,7 @@ emit_barrier_after (rtx after)
 /* Emit the label LABEL after the insn AFTER.  */
 
 rtx_insn *
-emit_label_after (rtx label, rtx after)
+emit_label_after (rtx label, rtx_insn *after)
 {
   gcc_checking_assert (INSN_UID (label) == 0);
   INSN_UID (label) = cur_insn_uid++;
@@ -4612,9 +4655,10 @@ emit_note_before (enum insn_note subtype, rtx uncast_before)
    MAKE_RAW indicates how to turn PATTERN into a real insn.  */
 
 static rtx_insn *
-emit_pattern_after_setloc (rtx pattern, rtx after, int loc,
+emit_pattern_after_setloc (rtx pattern, rtx uncast_after, int loc,
 			   rtx_insn *(*make_raw) (rtx))
 {
+  rtx_insn *after = safe_as_a <rtx_insn *> (uncast_after);
   rtx last = emit_pattern_after_noloc (pattern, after, NULL, make_raw);
 
   if (pattern == NULL_RTX || !loc)
@@ -4637,10 +4681,11 @@ emit_pattern_after_setloc (rtx pattern, rtx after, int loc,
    any DEBUG_INSNs.  */
 
 static rtx_insn *
-emit_pattern_after (rtx pattern, rtx after, bool skip_debug_insns,
+emit_pattern_after (rtx pattern, rtx uncast_after, bool skip_debug_insns,
 		    rtx_insn *(*make_raw) (rtx))
 {
-  rtx prev = after;
+  rtx_insn *after = safe_as_a <rtx_insn *> (uncast_after);
+  rtx_insn *prev = after;
 
   if (skip_debug_insns)
     while (DEBUG_INSN_P (prev))
@@ -4715,16 +4760,17 @@ emit_debug_insn_after (rtx pattern, rtx after)
    CALL_INSN, etc.  */
 
 static rtx_insn *
-emit_pattern_before_setloc (rtx pattern, rtx before, int loc, bool insnp,
+emit_pattern_before_setloc (rtx pattern, rtx uncast_before, int loc, bool insnp,
 			    rtx_insn *(*make_raw) (rtx))
 {
-  rtx first = PREV_INSN (before);
-  rtx last = emit_pattern_before_noloc (pattern, before,
-                                        insnp ? before : NULL_RTX,
-                                        NULL, make_raw);
+  rtx_insn *before = as_a <rtx_insn *> (uncast_before);
+  rtx_insn *first = PREV_INSN (before);
+  rtx_insn *last = emit_pattern_before_noloc (pattern, before,
+					      insnp ? before : NULL_RTX,
+					      NULL, make_raw);
 
   if (pattern == NULL_RTX || !loc)
-    return safe_as_a <rtx_insn *> (last);
+    return last;
 
   if (!first)
     first = get_insns ();
@@ -4738,7 +4784,7 @@ emit_pattern_before_setloc (rtx pattern, rtx before, int loc, bool insnp,
 	break;
       first = NEXT_INSN (first);
     }
-  return safe_as_a <rtx_insn *> (last);
+  return last;
 }
 
 /* Insert PATTERN before BEFORE.  MAKE_RAW indicates how to turn PATTERN
@@ -4747,10 +4793,11 @@ emit_pattern_before_setloc (rtx pattern, rtx before, int loc, bool insnp,
    INSN as opposed to a JUMP_INSN, CALL_INSN, etc.  */
 
 static rtx_insn *
-emit_pattern_before (rtx pattern, rtx before, bool skip_debug_insns,
+emit_pattern_before (rtx pattern, rtx uncast_before, bool skip_debug_insns,
 		     bool insnp, rtx_insn *(*make_raw) (rtx))
 {
-  rtx next = before;
+  rtx_insn *before = safe_as_a <rtx_insn *> (uncast_before);
+  rtx_insn *next = before;
 
   if (skip_debug_insns)
     while (DEBUG_INSN_P (next))
@@ -4767,7 +4814,7 @@ emit_pattern_before (rtx pattern, rtx before, bool skip_debug_insns,
 
 /* Like emit_insn_before_noloc, but set INSN_LOCATION according to LOC.  */
 rtx_insn *
-emit_insn_before_setloc (rtx pattern, rtx before, int loc)
+emit_insn_before_setloc (rtx pattern, rtx_insn *before, int loc)
 {
   return emit_pattern_before_setloc (pattern, before, loc, true,
 				     make_insn_raw);
@@ -4782,7 +4829,7 @@ emit_insn_before (rtx pattern, rtx before)
 
 /* like emit_insn_before_noloc, but set INSN_LOCATION according to LOC.  */
 rtx_insn *
-emit_jump_insn_before_setloc (rtx pattern, rtx before, int loc)
+emit_jump_insn_before_setloc (rtx pattern, rtx_insn *before, int loc)
 {
   return emit_pattern_before_setloc (pattern, before, loc, false,
 				     make_jump_insn_raw);
@@ -4798,7 +4845,7 @@ emit_jump_insn_before (rtx pattern, rtx before)
 
 /* Like emit_insn_before_noloc, but set INSN_LOCATION according to LOC.  */
 rtx_insn *
-emit_call_insn_before_setloc (rtx pattern, rtx before, int loc)
+emit_call_insn_before_setloc (rtx pattern, rtx_insn *before, int loc)
 {
   return emit_pattern_before_setloc (pattern, before, loc, false,
 				     make_call_insn_raw);
@@ -4807,7 +4854,7 @@ emit_call_insn_before_setloc (rtx pattern, rtx before, int loc)
 /* Like emit_call_insn_before_noloc,
    but set insn_location according to BEFORE.  */
 rtx_insn *
-emit_call_insn_before (rtx pattern, rtx before)
+emit_call_insn_before (rtx pattern, rtx_insn *before)
 {
   return emit_pattern_before (pattern, before, true, false,
 			      make_call_insn_raw);
@@ -5615,11 +5662,11 @@ copy_insn (rtx insn)
 /* Return a copy of INSN that can be used in a SEQUENCE delay slot,
    on that assumption that INSN itself remains in its original place.  */
 
-rtx
-copy_delay_slot_insn (rtx insn)
+rtx_insn *
+copy_delay_slot_insn (rtx_insn *insn)
 {
   /* Copy INSN with its rtx_code, all its notes, location etc.  */
-  insn = copy_rtx (insn);
+  insn = as_a <rtx_insn *> (copy_rtx (insn));
   INSN_UID (insn) = cur_insn_uid++;
   return insn;
 }

@@ -129,7 +129,7 @@ label_rtx (tree label)
 
   if (!DECL_RTL_SET_P (label))
     {
-      rtx r = gen_label_rtx ();
+      rtx_code_label *r = gen_label_rtx ();
       SET_DECL_RTL (label, r);
       if (FORCED_LABEL (label) || DECL_NONLOCAL (label))
 	LABEL_PRESERVE_P (r) = 1;
@@ -143,12 +143,12 @@ label_rtx (tree label)
 rtx
 force_label_rtx (tree label)
 {
-  rtx ref = label_rtx (label);
+  rtx_insn *ref = as_a <rtx_insn *> (label_rtx (label));
   tree function = decl_function_context (label);
 
   gcc_assert (function);
 
-  forced_labels = gen_rtx_EXPR_LIST (VOIDmode, ref, forced_labels);
+  forced_labels = gen_rtx_INSN_LIST (VOIDmode, ref, forced_labels);
   return ref;
 }
 
@@ -178,7 +178,7 @@ emit_jump (rtx label)
 void
 expand_label (tree label)
 {
-  rtx label_r = label_rtx (label);
+  rtx_insn *label_r = as_a <rtx_insn *> (label_rtx (label));
 
   do_pending_stack_adjust ();
   emit_label (label_r);
@@ -189,12 +189,12 @@ expand_label (tree label)
     {
       expand_builtin_setjmp_receiver (NULL);
       nonlocal_goto_handler_labels
-	= gen_rtx_EXPR_LIST (VOIDmode, label_r,
+	= gen_rtx_INSN_LIST (VOIDmode, label_r,
 			     nonlocal_goto_handler_labels);
     }
 
   if (FORCED_LABEL (label))
-    forced_labels = gen_rtx_EXPR_LIST (VOIDmode, label_r, forced_labels);
+    forced_labels = gen_rtx_INSN_LIST (VOIDmode, label_r, forced_labels);
 
   if (DECL_NONLOCAL (label) || FORCED_LABEL (label))
     maybe_set_first_label_num (label_r);
@@ -972,7 +972,7 @@ emit_case_dispatch_table (tree index_expr, tree index_type,
   struct case_node *n;
   rtx *labelvec;
   rtx fallback_label = label_rtx (case_list->code_label);
-  rtx table_label = gen_label_rtx ();
+  rtx_code_label *table_label = gen_label_rtx ();
   bool has_gaps = false;
   edge default_edge = stmt_bb ? EDGE_SUCC (stmt_bb, 0) : NULL;
   int default_prob = default_edge ? default_edge->probability : 0;
@@ -1332,7 +1332,7 @@ expand_sjlj_dispatch_table (rtx dispatch_index,
       tree minval = build_int_cst (index_type, 0);
       tree maxval = CASE_LOW (dispatch_table.last ());
       tree range = maxval;
-      rtx default_label = gen_label_rtx ();
+      rtx_code_label *default_label = gen_label_rtx ();
 
       for (int i = ncases - 1; i >= 0; --i)
 	{

@@ -54,6 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "predict.h"
 #include "tree-pass.h"
 #include "target.h"
+#include "rtl-iter.h"
 
 /* Optimize jump y; x: ... y: jumpif... x?
    Don't know if it is worth bothering with.  */
@@ -68,13 +69,12 @@ static void mark_jump_label_1 (rtx, rtx, bool, bool);
 static void mark_jump_label_asm (rtx, rtx);
 static void redirect_exp_1 (rtx *, rtx, rtx, rtx);
 static int invert_exp_1 (rtx, rtx);
-static int returnjump_p_1 (rtx *, void *);
 
 /* Worker for rebuild_jump_labels and rebuild_jump_labels_chain.  */
 static void
 rebuild_jump_labels_1 (rtx_insn *f, bool count_forced)
 {
-  rtx_expr_list *insn;
+  rtx_insn_list *insn;
 
   timevar_push (TV_REBUILD_JUMP);
   init_label_info (f);
@@ -86,8 +86,8 @@ rebuild_jump_labels_1 (rtx_insn *f, bool count_forced)
 
   if (count_forced)
     for (insn = forced_labels; insn; insn = insn->next ())
-      if (LABEL_P (insn->element ()))
-	LABEL_NUSES (insn->element ())++;
+      if (LABEL_P (insn->insn ()))
+	LABEL_NUSES (insn->insn ())++;
   timevar_pop (TV_REBUILD_JUMP);
 }
 
@@ -766,7 +766,7 @@ comparison_dominates_p (enum rtx_code code1, enum rtx_code code2)
 /* Return 1 if INSN is an unconditional jump and nothing else.  */
 
 int
-simplejump_p (const_rtx insn)
+simplejump_p (const rtx_insn *insn)
 {
   return (JUMP_P (insn)
 	  && GET_CODE (PATTERN (insn)) == SET
@@ -781,7 +781,7 @@ simplejump_p (const_rtx insn)
    branch and compare insns.  Use any_condjump_p instead whenever possible.  */
 
 int
-condjump_p (const_rtx insn)
+condjump_p (const rtx_insn *insn)
 {
   const_rtx x = PATTERN (insn);
 
@@ -809,7 +809,7 @@ condjump_p (const_rtx insn)
    branch and compare insns.  Use any_condjump_p instead whenever possible.  */
 
 int
-condjump_in_parallel_p (const_rtx insn)
+condjump_in_parallel_p (const rtx_insn *insn)
 {
   const_rtx x = PATTERN (insn);
 
@@ -840,7 +840,7 @@ condjump_in_parallel_p (const_rtx insn)
 /* Return set of PC, otherwise NULL.  */
 
 rtx
-pc_set (const_rtx insn)
+pc_set (const rtx_insn *insn)
 {
   rtx pat;
   if (!JUMP_P (insn))
@@ -861,7 +861,7 @@ pc_set (const_rtx insn)
    possibly bundled inside a PARALLEL.  */
 
 int
-any_uncondjump_p (const_rtx insn)
+any_uncondjump_p (const rtx_insn *insn)
 {
   const_rtx x = pc_set (insn);
   if (!x)
@@ -881,7 +881,7 @@ any_uncondjump_p (const_rtx insn)
    Note that unlike condjump_p it returns false for unconditional jumps.  */
 
 int
-any_condjump_p (const_rtx insn)
+any_condjump_p (const rtx_insn *insn)
 {
   const_rtx x = pc_set (insn);
   enum rtx_code a, b;
@@ -902,7 +902,7 @@ any_condjump_p (const_rtx insn)
 /* Return the label of a conditional jump.  */
 
 rtx
-condjump_label (const_rtx insn)
+condjump_label (const rtx_insn *insn)
 {
   rtx x = pc_set (insn);
 
@@ -920,62 +920,57 @@ condjump_label (const_rtx insn)
   return NULL_RTX;
 }
 
-/* Return true if INSN is a (possibly conditional) return insn.  */
-
-static int
-returnjump_p_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
-{
-  rtx x = *loc;
-
-  if (x == NULL)
-    return false;
-
-  switch (GET_CODE (x))
-    {
-    case RETURN:
-    case SIMPLE_RETURN:
-    case EH_RETURN:
-      return true;
-
-    case SET:
-      return SET_IS_RETURN_P (x);
-
-    default:
-      return false;
-    }
-}
-
 /* Return TRUE if INSN is a return jump.  */
 
 int
-returnjump_p (rtx insn)
+returnjump_p (const rtx_insn *insn)
 {
-  if (!JUMP_P (insn))
-    return 0;
-  return for_each_rtx (&PATTERN (insn), returnjump_p_1, NULL);
+  if (JUMP_P (insn))
+    {
+      subrtx_iterator::array_type array;
+      FOR_EACH_SUBRTX (iter, array, PATTERN (insn), NONCONST)
+	{
+	  const_rtx x = *iter;
+	  switch (GET_CODE (x))
+	    {
+	    case RETURN:
+	    case SIMPLE_RETURN:
+	    case EH_RETURN:
+	      return true;
+
+	    case SET:
+	      if (SET_IS_RETURN_P (x))
+		return true;
+	      break;
+
+	    default:
+	      break;
+	    }
+	}
+    }
+  return false;
 }
 
 /* Return true if INSN is a (possibly conditional) return insn.  */
 
-static int
-eh_returnjump_p_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
-{
-  return *loc && GET_CODE (*loc) == EH_RETURN;
-}
-
 int
-eh_returnjump_p (rtx insn)
+eh_returnjump_p (rtx_insn *insn)
 {
-  if (!JUMP_P (insn))
-    return 0;
-  return for_each_rtx (&PATTERN (insn), eh_returnjump_p_1, NULL);
+  if (JUMP_P (insn))
+    {
+      subrtx_iterator::array_type array;
+      FOR_EACH_SUBRTX (iter, array, PATTERN (insn), NONCONST)
+	if (GET_CODE (*iter) == EH_RETURN)
+	  return true;
+    }
+  return false;
 }
 
 /* Return true if INSN is a jump that only transfers control and
    nothing more.  */
 
 int
-onlyjump_p (const_rtx insn)
+onlyjump_p (const rtx_insn *insn)
 {
   rtx set;
 
@@ -996,7 +991,7 @@ onlyjump_p (const_rtx insn)
 /* Return true iff INSN is a jump and its JUMP_LABEL is a label, not
    NULL or a return.  */
 bool
-jump_to_label_p (rtx insn)
+jump_to_label_p (const rtx_insn *insn)
 {
   return (JUMP_P (insn)
 	  && JUMP_LABEL (insn) != NULL && !ANY_RETURN_P (JUMP_LABEL (insn)));
@@ -1252,8 +1247,9 @@ mark_jump_label_asm (rtx asmop, rtx insn)
    subsequent cfg_cleanup pass to delete unreachable code if needed.  */
 
 rtx_insn *
-delete_related_insns (rtx insn)
+delete_related_insns (rtx uncast_insn)
 {
+  rtx_insn *insn = as_a <rtx_insn *> (uncast_insn);
   int was_code_label = (LABEL_P (insn));
   rtx note;
   rtx_insn *next = NEXT_INSN (insn), *prev = PREV_INSN (insn);
@@ -1281,7 +1277,7 @@ delete_related_insns (rtx insn)
 	  && GET_CODE (PATTERN (insn)) == SEQUENCE
 	  && CALL_P (XVECEXP (PATTERN (insn), 0, 0))))
     {
-      rtx p;
+      rtx_insn *p;
 
       for (p = next && INSN_DELETED_P (next) ? NEXT_INSN (next) : next;
 	   p && NOTE_P (p);
@@ -1318,15 +1314,15 @@ delete_related_insns (rtx insn)
 
   /* Likewise if we're deleting a dispatch table.  */
 
-  if (JUMP_TABLE_DATA_P (insn))
+  if (rtx_jump_table_data *table = dyn_cast <rtx_jump_table_data *> (insn))
     {
-      rtx pat = PATTERN (insn);
-      int i, diff_vec_p = GET_CODE (pat) == ADDR_DIFF_VEC;
-      int len = XVECLEN (pat, diff_vec_p);
+      rtvec labels = table->get_labels ();
+      int i;
+      int len = GET_NUM_ELEM (labels);
 
       for (i = 0; i < len; i++)
-	if (LABEL_NUSES (XEXP (XVECEXP (pat, diff_vec_p, i), 0)) == 0)
-	  delete_related_insns (XEXP (XVECEXP (pat, diff_vec_p, i), 0));
+	if (LABEL_NUSES (XEXP (RTVEC_ELT (labels, i), 0)) == 0)
+	  delete_related_insns (XEXP (RTVEC_ELT (labels, i), 0));
       while (next && INSN_DELETED_P (next))
 	next = NEXT_INSN (next);
       return next;
@@ -1660,7 +1656,7 @@ invert_exp_1 (rtx x, rtx insn)
    inversion and redirection.  */
 
 int
-invert_jump_1 (rtx jump, rtx nlabel)
+invert_jump_1 (rtx_insn *jump, rtx nlabel)
 {
   rtx x = pc_set (jump);
   int ochanges;
@@ -1684,7 +1680,7 @@ invert_jump_1 (rtx jump, rtx nlabel)
    NLABEL instead of where it jumps now.  Return true if successful.  */
 
 int
-invert_jump (rtx jump, rtx nlabel, int delete_unused)
+invert_jump (rtx_insn *jump, rtx nlabel, int delete_unused)
 {
   rtx olabel = JUMP_LABEL (jump);
 

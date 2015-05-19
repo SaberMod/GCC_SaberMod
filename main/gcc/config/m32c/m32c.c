@@ -3819,7 +3819,8 @@ m32c_prepare_shift (rtx * operands, int scale, int shift_code)
 	 undefined to skip one of the comparisons.  */
 
       rtx count;
-      rtx label, insn, tempvar;
+      rtx label, tempvar;
+      rtx_insn *insn;
 
       emit_move_insn (operands[0], operands[1]);
 
@@ -4072,7 +4073,7 @@ m32c_leaf_function_p (void)
 static bool
 m32c_function_needs_enter (void)
 {
-  rtx insn;
+  rtx_insn *insn;
   struct sequence_stack *seq;
   rtx sp = gen_rtx_REG (Pmode, SP_REGNO);
   rtx fb = gen_rtx_REG (Pmode, FB_REGNO);

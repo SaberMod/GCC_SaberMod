@@ -81,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h" /* for dump_function_header */
 #include "asan.h"
 #include "wide-int-print.h"
+#include "rtl-iter.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -188,7 +189,7 @@ static int app_on;
 /* If we are outputting an insn sequence, this contains the sequence rtx.
    Zero otherwise.  */
 
-rtx final_sequence;
+rtx_sequence *final_sequence;
 
 #ifdef ASSEMBLER_DIALECT
 
@@ -639,7 +640,7 @@ align_fuzz (rtx start, rtx end, int known_align_log, unsigned int growth)
    to exclude the branch size.  */
 
 int
-insn_current_reference_address (rtx branch)
+insn_current_reference_address (rtx_insn *branch)
 {
   rtx dest, seq;
   int seq_uid;
@@ -1281,13 +1282,14 @@ shorten_branches (rtx_insn *first)
 	    {
 	      rtx body = PATTERN (insn);
 	      int old_length = insn_lengths[uid];
-	      rtx rel_lab = XEXP (XEXP (body, 0), 0);
+	      rtx_insn *rel_lab =
+		safe_as_a <rtx_insn *> (XEXP (XEXP (body, 0), 0));
 	      rtx min_lab = XEXP (XEXP (body, 2), 0);
 	      rtx max_lab = XEXP (XEXP (body, 3), 0);
 	      int rel_addr = INSN_ADDRESSES (INSN_UID (rel_lab));
 	      int min_addr = INSN_ADDRESSES (INSN_UID (min_lab));
 	      int max_addr = INSN_ADDRESSES (INSN_UID (max_lab));
-	      rtx prev;
+	      rtx_insn *prev;
 	      int rel_align = 0;
 	      addr_diff_vec_flags flags;
 	      enum machine_mode vec_mode;
@@ -1720,6 +1722,38 @@ reemit_insn_block_notes (void)
   reorder_blocks ();
 }
 
+static const char *some_local_dynamic_name;
+
+/* Locate some local-dynamic symbol still in use by this function
+   so that we can print its name in local-dynamic base patterns.
+   Return null if there are no local-dynamic references.  */
+
+const char *
+get_some_local_dynamic_name ()
+{
+  subrtx_iterator::array_type array;
+  rtx_insn *insn;
+
+  if (some_local_dynamic_name)
+    return some_local_dynamic_name;
+
+  for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
+    if (NONDEBUG_INSN_P (insn))
+      FOR_EACH_SUBRTX (iter, array, PATTERN (insn), ALL)
+	{
+	  const_rtx x = *iter;
+	  if (GET_CODE (x) == SYMBOL_REF)
+	    {
+	      if (SYMBOL_REF_TLS_MODEL (x) == TLS_MODEL_LOCAL_DYNAMIC)
+		return some_local_dynamic_name = XSTR (x, 0);
+	      if (CONSTANT_POOL_ADDRESS_P (x))
+		iter.substitute (get_pool_constant (x));
+	    }
+	}
+
+  return 0;
+}
+
 /* Output assembler code for the start of a function,
    and initialize some of the variables in this file
    for the new function.  The label for the function and associated
@@ -1909,6 +1943,8 @@ final_end_function (void)
   if (!dwarf2_debug_info_emitted_p (current_function_decl)
       && dwarf2out_do_frame ())
     dwarf2out_end_epilogue (last_linenum, last_filename);
+
+  some_local_dynamic_name = 0;
 }
 
 
@@ -2142,15 +2178,13 @@ call_from_call_insn (rtx_call_insn *insn)
    both NOTE_INSN_PROLOGUE_END and NOTE_INSN_FUNCTION_BEG.  */
 
 rtx_insn *
-final_scan_insn (rtx uncast_insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
+final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 		 int nopeepholes ATTRIBUTE_UNUSED, int *seen)
 {
 #ifdef HAVE_cc0
   rtx set;
 #endif
   rtx_insn *next;
-
-  rtx_insn *insn = as_a <rtx_insn *> (uncast_insn);
 
   insn_counter++;
 
@@ -2626,7 +2660,7 @@ final_scan_insn (rtx uncast_insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	    /* A delayed-branch sequence */
 	    int i;
 
-	    final_sequence = body;
+	    final_sequence = seq;
 
 	    /* The first insn in this SEQUENCE might be a JUMP_INSN that will
 	       force the restoration of a comparison that was previously
@@ -3786,38 +3820,19 @@ output_asm_label (rtx x)
   assemble_name (asm_out_file, buf);
 }
 
-/* Helper rtx-iteration-function for mark_symbol_refs_as_used and
-   output_operand.  Marks SYMBOL_REFs as referenced through use of
-   assemble_external.  */
-
-static int
-mark_symbol_ref_as_used (rtx *xp, void *dummy ATTRIBUTE_UNUSED)
-{
-  rtx x = *xp;
-
-  /* If we have a used symbol, we may have to emit assembly
-     annotations corresponding to whether the symbol is external, weak
-     or has non-default visibility.  */
-  if (GET_CODE (x) == SYMBOL_REF)
-    {
-      tree t;
-
-      t = SYMBOL_REF_DECL (x);
-      if (t)
-	assemble_external (t);
-
-      return -1;
-    }
-
-  return 0;
-}
-
 /* Marks SYMBOL_REFs in x as referenced through use of assemble_external.  */
 
 void
 mark_symbol_refs_as_used (rtx x)
 {
-  for_each_rtx (&x, mark_symbol_ref_as_used, NULL);
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, x, ALL)
+    {
+      const_rtx x = *iter;
+      if (GET_CODE (x) == SYMBOL_REF)
+	if (tree t = SYMBOL_REF_DECL (x))
+	  assemble_external (t);
+    }
 }
 
 /* Print operand X using machine-dependent assembler syntax.
@@ -3843,7 +3858,7 @@ output_operand (rtx x, int code ATTRIBUTE_UNUSED)
   if (x == NULL_RTX)
     return;
 
-  for_each_rtx (&x, mark_symbol_ref_as_used, NULL);
+  mark_symbol_refs_as_used (x);
 }
 
 /* Print a memory reference operand for address X using
@@ -4946,10 +4961,9 @@ get_call_cgraph_rtl_info (rtx_insn *insn)
    in REG_SET.  Return DEFAULT_SET in REG_SET if not found.  */
 
 bool
-get_call_reg_set_usage (rtx uncast_insn, HARD_REG_SET *reg_set,
+get_call_reg_set_usage (rtx_insn *insn, HARD_REG_SET *reg_set,
 			HARD_REG_SET default_set)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
   if (flag_use_caller_save)
     {
       struct cgraph_rtl_info *node = get_call_cgraph_rtl_info (insn);

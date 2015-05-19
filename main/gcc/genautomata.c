@@ -8477,16 +8477,10 @@ output_internal_maximal_insn_latency_func (void)
 static void
 output_insn_latency_func (void)
 {
-  fprintf (output_file, "int\n%s (rtx uncast_%s, rtx uncast_%s)\n",
+  fprintf (output_file, "int\n%s (rtx_insn *%s, rtx_insn *%s)\n",
 	   INSN_LATENCY_FUNC_NAME, INSN_PARAMETER_NAME, INSN2_PARAMETER_NAME);
   fprintf (output_file, "{\n  int %s, %s;\n",
 	   INTERNAL_INSN_CODE_NAME, INTERNAL_INSN2_CODE_NAME);
-  fprintf (output_file,
-	   "  rtx_insn *%s = safe_as_a <rtx_insn *> (uncast_%s);\n",
-	   INSN_PARAMETER_NAME, INSN_PARAMETER_NAME);
-  fprintf (output_file,
-	   "  rtx_insn *%s = safe_as_a <rtx_insn *> (uncast_%s);\n",
-	   INSN2_PARAMETER_NAME, INSN2_PARAMETER_NAME);
   output_internal_insn_code_evaluation (INSN_PARAMETER_NAME,
 					INTERNAL_INSN_CODE_NAME, 0);
   output_internal_insn_code_evaluation (INSN2_PARAMETER_NAME,
@@ -8731,7 +8725,7 @@ output_dfa_clean_insn_cache_func (void)
 	   DFA_INSN_CODES_VARIABLE_NAME, I_VARIABLE_NAME);
 
   fprintf (output_file,
-           "void\n%s (rtx %s)\n{\n  int %s;\n\n",
+           "void\n%s (rtx_insn *%s)\n{\n  int %s;\n\n",
            DFA_CLEAR_SINGLE_INSN_CACHE_FUNC_NAME, INSN_PARAMETER_NAME,
 	   I_VARIABLE_NAME);
   fprintf (output_file,

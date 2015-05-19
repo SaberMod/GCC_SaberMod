@@ -3177,8 +3177,8 @@ reorder_var_tracking_notes (void)
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      rtx insn, next, last_insn = NULL_RTX;
-      rtx queue = NULL_RTX;
+      rtx_insn *insn, *next, *last_insn = NULL;
+      rtx_insn *queue = NULL;
 
       /* Iterate through the bb and find the last non-debug insn */
       for (insn = BB_HEAD (bb); insn != NEXT_INSN(BB_END (bb)); insn = NEXT_INSN(insn))
@@ -3198,7 +3198,7 @@ reorder_var_tracking_notes (void)
             {
               while (queue)
                 {
-                  rtx next_queue = PREV_INSN (queue);
+                  rtx_insn *next_queue = PREV_INSN (queue);
                   SET_PREV_INSN (NEXT_INSN(insn)) = queue;
                   SET_NEXT_INSN(queue) = NEXT_INSN(insn);
                   SET_PREV_INSN(queue) = insn;
@@ -3215,7 +3215,7 @@ reorder_var_tracking_notes (void)
                 {
                   while (queue)
                     {
-                      rtx next_queue = PREV_INSN (queue);
+                      rtx_insn *next_queue = PREV_INSN (queue);
                       SET_NEXT_INSN (PREV_INSN(insn)) = queue;
                       SET_PREV_INSN (queue) = PREV_INSN(insn);
                       SET_PREV_INSN (insn) = queue;
@@ -3226,7 +3226,7 @@ reorder_var_tracking_notes (void)
             }
           else if (NOTE_P (insn))
             {
-               rtx prev = PREV_INSN (insn);
+               rtx_insn *prev = PREV_INSN (insn);
                SET_PREV_INSN (next) = prev;
                SET_NEXT_INSN (prev) = next;
                /* Ignore call_arg notes. They are expected to be just after the
@@ -3249,7 +3249,7 @@ reorder_var_tracking_notes (void)
 void
 picochip_reorg (void)
 {
-  rtx insn, insn1, vliw_start = NULL_RTX;
+  rtx_insn *insn, *insn1, *vliw_start = NULL;
   int vliw_insn_location = 0;
 
   /* We are freeing block_for_insn in the toplev to keep compatibility
@@ -3326,8 +3326,8 @@ picochip_reorg (void)
      of VLIW packets. */
   if (picochip_schedule_type == DFA_TYPE_SPEED)
     {
-      rtx prologue_end_note = NULL;
-      rtx last_insn_in_packet = NULL;
+      rtx_insn *prologue_end_note = NULL;
+      rtx_insn *last_insn_in_packet = NULL;
 
       for (insn = get_insns (); insn; insn = next_insn (insn))
 	{
@@ -3435,9 +3435,9 @@ picochip_get_vliw_alu_id (void)
 
 /* Reset any information about the current VLIW packing status. */
 static void
-picochip_reset_vliw (rtx insn)
+picochip_reset_vliw (rtx_insn *insn)
 {
-  rtx local_insn = insn;
+  rtx_insn *local_insn = insn;
 
   /* Nothing to do if VLIW scheduling isn't being used. */
   if (picochip_schedule_type != DFA_TYPE_SPEED)
@@ -3877,7 +3877,7 @@ void
 picochip_final_prescan_insn (rtx_insn *insn, rtx * opvec ATTRIBUTE_UNUSED,
 			     int num_operands ATTRIBUTE_UNUSED)
 {
-  rtx local_insn;
+  rtx_insn *local_insn;
 
   picochip_current_prescan_insn = insn;
 

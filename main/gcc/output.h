@@ -52,6 +52,8 @@ extern int get_attr_min_length (rtx);
    any branches of variable length if possible.  */
 extern void shorten_branches (rtx_insn *);
 
+const char *get_some_local_dynamic_name ();
+
 /* Output assembler code for the start of a function,
    and initialize some of the variables in this file
    for the new function.  The label for the function and associated
@@ -70,7 +72,7 @@ extern void final (rtx_insn *, FILE *, int);
 /* The final scan for one insn, INSN.  Args are same as in `final', except
    that INSN is the insn being scanned.  Value returned is the next insn to
    be scanned.  */
-extern rtx_insn *final_scan_insn (rtx, FILE *, int, int, int *);
+extern rtx_insn *final_scan_insn (rtx_insn *, FILE *, int, int, int *);
 
 /* Replace a SUBREG with a REG or a MEM, based on the thing it is a
    subreg of.  */
@@ -90,7 +92,7 @@ extern void output_asm_insn (const char *, rtx *);
 /* Compute a worst-case reference address of a branch so that it
    can be safely used in the presence of aligned labels.
    Defined in final.c.  */
-extern int insn_current_reference_address (rtx);
+extern int insn_current_reference_address (rtx_insn *);
 
 /* Find the alignment associated with a CODE_LABEL.
    Defined in final.c.  */
@@ -296,7 +298,7 @@ extern void output_quoted_string (FILE *, const char *);
    insn output code.
 
    This variable is defined  in final.c.  */
-extern rtx final_sequence;
+extern rtx_sequence *final_sequence;
 
 /* The line number of the beginning of the current function.  Various
    md code needs this so that it can output relative linenumbers.  */

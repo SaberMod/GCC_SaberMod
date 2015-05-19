@@ -1037,7 +1037,7 @@ static void
 initiate_bb_reg_pressure_info (basic_block bb)
 {
   unsigned int i ATTRIBUTE_UNUSED;
-  rtx insn;
+  rtx_insn *insn;
 
   if (current_nr_blocks > 1)
     FOR_BB_INSNS (bb, insn)
@@ -1604,7 +1604,7 @@ priority (rtx_insn *insn)
 	this_priority = insn_cost (insn);
       else
 	{
-	  rtx prev_first, twin;
+	  rtx_insn *prev_first, *twin;
 	  basic_block rec;
 
 	  /* For recovery check instructions we calculate priority slightly
@@ -3049,7 +3049,7 @@ update_register_pressure (rtx_insn *insn)
    meaning in sched-int.h::_haifa_insn_data) for all current BB insns
    after insn AFTER.  */
 static void
-setup_insn_max_reg_pressure (rtx after, bool update_p)
+setup_insn_max_reg_pressure (rtx_insn *after, bool update_p)
 {
   int i, p;
   bool eq_p;
@@ -3112,7 +3112,7 @@ update_reg_and_insn_max_reg_pressure (rtx_insn *insn)
    insns starting after insn AFTER.  Set up also max register pressure
    for all insns of the basic block.  */
 void
-sched_setup_bb_reg_pressure_info (basic_block bb, rtx after)
+sched_setup_bb_reg_pressure_info (basic_block bb, rtx_insn *after)
 {
   gcc_assert (sched_pressure == SCHED_PRESSURE_WEIGHTED);
   initiate_bb_reg_pressure_info (bb);
@@ -3148,13 +3148,13 @@ check_clobbered_conditions (rtx insn)
     }
   for (i = 0; i <= max_insn_queue_index; i++)
     {
-      rtx link;
+      rtx_insn_list *link;
       int q = NEXT_Q_AFTER (q_ptr, i);
 
     restart_queue:
-      for (link = insn_queue[q]; link; link = XEXP (link, 1))
+      for (link = insn_queue[q]; link; link = link->next ())
 	{
-	  rtx_insn *x = as_a <rtx_insn *> (XEXP (link, 0));
+	  rtx_insn *x = link->insn ();
 	  if (TODO_SPEC (x) == DEP_CONTROL && cond_clobbered_p (x, t))
 	    {
 	      queue_remove (x);
@@ -4239,10 +4239,10 @@ toggle_cancelled_flags (bool set)
   for (i = 0; i <= max_insn_queue_index; i++)
     {
       int q = NEXT_Q_AFTER (q_ptr, i);
-      rtx link;
-      for (link = insn_queue[q]; link; link = XEXP (link, 1))
+      rtx_insn_list *link;
+      for (link = insn_queue[q]; link; link = link->next ())
 	{
-	  rtx insn = XEXP (link, 0);
+	  rtx_insn *insn = link->insn ();
 	  FOR_EACH_DEP (insn, SD_LIST_BACK, sd_it, dep)
 	    if (!DEBUG_INSN_P (DEP_PRO (dep)))
 	      {
@@ -4349,7 +4349,6 @@ unschedule_insns_until (rtx insn)
 static void
 restore_last_backtrack_point (struct sched_block_state *psched_block)
 {
-  rtx link;
   int i;
   struct haifa_saved_data *save = backtrack_queue;
 
@@ -4384,9 +4383,9 @@ restore_last_backtrack_point (struct sched_block_state *psched_block)
     {
       int q = NEXT_Q_AFTER (q_ptr, i);
 
-      for (link = insn_queue[q]; link; link = XEXP (link, 1))
+      for (rtx_insn_list *link = insn_queue[q]; link; link = link->next ())
 	{
-	  rtx_insn *x = as_a <rtx_insn *> (XEXP (link, 0));
+	  rtx_insn *x = link->insn ();
 	  QUEUE_INDEX (x) = QUEUE_NOWHERE;
 	  INSN_TICK (x) = INVALID_TICK;
 	}
@@ -4416,9 +4415,9 @@ restore_last_backtrack_point (struct sched_block_state *psched_block)
 
       insn_queue[q] = save->insn_queue[q];
 
-      for (link = insn_queue[q]; link; link = XEXP (link, 1))
+      for (rtx_insn_list *link = insn_queue[q]; link; link = link->next ())
 	{
-	  rtx_insn *x = as_a <rtx_insn *> (XEXP (link, 0));
+	  rtx_insn *x = link->insn ();
 	  QUEUE_INDEX (x) = i;
 	  TODO_SPEC (x) = recompute_todo_spec (x, true);
 	  INSN_TICK (x) = save->clock_var + i;
@@ -4832,7 +4831,7 @@ get_ebb_head_tail (basic_block beg, basic_block end,
 /* Return nonzero if there are no real insns in the range [ HEAD, TAIL ].  */
 
 int
-no_real_insns_p (const_rtx head, const_rtx tail)
+no_real_insns_p (const rtx_insn *head, const rtx_insn *tail)
 {
   while (head != NEXT_INSN (tail))
     {
@@ -4991,7 +4990,7 @@ queue_to_ready (struct ready_list *ready)
 	    {
 	      for (; link; link = link->next ())
 		{
-		  insn = as_a <rtx_insn *> (XEXP (link, 0));
+		  insn = link->insn ();
 		  q_size -= 1;
 
 		  if (sched_verbose >= 2)
@@ -5243,7 +5242,7 @@ reemit_notes (rtx_insn *insn)
 
 /* Move INSN.  Reemit notes if needed.  Update CFG, if needed.  */
 static void
-move_insn (rtx_insn *insn, rtx last, rtx nt)
+move_insn (rtx_insn *insn, rtx_insn *last, rtx nt)
 {
   if (PREV_INSN (insn) != last)
     {
@@ -5975,7 +5974,7 @@ schedule_block (basic_block *target_bb, state_t init_state)
 
   /* Head/tail info for this block.  */
   rtx_insn *prev_head = current_sched_info->prev_head;
-  rtx next_tail = current_sched_info->next_tail;
+  rtx_insn *next_tail = current_sched_info->next_tail;
   rtx_insn *head = NEXT_INSN (prev_head);
   rtx_insn *tail = PREV_INSN (next_tail);
 
@@ -6545,12 +6544,12 @@ schedule_block (basic_block *target_bb, state_t init_state)
       if (q_size)
 	for (i = 0; i <= max_insn_queue_index; i++)
 	  {
-	    rtx link;
-	    for (link = insn_queue[i]; link; link = XEXP (link, 1))
+	    rtx_insn_list *link;
+	    for (link = insn_queue[i]; link; link = link->next ())
 	      {
 		rtx_insn *x;
 
-		x = as_a <rtx_insn *> (XEXP (link, 0));
+		x = link->insn ();
 		QUEUE_INDEX (x) = QUEUE_NOWHERE;
 		TODO_SPEC (x) = HARD_DEP;
 	      }
@@ -8731,7 +8730,7 @@ number_in_ready (void)
 
 /* Get number of ready's in the ready list.  */
 
-rtx
+rtx_insn *
 get_ready_element (int i)
 {
   return ready_element (&ready, i);
