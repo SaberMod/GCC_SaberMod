@@ -1556,8 +1556,7 @@ get_aligned_mem (rtx ref, rtx *paligned_mem, rtx *pbitnum)
 
   gcc_assert (MEM_P (ref));
 
-  if (reload_in_progress
-      && ! memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
+  if (reload_in_progress)
     {
       base = find_replacement (&XEXP (ref, 0));
       gcc_assert (memory_address_p (GET_MODE (ref), base));
@@ -1602,11 +1601,9 @@ get_unaligned_address (rtx ref)
 
   gcc_assert (MEM_P (ref));
 
-  if (reload_in_progress
-      && ! memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
+  if (reload_in_progress)
     {
       base = find_replacement (&XEXP (ref, 0));
-
       gcc_assert (memory_address_p (GET_MODE (ref), base));
     }
   else
@@ -2068,13 +2065,12 @@ alpha_emit_set_const (rtx target, machine_mode mode,
    with alpha_emit_set_const.  */
 
 static rtx
-alpha_emit_set_long_const (rtx target, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
+alpha_emit_set_long_const (rtx target, HOST_WIDE_INT c1)
 {
   HOST_WIDE_INT d1, d2, d3, d4;
 
   /* Decompose the entire word */
 
-  gcc_assert (c2 == -(c1 < 0));
   d1 = ((c1 & 0xffff) ^ 0x8000) - 0x8000;
   c1 -= d1;
   d2 = ((c1 & 0xffffffff) ^ 0x80000000) - 0x80000000;
@@ -2106,28 +2102,17 @@ alpha_emit_set_long_const (rtx target, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
   return target;
 }
 
-/* Given an integral CONST_INT, CONST_WIDE_INT, CONST_DOUBLE,
-   or CONST_VECTOR, return the low 64 bits.  */
+/* Given an integral CONST_INT or CONST_VECTOR, return the low 64 bits.  */
 
-static void
-alpha_extract_integer (rtx x, HOST_WIDE_INT *p0, HOST_WIDE_INT *p1)
+static HOST_WIDE_INT
+alpha_extract_integer (rtx x)
 {
-  HOST_WIDE_INT i0, i1;
-
   if (GET_CODE (x) == CONST_VECTOR)
     x = simplify_subreg (DImode, x, GET_MODE (x), 0);
 
-  if (CONST_INT_P (x))
-    i0 = INTVAL (x);
-  else if (CONST_WIDE_INT_P (x))
-    i0 = CONST_WIDE_INT_ELT (x, 0);
-  else
-    i0 = CONST_DOUBLE_LOW (x);
+  gcc_assert (CONST_INT_P (x));
 
-  i1 = -(i0 < 0);
-      
-  *p0 = i0;
-  *p1 = i1;
+  return INTVAL (x);
 }
 
 /* Implement TARGET_LEGITIMATE_CONSTANT_P.  This is all constants for which
@@ -2138,7 +2123,7 @@ alpha_extract_integer (rtx x, HOST_WIDE_INT *p0, HOST_WIDE_INT *p1)
 bool
 alpha_legitimate_constant_p (machine_mode mode, rtx x)
 {
-  HOST_WIDE_INT i0, i1;
+  HOST_WIDE_INT i0;
 
   switch (GET_CODE (x))
     {
@@ -2155,7 +2140,6 @@ alpha_legitimate_constant_p (machine_mode mode, rtx x)
 
       if (GET_CODE (x) != SYMBOL_REF)
 	return true;
-
       /* FALLTHRU */
 
     case SYMBOL_REF:
@@ -2163,8 +2147,16 @@ alpha_legitimate_constant_p (machine_mode mode, rtx x)
       return SYMBOL_REF_TLS_MODEL (x) == 0;
 
     case CONST_WIDE_INT:
+      if (TARGET_BUILD_CONSTANTS)
+	return true;
       if (x == CONST0_RTX (mode))
 	return true;
+      mode = DImode;
+      gcc_assert (CONST_WIDE_INT_NUNITS (x) == 2);
+      i0 = CONST_WIDE_INT_ELT (x, 1);
+      if (alpha_emit_set_const_1 (NULL_RTX, mode, i0, 3, true) == NULL)
+	return false;
+      i0 = CONST_WIDE_INT_ELT (x, 0);
       goto do_integer;
 
     case CONST_DOUBLE:
@@ -2179,14 +2171,14 @@ alpha_legitimate_constant_p (machine_mode mode, rtx x)
 	return false;
       if (GET_MODE_SIZE (mode) != 8)
 	return false;
-      goto do_integer;
+      /* FALLTHRU */
 
     case CONST_INT:
-    do_integer:
       if (TARGET_BUILD_CONSTANTS)
 	return true;
-      alpha_extract_integer (x, &i0, &i1);
-      return alpha_emit_set_const_1 (x, mode, i0, 3, true) != NULL;
+      i0 = alpha_extract_integer (x);
+    do_integer:
+      return alpha_emit_set_const_1 (NULL_RTX, mode, i0, 3, true) != NULL;
 
     default:
       return false;
@@ -2199,15 +2191,15 @@ alpha_legitimate_constant_p (machine_mode mode, rtx x)
 bool
 alpha_split_const_mov (machine_mode mode, rtx *operands)
 {
-  HOST_WIDE_INT i0, i1;
+  HOST_WIDE_INT i0;
   rtx temp = NULL_RTX;
 
-  alpha_extract_integer (operands[1], &i0, &i1);
+  i0 = alpha_extract_integer (operands[1]);
 
   temp = alpha_emit_set_const (operands[0], mode, i0, 3, false);
 
   if (!temp && TARGET_BUILD_CONSTANTS)
-    temp = alpha_emit_set_long_const (operands[0], i0, i1);
+    temp = alpha_emit_set_long_const (operands[0], i0);
 
   if (temp)
     {
@@ -2251,8 +2243,6 @@ alpha_expand_mov (machine_mode mode, rtx *operands)
 
   /* Split large integers.  */
   if (CONST_INT_P (operands[1])
-      || GET_CODE (operands[1]) == CONST_WIDE_INT
-      || GET_CODE (operands[1]) == CONST_DOUBLE
       || GET_CODE (operands[1]) == CONST_VECTOR)
     {
       if (alpha_split_const_mov (mode, operands))
@@ -8260,8 +8250,7 @@ alpha_expand_epilogue (void)
 	    {
 	      /* We can't drop new things to memory this late, afaik,
 		 so build it up by pieces.  */
-	      sp_adj2 = alpha_emit_set_long_const (tmp, frame_size,
-						   -(frame_size < 0));
+	      sp_adj2 = alpha_emit_set_long_const (tmp, frame_size);
 	      gcc_assert (sp_adj2);
 	    }
 	}
@@ -8388,8 +8377,7 @@ alpha_output_mi_thunk_osf (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
     }
   else
     {
-      rtx tmp = alpha_emit_set_long_const (gen_rtx_REG (Pmode, 0),
-					   delta, -(delta < 0));
+      rtx tmp = alpha_emit_set_long_const (gen_rtx_REG (Pmode, 0), delta);
       emit_insn (gen_adddi3 (this_rtx, this_rtx, tmp));
     }
 
@@ -8411,7 +8399,7 @@ alpha_output_mi_thunk_osf (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
       else
 	{
 	  tmp2 = alpha_emit_set_long_const (gen_rtx_REG (Pmode, 1),
-					    vcall_offset, -(vcall_offset < 0));
+					    vcall_offset);
           emit_insn (gen_adddi3 (tmp, tmp, tmp2));
 	  lo = 0;
 	}

@@ -570,6 +570,9 @@ emit_debug_global_declarations (tree *vec, int len)
   /* Avoid confusing the debug information machinery when there are errors.  */
   if (seen_error ())
     return;
+  /* No need for debug info in object files when producing slimLTO.  */
+  if (!in_lto_p && flag_lto && !flag_fat_lto_objects)
+    return;
 
   timevar_push (TV_SYMOUT);
   for (i = 0; i < len; i++)
@@ -592,6 +595,9 @@ compile_file (void)
 
   timevar_pop (TV_PARSE_GLOBAL);
   timevar_stop (TV_PHASE_PARSING);
+
+  if (flag_dump_locations)
+    dump_location_info (stderr);
 
   /* Compilation is now finished except for writing
      what's left of the symbol table output.  */

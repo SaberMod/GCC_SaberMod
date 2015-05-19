@@ -607,6 +607,10 @@ Woverflow
 Common Var(warn_overflow) Init(1) Warning
 Warn about overflow in arithmetic expressions
 
+Wlto-type-mismatch
+Common Var(warn_lto_type_mismatch) Init(1) Warning
+During link time optimization warn about mismatched types of global declarations
+
 Wpacked
 Common Var(warn_packed) Warning
 Warn when the packed attribute has no effect on struct layout
@@ -1165,6 +1169,10 @@ freport-bug
 Common Driver Var(flag_report_bug)
 Collect and dump debug information into temporary file if ICE in C/C++
 compiler occured.
+
+fdump-internal-locations
+Common Var(flag_dump_locations) Init(0)
+Dump detailed information on GCC's internal representation of source code locations
 
 fdump-passes
 Common Var(flag_dump_passes) Init(0)

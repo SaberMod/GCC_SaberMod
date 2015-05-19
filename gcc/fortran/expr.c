@@ -2841,6 +2841,18 @@ check_references (gfc_ref* ref, bool (*checker) (gfc_expr*))
   return check_references (ref->next, checker);
 }
 
+/*  Return true if ns is a parent of the current ns.  */
+
+static bool
+is_parent_of_current_ns (gfc_namespace *ns)
+{
+  gfc_namespace *p;
+  for (p = gfc_current_ns->parent; p; p = p->parent)
+    if (ns == p)
+      return true;
+
+  return false;
+}
 
 /* Verify that an expression is a restricted expression.  Like its
    cousin check_init_expr(), an error message is generated if we
@@ -2929,9 +2941,7 @@ check_restricted (gfc_expr *e)
 	    || sym->attr.dummy
 	    || sym->attr.implied_index
 	    || sym->attr.flavor == FL_PARAMETER
-	    || (sym->ns && sym->ns == gfc_current_ns->parent)
-	    || (sym->ns && gfc_current_ns->parent
-		  && sym->ns == gfc_current_ns->parent->parent)
+	    || is_parent_of_current_ns (sym->ns)
 	    || (sym->ns->proc_name != NULL
 		  && sym->ns->proc_name->attr.flavor == FL_MODULE)
 	    || (gfc_is_formal_arg () && (sym->ns == gfc_current_ns)))
@@ -3118,19 +3128,22 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
 	bad_proc = true;
 
       /* (ii) The assignment is in the main program; or  */
-      if (gfc_current_ns->proc_name->attr.is_main_program)
+      if (gfc_current_ns->proc_name
+	  && gfc_current_ns->proc_name->attr.is_main_program)
 	bad_proc = true;
 
       /* (iii) A module or internal procedure...  */
-      if ((gfc_current_ns->proc_name->attr.proc == PROC_INTERNAL
-	   || gfc_current_ns->proc_name->attr.proc == PROC_MODULE)
+      if (gfc_current_ns->proc_name
+	  && (gfc_current_ns->proc_name->attr.proc == PROC_INTERNAL
+	      || gfc_current_ns->proc_name->attr.proc == PROC_MODULE)
 	  && gfc_current_ns->parent
 	  && (!(gfc_current_ns->parent->proc_name->attr.function
 		|| gfc_current_ns->parent->proc_name->attr.subroutine)
 	      || gfc_current_ns->parent->proc_name->attr.is_main_program))
 	{
 	  /* ... that is not a function...  */
-	  if (!gfc_current_ns->proc_name->attr.function)
+	  if (gfc_current_ns->proc_name
+	      && !gfc_current_ns->proc_name->attr.function)
 	    bad_proc = true;
 
 	  /* ... or is not an entry and has a different name.  */

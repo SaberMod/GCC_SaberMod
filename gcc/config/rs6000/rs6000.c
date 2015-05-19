@@ -11470,7 +11470,6 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   f_ovf = DECL_CHAIN (f_res);
   f_sav = DECL_CHAIN (f_ovf);
 
-  valist = build_va_arg_indirect_ref (valist);
   gpr = build3 (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
   fpr = build3 (COMPONENT_REF, TREE_TYPE (f_fpr), unshare_expr (valist),
 		f_fpr, NULL_TREE);
@@ -30640,7 +30639,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 		*total = COSTS_N_INSNS (2);
 	      return true;
 	    }
-	  else if (mode == Pmode)
+	  else
 	    {
 	      *total = COSTS_N_INSNS (3);
 	      return false;

@@ -41,7 +41,7 @@
 #ifdef _GLIBCXX_HAVE_SYS_STATVFS_H
 # include <sys/statvfs.h>
 #endif
-#ifdef _GLIBCXX_HAVE_GNU_SENDFILE
+#ifdef _GLIBCXX_USE_SENDFILE
 # include <sys/sendfile.h>
 #else
 # include <ext/stdio_filebuf.h>
@@ -150,33 +150,39 @@ namespace
 #ifdef _GLIBCXX_HAVE_SYS_STAT_H
 namespace
 {
-  fs::file_status
-  make_file_status(const struct ::stat& st)
+  typedef struct ::stat stat_type;
+
+  inline fs::file_type
+  make_file_type(const stat_type& st)
   {
-    using fs::file_status;
     using fs::file_type;
-    using fs::perms;
-    file_type ft;
-    perms perm = static_cast<perms>(st.st_mode) & perms::mask;
 #ifdef _GLIBCXX_HAVE_S_ISREG
     if (S_ISREG(st.st_mode))
-      ft = file_type::regular;
+      return file_type::regular;
     else if (S_ISDIR(st.st_mode))
-      ft = file_type::directory;
+      return file_type::directory;
     else if (S_ISCHR(st.st_mode))
-      ft = file_type::character;
+      return file_type::character;
     else if (S_ISBLK(st.st_mode))
-      ft = file_type::block;
+      return file_type::block;
     else if (S_ISFIFO(st.st_mode))
-      ft = file_type::fifo;
+      return file_type::fifo;
     else if (S_ISLNK(st.st_mode))
-      ft = file_type::symlink;
+      return file_type::symlink;
     else if (S_ISSOCK(st.st_mode))
-      ft = file_type::socket;
-    else
+      return file_type::socket;
 #endif
-      ft = file_type::unknown;
-    return file_status{ft, perm};
+    return file_type::unknown;
+
+  }
+
+  inline fs::file_status
+  make_file_status(const stat_type& st)
+  {
+    return fs::file_status{
+	make_file_type(st),
+	static_cast<fs::perms>(st.st_mode) & fs::perms::mask
+    };
   }
 
   inline bool
@@ -186,7 +192,7 @@ namespace
   }
 
   inline fs::file_time_type
-  file_time(const struct ::stat& st)
+  file_time(const stat_type& st)
   {
     using namespace std::chrono;
     return fs::file_time_type{
@@ -201,10 +207,10 @@ namespace
   bool
   do_copy_file(const fs::path& from, const fs::path& to,
 	       fs::copy_options option,
-	       struct ::stat* from_st, struct ::stat* to_st,
+	       stat_type* from_st, stat_type* to_st,
 	       std::error_code& ec) noexcept
   {
-    struct ::stat st1, st2;
+    stat_type st1, st2;
     fs::file_status t, f;
 
     if (to_st == nullptr)
@@ -241,6 +247,8 @@ namespace
       }
     f = make_file_status(*from_st);
 
+    using opts = fs::copy_options;
+
     if (exists(t))
       {
 	if (!is_other(t) && !is_other(f)
@@ -251,12 +259,12 @@ namespace
 	    return false;
 	  }
 
-	if (is_set(option, fs::copy_options::skip_existing))
+	if (is_set(option, opts::skip_existing))
 	  {
 	    ec.clear();
 	    return false;
 	  }
-	else if (is_set(option, fs::copy_options::update_existing))
+	else if (is_set(option, opts::update_existing))
 	  {
 	    if (file_time(*from_st) <= file_time(*to_st))
 	      {
@@ -264,7 +272,7 @@ namespace
 		return false;
 	      }
 	  }
-	else if (!is_set(option, fs::copy_options::overwrite_existing))
+	else if (!is_set(option, opts::overwrite_existing))
 	  {
 	    ec = std::make_error_code(std::errc::file_exists);
 	    return false;
@@ -282,14 +290,22 @@ namespace
 	ec.assign(errno, std::generic_category());
 	return false;
       }
-    CloseFD out = { ::open(to.c_str(), O_WRONLY|O_CREAT) };
+    int oflag = O_WRONLY|O_CREAT;
+    if (is_set(option, opts::overwrite_existing|opts::update_existing))
+      oflag |= O_TRUNC;
+    else
+      oflag |= O_EXCL;
+    CloseFD out = { ::open(to.c_str(), oflag, S_IWUSR) };
     if (out.fd == -1)
       {
-	ec.assign(errno, std::generic_category());
+	if (errno == EEXIST && is_set(option, opts::skip_existing))
+	  ec.clear();
+	else
+	  ec.assign(errno, std::generic_category());
 	return false;
       }
 
-#ifdef _GLIBCXX_HAVE_GNU_SENDFILE
+#ifdef _GLIBCXX_USE_SENDFILE
     auto n = ::sendfile(out.fd, in.fd, nullptr, from_st->st_size);
     if (n != from_st->st_size)
       {
@@ -299,20 +315,17 @@ namespace
 #else
     __gnu_cxx::stdio_filebuf<char> sbin(in.fd, std::ios::in);
     __gnu_cxx::stdio_filebuf<char> sbout(out.fd, std::ios::out);
-    if (std::ostream(&sbout) << &sbin)
-      {
-	ec.clear();
-	return true;
-      }
-    else
+    if ( !(std::ostream(&sbout) << &sbin) )
       {
 	ec = std::make_error_code(std::errc::io_error);
 	return false;
       }
 #endif
 
-#ifdef _GLIBCXX_HAVE_FCHMOD
+#ifdef _GLIBCXX_USE_FCHMOD
     if (::fchmod(out.fd, from_st->st_mode))
+#elif _GLIBCXX_USE_FCHMODAT
+    if (::fchmodat(AT_FDCWD, to.c_str(), from_st->st_mode, 0))
 #else
     if (::chmod(to.c_str(), from_st->st_mode))
 #endif
@@ -320,6 +333,7 @@ namespace
 	ec.assign(errno, std::generic_category());
 	return false;
       }
+    ec.clear();
     return true;
   }
 }
@@ -334,7 +348,7 @@ fs::copy(const path& from, const path& to, copy_options options,
   bool use_lstat = create_symlinks || skip_symlinks;
 
   file_status f, t;
-  struct ::stat from_st, to_st;
+  stat_type from_st, to_st;
   if (use_lstat
       ? ::lstat(from.c_str(), &from_st)
       : ::stat(from.c_str(), &from_st))
@@ -556,7 +570,7 @@ fs::create_directory(const path& p, const path& attributes,
 		     error_code& ec) noexcept
 {
 #ifdef _GLIBCXX_HAVE_SYS_STAT_H
-  struct ::stat st;
+  stat_type st;
   if (::stat(attributes.c_str(), &st))
     {
       ec.assign(errno, std::generic_category());
@@ -715,8 +729,8 @@ void
 fs::current_path(const path& p, error_code& ec) noexcept
 {
 #ifdef _GLIBCXX_HAVE_UNISTD_H
-  if (int err = ::chdir(p.c_str()))
-    ec.assign(err, std::generic_category());
+  if (::chdir(p.c_str()))
+    ec.assign(errno, std::generic_category());
   else
     ec.clear();
 #else
@@ -739,7 +753,7 @@ bool
 fs::equivalent(const path& p1, const path& p2, error_code& ec) noexcept
 {
 #ifdef _GLIBCXX_HAVE_SYS_STAT_H
-  struct ::stat st1, st2;
+  stat_type st1, st2;
   if (::stat(p1.c_str(), &st1) == 0 && ::stat(p2.c_str(), &st2) == 0)
     {
       file_status s1 = make_file_status(st1);
@@ -781,7 +795,7 @@ namespace
     do_stat(const fs::path& p, std::error_code& ec, Accessor f, T deflt)
     {
 #ifdef _GLIBCXX_HAVE_SYS_STAT_H
-      struct ::stat st;
+      stat_type st;
       if (::stat(p.c_str(), &st))
 	{
 	  ec.assign(errno, std::generic_category());
@@ -799,8 +813,24 @@ namespace
 std::uintmax_t
 fs::file_size(const path& p, error_code& ec) noexcept
 {
-  return do_stat(p, ec, std::mem_fn(&stat::st_size),
-		 static_cast<uintmax_t>(-1));
+  struct S
+  {
+    S(const stat_type& st) : type(make_file_type(st)), size(st.st_size) { }
+    S() : type(file_type::not_found) { }
+    file_type type;
+    size_t size;
+  };
+  auto s = do_stat(p, ec, [](const auto& st) { return S{st}; }, S{});
+  if (s.type == file_type::regular)
+    return s.size;
+  if (!ec)
+    {
+      if (s.type == file_type::directory)
+	ec = std::make_error_code(std::errc::is_a_directory);
+      else
+	ec = std::make_error_code(std::errc::not_supported);
+    }
+  return -1;
 }
 
 std::uintmax_t
@@ -908,11 +938,11 @@ fs::permissions(const path& p, perms prms)
 void fs::permissions(const path& p, perms prms, error_code& ec) noexcept
 {
 #if _GLIBCXX_USE_FCHMODAT
-  if (int err = ::fchmodat(AT_FDCWD, p.c_str(), static_cast<mode_t>(prms), 0))
+  if (::fchmodat(AT_FDCWD, p.c_str(), static_cast<mode_t>(prms), 0))
 #else
-  if (int err = ::chmod(p.c_str(), static_cast<mode_t>(prms)))
+  if (::chmod(p.c_str(), static_cast<mode_t>(prms)))
 #endif
-    ec.assign(err, std::generic_category());
+    ec.assign(errno, std::generic_category());
   else
     ec.clear();
 }
@@ -930,7 +960,7 @@ fs::read_symlink(const path& p)
 fs::path fs::read_symlink(const path& p, error_code& ec)
 {
 #ifdef _GLIBCXX_HAVE_SYS_STAT_H
-  struct ::stat st;
+  stat_type st;
   if (::lstat(p.c_str(), &st))
     {
       ec.assign(errno, std::generic_category());
@@ -1064,8 +1094,8 @@ fs::space(const path& p, error_code& ec) noexcept
   };
 #ifdef _GLIBCXX_HAVE_SYS_STATVFS_H
   struct ::statvfs f;
-  if (int err = ::statvfs(p.c_str(), &f))
-      ec.assign(err, std::generic_category());
+  if (::statvfs(p.c_str(), &f))
+      ec.assign(errno, std::generic_category());
   else
     {
       info = space_info{
@@ -1086,13 +1116,13 @@ fs::file_status
 fs::status(const fs::path& p, std::error_code& ec) noexcept
 {
   file_status status;
-  struct ::stat st;
+  stat_type st;
   if (::stat(p.c_str(), &st))
     {
       int err = errno;
       ec.assign(err, std::generic_category());
       if (is_not_found_errno(err))
-	status = file_status{file_type::not_found};
+	status.type(file_type::not_found);
     }
   else
     {
@@ -1106,13 +1136,13 @@ fs::file_status
 fs::symlink_status(const fs::path& p, std::error_code& ec) noexcept
 {
   file_status status;
-  struct ::stat st;
+  stat_type st;
   if (::lstat(p.c_str(), &st))
     {
       int err = errno;
       ec.assign(err, std::generic_category());
       if (is_not_found_errno(err))
-	status = file_status{file_type::not_found};
+	status.type(file_type::not_found);
     }
   else
     {
@@ -1127,20 +1157,20 @@ fs::file_status
 fs::status(const fs::path& p)
 {
   std::error_code ec;
-  auto s = status(p, ec);
-  if (ec.value())
+  auto result = status(p, ec);
+  if (result.type() == file_type::none)
     _GLIBCXX_THROW_OR_ABORT(filesystem_error("status", p, ec));
-  return s;
+  return result;
 }
 
 fs::file_status
 fs::symlink_status(const fs::path& p)
 {
   std::error_code ec;
-  auto s = symlink_status(p, ec);
-  if (ec.value())
-    _GLIBCXX_THROW_OR_ABORT(filesystem_error("symlink_status", ec));
-  return s;
+  auto result = symlink_status(p, ec);
+  if (result.type() == file_type::none)
+    _GLIBCXX_THROW_OR_ABORT(filesystem_error("symlink_status", p, ec));
+  return result;
 }
 
 fs::path
@@ -1186,11 +1216,18 @@ fs::path fs::temp_directory_path(error_code& ec)
   ec = std::make_error_code(std::errc::not_supported);
   return {}; // TODO
 #else
-  const char* tmpdir = ::getenv("TMPDIR");
-  if (!tmpdir)
-    tmpdir = "/tmp";
-  ec.clear();
-  return tmpdir;
+  const char* tmpdir = nullptr;
+  const char* env[] = { "TMPDIR", "TMP", "TEMP", "TEMPDIR", nullptr };
+  for (auto e = env; tmpdir == nullptr && *e != nullptr; ++e)
+    tmpdir = ::getenv(*e);
+  path p = tmpdir ? tmpdir : "/tmp";
+  if (exists(p) && is_directory(p))
+    {
+      ec.clear();
+      return p;
+    }
+  ec = std::make_error_code(std::errc::not_a_directory);
+  return {};
 #endif
 }
 

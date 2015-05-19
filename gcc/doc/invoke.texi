@@ -651,6 +651,9 @@ Objective-C and Objective-C++ Dialects}.
 @emph{FR30 Options}
 @gccoptlist{-msmall-model -mno-lsim}
 
+@emph{FT32 Options}
+@gccoptlist{-msim -mlra}
+
 @emph{FRV Options}
 @gccoptlist{-mgpr-32  -mgpr-64  -mfpr-32  -mfpr-64 @gol
 -mhard-float  -msoft-float @gol
@@ -2697,6 +2700,14 @@ int main() @{
 In this case, @code{PRId64} is treated as a separate preprocessing token.
 
 This warning is enabled by default.
+
+@item -Wlto-type-mismatch
+@opindex Wlto-type-mismatch
+@opindex Wno-lto-type-mistmach
+
+During the link-time optimization warn about type mismatches in between
+global declarations from different compilation units.
+Requires @option{-flto} to be enabled.  Enabled by default.
 
 @item -Wnarrowing @r{(C++ and Objective-C++ only)}
 @opindex Wnarrowing
@@ -12270,6 +12281,7 @@ platform.
 * Darwin Options::
 * DEC Alpha Options::
 * FR30 Options::
+* FT32 Options::
 * FRV Options::
 * GNU/Linux Options::
 * H8/300 Options::
@@ -13307,9 +13319,9 @@ Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{arm10e}, @samp{arm1020e}, @samp{arm1022e},
 @samp{arm1136j-s}, @samp{arm1136jf-s}, @samp{mpcore}, @samp{mpcorenovfp},
 @samp{arm1156t2-s}, @samp{arm1156t2f-s}, @samp{arm1176jz-s}, @samp{arm1176jzf-s},
-@samp{cortex-a5}, @samp{cortex-a7}, @samp{cortex-a8}, @samp{cortex-a9},
-@samp{cortex-a12}, @samp{cortex-a15}, @samp{cortex-a53},
-@samp{cortex-a57}, @samp{cortex-a72},
+@samp{generic-armv7-a}, @samp{cortex-a5}, @samp{cortex-a7}, @samp{cortex-a8},
+@samp{cortex-a9}, @samp{cortex-a12}, @samp{cortex-a15}, @samp{cortex-a17},
+@samp{cortex-a53}, @samp{cortex-a57}, @samp{cortex-a72},
 @samp{cortex-r4},
 @samp{cortex-r4f}, @samp{cortex-r5}, @samp{cortex-r7}, @samp{cortex-m7},
 @samp{cortex-m4},
@@ -13329,8 +13341,8 @@ Permissible names are: @samp{arm2}, @samp{arm250},
 
 Additionally, this option can specify that GCC should tune the performance
 of the code for a big.LITTLE system.  Permissible names are:
-@samp{cortex-a15.cortex-a7}, @samp{cortex-a57.cortex-a53},
-@samp{cortex-a72.cortex-a53}.
+@samp{cortex-a15.cortex-a7}, @samp{cortex-a17.cortex-a7},
+@samp{cortex-a57.cortex-a53}, @samp{cortex-a72.cortex-a53}.
 
 @option{-mtune=generic-@var{arch}} specifies that GCC should tune the
 performance for a blend of processors within architecture @var{arch}.
@@ -15100,6 +15112,29 @@ it does assume that all symbolic values and addresses fit into a
 Assume that runtime support has been provided and so there is no need
 to include the simulator library (@file{libsim.a}) on the linker
 command line.
+
+@end table
+
+@node FT32 Options
+@subsection FT32 Options
+@cindex FT32 Options
+
+These options are defined specifically for the FT32 port.
+
+@table @gcctabopt
+
+@item -msim
+@opindex msim
+Specifies that the program will be run on the simulator.  This causes
+an alternate runtime startup and library to be linked.
+You must not use this option when generating programs that will run on
+real hardware; you must provide your own runtime library for whatever
+I/O functions are needed.
+
+@item -mlra
+@opindex mlra
+Enable Local Register Allocation.  This is still experimental for FT32,
+so by default the compiler uses standard reload.
 
 @end table
 

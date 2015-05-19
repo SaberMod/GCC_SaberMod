@@ -1,3 +1,28 @@
+2015-05-18  Tom de Vries  <tom@codesourcery.com>
+
+	* c-common.c (build_va_arg_1): New function.
+	(build_va_arg): Add address operator to va_list operand if necessary.
+
+2015-05-15  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	PR c/48956
+	* c-common.c (int_safely_convertible_to_real_p): Define.
+	(unsafe_conversion_p): Check conversions involving complex types.
+	(conversion_warning): Add new warning message for conversions which
+	discard imaginary component.
+	* c-common.h: (enum conversion_safety): Add new enumerator for such
+	conversions.
+
+2015-05-14  Marek Polacek  <polacek@redhat.com>
+
+	PR c/66066
+	PR c/66127
+	* c-common.c (c_fully_fold): Pass false down to c_fully_fold_internal.
+	(c_fully_fold_internal): Fold C_MAYBE_CONST_EXPRs with
+	C_MAYBE_CONST_EXPR_INT_OPERANDS set.  Add FOR_INT_CONST argument and
+	use it.  If FOR_INT_CONST, require that all evaluated operands be
+	INTEGER_CSTs.
+
 2015-05-12  David Malcolm  <dmalcolm@redhat.com>
 
 	* c-common.h (warn_for_misleading_indentation): New prototype.

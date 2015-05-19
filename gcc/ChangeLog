@@ -1,3 +1,421 @@
+2015-05-18  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* config/freebsd-spec.h (FBSD_STARTFILE_SPEC): Add the bits to build
+	pie executables.
+	(FBSD_ENDFILE_SPEC): Likewise.
+	* config/i386/freebsd.h (STARTFILE_SPEC): Remove and use the one from
+	config/freebsd-spec.h.
+	(ENDFILE_SPEC): Likewise.
+
+2015-05-18  Uros Bizjak  <ubizjak@gmail.com>
+	    Richard Henderson  <rth@redhat.com>
+
+	PR target/57032
+	* config/alpha/constraints.md (Q): Rewrite as define_memory_constraint.
+	Check for a memory location that is not a reference (using an AND)
+	to an unaligned location here.
+	* config/alpha/predicates.md (normal_memory_operand): Remove.
+
+2015-05-18  Alex Velenko  <Alex.Velenko@arm.com>
+
+	* config/arm/arm.md (andsi_not_shiftsi_si_scc): New pattern.
+	(andsi_not_shiftsi_si_scc_no_reuse): New pattern.
+
+2015-05-18  Robert Suchanek  <robert.suchanek@imgtec.com>
+
+	* config/mips/mips.c (micromips_globals): New variable.
+	(mips_set_compression_mode): Save and reinitialize target-dependent
+	state for microMIPS.
+
+2015-05-18  Martin Liska  <mliska@suse.cz>
+
+	* dbgcnt.def: Add new counter.
+	* ipa-icf.c (sem_item_optimizer::merge_classes): Use the
+	counter.
+
+2015-05-18  Martin Liska  <mliska@suse.cz>
+
+	* dbgcnt.def: Sort counters.
+	* opts.c (common_handle_option): Do not compile if
+	-fdbg-cnt-list is enabled.
+
+2015-05-18  Tom de Vries  <tom@codesourcery.com>
+
+	* gimplify.c (gimplify_modify_expr): Remove do_deref handling.
+	(gimplify_va_arg_expr): Remove do_deref handling.  Remove adding of
+	address operator to va_list operand.
+	* tree-stdarg.c (expand_ifn_va_arg_1): Do deref of va_list operand
+	unconditionally.
+	* config/i386/i386.c (ix86_gimplify_va_arg): Remove deref on va_list
+	operand.
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): Same.
+	* config/s390/s390.c (s390_gimplify_va_arg): Same.
+	* config/spu/spu.c (spu_gimplify_va_arg_expr): Same.
+
+2015-05-18  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-tail-merge.c: Fix whitespace.
+
+2015-05-17  Jim Wilson  <jim.wilson@linaro.org>
+
+	* doc/invoke.texi (ARM Options, mtune): Add generic-armv7-a,
+	cortex-a17, and cortex-a17.cortex-a7.
+
+2015-05-17  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/54236
+	* config/sh/sh.md (*addc_2r_t): Use ashift instead of mult.
+
+2015-05-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66174
+	* config/i386/i386.c (expand_vec_perm_blend): Enable HImode and
+	QImode inner modes for TARGET_AVX512BW.  Force mask operand
+	to a register for AVX512F modes.
+
+2015-05-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	* toplev.c (emit_debug_global_declarations): Do not output debug info
+	when doing slim LTO objects.
+
+2015-05-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-utils.h (warn_types_mismatch, odr_or_derived_type_p,
+	odr_types_equivalent_p): Declare.
+	(odr_type_p): Use gcc_checking_assert.
+	(type_in_anonymous_namespace_p) Declare.
+	(type_with_linkage_p): Declare.
+	* common.opt (Wlto-type-mismatch): New warning.
+	* ipa-devirt.c (compound_type_base): New function.
+	(odr_or_derived_type_p): New function.
+	(odr_types_equivalent_p): New function.
+	(add_type_duplicate): Simplify.
+	(type_with_linkage_p): Add hack to prevent false positives on C types
+	(type_in_anonymous_namespace_p): Likewise.
+	* tree.c (need_assembler_name_p): Use type_with_linkage.
+	* tree.h (type_in_anonymous_namespace_p): Remove.
+	* doc/invoke.texi (-Wlto-type-mismatch): Document
+
+2015-05-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree.c (verify_type_variant): Verify tree_base and type_common flags.
+	(verify_type): Verify STRING_FLAG.
+
+2015-05-16  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* tree-pretty-print.c (percent_K_format): Replace locus pointer
+	with accessor function.
+	* tree-diagnostic.c (diagnostic_report_current_function): Use
+	diagnostic_location function.
+	(maybe_unwind_expanded_macro_loc): Likewise.
+	(virt_loc_aware_diagnostic_finalizer): Likewise.
+	(default_tree_printer): Replace locus pointer with accessor function.
+	* diagnostic.c (diagnostic_initialize): Initialize caret_chars array.
+	(diagnostic_set_info_translated): Initialize second location.
+	(diagnostic_build_prefix): Use CARET_LINE_MARGIN.
+	(diagnostic_show_locus): Handle two locations. Call
+	diagnostic_print_caret_line.
+	(diagnostic_print_caret_line): New.
+	(default_diagnostic_starter): Use diagnostic_location function.
+	(diagnostic_report_diagnostic): Use diagnostic_location function.
+	(verbatim): Do not set text.locus.
+	* diagnostic.h (struct diagnostic_info): Remove location field.
+	(struct diagnostic_context): Make caret_chars an array of two.
+	(diagnostic_location): New inline.
+	(diagnostic_expand_location): Handle two locations.
+	(diagnostic_same_line): New inline.
+	(diagnostic_print_caret_line): Declare.
+	(CARET_LINE_MARGIN): New constant.
+	* pretty-print.c (pp_printf): Do not set text.locus.
+	(pp_verbatim): Do not set text.locus.
+	* pretty-print.h (MAX_LOCATIONS_PER_MESSAGE): New constant.
+	(struct text_info): Replace locus pointer with locations
+	array. Add accessor functions.
+
+2015-05-16  Kugan Vivekanandarajah  <kuganv@linaro.org>
+	    Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	PR target/65768
+	* config/arm/arm.h (DONT_EARLY_SPLIT_CONSTANT): New macro.
+	* config/arm/arm.md (subsi3, andsi3, iorsi3, xorsi3, movsi): Keep some
+	 large constants in register instead of splitting them.
+
+2015-05-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66140
+	* config/alpha/alpha.c (get_aligned_mem): Also look for reload
+	replacements in memory addresses.
+	(get_unaligned_address): Ditto.
+
+2015-05-15  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/64454
+	* match.pd ((X % Y) % Y, (X % Y) < Y): New patterns.
+	(-1 - A -> ~A): Remove unnecessary condition.
+
+2015-05-15  Gregor Richards  <gregor.richards@uwaterloo.ca>
+
+	* config/i386/linux.h (MUSL_DYNAMIC_LINKER): Define.
+	* config/i386/linux64.h (MUSL_DYNAMIC_LINKER32): Define.
+	(MUSL_DYNAMIC_LINKER64, MUSL_DYNAMIC_LINKERX32): Define.
+
+2015-05-15  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* ipa-chkp.h (chkp_wrap_function): New.
+	* ipa-chkp.c (chkp_wrap_function): Remove 'static'.
+	(chkp_wrap_function_name): New.
+	(chkp_build_instrumented_fndecl): Use chkp_wrap_function_name
+	to get wrapper name.
+	* lto-cgraph.c: Include ipa-chkp.h.
+	(input_cgraph_1): Avoid alias chain for wrappers.
+
+2015-05-15  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR middle-end/66134
+	* tree-chkp.c (chkp_get_orginal_bounds_for_abnormal_copy): New.
+	(chkp_maybe_copy_and_register_bounds): Don't copy abnormal copy.
+
+2015-05-15  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.h (AARCH64_TUNE_SLOWMUL): Delete.
+	(AARCH64_FL_SLOWMUL): Delete.
+	(AARCH64_FL_CRC): Redefine to 1<<3.
+	(AARCH64_FL_USE_FMA_STEERING_PASS): Redefine to 1<<4.
+
+2015-05-15  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* config/arm/arm.h (LOGICAL_OP_NON_SHORT_CIRCUIT): Add appropriate
+	casting.
+
+2015-05-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.md (extendqidi2): Use general_operand
+	instead of some_operand for operand[1] predicate.
+	(extendhidi2): Ditto.
+	(cbranchdi4): Use general_operand instead of some_operand
+	for operand[1] and operands[2] predicates.
+	(cstoredi4): Ditto.
+	* config/alpha/predicates.md (some_operand): Remove unused predicate.
+	(some_ni_operand): Ditto.
+
+2015-05-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (alpha_extract_integer): Do not handle
+	CONST_WIDE_INT and CONST_DOUBLE.  Assert CONST_INT_P (x).
+	(alpha_legitimate_constant_p) <case CONST_WIDE_INT>: Check high and
+	low part of the constant using alpha_emit_set_const_1.
+	(alpha_expand_mov): Do not handle CONST_WIDE_INT and CONST_DOUBLE.
+
+2015-05-14  Rohit Arul Raj  <rohitrulraj@freescale.com>
+
+	* varasm.c (output_constant_pool_1): Pass down alignment from
+	constant pool entry's descriptor to output_constant_pool_2.
+	(output_object_block): Add comment prior to call to
+	output_constant_pool_1.
+
+2015-05-14  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/65862
+	* target.def (ira_change_pseudo_allocno_class): New hook.
+	* targhooks.c (default_ira_change_pseudo_allocno_class): Default
+	value of the hook.
+	* targhooks.h (default_ira_change_pseudo_allocno_class): New extern.
+	* doc/tm.texi.in (TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS): Add the
+	hook.
+	* ira-costs.c (find_costs_and_classes): Call the hook and change
+	classes when it is necessary.
+	* doc/tm.texi: Update.
+
+2015-05-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	* config/i386/i386.md (sibcall_memory): Check that register with
+	callee address is not also used as one of the arguments, instead
+	of checking that it is not live after the sibcall.
+	(sibcall_pop_memory): Ditto.
+	(sibcall_value_memory): Ditto.
+	(sibcall_value_pop_memory): Ditto.
+
+2015-05-14  Marc Glisse  <marc.glisse@inria.fr>
+
+	* generic-match-head.c (types_match): Handle non-types.
+	* gimple-match-head.c (types_match): Likewise.
+	* match.pd: Remove unnecessary TREE_TYPE for types_match.
+
+2015-05-14  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.md (absdi2): Optimize abs expansion.
+	(csneg3<mode>_insn): Enable expansion of pattern.
+
+2015-05-14  Nick Clifton  <nickc@redhat.com>
+
+	* config/rl78/rl78.c (rl78_select_section): Select the correct
+	default section based upon the category of the decl.
+
+2015-05-13  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/30967
+	* config/rs6000/rs6000.c (rs6000_rtx_costs): Don't consider
+	destination mode for the cost of scc patterns.
+
+2015-05-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*mul<mode>3_1): Merge with *mulhi3_1
+	using SWIM248 mode iterator.
+	(*mulv<mode>4): Use x86_64_sext_operand for operand[2] constraint.
+	(*mulvhi4): mark operand[1] as commutative.  Use nonimmediate_operand
+	for operand[2] constraint.
+	(*mulv<mode>4_1): Merge with *mulvhi4_1 using SWI248 mode iterator.
+
+2015-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/66133
+	* omp-low.c (expand_omp_taskreg): For GIMPLE_OMP_TASK expansion,
+	make sure it is never noreturn, even when the task body does not
+	return.
+	(lower_omp_taskreg): For GIMPLE_OMP_TASK, emit GIMPLE_OMP_CONTINUE
+	right before GIMPLE_OMP_RETURN.
+	(make_gimple_omp_edges): Accept GIMPLE_OMP_CONTINUE as ->cont
+	for GIMPLE_OMP_TASK.  For GIMPLE_OMP_RETURN corresponding to
+	GIMPLE_OMP_TASK add an EDGE_ABNORMAL edge from entry to exit.
+
+2015-05-13  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* params.def (PARAM_MAX_POW_SQRT_DEPTH): New param.
+	* tree-ssa-math-opts.c: Include params.h
+	(pow_synth_sqrt_info): New struct.
+	(representable_as_half_series_p): New function.
+	(get_fn_chain): Likewise.
+	(print_nested_fn): Likewise.
+	(dump_fractional_sqrt_sequence): Likewise.
+	(dump_integer_part): Likewise.
+	(expand_pow_as_sqrts): Likewise.
+	(gimple_expand_builtin_pow): Use above to attempt to expand
+	pow as series of square roots.  Removed now unused variables.
+
+2015-05-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (alpha_emit_set_long_const): Remove c1 argument.
+	(alpha_extract_integer): Redeclare as static HOST_WIDE_INT.
+	Remove *p0 and *p1 arguments.  Rewrite function.
+	(alpha_legitimate_constant_p): Update call to alpha_extract_integer.
+	(alpha_split_const_mov): Update calls to alpha_extract_integer and
+	alpha_emit_set_long_const.
+	(alpha_expand_epilogue): Update calls to alpha_emit_set_long_const.
+	(alpha_output_mi_thunk_osf): Ditto.
+	* config/alpha/alpha.md (movti): Do not check operands[1]
+	for CONST_DOUBLE.
+
+2015-05-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66129
+	* tree-vect-slp.c (vect_build_slp_tree): Make sure all ops are
+	commutative.
+	(vect_schedule_slp_instance): Fix typo.
+
+2015-05-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* common.opt (fdump-internal-locations): New option.
+	* input.c: Include diagnostic-core.h.
+	(get_end_location): New function.
+	(write_digit): New function.
+	(write_digit_row): New function.
+	(dump_location_range): New function.
+	(dump_labelled_location_range): New function.
+	(dump_location_info): New function.
+	* input.h (dump_location_info): New prototype.
+	* toplev.c (compile_file): Handle flag_dump_locations.
+
+2015-05-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gimple-expr.h (is_gimple_constant): Reorder.
+	* tree-ssa-propagate.c (before_dom_children): Use inline accessor.
+
+2015-05-13  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* combine.c (simplify_set): When generating a CC set, if the
+	source already is in the correct mode, do not wrap it in a
+	compare.  Simplify the rest of that code.
+
+2015-05-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66123
+	* tree-ssa-dom.c (propagate_rhs_into_lhs): Check if we found
+	a taken edge.
+
+2015-05-13  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/66110
+	* alias.c (alias_sets_conflict_p): Do not treat has_zero_child
+	specially.
+	* Makefile.in (dfp.o-warn): Add -Wno-strict-aliasing.
+
+2015-05-13  Michael Haubenwallner  <michael.haubenwallner@ssi-schaefer.com>
+
+	* doc/install.texi: Bump latest automake 1.11 version to 1.11.6.
+	* aclocal.m4: Regenerated with automake-1.11.6.
+
+2015-05-13  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/66010
+	* gimplify.h (gimplify_va_arg_internal): Remove declaration.
+	* gimplify.c (gimplify_va_arg_internal): Remove and inline into ...
+	* tree-stdarg.c (expand_ifn_va_arg_1): ... here.  Choose between lval
+	and rval based on do_deref.
+
+2015-05-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/65103
+	* config/i386/i386.c (ix86_rtx_costs): We want to propagate
+	link time constants into adress expressions and therefore set
+	their cost to 0.
+
+2015-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/66112
+	* config/i386/i386.md (mulv<mode>4, umulv<mode>4, *umulv<mode>4):
+	Use SWI248 iterator instead of SWI.
+	(*mulv<mode>4_1): Use SWI48 instead of SWI.  Simplify output template.
+	Use eq_attr "alternative" "0" instead of match_test in
+	length_immediate attribute computation.
+	(*mulvhi4, *mulvhi4_1): New define_insns.
+
+	PR target/66112
+	* internal-fn.c (get_min_precision): Use UNSIGNED instead of
+	SIGNED to get precision of non-negative value.
+
+2015-05-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/66048
+	* function.c (diddle_return_value_1): Process bounds first.
+	* config/i38/i386.c (ix86_function_value_regno_p): Add bnd1
+	register.
+
+2015-05-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR rtl-optimization/64616
+	* loop-invariant.c (can_move_invariant_reg): New.
+	(move_invariant_reg): Call above new function to decide whether
+	instruction can just be moved, skipping creation of temporary
+	register.
+
+2015-05-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR target/pr66047.c
+	* i386.c (ix86_function_sseregparm): Only return -1 if local function
+	with implied regparm is called from -mno-sse function.
+	(init_cumulative_args): Output error if ix86_function_sseregparm
+	return -1 and SSE register would be needed.
+	(function_arg_advance_32): Likewise.
+	(function_arg_32): Likewise.
+	* i386.h (ix86_args): Add decl field.
+
+2015-05-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/65873
+	* ipa-inline.c (can_inline_edge_p): Allow early inlining of always
+	inlines across optimization boundary.
+
 2015-05-12  Jason Merrill  <jason@redhat.com>
 
 	* config/mmix/mmix.c, config/msp430/msp430.c: Add space between
@@ -184,7 +602,7 @@
 	format.
 	(arm_option_override, thumb2_reorg, arm_print_tune_info)
 	(aarch_macro_fusion_pair_p): Update uses of current_tune.
-	* arm.h (LOGCIAL_OP_NON_SHORT_CIRCUIT): Likewise.
+	* arm.h (LOGICAL_OP_NON_SHORT_CIRCUIT): Likewise.
 
 2015-05-12 Sandra Loosemore <sandra@codesourcery.com>
 

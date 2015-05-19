@@ -1235,7 +1235,7 @@
 
 (define_expand "extendqidi2"
   [(set (match_operand:DI 0 "register_operand")
-	(sign_extend:DI (match_operand:QI 1 "some_operand")))]
+	(sign_extend:DI (match_operand:QI 1 "general_operand")))]
   ""
 {
   if (TARGET_BWX)
@@ -1280,7 +1280,7 @@
 
 (define_expand "extendhidi2"
   [(set (match_operand:DI 0 "register_operand")
-	(sign_extend:DI (match_operand:HI 1 "some_operand")))]
+	(sign_extend:DI (match_operand:HI 1 "general_operand")))]
   ""
 {
   if (TARGET_BWX)
@@ -2902,8 +2902,8 @@
 
 (define_expand "cbranchdi4"
   [(use (match_operator 0 "alpha_cbranch_operator"
-         [(match_operand:DI 1 "some_operand")
-          (match_operand:DI 2 "some_operand")]))
+         [(match_operand:DI 1 "general_operand")
+          (match_operand:DI 2 "general_operand")]))
    (use (match_operand 3))]
   ""
   "alpha_emit_conditional_branch (operands, DImode); DONE;")
@@ -2936,8 +2936,8 @@
 
 (define_expand "cstoredi4"
   [(use (match_operator:DI 1 "alpha_cbranch_operator"
-         [(match_operand:DI 2 "some_operand")
-          (match_operand:DI 3 "some_operand")]))
+         [(match_operand:DI 2 "general_operand")
+          (match_operand:DI 3 "general_operand")]))
    (clobber (match_operand:DI 0 "register_operand"))]
   ""
 {
@@ -3867,7 +3867,7 @@
     operands[1] = force_reg (TFmode, operands[1]);
 })
 
-(define_insn_and_split "*movtf"
+(define_insn_and_split "*movtf_internal"
   [(set (match_operand:TF 0 "nonimmediate_operand" "=r,o")
 	(match_operand:TF 1 "input_operand" "roG,rG"))]
   "register_operand (operands[0], TFmode)
@@ -4154,8 +4154,7 @@
      32-bit constants in TImode and rely on the splitter, but
      this doesn't seem to be worth the pain.  */
   else if (CONST_INT_P (operands[1])
-	   || GET_CODE (operands[1]) == CONST_WIDE_INT
-	   || GET_CODE (operands[1]) == CONST_DOUBLE)
+	   || GET_CODE (operands[1]) == CONST_WIDE_INT)
     {
       rtx in[2], out[2], target;
 

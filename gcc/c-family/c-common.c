@@ -315,7 +315,7 @@ const struct fname_var_t fname_vars[] =
 /* Global visibility options.  */
 struct visibility_flags visibility_options;
 
-static tree c_fully_fold_internal (tree expr, bool, bool *, bool *);
+static tree c_fully_fold_internal (tree expr, bool, bool *, bool *, bool);
 static tree check_case_value (location_t, tree);
 static bool check_case_bounds (location_t, tree, tree, tree *, tree *);
 
@@ -1148,7 +1148,7 @@ c_fully_fold (tree expr, bool in_init, bool *maybe_const)
       expr = TREE_OPERAND (expr, 0);
     }
   ret = c_fully_fold_internal (expr, in_init, maybe_const,
-			       &maybe_const_itself);
+			       &maybe_const_itself, false);
   if (eptype)
     ret = fold_convert_loc (loc, eptype, ret);
   *maybe_const &= maybe_const_itself;
@@ -1161,11 +1161,13 @@ c_fully_fold (tree expr, bool in_init, bool *maybe_const)
    arithmetic overflow (for C90, *MAYBE_CONST_OPERANDS is carried from
    both evaluated and unevaluated subexpressions while
    *MAYBE_CONST_ITSELF is carried from only evaluated
-   subexpressions).  */
+   subexpressions).  FOR_INT_CONST indicates if EXPR is an expression
+   with integer constant operands, and if any of the operands doesn't
+   get folded to an integer constant, don't fold the expression itself.  */
 
 static tree
 c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
-		       bool *maybe_const_itself)
+		       bool *maybe_const_itself, bool for_int_const)
 {
   tree ret = expr;
   enum tree_code code = TREE_CODE (expr);
@@ -1209,7 +1211,11 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
       if (C_MAYBE_CONST_EXPR_NON_CONST (expr))
 	*maybe_const_operands = false;
       if (C_MAYBE_CONST_EXPR_INT_OPERANDS (expr))
-	*maybe_const_itself = false;
+	{
+	  *maybe_const_itself = false;
+	  inner = c_fully_fold_internal (inner, in_init, maybe_const_operands,
+					 maybe_const_itself, true);
+	}
       if (pre && !in_init)
 	ret = build2 (COMPOUND_EXPR, TREE_TYPE (expr), pre, inner);
       else
@@ -1259,7 +1265,7 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
       op1 = TREE_OPERAND (expr, 1);
       op2 = TREE_OPERAND (expr, 2);
       op0 = c_fully_fold_internal (op0, in_init, maybe_const_operands,
-				   maybe_const_itself);
+				   maybe_const_itself, for_int_const);
       STRIP_TYPE_NOPS (op0);
       if (op0 != orig_op0)
 	ret = build3 (COMPONENT_REF, TREE_TYPE (expr), op0, op1, op2);
@@ -1276,10 +1282,10 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
       op2 = TREE_OPERAND (expr, 2);
       op3 = TREE_OPERAND (expr, 3);
       op0 = c_fully_fold_internal (op0, in_init, maybe_const_operands,
-				   maybe_const_itself);
+				   maybe_const_itself, for_int_const);
       STRIP_TYPE_NOPS (op0);
       op1 = c_fully_fold_internal (op1, in_init, maybe_const_operands,
-				   maybe_const_itself);
+				   maybe_const_itself, for_int_const);
       STRIP_TYPE_NOPS (op1);
       op1 = decl_constant_value_for_optimization (op1);
       if (op0 != orig_op0 || op1 != orig_op1)
@@ -1336,7 +1342,7 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
       orig_op0 = op0 = TREE_OPERAND (expr, 0);
       orig_op1 = op1 = TREE_OPERAND (expr, 1);
       op0 = c_fully_fold_internal (op0, in_init, maybe_const_operands,
-				   maybe_const_itself);
+				   maybe_const_itself, for_int_const);
       STRIP_TYPE_NOPS (op0);
       if (code != MODIFY_EXPR
 	  && code != PREDECREMENT_EXPR
@@ -1348,9 +1354,14 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
 	 expression for the sake of conversion warnings.  */
       if (code != MODIFY_EXPR)
 	op1 = c_fully_fold_internal (op1, in_init, maybe_const_operands,
-				     maybe_const_itself);
+				     maybe_const_itself, for_int_const);
       STRIP_TYPE_NOPS (op1);
       op1 = decl_constant_value_for_optimization (op1);
+
+      if (for_int_const && (TREE_CODE (op0) != INTEGER_CST
+			    || TREE_CODE (op1) != INTEGER_CST))
+	goto out;
+
       if (op0 != orig_op0 || op1 != orig_op1 || in_init)
 	ret = in_init
 	  ? fold_build2_initializer_loc (loc, code, TREE_TYPE (expr), op0, op1)
@@ -1420,10 +1431,14 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
       /* Unary operations.  */
       orig_op0 = op0 = TREE_OPERAND (expr, 0);
       op0 = c_fully_fold_internal (op0, in_init, maybe_const_operands,
-				   maybe_const_itself);
+				   maybe_const_itself, for_int_const);
       STRIP_TYPE_NOPS (op0);
       if (code != ADDR_EXPR && code != REALPART_EXPR && code != IMAGPART_EXPR)
 	op0 = decl_constant_value_for_optimization (op0);
+
+      if (for_int_const && TREE_CODE (op0) != INTEGER_CST)
+	goto out;
+
       /* ??? Cope with user tricks that amount to offsetof.  The middle-end is
 	 not prepared to deal with them if they occur in initializers.  */
       if (op0 != orig_op0
@@ -1468,16 +1483,24 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
 	 arguments.  */
       orig_op0 = op0 = TREE_OPERAND (expr, 0);
       orig_op1 = op1 = TREE_OPERAND (expr, 1);
-      op0 = c_fully_fold_internal (op0, in_init, &op0_const, &op0_const_self);
+      op0 = c_fully_fold_internal (op0, in_init, &op0_const, &op0_const_self,
+				   for_int_const);
       STRIP_TYPE_NOPS (op0);
 
       unused_p = (op0 == (code == TRUTH_ANDIF_EXPR
 			  ? truthvalue_false_node
 			  : truthvalue_true_node));
       c_disable_warnings (unused_p);
-      op1 = c_fully_fold_internal (op1, in_init, &op1_const, &op1_const_self);
+      op1 = c_fully_fold_internal (op1, in_init, &op1_const, &op1_const_self,
+				   for_int_const);
       STRIP_TYPE_NOPS (op1);
       c_enable_warnings (unused_p);
+
+      if (for_int_const
+	  && (TREE_CODE (op0) != INTEGER_CST
+	      /* Require OP1 be an INTEGER_CST only if it's evaluated.  */
+	      || (!unused_p && TREE_CODE (op1) != INTEGER_CST)))
+	goto out;
 
       if (op0 != orig_op0 || op1 != orig_op1 || in_init)
 	ret = in_init
@@ -1506,18 +1529,29 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
       orig_op0 = op0 = TREE_OPERAND (expr, 0);
       orig_op1 = op1 = TREE_OPERAND (expr, 1);
       orig_op2 = op2 = TREE_OPERAND (expr, 2);
-      op0 = c_fully_fold_internal (op0, in_init, &op0_const, &op0_const_self);
+      op0 = c_fully_fold_internal (op0, in_init, &op0_const, &op0_const_self,
+				   for_int_const);
 
       STRIP_TYPE_NOPS (op0);
       c_disable_warnings (op0 == truthvalue_false_node);
-      op1 = c_fully_fold_internal (op1, in_init, &op1_const, &op1_const_self);
+      op1 = c_fully_fold_internal (op1, in_init, &op1_const, &op1_const_self,
+				   for_int_const);
       STRIP_TYPE_NOPS (op1);
       c_enable_warnings (op0 == truthvalue_false_node);
 
       c_disable_warnings (op0 == truthvalue_true_node);
-      op2 = c_fully_fold_internal (op2, in_init, &op2_const, &op2_const_self);
+      op2 = c_fully_fold_internal (op2, in_init, &op2_const, &op2_const_self,
+				   for_int_const);
       STRIP_TYPE_NOPS (op2);
       c_enable_warnings (op0 == truthvalue_true_node);
+
+      if (for_int_const
+	  && (TREE_CODE (op0) != INTEGER_CST
+	      /* Only the evaluated operand must be an INTEGER_CST.  */
+	      || (op0 == truthvalue_true_node
+		  ? TREE_CODE (op1) != INTEGER_CST
+		  : TREE_CODE (op2) != INTEGER_CST)))
+	goto out;
 
       if (op0 != orig_op0 || op1 != orig_op1 || op2 != orig_op2)
 	ret = fold_build3_loc (loc, code, TREE_TYPE (expr), op0, op1, op2);
@@ -2673,17 +2707,42 @@ shorten_binary_op (tree result_type, tree op0, tree op1, bool bitwise)
   return result_type;
 }
 
-/* Checks if expression EXPR of real/integer type cannot be converted
-   to the real/integer type TYPE. Function returns non-zero when:
+/* Returns true iff any integer value of type FROM_TYPE can be represented as
+   real of type TO_TYPE.  This is a helper function for unsafe_conversion_p.  */
+
+static bool
+int_safely_convertible_to_real_p (const_tree from_type, const_tree to_type)
+{
+  tree type_low_bound = TYPE_MIN_VALUE (from_type);
+  tree type_high_bound = TYPE_MAX_VALUE (from_type);
+  REAL_VALUE_TYPE real_low_bound =
+	  real_value_from_int_cst (0, type_low_bound);
+  REAL_VALUE_TYPE real_high_bound =
+	  real_value_from_int_cst (0, type_high_bound);
+
+  return exact_real_truncate (TYPE_MODE (to_type), &real_low_bound)
+	 && exact_real_truncate (TYPE_MODE (to_type), &real_high_bound);
+}
+
+/* Checks if expression EXPR of complex/real/integer type cannot be converted
+   to the complex/real/integer type TYPE.  Function returns non-zero when:
 	* EXPR is a constant which cannot be exactly converted to TYPE.
 	* EXPR is not a constant and size of EXPR's type > than size of TYPE,
-	  for EXPR type and TYPE being both integers or both real.
+	  for EXPR type and TYPE being both integers or both real, or both
+	  complex.
+	* EXPR is not a constant of complex type and TYPE is a real or
+	  an integer.
 	* EXPR is not a constant of real type and TYPE is an integer.
 	* EXPR is not a constant of integer type which cannot be
 	  exactly converted to real type.
+
    Function allows conversions between types of different signedness and
    can return SAFE_CONVERSION (zero) in that case.  Function can produce
-   signedness warnings if PRODUCE_WARNS is true.  */
+   signedness warnings if PRODUCE_WARNS is true.
+
+   Function allows conversions from complex constants to non-complex types,
+   provided that imaginary part is zero and real part can be safely converted
+   to TYPE.  */
 
 enum conversion_safety
 unsafe_conversion_p (location_t loc, tree type, tree expr, bool produce_warns)
@@ -2694,6 +2753,11 @@ unsafe_conversion_p (location_t loc, tree type, tree expr, bool produce_warns)
 
   if (TREE_CODE (expr) == REAL_CST || TREE_CODE (expr) == INTEGER_CST)
     {
+      /* If type is complex, we are interested in compatibility with
+	 underlying type.  */
+      if (TREE_CODE (type) == COMPLEX_TYPE)
+	  type = TREE_TYPE (type);
+
       /* Warn for real constant that is not an exact integer converted
 	 to integer type.  */
       if (TREE_CODE (expr_type) == REAL_TYPE
@@ -2743,6 +2807,63 @@ unsafe_conversion_p (location_t loc, tree type, tree expr, bool produce_warns)
 	    }
 	}
     }
+
+  else if (TREE_CODE (expr) == COMPLEX_CST)
+    {
+      tree imag_part = TREE_IMAGPART (expr);
+      /* Conversion from complex constant with zero imaginary part,
+	 perform check for conversion of real part.  */
+      if ((TREE_CODE (imag_part) == REAL_CST
+	   && real_zerop (imag_part))
+	  || (TREE_CODE (imag_part) == INTEGER_CST
+	      && integer_zerop (imag_part)))
+	/* Note: in this branch we use recursive call to unsafe_conversion_p
+	   with different type of EXPR, but it is still safe, because when EXPR
+	   is a constant, it's type is not used in text of generated warnings
+	   (otherwise they could sound misleading).  */
+	return unsafe_conversion_p (loc, type, TREE_REALPART (expr),
+				    produce_warns);
+      /* Conversion from complex constant with non-zero imaginary part.  */
+      else
+	{
+	  /* Conversion to complex type.
+	     Perform checks for both real and imaginary parts.  */
+	  if (TREE_CODE (type) == COMPLEX_TYPE)
+	    {
+	      /* Unfortunately, produce_warns must be false in two subsequent
+		 calls of unsafe_conversion_p, because otherwise we could
+		 produce strange "double" warnings, if both real and imaginary
+		 parts have conversion problems related to signedness.
+
+		 For example:
+		 int32_t _Complex a = 0x80000000 + 0x80000000i;
+
+		 Possible solution: add a separate function for checking
+		 constants and combine result of two calls appropriately.  */
+	      enum conversion_safety re_safety =
+		  unsafe_conversion_p (loc, type, TREE_REALPART (expr), false);
+	      enum conversion_safety im_safety =
+		  unsafe_conversion_p (loc, type, imag_part, false);
+
+	      /* Merge the results into appropriate single warning.  */
+
+	      /* Note: this case includes SAFE_CONVERSION, i.e. success.  */
+	      if (re_safety == im_safety)
+		give_warning = re_safety;
+	      else if (!re_safety && im_safety)
+		give_warning = im_safety;
+	      else if (re_safety && !im_safety)
+		give_warning = re_safety;
+	      else
+		give_warning = UNSAFE_OTHER;
+	    }
+	  /* Warn about conversion from complex to real or integer type.  */
+	  else
+	    give_warning = UNSAFE_IMAGINARY;
+	}
+    }
+
+  /* Checks for remaining case: EXPR is not constant.  */
   else
     {
       /* Warn for real types converted to integer types.  */
@@ -2822,20 +2943,11 @@ unsafe_conversion_p (location_t loc, tree type, tree expr, bool produce_warns)
       else if (TREE_CODE (expr_type) == INTEGER_TYPE
 	       && TREE_CODE (type) == REAL_TYPE)
 	{
-	  tree type_low_bound, type_high_bound;
-	  REAL_VALUE_TYPE real_low_bound, real_high_bound;
-
 	  /* Don't warn about char y = 0xff; float x = (int) y;  */
 	  expr = get_unwidened (expr, 0);
 	  expr_type = TREE_TYPE (expr);
 
-	  type_low_bound = TYPE_MIN_VALUE (expr_type);
-	  type_high_bound = TYPE_MAX_VALUE (expr_type);
-	  real_low_bound = real_value_from_int_cst (0, type_low_bound);
-	  real_high_bound = real_value_from_int_cst (0, type_high_bound);
-
-	  if (!exact_real_truncate (TYPE_MODE (type), &real_low_bound)
-	      || !exact_real_truncate (TYPE_MODE (type), &real_high_bound))
+	  if (!int_safely_convertible_to_real_p (expr_type, type))
 	    give_warning = UNSAFE_OTHER;
 	}
 
@@ -2844,6 +2956,58 @@ unsafe_conversion_p (location_t loc, tree type, tree expr, bool produce_warns)
 	       && TREE_CODE (type) == REAL_TYPE
 	       && TYPE_PRECISION (type) < TYPE_PRECISION (expr_type))
 	give_warning = UNSAFE_REAL;
+
+      /* Check conversion between two complex types.  */
+      else if (TREE_CODE (expr_type) == COMPLEX_TYPE
+	       && TREE_CODE (type) == COMPLEX_TYPE)
+	{
+	  /* Extract underlying types (i.e., type of real and imaginary
+	     parts) of expr_type and type.  */
+	  tree from_type = TREE_TYPE (expr_type);
+	  tree to_type = TREE_TYPE (type);
+
+	  /* Warn for real types converted to integer types.  */
+	  if (TREE_CODE (from_type) == REAL_TYPE
+	      && TREE_CODE (to_type) == INTEGER_TYPE)
+	    give_warning = UNSAFE_REAL;
+
+	  /* Warn for real types converted to smaller real types.  */
+	  else if (TREE_CODE (from_type) == REAL_TYPE
+		   && TREE_CODE (to_type) == REAL_TYPE
+		   && TYPE_PRECISION (to_type) < TYPE_PRECISION (from_type))
+	    give_warning = UNSAFE_REAL;
+
+	  /* Check conversion for complex integer types.  Here implementation
+	     is simpler than for real-domain integers because it does not
+	     involve sophisticated cases, such as bitmasks, casts, etc.  */
+	  else if (TREE_CODE (from_type) == INTEGER_TYPE
+		   && TREE_CODE (to_type) == INTEGER_TYPE)
+	    {
+	      /* Warn for integer types converted to smaller integer types.  */
+	      if (TYPE_PRECISION (to_type) < TYPE_PRECISION (from_type))
+		give_warning = UNSAFE_OTHER;
+
+	      /* Check for different signedness, see case for real-domain
+		 integers (above) for a more detailed comment.  */
+	      else if (((TYPE_PRECISION (to_type) == TYPE_PRECISION (from_type)
+		    && TYPE_UNSIGNED (to_type) != TYPE_UNSIGNED (from_type))
+		    || (TYPE_UNSIGNED (to_type) && !TYPE_UNSIGNED (from_type)))
+		    && produce_warns)
+		warning_at (loc, OPT_Wsign_conversion,
+			"conversion to %qT from %qT "
+			"may change the sign of the result",
+			type, expr_type);
+	    }
+	  else if (TREE_CODE (from_type) == INTEGER_TYPE
+		   && TREE_CODE (to_type) == REAL_TYPE
+		   && !int_safely_convertible_to_real_p (from_type, to_type))
+	    give_warning = UNSAFE_OTHER;
+	}
+
+      /* Warn for complex types converted to real or integer types.  */
+      else if (TREE_CODE (expr_type) == COMPLEX_TYPE
+	       && TREE_CODE (type) != COMPLEX_TYPE)
+	give_warning = UNSAFE_IMAGINARY;
     }
 
   return give_warning;
@@ -2893,6 +3057,7 @@ conversion_warning (location_t loc, tree type, tree expr)
 
     case REAL_CST:
     case INTEGER_CST:
+    case COMPLEX_CST:
       conversion_kind = unsafe_conversion_p (loc, type, expr, true);
       if (conversion_kind == UNSAFE_REAL)
 	warning_at (loc, OPT_Wfloat_conversion,
@@ -2921,6 +3086,10 @@ conversion_warning (location_t loc, tree type, tree expr)
       if (conversion_kind == UNSAFE_REAL)
 	warning_at (loc, OPT_Wfloat_conversion,
 		    "conversion to %qT from %qT may alter its value",
+		    type, expr_type);
+      else if (conversion_kind == UNSAFE_IMAGINARY)
+	warning_at (loc, OPT_Wconversion,
+		    "conversion to %qT from %qT discards imaginary component",
 		    type, expr_type);
       else if (conversion_kind)
 	warning_at (loc, OPT_Wconversion,
@@ -5915,6 +6084,20 @@ set_compound_literal_name (tree decl)
   DECL_NAME (decl) = get_identifier (name);
 }
 
+/* build_va_arg helper function.  Return a VA_ARG_EXPR with location LOC, type
+   TYPE and operand OP.  */
+
+static tree
+build_va_arg_1 (location_t loc, tree type, tree op)
+{
+  tree expr = build1 (VA_ARG_EXPR, type, op);
+  SET_EXPR_LOCATION (expr, loc);
+  return expr;
+}
+
+/* Return a VA_ARG_EXPR corresponding to a source-level expression
+   va_arg (EXPR, TYPE) at source location LOC.  */
+
 tree
 build_va_arg (location_t loc, tree expr, tree type)
 {
@@ -5923,24 +6106,107 @@ build_va_arg (location_t loc, tree expr, tree type)
 			? NULL_TREE
 			: targetm.canonical_va_list_type (va_type));
 
-  if (canon_va_type != NULL)
+  if (va_type == error_mark_node
+      || canon_va_type == NULL_TREE)
     {
-      /* When the va_arg ap argument is a parm decl with declared type va_list,
-	 and the va_list type is an array, then grokdeclarator changes the type
-	 of the parm decl to the corresponding pointer type.  We know that that
-	 pointer is constant, so there's no need to modify it, so there's no
-	 need to pass it around using an address operator, so there's no need to
-	 mark it addressable.  */
-      if (!(TREE_CODE (canon_va_type) == ARRAY_TYPE
-	    && TREE_CODE (va_type) != ARRAY_TYPE))
-	/* In gimplify_va_arg_expr we take the address of the ap argument, mark
-	   it addressable now.  */
-	mark_addressable (expr);
+      /* Let's handle things neutrallly, if expr:
+	 - has undeclared type, or
+	 - is not an va_list type.  */
+      return build_va_arg_1 (loc, type, expr);
     }
 
-  expr = build1 (VA_ARG_EXPR, type, expr);
-  SET_EXPR_LOCATION (expr, loc);
-  return expr;
+  if (TREE_CODE (canon_va_type) != ARRAY_TYPE)
+    {
+      /* Case 1: Not an array type.  */
+
+      /* Take the address, to get '&ap'.  */
+      mark_addressable (expr);
+      expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (expr)), expr);
+
+      /* Verify that &ap is still recognized as having va_list type.  */
+      tree canon_expr_type
+	= targetm.canonical_va_list_type (TREE_TYPE (expr));
+      gcc_assert (canon_expr_type != NULL_TREE);
+
+      return build_va_arg_1 (loc, type, expr);
+    }
+
+  /* Case 2: Array type.
+
+     Background:
+
+     For contrast, let's start with the simple case (case 1).  If
+     canon_va_type is not an array type, but say a char *, then when
+     passing-by-value a va_list, the type of the va_list param decl is
+     the same as for another va_list decl (all ap's are char *):
+
+     f2_1 (char * ap)
+       D.1815 = VA_ARG (&ap, 0B, 1);
+       return D.1815;
+
+     f2 (int i)
+       char * ap.0;
+       char * ap;
+       __builtin_va_start (&ap, 0);
+       ap.0 = ap;
+       res = f2_1 (ap.0);
+       __builtin_va_end (&ap);
+       D.1812 = res;
+       return D.1812;
+
+     However, if canon_va_type is ARRAY_TYPE, then when passing-by-value a
+     va_list the type of the va_list param decl (case 2b, struct * ap) is not
+     the same as for another va_list decl (case 2a, struct ap[1]).
+
+     f2_1 (struct  * ap)
+       D.1844 = VA_ARG (ap, 0B, 0);
+       return D.1844;
+
+     f2 (int i)
+       struct  ap[1];
+       __builtin_va_start (&ap, 0);
+       res = f2_1 (&ap);
+       __builtin_va_end (&ap);
+       D.1841 = res;
+       return D.1841;
+
+     Case 2b is different because:
+     - on the callee side, the parm decl has declared type va_list, but
+       grokdeclarator changes the type of the parm decl to a pointer to the
+       array elem type.
+     - on the caller side, the pass-by-value uses &ap.
+
+     We unify these two cases (case 2a: va_list is array type,
+     case 2b: va_list is pointer to array elem type), by adding '&' for the
+     array type case, such that we have a pointer to array elem in both
+     cases.  */
+
+  if (TREE_CODE (va_type) == ARRAY_TYPE)
+    {
+      /* Case 2a: va_list is array type.  */
+
+      /* Take the address, to get '&ap'.  Make sure it's a pointer to array
+	 elem type.  */
+      mark_addressable (expr);
+      expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (canon_va_type)),
+		     expr);
+
+      /* Verify that &ap is still recognized as having va_list type.  */
+      tree canon_expr_type
+	= targetm.canonical_va_list_type (TREE_TYPE (expr));
+      gcc_assert (canon_expr_type != NULL_TREE);
+    }
+  else
+    {
+      /* Case 2b: va_list is pointer to array elem type.  */
+      gcc_assert (POINTER_TYPE_P (va_type));
+      gcc_assert (TREE_TYPE (va_type) == TREE_TYPE (canon_va_type));
+
+      /* Don't take the address.  We've already got '&ap'.  */
+      ;
+    }
+
+  return build_va_arg_1 (loc, type, expr);
 }
 
 
