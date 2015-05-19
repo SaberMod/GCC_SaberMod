@@ -1,3 +1,20 @@
+2015-05-18  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2015-05-12  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/2827.md: Split zEC12_simple into zEC12_simple_int
+	and zEC12_simple_fp.
+	* config/s390/s390.c (s390_issue_rate): Set issue rate for zEC12
+	to 1.
+
+2015-05-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66140
+	* config/alpha/alpha.c (get_aligned_mem): Also look for reload
+	replacements in memory addresses.
+	(get_unaligned_address): Ditto.
+
 2015-05-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.opt (-mcompat-align-parm): Reset initial
