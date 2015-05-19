@@ -4680,13 +4680,29 @@ start_decl (const cp_declarator *declarator,
 
   if (TYPE_P (context) && COMPLETE_TYPE_P (complete_type (context)))
     {
+      bool this_tmpl = (processing_template_decl
+			> template_class_depth (context));
       if (VAR_P (decl))
 	{
 	  tree field = lookup_field (context, DECL_NAME (decl), 0, false);
-	  if (field == NULL_TREE || !VAR_P (field))
-	    error ("%q#D is not a static member of %q#T", decl, context);
+	  if (field == NULL_TREE
+	      || !(VAR_P (field) || variable_template_p (field)))
+	    error ("%q+#D is not a static data member of %q#T", decl, context);
 	  else
 	    {
+	      if (variable_template_p (field))
+		{
+		  if (!this_tmpl)
+		    {
+		      error_at (DECL_SOURCE_LOCATION (decl),
+				"non-member-template declaration of %qD", decl);
+		      inform (DECL_SOURCE_LOCATION (field), "does not match "
+			      "member template declaration here");
+		      return error_mark_node;
+		    }
+		  field = DECL_TEMPLATE_RESULT (field);
+		}
+
 	      if (DECL_CONTEXT (field) != context)
 		{
 		  if (!same_type_p (DECL_CONTEXT (field), context))
@@ -4713,8 +4729,7 @@ start_decl (const cp_declarator *declarator,
       else
 	{
 	  tree field = check_classfn (context, decl,
-				      (processing_template_decl
-				       > template_class_depth (context))
+				      this_tmpl
 				      ? current_template_parms
 				      : NULL_TREE);
 	  if (field && field != error_mark_node
@@ -5129,10 +5144,6 @@ maybe_commonize_var (tree decl)
 	    }
 	}
     }
-  else if (DECL_LANG_SPECIFIC (decl) && DECL_COMDAT (decl))
-    /* Set it up again; we might have set DECL_INITIAL since the last
-       time.  */
-    comdat_linkage (decl);
 }
 
 /* Issue an error message if DECL is an uninitialized const variable.  */
@@ -8451,7 +8462,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 	   /* We don't allow VLAs at non-function scopes, or during
 	      tentative template substitution.  */
 	   || !at_function_scope_p ()
-	   || (cxx_dialect < cxx1y && !(complain & tf_error)))
+	   || (cxx_dialect < cxx14 && !(complain & tf_error)))
     {
       if (!(complain & tf_error))
 	return error_mark_node;
@@ -8463,7 +8474,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 	error ("size of array is not an integral constant-expression");
       size = integer_one_node;
     }
-  else if (cxx_dialect < cxx1y && pedantic && warn_vla != 0)
+  else if (cxx_dialect < cxx14 && pedantic && warn_vla != 0)
     {
       if (name)
 	pedwarn (input_location, OPT_Wvla, "ISO C++ forbids variable length array %qD", name);
@@ -8521,7 +8532,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 
 	  stabilize_vla_size (itype);
 
-	  if (cxx_dialect >= cxx1y && flag_exceptions)
+	  if (cxx_dialect >= cxx14 && flag_exceptions)
 	    {
 	      /* If the VLA bound is larger than half the address space,
 	         or less than zero, throw std::bad_array_length.  */
@@ -8537,7 +8548,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 					 DECL_ATTRIBUTES
 					   (current_function_decl)))
 	    {
-	      /* From C++1y onwards, we throw an exception on a negative
+	      /* From C++14 onwards, we throw an exception on a negative
 		 length size of an array; see above.  */
 
 	      /* We have to add 1 -- in the ubsan routine we generate
@@ -8666,7 +8677,7 @@ create_array_type_for_decl (tree name, tree type, tree size)
       return error_mark_node;
     }
 
-  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type)
+  if (cxx_dialect >= cxx14 && array_of_runtime_bound_p (type)
       && (flag_iso || warn_vla > 0))
     pedwarn (input_location, OPT_Wvla, "array of array of runtime bound");
 
@@ -9686,14 +9697,14 @@ grokdeclarator (const cp_declarator *declarator,
 			if (current_class_type
 			    && LAMBDA_TYPE_P (current_class_type))
 			  /* OK for C++11 lambdas.  */;
-			else if (cxx_dialect < cxx1y)
+			else if (cxx_dialect < cxx14)
 			  {
 			    error ("%qs function uses "
 				   "%<auto%> type specifier without trailing "
 				   "return type", name);
 			    inform (input_location, "deduced return type "
-				    "only available with -std=c++1y or "
-				    "-std=gnu++1y");
+				    "only available with -std=c++14 or "
+				    "-std=gnu++14");
 			  }
 			else if (virtualp)
 			  {
@@ -9910,7 +9921,7 @@ grokdeclarator (const cp_declarator *declarator,
                    : G_("cannot declare pointer to qualified function type %qT"),
 		   type);
 
-	  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type)
+	  if (cxx_dialect >= cxx14 && array_of_runtime_bound_p (type)
 	      && (flag_iso || warn_vla > 0))
 	    pedwarn (input_location, OPT_Wvla,
 		     declarator->kind == cdk_reference
@@ -10267,7 +10278,7 @@ grokdeclarator (const cp_declarator *declarator,
 	  type = error_mark_node;
 	}
 
-      if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type)
+      if (cxx_dialect >= cxx14 && array_of_runtime_bound_p (type)
 	  && (flag_iso || warn_vla > 0))
 	pedwarn (input_location, OPT_Wvla,
 		 "typedef naming array of runtime bound");
@@ -10513,7 +10524,7 @@ grokdeclarator (const cp_declarator *declarator,
 
       if (type_uses_auto (type))
 	{
-	  if (cxx_dialect >= cxx1y)
+	  if (cxx_dialect >= cxx14)
 	    error ("%<auto%> parameter not permitted in this context");
 	  else
 	    error ("parameter declared %<auto%>");
@@ -14349,8 +14360,8 @@ grokmethod (cp_decl_specifier_seq *declspecs,
 /* VAR is a VAR_DECL.  If its type is incomplete, remember VAR so that
    we can lay it out later, when and if its type becomes complete.
 
-   Also handle constexpr pointer to member variables where the initializer
-   is an unlowered PTRMEM_CST because the class isn't complete yet.  */
+   Also handle constexpr variables where the initializer involves
+   an unlowered PTRMEM_CST because the class isn't complete yet.  */
 
 void
 maybe_register_incomplete_var (tree var)
@@ -14375,12 +14386,13 @@ maybe_register_incomplete_var (tree var)
 	  incomplete_var iv = {var, inner_type};
 	  vec_safe_push (incomplete_vars, iv);
 	}
-      else if (TYPE_PTRMEM_P (inner_type)
-	       && DECL_INITIAL (var)
-	       && TREE_CODE (DECL_INITIAL (var)) == PTRMEM_CST)
+      else if (!(DECL_LANG_SPECIFIC (var) && DECL_TEMPLATE_INFO (var))
+	       && decl_constant_var_p (var)
+	       && (TYPE_PTRMEM_P (inner_type) || CLASS_TYPE_P (inner_type)))
 	{
-	  tree context = TYPE_PTRMEM_CLASS_TYPE (inner_type);
-	  gcc_assert (TYPE_BEING_DEFINED (context));
+	  /* When the outermost open class is complete we can resolve any
+	     pointers-to-members.  */
+	  tree context = outermost_open_class ();
 	  incomplete_var iv = {var, context};
 	  vec_safe_push (incomplete_vars, iv);
 	}
@@ -14404,15 +14416,18 @@ complete_vars (tree type)
 	  tree var = iv->decl;
 	  tree type = TREE_TYPE (var);
 
-	  if (TYPE_PTRMEM_P (type))
-	    DECL_INITIAL (var) = cplus_expand_constant (DECL_INITIAL (var));
-	  else
+	  if (TYPE_MAIN_VARIANT (strip_array_types (type))
+	      == iv->incomplete_type)
 	    {
 	      /* Complete the type of the variable.  The VAR_DECL itself
 		 will be laid out in expand_expr.  */
 	      complete_type (type);
 	      cp_apply_type_quals_to_decl (cp_type_quals (type), var);
 	    }
+
+	  if (DECL_INITIAL (var)
+	      && decl_constant_var_p (var))
+	    DECL_INITIAL (var) = cplus_expand_constant (DECL_INITIAL (var));
 
 	  /* Remove this entry from the list.  */
 	  incomplete_vars->unordered_remove (ix);
@@ -14663,7 +14678,7 @@ fndecl_declared_return_type (tree fn)
 bool
 undeduced_auto_decl (tree decl)
 {
-  if (cxx_dialect < cxx1y)
+  if (cxx_dialect < cxx14)
     return false;
   return type_uses_auto (TREE_TYPE (decl));
 }

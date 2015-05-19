@@ -2132,7 +2132,7 @@ static void
 add_cfis_to_fde (void)
 {
   dw_fde_ref fde = cfun->fde;
-  rtx insn, next;
+  rtx_insn *insn, *next;
   /* We always start with a function_begin label.  */
   bool first = false;
 
@@ -2286,32 +2286,31 @@ maybe_record_trace_start_abnormal (rtx start, rtx origin)
 static void
 create_trace_edges (rtx insn)
 {
-  rtx tmp, lab;
+  rtx tmp;
   int i, n;
 
   if (JUMP_P (insn))
     {
+      rtx_jump_table_data *table;
+
       if (find_reg_note (insn, REG_NON_LOCAL_GOTO, NULL_RTX))
 	return;
 
-      if (tablejump_p (insn, NULL, &tmp))
+      if (tablejump_p (insn, NULL, &table))
 	{
-	  rtvec vec;
-
-	  tmp = PATTERN (tmp);
-	  vec = XVEC (tmp, GET_CODE (tmp) == ADDR_DIFF_VEC);
+	  rtvec vec = table->get_labels ();
 
 	  n = GET_NUM_ELEM (vec);
 	  for (i = 0; i < n; ++i)
 	    {
-	      lab = XEXP (RTVEC_ELT (vec, i), 0);
+	      rtx lab = XEXP (RTVEC_ELT (vec, i), 0);
 	      maybe_record_trace_start (lab, insn);
 	    }
 	}
       else if (computed_jump_p (insn))
 	{
-	  for (lab = forced_labels; lab; lab = XEXP (lab, 1))
-	    maybe_record_trace_start (XEXP (lab, 0), insn);
+	  for (rtx_expr_list *lab = forced_labels; lab; lab = lab->next ())
+	    maybe_record_trace_start (lab->element (), insn);
 	}
       else if (returnjump_p (insn))
 	;
@@ -2320,13 +2319,13 @@ create_trace_edges (rtx insn)
 	  n = ASM_OPERANDS_LABEL_LENGTH (tmp);
 	  for (i = 0; i < n; ++i)
 	    {
-	      lab = XEXP (ASM_OPERANDS_LABEL (tmp, i), 0);
+	      rtx lab = XEXP (ASM_OPERANDS_LABEL (tmp, i), 0);
 	      maybe_record_trace_start (lab, insn);
 	    }
 	}
       else
 	{
-	  lab = JUMP_LABEL (insn);
+	  rtx lab = JUMP_LABEL (insn);
 	  gcc_assert (lab != NULL);
 	  maybe_record_trace_start (lab, insn);
 	}
@@ -2339,15 +2338,16 @@ create_trace_edges (rtx insn)
 
       /* Process non-local goto edges.  */
       if (can_nonlocal_goto (insn))
-	for (lab = nonlocal_goto_handler_labels; lab; lab = XEXP (lab, 1))
-	  maybe_record_trace_start_abnormal (XEXP (lab, 0), insn);
+	for (rtx_expr_list *lab = nonlocal_goto_handler_labels;
+	     lab;
+	     lab = lab->next ())
+	  maybe_record_trace_start_abnormal (lab->element (), insn);
     }
-  else if (GET_CODE (PATTERN (insn)) == SEQUENCE)
+  else if (rtx_sequence *seq = dyn_cast <rtx_sequence *> (PATTERN (insn)))
     {
-      rtx seq = PATTERN (insn);
-      int i, n = XVECLEN (seq, 0);
+      int i, n = seq->len ();
       for (i = 0; i < n; ++i)
-	create_trace_edges (XVECEXP (seq, 0, i));
+	create_trace_edges (seq->insn (i));
       return;
     }
 
@@ -2422,12 +2422,12 @@ scan_trace (dw_trace_info *trace)
 
       /* Handle all changes to the row state.  Sequences require special
 	 handling for the positioning of the notes.  */
-      if (GET_CODE (PATTERN (insn)) == SEQUENCE)
+      if (rtx_sequence *pat = dyn_cast <rtx_sequence *> (PATTERN (insn)))
 	{
-	  rtx elt, pat = PATTERN (insn);
-	  int i, n = XVECLEN (pat, 0);
+	  rtx elt;
+	  int i, n = pat->len ();
 
-	  control = XVECEXP (pat, 0, 0);
+	  control = pat->element (0);
 	  if (can_throw_internal (control))
 	    notice_eh_throw (control);
 	  dwarf2out_flush_queued_reg_saves ();
@@ -2439,7 +2439,7 @@ scan_trace (dw_trace_info *trace)
 	      gcc_assert (!RTX_FRAME_RELATED_P (control));
 	      gcc_assert (!find_reg_note (control, REG_ARGS_SIZE, NULL));
 
-	      elt = XVECEXP (pat, 0, 1);
+	      elt = pat->element (1);
 
 	      if (INSN_FROM_TARGET_P (elt))
 		{
@@ -2494,7 +2494,7 @@ scan_trace (dw_trace_info *trace)
 
 	  for (i = 1; i < n; ++i)
 	    {
-	      elt = XVECEXP (pat, 0, i);
+	      elt = pat->element (i);
 	      scan_insn_after (elt);
 	    }
 
@@ -2725,7 +2725,7 @@ create_pseudo_cfg (void)
 {
   bool saw_barrier, switch_sections;
   dw_trace_info ti;
-  rtx insn;
+  rtx_insn *insn;
   unsigned i;
 
   /* The first trace begins at the start of the function,

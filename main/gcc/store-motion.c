@@ -72,9 +72,9 @@ struct st_expr
   /* List of registers mentioned by the mem.  */
   rtx pattern_regs;
   /* INSN list of stores that are locally anticipatable.  */
-  rtx antic_stores;
+  rtx_insn_list *antic_stores;
   /* INSN list of stores that are locally available.  */
-  rtx avail_stores;
+  rtx_insn_list *avail_stores;
   /* Next in the list.  */
   struct st_expr * next;
   /* Store ID in the dataflow bitmaps.  */
@@ -156,8 +156,8 @@ st_expr_entry (rtx x)
   ptr->next         = store_motion_mems;
   ptr->pattern      = x;
   ptr->pattern_regs = NULL_RTX;
-  ptr->antic_stores = NULL_RTX;
-  ptr->avail_stores = NULL_RTX;
+  ptr->antic_stores = NULL;
+  ptr->avail_stores = NULL;
   ptr->reaching_reg = NULL_RTX;
   ptr->index        = 0;
   ptr->hash_index   = hash;
@@ -396,7 +396,7 @@ store_killed_in_pat (const_rtx x, const_rtx pat, int after)
    after the insn.  Return true if it does.  */
 
 static bool
-store_killed_in_insn (const_rtx x, const_rtx x_regs, const_rtx insn, int after)
+store_killed_in_insn (const_rtx x, const_rtx x_regs, const rtx_insn *insn, int after)
 {
   const_rtx reg, note, pat;
 
@@ -458,10 +458,11 @@ store_killed_in_insn (const_rtx x, const_rtx x_regs, const_rtx insn, int after)
    is killed, return the last insn in that it occurs in FAIL_INSN.  */
 
 static bool
-store_killed_after (const_rtx x, const_rtx x_regs, const_rtx insn, const_basic_block bb,
+store_killed_after (const_rtx x, const_rtx x_regs, const rtx_insn *insn,
+		    const_basic_block bb,
 		    int *regs_set_after, rtx *fail_insn)
 {
-  rtx last = BB_END (bb), act;
+  rtx_insn *last = BB_END (bb), *act;
 
   if (!store_ops_ok (x_regs, regs_set_after))
     {
@@ -487,10 +488,10 @@ store_killed_after (const_rtx x, const_rtx x_regs, const_rtx insn, const_basic_b
    within basic block BB. X_REGS is list of registers mentioned in X.
    REGS_SET_BEFORE is bitmap of registers set before or in this insn.  */
 static bool
-store_killed_before (const_rtx x, const_rtx x_regs, const_rtx insn, const_basic_block bb,
-		     int *regs_set_before)
+store_killed_before (const_rtx x, const_rtx x_regs, const rtx_insn *insn,
+		     const_basic_block bb, int *regs_set_before)
 {
-  rtx first = BB_HEAD (bb);
+  rtx_insn *first = BB_HEAD (bb);
 
   if (!store_ops_ok (x_regs, regs_set_before))
     return true;
@@ -536,10 +537,10 @@ store_killed_before (const_rtx x, const_rtx x_regs, const_rtx insn, const_basic_
    */
 
 static void
-find_moveable_store (rtx insn, int *regs_set_before, int *regs_set_after)
+find_moveable_store (rtx_insn *insn, int *regs_set_before, int *regs_set_after)
 {
   struct st_expr * ptr;
-  rtx dest, set, tmp;
+  rtx dest, set;
   int check_anticipatable, check_available;
   basic_block bb = BLOCK_FOR_INSN (insn);
 
@@ -586,15 +587,16 @@ find_moveable_store (rtx insn, int *regs_set_before, int *regs_set_after)
     check_anticipatable = 1;
   else
     {
-      tmp = XEXP (ptr->antic_stores, 0);
+      rtx_insn *tmp = ptr->antic_stores->insn ();
       if (tmp != NULL_RTX
 	  && BLOCK_FOR_INSN (tmp) != bb)
 	check_anticipatable = 1;
     }
   if (check_anticipatable)
     {
+      rtx_insn *tmp;
       if (store_killed_before (dest, ptr->pattern_regs, insn, bb, regs_set_before))
-	tmp = NULL_RTX;
+	tmp = NULL;
       else
 	tmp = insn;
       ptr->antic_stores = alloc_INSN_LIST (tmp, ptr->antic_stores);
@@ -608,7 +610,7 @@ find_moveable_store (rtx insn, int *regs_set_before, int *regs_set_after)
     check_available = 1;
   else
     {
-      tmp = XEXP (ptr->avail_stores, 0);
+      rtx_insn *tmp = ptr->avail_stores->insn ();
       if (BLOCK_FOR_INSN (tmp) != bb)
 	check_available = 1;
     }
@@ -618,6 +620,7 @@ find_moveable_store (rtx insn, int *regs_set_before, int *regs_set_after)
 	 failed last time.  */
       if (LAST_AVAIL_CHECK_FAILURE (ptr))
 	{
+	  rtx_insn *tmp;
 	  for (tmp = BB_END (bb);
 	       tmp != insn && tmp != LAST_AVAIL_CHECK_FAILURE (ptr);
 	       tmp = PREV_INSN (tmp))
@@ -644,7 +647,8 @@ compute_store_table (void)
 #ifdef ENABLE_CHECKING
   unsigned regno;
 #endif
-  rtx insn, tmp;
+  rtx_insn *insn;
+  rtx_insn *tmp;
   df_ref def;
   int *last_set_in, *already_set;
   struct st_expr * ptr, **prev_next_ptr_ptr;
@@ -699,8 +703,8 @@ compute_store_table (void)
 	{
 	  LAST_AVAIL_CHECK_FAILURE (ptr) = NULL_RTX;
 	  if (ptr->antic_stores
-	      && (tmp = XEXP (ptr->antic_stores, 0)) == NULL_RTX)
-	    ptr->antic_stores = XEXP (ptr->antic_stores, 1);
+	      && (tmp = ptr->antic_stores->insn ()) == NULL_RTX)
+	    ptr->antic_stores = ptr->antic_stores->next ();
 	}
     }
 
@@ -739,11 +743,11 @@ compute_store_table (void)
    the BB_HEAD if needed.  */
 
 static void
-insert_insn_start_basic_block (rtx insn, basic_block bb)
+insert_insn_start_basic_block (rtx_insn *insn, basic_block bb)
 {
   /* Insert at start of successor block.  */
-  rtx prev = PREV_INSN (BB_HEAD (bb));
-  rtx before = BB_HEAD (bb);
+  rtx_insn *prev = PREV_INSN (BB_HEAD (bb));
+  rtx_insn *before = BB_HEAD (bb);
   while (before != 0)
     {
       if (! LABEL_P (before)
@@ -773,7 +777,8 @@ insert_insn_start_basic_block (rtx insn, basic_block bb)
 static int
 insert_store (struct st_expr * expr, edge e)
 {
-  rtx reg, insn;
+  rtx reg;
+  rtx_insn *insn;
   basic_block bb;
   edge tmp;
   edge_iterator ei;
@@ -787,7 +792,7 @@ insert_store (struct st_expr * expr, edge e)
     return 0;
 
   reg = expr->reaching_reg;
-  insn = gen_move_insn (copy_rtx (expr->pattern), reg);
+  insn = as_a <rtx_insn *> (gen_move_insn (copy_rtx (expr->pattern), reg));
 
   /* If we are inserting this expression on ALL predecessor edges of a BB,
      insert it at the start of the BB, and reset the insert bits on the other
@@ -845,7 +850,8 @@ remove_reachable_equiv_notes (basic_block bb, struct st_expr *smexpr)
   int sp;
   edge act;
   sbitmap visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  rtx last, insn, note;
+  rtx last, note;
+  rtx_insn *insn;
   rtx mem = smexpr->pattern;
 
   stack = XNEWVEC (edge_iterator, n_basic_blocks_for_fn (cfun));
@@ -922,10 +928,11 @@ remove_reachable_equiv_notes (basic_block bb, struct st_expr *smexpr)
 static void
 replace_store_insn (rtx reg, rtx del, basic_block bb, struct st_expr *smexpr)
 {
-  rtx insn, mem, note, set, ptr;
+  rtx_insn *insn;
+  rtx mem, note, set, ptr;
 
   mem = smexpr->pattern;
-  insn = gen_move_insn (reg, SET_SRC (single_set (del)));
+  insn = as_a <rtx_insn *> (gen_move_insn (reg, SET_SRC (single_set (del))));
 
   for (ptr = smexpr->antic_stores; ptr; ptr = XEXP (ptr, 1))
     if (XEXP (ptr, 0) == del)

@@ -572,7 +572,7 @@ advance_one_cycle (fence_t fence)
 {
   unsigned i;
   int cycle;
-  rtx insn;
+  rtx_insn *insn;
 
   advance_state (FENCE_STATE (fence));
   cycle = ++FENCE_CYCLE (fence);
@@ -630,7 +630,7 @@ extract_new_fences_from (flist_t old_fences, flist_tail_t new_fences,
 			 int orig_max_seqno)
 {
   bool was_here_p = false;
-  insn_t insn = NULL_RTX;
+  insn_t insn = NULL;
   insn_t succ;
   succ_iterator si;
   ilist_iterator ii;
@@ -753,7 +753,7 @@ substitute_reg_in_expr (expr_t expr, insn_t insn, bool undo)
   /* Substitute if INSN has a form of x:=y and LHS(INSN) occurs in *VI.  */
   if (rtx_ok_for_substitution_p (old, *where))
     {
-      rtx new_insn;
+      rtx_insn *new_insn;
       rtx *where_replace;
 
       /* We should copy these rtxes before substitution.  */
@@ -864,12 +864,12 @@ rtx_ok_for_substitution_p (rtx what, rtx where)
 
 /* Substitute VI's set source with REGNO.  Returns newly created pattern
    that has REGNO as its source.  */
-static rtx
+static rtx_insn *
 create_insn_rtx_with_rhs (vinsn_t vi, rtx rhs_rtx)
 {
   rtx lhs_rtx;
   rtx pattern;
-  rtx insn_rtx;
+  rtx_insn *insn_rtx;
 
   lhs_rtx = copy_rtx (VINSN_LHS (vi));
 
@@ -945,12 +945,12 @@ replace_dest_with_reg_ok_p (insn_t insn, rtx new_reg)
 }
 
 /* Create a pattern with rhs of VI and lhs of LHS_RTX.  */
-static rtx
+static rtx_insn *
 create_insn_rtx_with_lhs (vinsn_t vi, rtx lhs_rtx)
 {
   rtx rhs_rtx;
   rtx pattern;
-  rtx insn_rtx;
+  rtx_insn *insn_rtx;
 
   rhs_rtx = copy_rtx (VINSN_RHS (vi));
 
@@ -965,7 +965,7 @@ create_insn_rtx_with_lhs (vinsn_t vi, rtx lhs_rtx)
 static void
 replace_dest_with_reg_in_expr (expr_t expr, rtx new_reg)
 {
-  rtx insn_rtx;
+  rtx_insn *insn_rtx;
   vinsn_t vinsn;
 
   insn_rtx = create_insn_rtx_with_lhs (EXPR_VINSN (expr), new_reg);
@@ -1802,10 +1802,10 @@ static insn_t
 create_speculation_check (expr_t c_expr, ds_t check_ds, insn_t orig_insn)
 {
   rtx check_pattern;
-  rtx insn_rtx;
+  rtx_insn *insn_rtx;
   insn_t insn;
   basic_block recovery_block;
-  rtx label;
+  rtx_insn *label;
 
   /* Create a recovery block if target is going to emit branchy check, or if
      ORIG_INSN was speculative already.  */
@@ -1818,7 +1818,7 @@ create_speculation_check (expr_t c_expr, ds_t check_ds, insn_t orig_insn)
   else
     {
       recovery_block = NULL;
-      label = NULL_RTX;
+      label = NULL;
     }
 
   /* Get pattern of the check.  */
@@ -1894,7 +1894,7 @@ identical_copy_p (rtx insn)
 /* Undo all transformations on *AV_PTR that were done when
    moving through INSN.  */
 static void
-undo_transformations (av_set_t *av_ptr, rtx insn)
+undo_transformations (av_set_t *av_ptr, rtx_insn *insn)
 {
   av_set_iterator av_iter;
   expr_t expr;
@@ -2103,7 +2103,8 @@ static bool
 implicit_clobber_conflict_p (insn_t through_insn, expr_t expr)
 {
   HARD_REG_SET temp;
-  rtx insn, reg, rhs, pat;
+  rtx_insn *insn;
+  rtx reg, rhs, pat;
   hard_reg_set_iterator hrsi;
   unsigned regno;
   bool valid;
@@ -3188,7 +3189,7 @@ compute_live (insn_t insn)
 
 /* Update liveness sets for INSN.  */
 static inline void
-update_liveness_on_insn (rtx insn)
+update_liveness_on_insn (rtx_insn *insn)
 {
   ignore_first = true;
   compute_live (insn);
@@ -3196,9 +3197,9 @@ update_liveness_on_insn (rtx insn)
 
 /* Compute liveness below INSN and write it into REGS.  */
 static inline void
-compute_live_below_insn (rtx insn, regset regs)
+compute_live_below_insn (rtx_insn *insn, regset regs)
 {
-  rtx succ;
+  rtx_insn *succ;
   succ_iterator si;
 
   FOR_EACH_SUCC_1 (succ, si, insn, SUCCS_ALL)
@@ -3207,7 +3208,7 @@ compute_live_below_insn (rtx insn, regset regs)
 
 /* Update the data gathered in av and lv sets starting from INSN.  */
 static void
-update_data_sets (rtx insn)
+update_data_sets (rtx_insn *insn)
 {
   update_liveness_on_insn (insn);
   if (sel_bb_head_p (insn))
@@ -3954,7 +3955,7 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence,
   if (FENCE_SCHED_NEXT (fence))
     {
       gcc_assert (sched_next_worked == 1);
-      FENCE_SCHED_NEXT (fence) = NULL_RTX;
+      FENCE_SCHED_NEXT (fence) = NULL;
     }
 
   /* No need to stall if this variable was not initialized.  */
@@ -4153,7 +4154,7 @@ invoke_reorder_hooks (fence_t fence)
   if (issue_more && ran_hook)
     {
       int i, j, n;
-      rtx *arr = ready.vec;
+      rtx_insn **arr = ready.vec;
       expr_t *vec = vec_av_set.address ();
 
       for (i = 0, n = ready.n_ready; i < n; i++)
@@ -4280,7 +4281,7 @@ calculate_privileged_insns (void)
    number is ISSUE_MORE.  FENCE and BEST_INSN are the current fence
    and the insn chosen for scheduling, respectively.  */
 static int
-invoke_aftermath_hooks (fence_t fence, rtx best_insn, int issue_more)
+invoke_aftermath_hooks (fence_t fence, rtx_insn *best_insn, int issue_more)
 {
   gcc_assert (INSN_P (best_insn));
 
@@ -4327,7 +4328,7 @@ estimate_insn_cost (rtx insn, state_t state)
 static int
 get_expr_cost (expr_t expr, fence_t fence)
 {
-  rtx insn = EXPR_INSN_RTX (expr);
+  rtx_insn *insn = EXPR_INSN_RTX (expr);
 
   if (recog_memoized (insn) < 0)
     {
@@ -4586,7 +4587,7 @@ create_block_for_bookkeeping (edge e1, edge e2)
   /* Move note_list from the upper bb.  */
   gcc_assert (BB_NOTE_LIST (new_bb) == NULL_RTX);
   BB_NOTE_LIST (new_bb) = BB_NOTE_LIST (bb);
-  BB_NOTE_LIST (bb) = NULL_RTX;
+  BB_NOTE_LIST (bb) = NULL;
 
   gcc_assert (e2->dest == bb);
 
@@ -4715,7 +4716,7 @@ find_place_for_bookkeeping (edge e1, edge e2, fence_t *fence_to_rewind)
 	 removed already.  */
       if (DEBUG_INSN_P (place_to_insert))
 	{
-	  rtx insn = sel_bb_head (book_block);
+	  rtx_insn *insn = sel_bb_head (book_block);
 
 	  while (insn != place_to_insert &&
 		 (DEBUG_INSN_P (insn) || NOTE_P (insn)))
@@ -4797,7 +4798,7 @@ find_seqno_for_bookkeeping (insn_t place_to_insert, insn_t join_point)
 static insn_t
 emit_bookkeeping_insn (insn_t place_to_insert, expr_t c_expr, int new_seqno)
 {
-  rtx new_insn_rtx = create_copy_of_insn_rtx (EXPR_INSN_RTX (c_expr));
+  rtx_insn *new_insn_rtx = create_copy_of_insn_rtx (EXPR_INSN_RTX (c_expr));
 
   vinsn_t new_vinsn
     = create_vinsn_from_insn_rtx (new_insn_rtx,
@@ -4921,11 +4922,11 @@ remove_insns_that_need_bookkeeping (fence_t fence, av_set_t *av_ptr)
       ...
 */
 static void
-move_cond_jump (rtx insn, bnd_t bnd)
+move_cond_jump (rtx_insn *insn, bnd_t bnd)
 {
   edge ft_edge;
   basic_block block_from, block_next, block_new, block_bnd, bb;
-  rtx next, prev, link, head;
+  rtx_insn *next, *prev, *link, *head;
 
   block_from = BLOCK_FOR_INSN (insn);
   block_bnd = BLOCK_FOR_INSN (BND_TO (bnd));
@@ -4972,7 +4973,7 @@ move_cond_jump (rtx insn, bnd_t bnd)
   head = BB_HEAD (block_new);
   while (bb != block_from->next_bb)
     {
-      rtx from, to;
+      rtx_insn *from, *to;
       from = bb == block_bnd ? prev : sel_bb_head (bb);
       to = bb == block_from ? next : sel_bb_end (bb);
 
@@ -5193,14 +5194,14 @@ move_nop_to_previous_block (insn_t nop, basic_block prev_bb)
   gcc_assert (prev_insn != NULL_RTX
               && PREV_INSN (note) == prev_insn);
 
-  NEXT_INSN (prev_insn) = nop;
-  PREV_INSN (nop) = prev_insn;
+  SET_NEXT_INSN (prev_insn) = nop;
+  SET_PREV_INSN (nop) = prev_insn;
 
-  PREV_INSN (note) = nop;
-  NEXT_INSN (note) = next_insn;
+  SET_PREV_INSN (note) = nop;
+  SET_NEXT_INSN (note) = next_insn;
 
-  NEXT_INSN (nop) = note;
-  PREV_INSN (next_insn) = note;
+  SET_NEXT_INSN (nop) = note;
+  SET_PREV_INSN (next_insn) = note;
 
   BB_END (prev_bb) = nop;
   BLOCK_FOR_INSN (nop) = prev_bb;
@@ -5372,7 +5373,7 @@ update_fence_and_insn (fence_t fence, insn_t insn, int need_stall)
       SCHED_GROUP_P (insn) = 0;
     }
   else
-    FENCE_SCHED_NEXT (fence) = NULL_RTX;
+    FENCE_SCHED_NEXT (fence) = NULL;
   if (INSN_UID (insn) < FENCE_READY_TICKS_SIZE (fence))
     FENCE_READY_TICKS (fence) [INSN_UID (insn)] = 0;
 
@@ -5706,7 +5707,7 @@ update_and_record_unavailable_insns (basic_block book_block)
   av_set_iterator i;
   av_set_t old_av_set = NULL;
   expr_t cur_expr;
-  rtx bb_end = sel_bb_end (book_block);
+  rtx_insn *bb_end = sel_bb_end (book_block);
 
   /* First, get correct liveness in the bookkeeping block.  The problem is
      the range between the bookeeping insn and the end of block.  */
@@ -5874,7 +5875,7 @@ track_scheduled_insns_and_blocks (rtx insn)
 /* Emit a register-register copy for INSN if needed.  Return true if
    emitted one.  PARAMS is the move_op static parameters.  */
 static bool
-maybe_emit_renaming_copy (rtx insn,
+maybe_emit_renaming_copy (rtx_insn *insn,
                           moveop_static_params_p params)
 {
   bool insn_emitted  = false;
@@ -5914,7 +5915,7 @@ maybe_emit_renaming_copy (rtx insn,
    Return true if we've  emitted one.  PARAMS is the move_op static
    parameters.  */
 static bool
-maybe_emit_speculative_check (rtx insn, expr_t expr,
+maybe_emit_speculative_check (rtx_insn *insn, expr_t expr,
                               moveop_static_params_p params)
 {
   bool insn_emitted = false;
@@ -5943,7 +5944,7 @@ maybe_emit_speculative_check (rtx insn, expr_t expr,
    insn such as renaming/speculation.  Return true if one of such
    transformations actually happened, and we have emitted this insn.  */
 static bool
-handle_emitting_transformations (rtx insn, expr_t expr,
+handle_emitting_transformations (rtx_insn *insn, expr_t expr,
                                  moveop_static_params_p params)
 {
   bool insn_emitted = false;
@@ -5959,7 +5960,7 @@ handle_emitting_transformations (rtx insn, expr_t expr,
    leave a NOP there till the return to fill_insns.  */
 
 static bool
-need_nop_to_preserve_insn_bb (rtx insn)
+need_nop_to_preserve_insn_bb (rtx_insn *insn)
 {
   insn_t bb_head, bb_end, bb_next, in_next;
   basic_block bb = BLOCK_FOR_INSN (insn);
@@ -6002,7 +6003,7 @@ need_nop_to_preserve_insn_bb (rtx insn)
 /* Remove INSN from stream.  When ONLY_DISCONNECT is true, its data
    is not removed but reused when INSN is re-emitted.  */
 static void
-remove_insn_from_stream (rtx insn, bool only_disconnect)
+remove_insn_from_stream (rtx_insn *insn, bool only_disconnect)
 {
   /* If there's only one insn in the BB, make sure that a nop is
      inserted into it, so the basic block won't disappear when we'll
@@ -6350,7 +6351,7 @@ code_motion_process_successors (insn_t insn, av_set_t orig_ops,
 {
   int res = 0;
   succ_iterator succ_i;
-  rtx succ;
+  insn_t succ;
   basic_block bb;
   int old_index;
   unsigned old_succs;
@@ -6637,7 +6638,7 @@ code_motion_path_driver (insn_t insn, av_set_t orig_ops, ilist_t path,
   if (!expr)
     {
       int res;
-      rtx last_insn = PREV_INSN (insn);
+      rtx_insn *last_insn = PREV_INSN (insn);
       bool added_to_path;
 
       gcc_assert (insn == sel_bb_end (bb));
@@ -7005,7 +7006,7 @@ simplify_changed_insns (void)
   for (i = 0; i < current_nr_blocks; i++)
     {
       basic_block bb = BASIC_BLOCK_FOR_FN (cfun, BB_TO_BLOCK (i));
-      rtx insn;
+      rtx_insn *insn;
 
       FOR_BB_INSNS (bb, insn)
 	if (INSN_P (insn))
@@ -7024,7 +7025,7 @@ simplify_changed_insns (void)
 static void
 find_ebb_boundaries (basic_block bb, bitmap scheduled_blocks)
 {
-  insn_t head, tail;
+  rtx_insn *head, *tail;
   basic_block bb1 = bb;
   if (sched_verbose >= 2)
     sel_print ("Finishing schedule in bbs: ");

@@ -1334,7 +1334,7 @@ coverage_compute_profile_id (struct cgraph_node *n)
   unsigned chksum;
 
   /* Externally visible symbols have unique name.  */
-  if (TREE_PUBLIC (n->decl) || DECL_EXTERNAL (n->decl))
+  if (TREE_PUBLIC (n->decl) || DECL_EXTERNAL (n->decl) || n->unique_name)
     {
       chksum = coverage_checksum_string
 	(0, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (n->decl)));
@@ -1357,8 +1357,10 @@ coverage_compute_profile_id (struct cgraph_node *n)
 	(chksum, aux_base_name);
     }
 
-  /* Non-negative integers are hopefully small enough to fit in all targets.  */
-  return chksum & 0x7fffffff;
+  /* Non-negative integers are hopefully small enough to fit in all targets.
+     Gcov file formats wants non-zero function IDs.  */
+  chksum = chksum & 0x7fffffff;
+  return chksum + (!chksum);
 }
 
 /* Compute cfg checksum for the function FN given as argument.
@@ -1448,29 +1450,22 @@ coverage_end_function (unsigned lineno_checksum, unsigned cfg_checksum)
     {
       struct coverage_data *item = 0;
 
-      /* If the function is extern (i.e. extern inline), then we won't
-	 be outputting it, so don't chain it onto the function
-	 list.  */
-      if (!DECL_EXTERNAL (current_function_decl))
+      item = ggc_alloc<coverage_data> ();
+
+      if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID) || flag_dyn_ipa)
+	item->ident = FUNC_DECL_FUNC_ID (cfun);
+      else
 	{
-	  item = ggc_alloc<coverage_data> ();
-
-          if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID) || flag_dyn_ipa)
-	    item->ident = FUNC_DECL_FUNC_ID (cfun);
-          else
-            {
-              gcc_assert (coverage_node_map_initialized_p ());
+	  gcc_assert (coverage_node_map_initialized_p ());
               item->ident = cgraph_node::get (cfun->decl)->profile_id;
-            }
-
-	  item->lineno_checksum = lineno_checksum;
-	  item->cfg_checksum = cfg_checksum;
-
-	  item->fn_decl = current_function_decl;
-	  item->next = 0;
-	  *functions_tail = item;
-	  functions_tail = &item->next;
 	}
+      item->lineno_checksum = lineno_checksum;
+      item->cfg_checksum = cfg_checksum;
+
+      item->fn_decl = current_function_decl;
+      item->next = 0;
+      *functions_tail = item;
+      functions_tail = &item->next;
 
       for (i = 0; i != GCOV_COUNTERS; i++)
 	{
@@ -2346,8 +2341,8 @@ coverage_obj_init (void)
   if (!prg_ctr_mask)
     return false;
 
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, "Using data file %s\n", da_file_name);
+  if (symtab->dump_file)
+    fprintf (symtab->dump_file, "Using data file %s\n", da_file_name);
 
   /* Prune functions.  */
   if (!flag_dyn_ipa)

@@ -87,7 +87,7 @@ unsigned long c6x_insn_mask = C6X_DEFAULT_INSN_MASK;
 
 /* The instruction that is being output (as obtained from FINAL_PRESCAN_INSN).
  */
-static rtx c6x_current_insn = NULL_RTX;
+static rtx_insn *c6x_current_insn = NULL;
 
 /* A decl we build to access __c6xabi_DSBT_base.  */
 static GTY(()) tree dsbt_decl;
@@ -770,7 +770,7 @@ c6x_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
   /* The this parameter is passed as the first argument.  */
   rtx this_rtx = gen_rtx_REG (Pmode, REG_A4);
 
-  c6x_current_insn = NULL_RTX;
+  c6x_current_insn = NULL;
 
   xops[4] = XEXP (DECL_RTL (function), 0);
   if (!vcall_offset)
@@ -1177,7 +1177,7 @@ c6x_function_ok_for_sibcall (tree decl, tree exp)
 	/* Not enough information.  */
 	return false;
 
-      this_func = cgraph_local_info (current_function_decl);
+      this_func = cgraph_node::local_info (current_function_decl);
       return this_func->local;
     }
 
@@ -1566,7 +1566,7 @@ c6x_expand_compare (rtx comparison, enum machine_mode mode)
 
       if (is_fp_libfunc)
 	{
-	  rtx insns;
+	  rtx_insn *insns;
 	  rtx libfunc;
 	  switch (code)
 	    {
@@ -1971,7 +1971,7 @@ c6x_print_address_operand (FILE *file, rtx x, enum machine_mode mem_mode)
    specifies the functional unit used by INSN.  */
 
 char
-c6x_get_unit_specifier (rtx insn)
+c6x_get_unit_specifier (rtx_insn *insn)
 {
   enum attr_units units;
 
@@ -2008,7 +2008,7 @@ c6x_get_unit_specifier (rtx insn)
 
 /* Prints the unit specifier field.  */
 static void
-c6x_print_unit_specifier_field (FILE *file, rtx insn)
+c6x_print_unit_specifier_field (FILE *file, rtx_insn *insn)
 {
   enum attr_units units = get_attr_units (insn);
   enum attr_cross cross = get_attr_cross (insn);
@@ -2488,7 +2488,7 @@ c6x_preferred_rename_class (reg_class_t cl)
 
 /* Implements FINAL_PRESCAN_INSN.  */
 void
-c6x_final_prescan_insn (rtx insn, rtx *opvec ATTRIBUTE_UNUSED,
+c6x_final_prescan_insn (rtx_insn *insn, rtx *opvec ATTRIBUTE_UNUSED,
 			int noperands ATTRIBUTE_UNUSED)
 {
   c6x_current_insn = insn;
@@ -2540,7 +2540,7 @@ must_reload_pic_reg_p (void)
   if (!TARGET_DSBT)
     return false;
 
-  i = cgraph_local_info (current_function_decl);
+  i = cgraph_node::local_info (current_function_decl);
 
   if ((crtl->uses_pic_offset_table || !crtl->is_leaf) && !i->local)
     return true;
@@ -2716,7 +2716,7 @@ emit_add_sp_const (HOST_WIDE_INT offset, bool frame_related_p)
 {
   rtx to_add = GEN_INT (offset);
   rtx orig_to_add = to_add;
-  rtx insn;
+  rtx_insn *insn;
 
   if (offset == 0)
     return;
@@ -2753,7 +2753,8 @@ void
 c6x_expand_prologue (void)
 {
   struct c6x_frame frame;
-  rtx insn, mem;
+  rtx_insn *insn;
+  rtx mem;
   int nsaved = 0;
   HOST_WIDE_INT initial_offset, off, added_already;
 
@@ -3614,7 +3615,7 @@ typedef struct c6x_sched_context
   /* The following variable value is the last issued insn.  */
   rtx last_scheduled_insn;
   /* The last issued insn that isn't a shadow of another.  */
-  rtx last_scheduled_iter0;
+  rtx_insn *last_scheduled_iter0;
 
   /* The following variable value is DFA state before issuing the
      first insn in the current clock cycle.  We do not use this member
@@ -3844,7 +3845,7 @@ static void
 init_sched_state (c6x_sched_context_t sc)
 {
   sc->last_scheduled_insn = NULL_RTX;
-  sc->last_scheduled_iter0 = NULL_RTX;
+  sc->last_scheduled_iter0 = NULL;
   sc->issued_this_cycle = 0;
   memset (sc->jump_cycles, 0, sizeof sc->jump_cycles);
   memset (sc->jump_cond, 0, sizeof sc->jump_cond);
@@ -3981,7 +3982,8 @@ c6x_sched_init (FILE *dump ATTRIBUTE_UNUSED,
 
 static int
 c6x_dfa_new_cycle (FILE *dump ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
-		   rtx insn ATTRIBUTE_UNUSED, int last_clock ATTRIBUTE_UNUSED,
+		   rtx_insn *insn ATTRIBUTE_UNUSED,
+		   int last_clock ATTRIBUTE_UNUSED,
 		   int clock ATTRIBUTE_UNUSED, int *sort_p ATTRIBUTE_UNUSED)
 {
   if (clock != last_clock)
@@ -4131,11 +4133,11 @@ c6x_registers_update (rtx insn)
    number of non-unsafe insns.  */
 
 static int
-c6x_sched_reorder_1 (rtx *ready, int *pn_ready, int clock_var)
+c6x_sched_reorder_1 (rtx_insn **ready, int *pn_ready, int clock_var)
 {
   int n_ready = *pn_ready;
-  rtx *e_ready = ready + n_ready;
-  rtx *insnp;
+  rtx_insn **e_ready = ready + n_ready;
+  rtx_insn **insnp;
   int first_jump;
 
   /* Keep track of conflicts due to a limit number of register accesses,
@@ -4144,7 +4146,7 @@ c6x_sched_reorder_1 (rtx *ready, int *pn_ready, int clock_var)
 
   for (insnp = ready; insnp < e_ready; insnp++)
     {
-      rtx insn = *insnp;
+      rtx_insn *insn = *insnp;
       int icode = recog_memoized (insn);
       bool is_asm = (icode < 0
 		     && (GET_CODE (PATTERN (insn)) == ASM_INPUT
@@ -4205,7 +4207,7 @@ c6x_sched_reorder_1 (rtx *ready, int *pn_ready, int clock_var)
 
       for (insnp = ready; insnp < e_ready; insnp++)
 	{
-	  rtx insn = *insnp;
+	  rtx_insn *insn = *insnp;
 	  int icode = recog_memoized (insn);
 	  bool is_asm = (icode < 0
 			 && (GET_CODE (PATTERN (insn)) == ASM_INPUT
@@ -4248,7 +4250,7 @@ c6x_sched_reorder_1 (rtx *ready, int *pn_ready, int clock_var)
 static int
 c6x_sched_reorder (FILE *dump ATTRIBUTE_UNUSED,
 		   int sched_verbose ATTRIBUTE_UNUSED,
-		   rtx *ready ATTRIBUTE_UNUSED,
+		   rtx_insn **ready ATTRIBUTE_UNUSED,
 		   int *pn_ready ATTRIBUTE_UNUSED, int clock_var)
 {
   ss.curr_sched_clock = clock_var;
@@ -4268,7 +4270,7 @@ c6x_sched_reorder (FILE *dump ATTRIBUTE_UNUSED,
 static int
 c6x_sched_reorder2 (FILE *dump ATTRIBUTE_UNUSED,
 		    int sched_verbose ATTRIBUTE_UNUSED,
-		    rtx *ready ATTRIBUTE_UNUSED,
+		    rtx_insn **ready ATTRIBUTE_UNUSED,
 		    int *pn_ready ATTRIBUTE_UNUSED, int clock_var)
 {
   /* FIXME: the assembler rejects labels inside an execute packet.
@@ -4281,12 +4283,12 @@ c6x_sched_reorder2 (FILE *dump ATTRIBUTE_UNUSED,
 	  && get_attr_type (ss.last_scheduled_insn) == TYPE_ATOMIC))
     {
       int n_ready = *pn_ready;
-      rtx *e_ready = ready + n_ready;
-      rtx *insnp;
+      rtx_insn **e_ready = ready + n_ready;
+      rtx_insn **insnp;
 
       for (insnp = ready; insnp < e_ready; insnp++)
 	{
-	  rtx insn = *insnp;
+	  rtx_insn *insn = *insnp;
 	  if (!shadow_p (insn))
 	    {
 	      memmove (ready + 1, ready, (insnp - ready) * sizeof (rtx));
@@ -4357,7 +4359,7 @@ maybe_clobber_cond (rtx insn, int clock_var)
 static int
 c6x_variable_issue (FILE *dump ATTRIBUTE_UNUSED,
 		    int sched_verbose ATTRIBUTE_UNUSED,
-		    rtx insn, int can_issue_more ATTRIBUTE_UNUSED)
+		    rtx_insn *insn, int can_issue_more ATTRIBUTE_UNUSED)
 {
   ss.last_scheduled_insn = insn;
   if (INSN_UID (insn) < sploop_max_uid_iter0 && !JUMP_P (insn))
@@ -4464,7 +4466,7 @@ c6x_variable_issue (FILE *dump ATTRIBUTE_UNUSED,
    anti- and output dependencies.  */
 
 static int
-c6x_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
+c6x_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
 {
   enum attr_type insn_type = TYPE_UNKNOWN, dep_insn_type = TYPE_UNKNOWN;
   int dep_insn_code_number, insn_code_number;
@@ -4599,7 +4601,7 @@ gen_one_bundle (rtx *slot, int n_filled, int real_first)
   bundle = make_insn_raw (bundle);
   BLOCK_FOR_INSN (bundle) = BLOCK_FOR_INSN (slot[0]);
   INSN_LOCATION (bundle) = INSN_LOCATION (slot[0]);
-  PREV_INSN (bundle) = PREV_INSN (slot[real_first]);
+  SET_PREV_INSN (bundle) = SET_PREV_INSN (slot[real_first]);
 
   t = NULL_RTX;
 
@@ -4607,18 +4609,18 @@ gen_one_bundle (rtx *slot, int n_filled, int real_first)
     {
       rtx insn = slot[i];
       remove_insn (insn);
-      PREV_INSN (insn) = t ? t : PREV_INSN (bundle);
+      SET_PREV_INSN (insn) = t ? t : PREV_INSN (bundle);
       if (t != NULL_RTX)
-	NEXT_INSN (t) = insn;
+	SET_NEXT_INSN (t) = insn;
       t = insn;
       if (i > 0)
 	INSN_LOCATION (slot[i]) = INSN_LOCATION (bundle);
     }
 
-  NEXT_INSN (bundle) = NEXT_INSN (PREV_INSN (bundle));
-  NEXT_INSN (t) = NEXT_INSN (bundle);
-  NEXT_INSN (PREV_INSN (bundle)) = bundle;
-  PREV_INSN (NEXT_INSN (bundle)) = bundle;
+  SET_NEXT_INSN (bundle) = NEXT_INSN (PREV_INSN (bundle));
+  SET_NEXT_INSN (t) = NEXT_INSN (bundle);
+  SET_NEXT_INSN (PREV_INSN (bundle)) = bundle;
+  SET_PREV_INSN (NEXT_INSN (bundle)) = bundle;
 }
 
 /* Move all parallel instructions into SEQUENCEs, so that no subsequent passes
@@ -4710,12 +4712,12 @@ c6x_gen_bundles (void)
 	continue;
       if (NEXT_INSN (last_call) == insn)
 	continue;
-      NEXT_INSN (PREV_INSN (insn)) = NEXT_INSN (insn);
-      PREV_INSN (NEXT_INSN (insn)) = PREV_INSN (insn);
-      PREV_INSN (insn) = last_call;
-      NEXT_INSN (insn) = NEXT_INSN (last_call);
-      PREV_INSN (NEXT_INSN (insn)) = insn;
-      NEXT_INSN (PREV_INSN (insn)) = insn;
+      SET_NEXT_INSN (PREV_INSN (insn)) = NEXT_INSN (insn);
+      SET_PREV_INSN (NEXT_INSN (insn)) = PREV_INSN (insn);
+      SET_PREV_INSN (insn) = last_call;
+      SET_NEXT_INSN (insn) = NEXT_INSN (last_call);
+      SET_PREV_INSN (NEXT_INSN (insn)) = insn;
+      SET_NEXT_INSN (PREV_INSN (insn)) = insn;
       last_call = insn;
     }
 }
@@ -5151,10 +5153,11 @@ reorg_emit_nops (rtx *call_labels)
 /* If possible, split INSN, which we know is either a jump or a call, into a real
    insn and its shadow.  */
 static void
-split_delayed_branch (rtx insn)
+split_delayed_branch (rtx_insn *insn)
 {
   int code = recog_memoized (insn);
-  rtx i1, newpat;
+  rtx_insn *i1;
+  rtx newpat;
   rtx pat = PATTERN (insn);
 
   if (GET_CODE (pat) == COND_EXEC)
@@ -5257,11 +5260,12 @@ split_delayed_branch (rtx insn)
    with the possibility.  Currently we handle loads and most mpy2 and
    mpy4 insns.  */
 static bool
-split_delayed_nonbranch (rtx insn)
+split_delayed_nonbranch (rtx_insn *insn)
 {
   int code = recog_memoized (insn);
   enum attr_type type;
-  rtx i1, newpat, src, dest;
+  rtx_insn *i1;
+  rtx newpat, src, dest;
   rtx pat = PATTERN (insn);
   rtvec rtv;
   int delay;
@@ -5369,7 +5373,7 @@ undo_split_delayed_nonbranch (rtx insn)
 static void
 split_delayed_insns (void)
 {
-  rtx insn;
+  rtx_insn *insn;
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
       if (JUMP_P (insn) || CALL_P (insn))
@@ -5511,17 +5515,17 @@ static bool
 hwloop_optimize (hwloop_info loop)
 {
   basic_block entry_bb, bb;
-  rtx seq, insn, prev, entry_after, end_packet;
-  rtx head_insn, tail_insn, new_insns, last_insn;
+  rtx_insn *seq, *insn, *prev, *entry_after, *end_packet;
+  rtx_insn *head_insn, *tail_insn, *new_insns, *last_insn;
   int loop_earliest;
   int n_execute_packets;
   edge entry_edge;
   unsigned ix;
   int max_uid_before, delayed_splits;
   int i, sp_ii, min_ii, max_ii, max_parallel, n_insns, n_real_insns, stages;
-  rtx *orig_vec;
-  rtx *copies;
-  rtx **insn_copies;
+  rtx_insn **orig_vec;
+  rtx_insn **copies;
+  rtx_insn ***insn_copies;
 
   if (!c6x_flag_modulo_sched || !c6x_flag_schedule_insns2
       || !TARGET_INSNS_64PLUS)
@@ -5586,7 +5590,7 @@ hwloop_optimize (hwloop_info loop)
       if (NONDEBUG_INSN_P (insn) && insn != loop->loop_end)
 	n_real_insns++;
     }
-  orig_vec = XNEWVEC (rtx, n_insns);
+  orig_vec = XNEWVEC (rtx_insn *, n_insns);
   n_insns = 0;
   FOR_BB_INSNS (bb, insn)
     orig_vec[n_insns++] = insn;
@@ -5604,8 +5608,8 @@ hwloop_optimize (hwloop_info loop)
      to handle.  */
   max_parallel = loop_earliest / min_ii + 1;
 
-  copies = XCNEWVEC (rtx, (max_parallel + 1) * n_real_insns);
-  insn_copies = XNEWVEC (rtx *, max_parallel + 1);
+  copies = XCNEWVEC (rtx_insn *, (max_parallel + 1) * n_real_insns);
+  insn_copies = XNEWVEC (rtx_insn **, max_parallel + 1);
   for (i = 0; i < max_parallel + 1; i++)
     insn_copies[i] = copies + i * n_real_insns;
 
@@ -5625,20 +5629,20 @@ hwloop_optimize (hwloop_info loop)
   for (i = 0; i < max_parallel; i++)
     {
       int j;
-      rtx this_iter;
+      rtx_insn *this_iter;
 
       this_iter = duplicate_insn_chain (head_insn, tail_insn);
       j = 0;
       while (this_iter)
 	{
-	  rtx prev_stage_insn = insn_copies[i][j];
+	  rtx_insn *prev_stage_insn = insn_copies[i][j];
 	  gcc_assert (INSN_CODE (this_iter) == INSN_CODE (prev_stage_insn));
 
 	  if (INSN_CODE (this_iter) >= 0
 	      && (get_attr_type (this_iter) == TYPE_LOAD_SHADOW
 		  || get_attr_type (this_iter) == TYPE_MULT_SHADOW))
 	    {
-	      rtx prev = PREV_INSN (this_iter);
+	      rtx_insn *prev = PREV_INSN (this_iter);
 	      record_delay_slot_pair (prev, this_iter,
 				      get_attr_cycles (prev) - 1, 0);
 	    }
@@ -5698,8 +5702,8 @@ hwloop_optimize (hwloop_info loop)
      reservations of the instructions contained in it to the corresponding
      instructions from iteration 0, which are the only ones we'll keep.  */
   assign_reservations (BB_HEAD (bb), ss.last_scheduled_insn);
-  PREV_INSN (BB_END (bb)) = ss.last_scheduled_iter0;
-  NEXT_INSN (ss.last_scheduled_iter0) = BB_END (bb);
+  SET_PREV_INSN (BB_END (bb)) = ss.last_scheduled_iter0;
+  SET_NEXT_INSN (ss.last_scheduled_iter0) = BB_END (bb);
   filter_insns_above (bb, sploop_max_uid_iter0);
 
   for (i = 0; i < n_real_insns; i++)
@@ -5722,9 +5726,11 @@ hwloop_optimize (hwloop_info loop)
 
   /* Compute the number of execute packets the pipelined form of the loop will
      require.  */
-  prev = NULL_RTX;
+  prev = NULL;
   n_execute_packets = 0;
-  for (insn = loop->start_label; insn != loop->loop_end; insn = NEXT_INSN (insn))
+  for (insn = as_a <rtx_insn *> (loop->start_label);
+       insn != loop->loop_end;
+       insn = NEXT_INSN (insn))
     {
       if (NONDEBUG_INSN_P (insn) && GET_MODE (insn) == TImode
 	  && !shadow_p (insn))
@@ -5759,9 +5765,10 @@ hwloop_optimize (hwloop_info loop)
      spot.  */
   PUT_MODE (end_packet, VOIDmode);
 
-  insn = gen_spkernel (GEN_INT (stages - 1),
-		       const0_rtx, JUMP_LABEL (loop->loop_end));
-  insn = emit_jump_insn_before (insn, end_packet);
+  insn = emit_jump_insn_before (
+	   gen_spkernel (GEN_INT (stages - 1),
+			 const0_rtx, JUMP_LABEL (loop->loop_end)),
+	   end_packet);
   JUMP_LABEL (insn) = JUMP_LABEL (loop->loop_end);
   insn_set_clock (insn, loop_earliest);
   PUT_MODE (insn, TImode);
@@ -5821,13 +5828,13 @@ hwloop_optimize (hwloop_info loop)
 
   for (i = 1; i < n_insns; i++)
     {
-      NEXT_INSN (orig_vec[i - 1]) = orig_vec[i];
-      PREV_INSN (orig_vec[i]) = orig_vec[i - 1];
+      SET_NEXT_INSN (orig_vec[i - 1]) = orig_vec[i];
+      SET_PREV_INSN (orig_vec[i]) = orig_vec[i - 1];
     }
-  PREV_INSN (orig_vec[0]) = PREV_INSN (BB_HEAD (bb));
-  NEXT_INSN (PREV_INSN (BB_HEAD (bb))) = orig_vec[0];
-  NEXT_INSN (orig_vec[n_insns - 1]) = NEXT_INSN (BB_END (bb));
-  PREV_INSN (NEXT_INSN (BB_END (bb))) = orig_vec[n_insns - 1];
+  SET_PREV_INSN (orig_vec[0]) = PREV_INSN (BB_HEAD (bb));
+  SET_NEXT_INSN (PREV_INSN (BB_HEAD (bb))) = orig_vec[0];
+  SET_NEXT_INSN (orig_vec[n_insns - 1]) = NEXT_INSN (BB_END (bb));
+  SET_PREV_INSN (NEXT_INSN (BB_END (bb))) = orig_vec[n_insns - 1];
   BB_HEAD (bb) = orig_vec[0];
   BB_END (bb) = orig_vec[n_insns - 1];
  undo_splits:

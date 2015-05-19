@@ -762,7 +762,7 @@ no_labels_between_p (const_rtx beg, const_rtx end)
 int
 reg_used_between_p (const_rtx reg, const_rtx from_insn, const_rtx to_insn)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   if (from_insn == to_insn)
     return 0;
@@ -858,7 +858,7 @@ reg_referenced_p (const_rtx x, const_rtx body)
 int
 reg_set_between_p (const_rtx reg, const_rtx from_insn, const_rtx to_insn)
 {
-  const_rtx insn;
+  const rtx_insn *insn;
 
   if (from_insn == to_insn)
     return 0;
@@ -899,7 +899,7 @@ modified_between_p (const_rtx x, const_rtx start, const_rtx end)
   const enum rtx_code code = GET_CODE (x);
   const char *fmt;
   int i, j;
-  rtx insn;
+  rtx_insn *insn;
 
   if (start == end)
     return 0;
@@ -2060,7 +2060,7 @@ remove_note (rtx insn, const_rtx note)
     {
     case REG_EQUAL:
     case REG_EQUIV:
-      df_notes_rescan (insn);
+      df_notes_rescan (as_a <rtx_insn *> (insn));
       break;
     default:
       break;
@@ -2100,7 +2100,7 @@ remove_reg_equal_equiv_notes_for_regno (unsigned int regno)
      over the head.  We plan to drain the list anyway.  */
   while ((eq_use = DF_REG_EQ_USE_CHAIN (regno)) != NULL)
     {
-      rtx insn = DF_REF_INSN (eq_use);
+      rtx_insn *insn = DF_REF_INSN (eq_use);
       rtx note = find_reg_equal_equiv_note (insn);
 
       /* This assert is generally triggered when someone deletes a REG_EQUAL
@@ -2134,26 +2134,26 @@ in_expr_list_p (const_rtx listp, const_rtx node)
    A simple equality test is used to determine if NODE matches.  */
 
 void
-remove_node_from_expr_list (const_rtx node, rtx *listp)
+remove_node_from_expr_list (const_rtx node, rtx_expr_list **listp)
 {
-  rtx temp = *listp;
+  rtx_expr_list *temp = *listp;
   rtx prev = NULL_RTX;
 
   while (temp)
     {
-      if (node == XEXP (temp, 0))
+      if (node == temp->element ())
 	{
 	  /* Splice the node out of the list.  */
 	  if (prev)
-	    XEXP (prev, 1) = XEXP (temp, 1);
+	    XEXP (prev, 1) = temp->next ();
 	  else
-	    *listp = XEXP (temp, 1);
+	    *listp = temp->next ();
 
 	  return;
 	}
 
       prev = temp;
-      temp = XEXP (temp, 1);
+      temp = temp->next ();
     }
 }
 
@@ -2778,7 +2778,7 @@ rtx_referenced_p (rtx x, rtx body)
    *LABELP and the jump table to *TABLEP.  LABELP and TABLEP may be NULL.  */
 
 bool
-tablejump_p (const_rtx insn, rtx *labelp, rtx *tablep)
+tablejump_p (const_rtx insn, rtx *labelp, rtx_jump_table_data **tablep)
 {
   rtx label, table;
 
@@ -2793,7 +2793,7 @@ tablejump_p (const_rtx insn, rtx *labelp, rtx *tablep)
       if (labelp)
 	*labelp = label;
       if (tablep)
-	*tablep = table;
+	*tablep = as_a <rtx_jump_table_data *> (table);
       return true;
     }
   return false;
@@ -3011,6 +3011,22 @@ for_each_rtx (rtx *x, rtx_function f, void *data)
   return for_each_rtx_1 (*x, i, f, data);
 }
 
+/* Like "for_each_rtx", but for calling on an rtx_insn **.  */
+
+int
+for_each_rtx_in_insn (rtx_insn **insn, rtx_function f, void *data)
+{
+  rtx insn_as_rtx = *insn;
+  int result;
+
+  result = for_each_rtx (&insn_as_rtx, f, data);
+
+  if (insn_as_rtx != *insn)
+    *insn = safe_as_a <rtx_insn *> (insn_as_rtx);
+
+  return result;
+}
+
 
 
 /* Data structure that holds the internal state communicated between
@@ -3104,7 +3120,7 @@ for_each_inc_dec_find_mem (rtx *r, void *d)
   return 0;
 }
 
-/* Traverse *X looking for MEMs, and for autoinc operations within
+/* Traverse *INSN looking for MEMs, and for autoinc operations within
    them.  For each such autoinc operation found, call FN, passing it
    the innermost enclosing MEM, the operation itself, the RTX modified
    by the operation, two RTXs (the second may be NULL) that, once
@@ -3115,7 +3131,7 @@ for_each_inc_dec_find_mem (rtx *r, void *d)
    for_each_inc_dec.  */
 
 int
-for_each_inc_dec (rtx *x,
+for_each_inc_dec (rtx_insn **insn,
 		  for_each_inc_dec_fn fn,
 		  void *arg)
 {
@@ -3125,7 +3141,7 @@ for_each_inc_dec (rtx *x,
   data.arg = arg;
   data.mem = NULL;
 
-  return for_each_rtx (x, for_each_inc_dec_find_mem, &data);
+  return for_each_rtx_in_insn (insn, for_each_inc_dec_find_mem, &data);
 }
 
 
@@ -3668,7 +3684,7 @@ parms_set (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
    found if CSE has eliminated some of them (e.g., an argument
    to the outer function is passed down as a parameter).
    Do not skip BOUNDARY.  */
-rtx
+rtx_insn *
 find_first_parameter_load (rtx call_insn, rtx boundary)
 {
   struct parms_set_data parm;
@@ -3730,7 +3746,7 @@ find_first_parameter_load (rtx call_insn, rtx boundary)
 	    break;
 	}
     }
-  return first_set;
+  return safe_as_a <rtx_insn *> (first_set);
 }
 
 /* Return true if we should avoid inserting code between INSN and preceding
@@ -3761,7 +3777,7 @@ keep_with_call_p (const_rtx insn)
 	  /* This CONST_CAST is okay because next_nonnote_insn just
 	     returns its argument and we assign it to a const_rtx
 	     variable.  */
-	  const_rtx i2 = next_nonnote_insn (CONST_CAST_RTX (insn));
+	  const rtx_insn *i2 = next_nonnote_insn (CONST_CAST_RTX (insn));
 	  if (i2 && keep_with_call_p (i2))
 	    return true;
 	}
@@ -3778,14 +3794,14 @@ bool
 label_is_jump_target_p (const_rtx label, const_rtx jump_insn)
 {
   rtx tmp = JUMP_LABEL (jump_insn);
+  rtx_jump_table_data *table;
 
   if (label == tmp)
     return true;
 
-  if (tablejump_p (jump_insn, NULL, &tmp))
+  if (tablejump_p (jump_insn, NULL, &table))
     {
-      rtvec vec = XVEC (PATTERN (tmp),
-			GET_CODE (PATTERN (tmp)) == ADDR_DIFF_VEC);
+      rtvec vec = table->get_labels ();
       int i, veclen = GET_NUM_ELEM (vec);
 
       for (i = 0; i < veclen; ++i)
@@ -4969,11 +4985,12 @@ insn_rtx_cost (rtx pat, bool speed)
    and at INSN.  */
 
 rtx
-canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
+canonicalize_condition (rtx_insn *insn, rtx cond, int reverse,
+			rtx_insn **earliest,
 			rtx want_reg, int allow_cc_mode, int valid_at_insn_p)
 {
   enum rtx_code code;
-  rtx prev = insn;
+  rtx_insn *prev = insn;
   const_rtx set;
   rtx tem;
   rtx op0, op1;
@@ -5238,7 +5255,8 @@ canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
    VALID_AT_INSN_P is the same as for canonicalize_condition.  */
 
 rtx
-get_condition (rtx jump, rtx *earliest, int allow_cc_mode, int valid_at_insn_p)
+get_condition (rtx_insn *jump, rtx_insn **earliest, int allow_cc_mode,
+	       int valid_at_insn_p)
 {
   rtx cond;
   int reverse;

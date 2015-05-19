@@ -410,7 +410,7 @@ pop_module_scope (void)
     primary_module_last_loc = input_location;
 
   at_eof = 1;
-  cgraph_process_same_body_aliases ();
+  symtab->process_same_body_aliases ();
   lang_hooks.l_ipo.process_pending_decls (input_location);
   lang_hooks.l_ipo.clear_deferred_fns ();
   at_eof = 0;
@@ -1189,17 +1189,17 @@ static hashval_t
 hash_sym_by_assembler_name (const void *p)
 {
   const struct cgraph_sym *n = (const struct cgraph_sym *) p;
-  return (hashval_t) decl_assembler_name_hash (n->assembler_name);
+  return (hashval_t) symbol_table::decl_assembler_name_hash (n->assembler_name);
 }
 
 /* Return nonzero if P1 and P2 are equal.  */
 
 static int
-eq_assembler_name (const void *p1, const void *p2)
+eq_assembler_name_for_cgraph_sym (const void *p1, const void *p2)
 {
   const struct cgraph_sym *n1 = (const struct cgraph_sym *) p1;
   const_tree name = (const_tree) p2;
-  return (decl_assembler_name_equal (n1->rep_decl, name));
+  return symbol_table::decl_assembler_name_equal (n1->rep_decl, name);
 }
 
 /* Return the cgraph_sym for function declaration DECL.  */
@@ -1219,7 +1219,7 @@ get_cgraph_sym (tree decl)
   name = DECL_ASSEMBLER_NAME (decl);
   slot = (struct cgraph_sym **)
       htab_find_slot_with_hash (cgraph_symtab, name,
-                                decl_assembler_name_hash (name),
+                                symbol_table::decl_assembler_name_hash (name),
                                 NO_INSERT);
   return slot;
 }
@@ -1238,7 +1238,7 @@ cgraph_find_decl (tree asm_name)
 
   slot = (struct cgraph_sym **)
       htab_find_slot_with_hash (cgraph_symtab, asm_name,
-                                decl_assembler_name_hash (asm_name),
+                                symbol_table::decl_assembler_name_hash (asm_name),
                                 NO_INSERT);
   if (!slot || !*slot)
     return NULL;
@@ -1492,7 +1492,7 @@ cgraph_remove_link_node (struct cgraph_node *node)
 
   name = DECL_ASSEMBLER_NAME (decl);
   htab_remove_elt_with_hash (cgraph_symtab, name,
-                             decl_assembler_name_hash (name));
+                             symbol_table::decl_assembler_name_hash (name));
 }
 
 /* Return true if the function body for DECL has profile information.  */
@@ -1609,7 +1609,7 @@ cgraph_link_node (struct cgraph_node *node)
 
   name = DECL_ASSEMBLER_NAME (node->decl);
   slot = htab_find_slot_with_hash (cgraph_symtab, name,
-                                   decl_assembler_name_hash (name),
+                                   symbol_table::decl_assembler_name_hash (name),
                                    INSERT);
   if (*slot)
     resolve_cgraph_node ((struct cgraph_sym **) slot, node);
@@ -1641,7 +1641,7 @@ cgraph_do_link (void)
   if (!cgraph_symtab)
     cgraph_symtab
         = htab_create_ggc (10, hash_sym_by_assembler_name,
-                           eq_assembler_name, NULL);
+                           eq_assembler_name_for_cgraph_sym, NULL);
 
   FOR_EACH_FUNCTION (node)
     {
@@ -1858,10 +1858,10 @@ promote_static_var_func (unsigned module_id, tree decl, bool is_extern)
   if (DECL_ASSEMBLER_NAME_SET_P (decl))
     {
       if (TREE_CODE (decl) == FUNCTION_DECL)
-        unlink_from_assembler_name_hash (cgraph_node::get_create (decl),
+        symtab->unlink_from_assembler_name_hash (cgraph_node::get_create (decl),
                                          false);
       else
-        unlink_from_assembler_name_hash (varpool_node::get (decl), false);
+        symtab->unlink_from_assembler_name_hash (varpool_node::get (decl), false);
     }
 
   SET_DECL_ASSEMBLER_NAME (decl, assemb_id);
@@ -1874,7 +1874,7 @@ promote_static_var_func (unsigned module_id, tree decl, bool is_extern)
       struct cgraph_node *node = cgraph_node::get_create (decl);
 
       node->resolution = LDPR_UNKNOWN;
-      insert_to_assembler_name_hash (node, false);
+      symtab->insert_to_assembler_name_hash (node, false);
     }
   else
     {
@@ -1891,7 +1891,7 @@ promote_static_var_func (unsigned module_id, tree decl, bool is_extern)
           node->externally_visible = true;
         }
       varpool_link_node (node);
-      insert_to_assembler_name_hash (node, false);
+      symtab->insert_to_assembler_name_hash (node, false);
     }
 
   if (is_extern)
@@ -2021,9 +2021,9 @@ process_module_scope_static_func (struct cgraph_node *cnode)
       tree assemb_id = create_unique_name (decl, cgraph_get_module_id (decl));
 
       if (DECL_ASSEMBLER_NAME_SET_P (decl))
-        unlink_from_assembler_name_hash (cnode, false);
+        symtab->unlink_from_assembler_name_hash (cnode, false);
       SET_DECL_ASSEMBLER_NAME (decl, assemb_id);
-      insert_to_assembler_name_hash (cnode, false);
+      symtab->insert_to_assembler_name_hash (cnode, false);
       return;
     }
 
@@ -2108,25 +2108,7 @@ varpool_remove_duplicate_weak_decls (void)
 
 static GTY((param_is (symtab_node))) htab_t varpool_symtab;
 
-/* Hash function for varpool node.  */
 
-static hashval_t
-hash_node_by_assembler_name (const void *p)
-{
-  const struct varpool_node *n = (const struct varpool_node *) p;
-  return (hashval_t) decl_assembler_name_hash (
-        DECL_ASSEMBLER_NAME (n->decl));
-}
-
-/* Returns nonzero if P1 and P2 are equal.  */
-
-static int
-eq_node_assembler_name (const void *p1, const void *p2)
-{
-  const struct varpool_node *n1 = (const struct varpool_node *) p1;
-  const_tree name = (const_tree)p2;
-  return (decl_assembler_name_equal (n1->decl, name));
-}
 
 /* Return true if NODE's decl is declared in an auxiliary module.  */
 
@@ -2154,7 +2136,7 @@ real_varpool_node_1 (tree decl, bool assert)
 
   name = DECL_ASSEMBLER_NAME (decl);
   slot = htab_find_slot_with_hash (varpool_symtab, name,
-                                   decl_assembler_name_hash (name),
+                                   symbol_table::decl_assembler_name_hash (name),
                                    NO_INSERT);
   if (!slot)
     {
@@ -2193,7 +2175,7 @@ varpool_remove_link_node (struct varpool_node *node)
 
   name = DECL_ASSEMBLER_NAME (decl);
   htab_remove_elt_with_hash (varpool_symtab, name,
-                             decl_assembler_name_hash (name));
+                             symbol_table::decl_assembler_name_hash (name));
 }
 
 /* Merge the addressable attribute from DECL2 to DECL1.  */
@@ -2278,7 +2260,7 @@ varpool_link_node (struct varpool_node *node)
 
   name = DECL_ASSEMBLER_NAME (node->decl);
   slot = htab_find_slot_with_hash (varpool_symtab, name,
-                                   decl_assembler_name_hash (name),
+                                   symbol_table::decl_assembler_name_hash (name),
                                    INSERT);
   if (*slot)
     resolve_varpool_node ((struct varpool_node **) slot, node);
@@ -2317,8 +2299,8 @@ fixup_reference_list (struct varpool_node *node)
     }
   for (i = 0; new_refered.iterate (i, &c); ++i)
     {
-			node->add_reference (c,
-													(enum ipa_ref_use) new_refered_type[i]);
+			node->create_reference (c,
+						(enum ipa_ref_use) new_refered_type[i]);
     }
 }
 
@@ -2333,8 +2315,8 @@ varpool_do_link (void)
     return;
 
   varpool_symtab
-      = htab_create_ggc (10, hash_node_by_assembler_name,
-                         eq_node_assembler_name, NULL);
+    = htab_create_ggc (10, symbol_table::hash_node_by_assembler_name,
+		       symbol_table::eq_node_assembler_name, NULL);
   FOR_EACH_VARIABLE (node)
     varpool_link_node (node);
 

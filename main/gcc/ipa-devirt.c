@@ -141,10 +141,6 @@ static bool odr_types_equivalent_p (tree, tree, bool, bool *,
 
 static bool odr_violation_reported = false;
 
-/* Dummy polymorphic call context.  */
-
-const ipa_polymorphic_call_context ipa_dummy_polymorphic_call_context
-   = {0, 0, NULL, NULL, false, true, true};
 
 /* Pointer set of all call targets appearing in the cache.  */
 static hash_set<cgraph_node *> *cached_polymorphic_call_targets;
@@ -221,7 +217,7 @@ static bool
 type_all_ctors_visible_p (tree t)
 {
   return !flag_ltrans
-	 && cgraph_state >= CGRAPH_STATE_CONSTRUCTION
+	 && symtab->state >= CONSTRUCTION
 	 /* We can not always use type_all_derivations_known_p.
 	    For function local types we must assume case where
 	    the function is COMDAT and shared in between units. 
@@ -1089,14 +1085,14 @@ add_type_duplicate (odr_type val, tree type)
 	  merge = false;
 	  odr_violation_reported = true;
 	  val->odr_violated = true;
-	  if (cgraph_dump_file)
+	  if (symtab->dump_file)
 	    {
-	      fprintf (cgraph_dump_file, "ODR violation\n");
+	      fprintf (symtab->dump_file, "ODR violation\n");
 	    
-	      print_node (cgraph_dump_file, "", val->type, 0);
-	      putc ('\n',cgraph_dump_file);
-	      print_node (cgraph_dump_file, "", type, 0);
-	      putc ('\n',cgraph_dump_file);
+	      print_node (symtab->dump_file, "", val->type, 0);
+	      putc ('\n',symtab->dump_file);
+	      print_node (symtab->dump_file, "", type, 0);
+	      putc ('\n',symtab->dump_file);
 	    }
 	}
 
@@ -1129,14 +1125,14 @@ add_type_duplicate (odr_type val, tree type)
 			  "a type with the same name but different bases is "
 			  "defined in another translation unit");
 	      val->odr_violated = true;
-	      if (cgraph_dump_file)
+	      if (symtab->dump_file)
 		{
-		  fprintf (cgraph_dump_file, "ODR bse violation or merging bug?\n");
+		  fprintf (symtab->dump_file, "ODR bse violation or merging bug?\n");
 		
-		  print_node (cgraph_dump_file, "", val->type, 0);
-		  putc ('\n',cgraph_dump_file);
-		  print_node (cgraph_dump_file, "", type, 0);
-		  putc ('\n',cgraph_dump_file);
+		  print_node (symtab->dump_file, "", val->type, 0);
+		  putc ('\n',symtab->dump_file);
+		  print_node (symtab->dump_file, "", type, 0);
+		  putc ('\n',symtab->dump_file);
 		}
 	    }
 	}
@@ -1450,7 +1446,7 @@ referenced_from_vtable_p (struct cgraph_node *node)
     return true;
 
   /* We need references built.  */
-  if (cgraph_state <= CGRAPH_STATE_CONSTRUCTION)
+  if (symtab->state <= CONSTRUCTION)
     return true;
 
   for (i = 0; node->iterate_referring (i, ref); i++)
@@ -1853,23 +1849,13 @@ contains_polymorphic_type_p (const_tree type)
   return false;
 }
 
-/* Clear speculative info from CONTEXT.  */
-
-static void
-clear_speculation (ipa_polymorphic_call_context *context)
-{
-  context->speculative_outer_type = NULL;
-  context->speculative_offset = 0;
-  context->speculative_maybe_derived_type = false;
-}
-
-/* CONTEXT->OUTER_TYPE is a type of memory object where object of EXPECTED_TYPE
-   is contained at CONTEXT->OFFSET.  Walk the memory representation of
-   CONTEXT->OUTER_TYPE and find the outermost class type that match
-   EXPECTED_TYPE or contain EXPECTED_TYPE as a base.  Update CONTEXT
+/* THIS->OUTER_TYPE is a type of memory object where object of EXPECTED_TYPE
+   is contained at THIS->OFFSET.  Walk the memory representation of
+   THIS->OUTER_TYPE and find the outermost class type that match
+   EXPECTED_TYPE or contain EXPECTED_TYPE as a base.  Update THIS
    to represent it.
 
-   For example when CONTEXT represents type
+   For example when THIS represents type
    class A
      {
        int a;
@@ -1880,32 +1866,31 @@ clear_speculation (ipa_polymorphic_call_context *context)
    sizeof(int). 
 
    If we can not find corresponding class, give up by setting
-   CONTEXT->OUTER_TYPE to EXPECTED_TYPE and CONTEXT->OFFSET to NULL. 
+   THIS->OUTER_TYPE to EXPECTED_TYPE and THIS->OFFSET to NULL. 
    Return true when lookup was sucesful.  */
 
-static bool
-get_class_context (ipa_polymorphic_call_context *context,
-		   tree expected_type)
+bool
+ipa_polymorphic_call_context::restrict_to_inner_class (tree expected_type)
 {
-  tree type = context->outer_type;
-  HOST_WIDE_INT offset = context->offset;
+  tree type = outer_type;
+  HOST_WIDE_INT cur_offset = offset;
   bool speculative = false;
   bool speculation_valid = false;
   bool valid = false;
 
- if (!context->outer_type)
+ if (!outer_type)
    {
-     type = context->outer_type = expected_type;
-     context->offset = offset = 0;
+     type = outer_type = expected_type;
+     offset = cur_offset = 0;
    }
 
- if (context->speculative_outer_type == context->outer_type
-     && (!context->maybe_derived_type
-	 || context->speculative_maybe_derived_type))
+ if (speculative_outer_type == outer_type
+     && (!maybe_derived_type
+	 || speculative_maybe_derived_type))
    {
-      context->speculative_outer_type = NULL;
-      context->speculative_offset = 0;
-      context->speculative_maybe_derived_type = false;
+      speculative_outer_type = NULL;
+      speculative_offset = 0;
+      speculative_maybe_derived_type = false;
    }
 
   /* See if speculative type seem to be derrived from outer_type.
@@ -1917,14 +1902,14 @@ get_class_context (ipa_polymorphic_call_context *context,
      MAYBE_DERIVED_TYPE is false and we have full non-speculative information or
      the loop bellow will correctly update SPECULATIVE_OUTER_TYPE
      and SPECULATIVE_MAYBE_DERIVED_TYPE.  */
-  if (context->speculative_outer_type
-      && context->speculative_offset >= context->offset
-      && contains_type_p (context->speculative_outer_type,
-			  context->offset - context->speculative_offset,
-			  context->outer_type))
-    speculation_valid = context->maybe_derived_type;
+  if (speculative_outer_type
+      && speculative_offset >= offset
+      && contains_type_p (speculative_outer_type,
+			  offset - speculative_offset,
+			  outer_type))
+    speculation_valid = maybe_derived_type;
   else
-    clear_speculation (context);
+    clear_speculation ();
 			       
   /* Find the sub-object the constant actually refers to and mark whether it is
      an artificial one (as opposed to a user-defined one).
@@ -1950,19 +1935,19 @@ get_class_context (ipa_polymorphic_call_context *context,
 	      gcc_assert (valid);
 
 	      /* If we did not match the offset, just give up on speculation.  */
-	      if (offset != 0
-		  || (types_same_for_odr (context->speculative_outer_type,
-					  context->outer_type)
-		      && (context->maybe_derived_type
-			  == context->speculative_maybe_derived_type)))
-		clear_speculation (context);
+	      if (cur_offset != 0
+		  || (types_same_for_odr (speculative_outer_type,
+					  outer_type)
+		      && (maybe_derived_type
+			  == speculative_maybe_derived_type)))
+		clear_speculation ();
 	      return true;
 	    }
 	  else
 	    {
 	      /* Type can not contain itself on an non-zero offset.  In that case
 		 just give up.  */
-	      if (offset != 0)
+	      if (cur_offset != 0)
 		{
 		  valid = false;
 		  goto give_up;
@@ -1971,17 +1956,17 @@ get_class_context (ipa_polymorphic_call_context *context,
 	      /* If speculation is not valid or we determined type precisely,
 		 we are done.  */
 	      if (!speculation_valid
-		  || !context->maybe_derived_type)
+		  || !maybe_derived_type)
 		{
-		  clear_speculation (context);
+		  clear_speculation ();
 	          return true;
 		}
 	      /* Otherwise look into speculation now.  */
 	      else
 		{
 		  speculative = true;
-		  type = context->speculative_outer_type;
-		  offset = context->speculative_offset;
+		  type = speculative_outer_type;
+		  cur_offset = speculative_offset;
 		  continue;
 		}
 	    }
@@ -1997,7 +1982,7 @@ get_class_context (ipa_polymorphic_call_context *context,
 
 	      pos = int_bit_position (fld);
 	      size = tree_to_uhwi (DECL_SIZE (fld));
-	      if (pos <= offset && (pos + size) > offset)
+	      if (pos <= cur_offset && (pos + size) > cur_offset)
 		break;
 	    }
 
@@ -2005,23 +1990,23 @@ get_class_context (ipa_polymorphic_call_context *context,
 	    goto give_up;
 
 	  type = TYPE_MAIN_VARIANT (TREE_TYPE (fld));
-	  offset -= pos;
+	  cur_offset -= pos;
 	  /* DECL_ARTIFICIAL represents a basetype.  */
 	  if (!DECL_ARTIFICIAL (fld))
 	    {
 	      if (!speculative)
 		{
-		  context->outer_type = type;
-		  context->offset = offset;
+		  outer_type = type;
+		  offset = cur_offset;
 		  /* As soon as we se an field containing the type,
 		     we know we are not looking for derivations.  */
-		  context->maybe_derived_type = false;
+		  maybe_derived_type = false;
 		}
 	      else
 		{
-		  context->speculative_outer_type = type;
-		  context->speculative_offset = offset;
-		  context->speculative_maybe_derived_type = false;
+		  speculative_outer_type = type;
+		  speculative_offset = cur_offset;
+		  speculative_maybe_derived_type = false;
 		}
 	    }
 	}
@@ -2030,22 +2015,24 @@ get_class_context (ipa_polymorphic_call_context *context,
 	  tree subtype = TYPE_MAIN_VARIANT (TREE_TYPE (type));
 
 	  /* Give up if we don't know array size.  */
-	  if (!tree_fits_shwi_p (TYPE_SIZE (subtype))
-	      || !tree_to_shwi (TYPE_SIZE (subtype)) <= 0)
+	  if (!TYPE_SIZE (subtype)
+	      || !tree_fits_shwi_p (TYPE_SIZE (subtype))
+	      || tree_to_shwi (TYPE_SIZE (subtype)) <= 0
+	      || !contains_polymorphic_type_p (subtype))
 	    goto give_up;
-	  offset = offset % tree_to_shwi (TYPE_SIZE (subtype));
+	  cur_offset = cur_offset % tree_to_shwi (TYPE_SIZE (subtype));
 	  type = subtype;
 	  if (!speculative)
 	    {
-	      context->outer_type = type;
-	      context->offset = offset;
-	      context->maybe_derived_type = false;
+	      outer_type = type;
+	      offset = cur_offset;
+	      maybe_derived_type = false;
 	    }
 	  else
 	    {
-	      context->speculative_outer_type = type;
-	      context->speculative_offset = offset;
-	      context->speculative_maybe_derived_type = false;
+	      speculative_outer_type = type;
+	      speculative_offset = cur_offset;
+	      speculative_maybe_derived_type = false;
 	    }
 	}
       /* Give up on anything else.  */
@@ -2056,13 +2043,13 @@ get_class_context (ipa_polymorphic_call_context *context,
   /* If we failed to find subtype we look for, give up and fall back to the
      most generic query.  */
 give_up:
-  clear_speculation (context);
+  clear_speculation ();
   if (valid)
     return true;
-  context->outer_type = expected_type;
-  context->offset = 0;
-  context->maybe_derived_type = true;
-  context->maybe_in_construction = true;
+  outer_type = expected_type;
+  offset = 0;
+  maybe_derived_type = true;
+  maybe_in_construction = true;
   /* POD can be changed to an instance of a polymorphic type by
      placement new.  Here we play safe and assume that any
      non-polymorphic type is POD.  */
@@ -2071,7 +2058,7 @@ give_up:
        || !polymorphic_type_binfo_p (TYPE_BINFO (type)))
       && (!TYPE_SIZE (type)
 	  || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST
-	  || (offset + tree_to_uhwi (TYPE_SIZE (expected_type)) <=
+	  || (cur_offset + tree_to_uhwi (TYPE_SIZE (expected_type)) <=
 	      tree_to_uhwi (TYPE_SIZE (type)))))
     return true;
   return false;
@@ -2083,10 +2070,10 @@ static bool
 contains_type_p (tree outer_type, HOST_WIDE_INT offset,
 		 tree otr_type)
 {
-  ipa_polymorphic_call_context context = {offset, 0,
-					  TYPE_MAIN_VARIANT (outer_type),
-					  NULL, false, true, false};
-  return get_class_context (&context, otr_type);
+  ipa_polymorphic_call_context context;
+  context.offset = offset;
+  context.outer_type = TYPE_MAIN_VARIANT (outer_type);
+  return context.restrict_to_inner_class (otr_type);
 }
 
 /* Lookup base of BINFO that has virtual table VTABLE with OFFSET.  */
@@ -2645,7 +2632,7 @@ extr_type_from_vtbl_ptr_store (gimple stmt, struct type_change_info *tci,
 			       HOST_WIDE_INT *type_offset)
 {
   HOST_WIDE_INT offset, size, max_size;
-  tree lhs, rhs, base, binfo;
+  tree lhs, rhs, base;
 
   if (!gimple_assign_single_p (stmt))
     return NULL_TREE;
@@ -2654,7 +2641,11 @@ extr_type_from_vtbl_ptr_store (gimple stmt, struct type_change_info *tci,
   rhs = gimple_assign_rhs1 (stmt);
   if (TREE_CODE (lhs) != COMPONENT_REF
       || !DECL_VIRTUAL_P (TREE_OPERAND (lhs, 1)))
-    return NULL_TREE;
+     {
+	if (dump_file)
+	  fprintf (dump_file, "  LHS is not virtual table.\n");
+	return NULL_TREE;
+     }
 
   if (tci->vtbl_ptr_ref && operand_equal_p (lhs, tci->vtbl_ptr_ref, 0))
     ;
@@ -2664,33 +2655,80 @@ extr_type_from_vtbl_ptr_store (gimple stmt, struct type_change_info *tci,
       if (offset != tci->offset
 	  || size != POINTER_SIZE
 	  || max_size != POINTER_SIZE)
-	return NULL_TREE;
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "    wrong offset %i!=%i or size %i\n",
+		     (int)offset, (int)tci->offset, (int)size);
+	  return NULL_TREE;
+	}
       if (DECL_P (tci->instance))
 	{
 	  if (base != tci->instance)
-	    return NULL_TREE;
+	    {
+	      if (dump_file)
+		{
+		  fprintf (dump_file, "    base:");
+		  print_generic_expr (dump_file, base, TDF_SLIM);
+		  fprintf (dump_file, " does not match instance:");
+		  print_generic_expr (dump_file, tci->instance, TDF_SLIM);
+		  fprintf (dump_file, "\n");
+		}
+	      return NULL_TREE;
+	    }
 	}
       else if (TREE_CODE (base) == MEM_REF)
 	{
 	  if (!operand_equal_p (tci->instance, TREE_OPERAND (base, 0), 0)
 	      || !integer_zerop (TREE_OPERAND (base, 1)))
-	    return NULL_TREE;
+	    {
+	      if (dump_file)
+		{
+		  fprintf (dump_file, "    base mem ref:");
+		  print_generic_expr (dump_file, base, TDF_SLIM);
+		  fprintf (dump_file, " has nonzero offset or does not match instance:");
+		  print_generic_expr (dump_file, tci->instance, TDF_SLIM);
+		  fprintf (dump_file, "\n");
+		}
+	      return NULL_TREE;
+	    }
 	}
       else if (!operand_equal_p (tci->instance, base, 0)
 	       || tci->offset)
-	return NULL_TREE;
+	{
+	  if (dump_file)
+	    {
+	      fprintf (dump_file, "    base:");
+	      print_generic_expr (dump_file, base, TDF_SLIM);
+	      fprintf (dump_file, " does not match instance:");
+	      print_generic_expr (dump_file, tci->instance, TDF_SLIM);
+	      fprintf (dump_file, " with offset %i\n", (int)tci->offset);
+	    }
+	  return NULL_TREE;
+	}
     }
 
-  binfo = vtable_pointer_value_to_binfo (rhs);
+  tree vtable;
+  unsigned HOST_WIDE_INT offset2;
 
+  if (!vtable_pointer_value_to_vtable (rhs, &vtable, &offset2))
+    {
+      if (dump_file)
+	fprintf (dump_file, "    Failed to lookup binfo\n");
+      return NULL;
+    }
+
+  tree binfo = subbinfo_with_vtable_at_offset (TYPE_BINFO (DECL_CONTEXT (vtable)),
+					       offset2, vtable);
   if (!binfo)
-    return NULL;
+    {
+      if (dump_file)
+	fprintf (dump_file, "    Construction vtable used\n");
+      /* FIXME: We should suport construction contextes.  */
+      return NULL;
+    }
+ 
   *type_offset = tree_to_shwi (BINFO_OFFSET (binfo)) * BITS_PER_UNIT;
-  if (TYPE_BINFO (BINFO_TYPE (binfo)) == binfo)
-    return BINFO_TYPE (binfo);
-
-  /* TODO: Figure out the type containing BINFO.  */
-  return NULL;
+  return DECL_CONTEXT (vtable);
 }
 
 /* Record dynamic type change of TCI to TYPE.  */
@@ -2709,11 +2747,43 @@ record_known_type (struct type_change_info *tci, tree type, HOST_WIDE_INT offset
      else
        fprintf (dump_file, "  Recording unknown type\n");
     }
+
+  /* If we found a constructor of type that is not polymorphic or
+     that may contain the type in question as a field (not as base),
+     restrict to the inner class first to make type matching bellow
+     happier.  */
+  if (type
+      && (offset
+          || (TREE_CODE (type) != RECORD_TYPE
+	      || !polymorphic_type_binfo_p (TYPE_BINFO (type)))))
+    {
+      ipa_polymorphic_call_context context;
+
+      context.offset = offset;
+      context.outer_type = type;
+      context.maybe_in_construction = false;
+      context.maybe_derived_type = false;
+      /* If we failed to find the inner type, we know that the call
+	 would be undefined for type produced here.  */
+      if (!context.restrict_to_inner_class (tci->otr_type))
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "  Ignoring; does not contain otr_type\n");
+	  return;
+	}
+      /* Watch for case we reached an POD type and anticipate placement
+	 new.  */
+      if (!context.maybe_derived_type)
+	{
+          type = context.outer_type;
+          offset = context.offset;
+	}
+    }
   if (tci->type_maybe_changed
-      && (type != tci->known_current_type
+      && (!types_same_for_odr (type, tci->known_current_type)
 	  || offset != tci->known_current_offset))
     tci->multiple_types_encountered = true;
-  tci->known_current_type = type;
+  tci->known_current_type = TYPE_MAIN_VARIANT (type);
   tci->known_current_offset = offset;
   tci->type_maybe_changed = true;
 }
@@ -2834,7 +2904,7 @@ check_stmt_for_type_change (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
     return false;
 }
 
-/* CONTEXT is polymorphic call context obtained from get_polymorphic_context.
+/* THIS is polymorphic call context obtained from get_polymorphic_context.
    OTR_OBJECT is pointer to the instance returned by OBJ_TYPE_REF_OBJECT.
    INSTANCE is pointer to the outer instance as returned by
    get_polymorphic_context.  To avoid creation of temporary expressions,
@@ -2851,19 +2921,32 @@ check_stmt_for_type_change (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
    So it is not suitable for use withing fold_stmt and similar uses.  */
 
 bool
-get_dynamic_type (tree instance,
-		  ipa_polymorphic_call_context *context,
-		  tree otr_object,
-		  tree otr_type,
-		  gimple call)
+ipa_polymorphic_call_context::get_dynamic_type (tree instance,
+						tree otr_object,
+						tree otr_type,
+						gimple call)
 {
   struct type_change_info tci;
   ao_ref ao;
   bool function_entry_reached = false;
   tree instance_ref = NULL;
   gimple stmt = call;
+  /* Remember OFFSET before it is modified by restrict_to_inner_class.
+     This is because we do not update INSTANCE when walking inwards.  */
+  HOST_WIDE_INT instance_offset = offset;
 
-  if (!context->maybe_in_construction && !context->maybe_derived_type)
+  otr_type = TYPE_MAIN_VARIANT (otr_type);
+
+  /* Walk into inner type. This may clear maybe_derived_type and save us
+     from useless work.  It also makes later comparsions with static type
+     easier.  */
+  if (outer_type)
+    {
+      if (!restrict_to_inner_class (otr_type))
+        return false;
+    }
+
+  if (!maybe_in_construction && !maybe_derived_type)
     return false;
 
   /* We need to obtain refernce to virtual table pointer.  It is better
@@ -2916,11 +2999,11 @@ get_dynamic_type (tree instance,
 		     or from INSTANCE with offset OFFSET.  */
 		  if (base_ref
 		      && ((TREE_CODE (base_ref) == MEM_REF
-		           && ((offset2 == context->offset
+		           && ((offset2 == instance_offset
 		                && TREE_OPERAND (base_ref, 0) == instance)
 			       || (!offset2 && TREE_OPERAND (base_ref, 0) == otr_object)))
 			  || (DECL_P (instance) && base_ref == instance
-			      && offset2 == context->offset)))
+			      && offset2 == instance_offset)))
 		    {
 		      stmt = SSA_NAME_DEF_STMT (ref);
 		      instance_ref = ref_exp;
@@ -2959,13 +3042,13 @@ get_dynamic_type (tree instance,
       print_generic_expr (dump_file, otr_object, TDF_SLIM);
       fprintf (dump_file, "  Outer instance pointer: ");
       print_generic_expr (dump_file, instance, TDF_SLIM);
-      fprintf (dump_file, " offset: %i (bits)", (int)context->offset);
+      fprintf (dump_file, " offset: %i (bits)", (int)offset);
       fprintf (dump_file, " vtbl reference: ");
       print_generic_expr (dump_file, instance_ref, TDF_SLIM);
       fprintf (dump_file, "\n");
     }
 
-  tci.offset = context->offset;
+  tci.offset = offset;
   tci.instance = instance;
   tci.vtbl_ptr_ref = instance_ref;
   gcc_assert (TREE_CODE (instance) != MEM_REF);
@@ -3021,17 +3104,23 @@ get_dynamic_type (tree instance,
      and we can stop, we will never see the calls into constructors of
      sub-objects in this code. 
 
-     Therefore if the static outer type was found (context->outer_type)
+     Therefore if the static outer type was found (outer_type)
      we can safely ignore tci.speculative that is set on calls and give up
      only if there was dyanmic type store that may affect given variable
      (seen_unanalyzed_store)  */
 
-  if (!tci.type_maybe_changed)
+  if (!tci.type_maybe_changed
+      || (outer_type
+	  && !tci.seen_unanalyzed_store
+	  && !tci.multiple_types_encountered
+	  && offset == tci.offset
+	  && types_same_for_odr (tci.known_current_type,
+				 outer_type)))
     {
-      if (!context->outer_type || tci.seen_unanalyzed_store)
+      if (!outer_type || tci.seen_unanalyzed_store)
 	return false;
-      if (context->maybe_in_construction)
-        context->maybe_in_construction = false;
+      if (maybe_in_construction)
+        maybe_in_construction = false;
       if (dump_file)
 	fprintf (dump_file, "  No dynamic type change found.\n");
       return true;
@@ -3041,34 +3130,31 @@ get_dynamic_type (tree instance,
       && !function_entry_reached
       && !tci.multiple_types_encountered)
     {
-      if (!tci.speculative
-	  /* Again in instances located in static storage we are interested only
-	     in constructor stores.  */
-	  || (context->outer_type
-	      && !tci.seen_unanalyzed_store
-	      && context->offset == tci.offset
-	      && types_same_for_odr (tci.known_current_type,
-				     context->outer_type)))
+      if (!tci.speculative)
 	{
-	  context->outer_type = tci.known_current_type;
-	  context->offset = tci.known_current_offset;
-	  context->maybe_in_construction = false;
-	  context->maybe_derived_type = false;
+	  outer_type = TYPE_MAIN_VARIANT (tci.known_current_type);
+	  offset = tci.known_current_offset;
+	  maybe_in_construction = false;
+	  maybe_derived_type = false;
 	  if (dump_file)
 	    fprintf (dump_file, "  Determined dynamic type.\n");
 	}
-      else if (!context->speculative_outer_type
-	       || context->speculative_maybe_derived_type)
+      else if (!speculative_outer_type
+	       || speculative_maybe_derived_type)
 	{
-	  context->speculative_outer_type = tci.known_current_type;
-	  context->speculative_offset = tci.known_current_offset;
-	  context->speculative_maybe_derived_type = false;
+	  speculative_outer_type = TYPE_MAIN_VARIANT (tci.known_current_type);
+	  speculative_offset = tci.known_current_offset;
+	  speculative_maybe_derived_type = false;
 	  if (dump_file)
 	    fprintf (dump_file, "  Determined speculative dynamic type.\n");
 	}
     }
   else if (dump_file)
-    fprintf (dump_file, "  Found multiple types.\n");
+    {
+      fprintf (dump_file, "  Found multiple types%s%s\n",
+	       function_entry_reached ? " (function entry reached)" : "",
+	       function_entry_reached ? " (multiple types encountered)" : "");
+    }
 
   return true;
 }
@@ -3253,7 +3339,7 @@ possible_polymorphic_call_targets (tree otr_type,
 
   /* Do not bother to compute speculative info when user do not asks for it.  */
   if (!speculative_targetsp || !context.speculative_outer_type)
-    clear_speculation (&context);
+    context.clear_speculation ();
 
   type = get_odr_type (otr_type, true);
 
@@ -3263,7 +3349,7 @@ possible_polymorphic_call_targets (tree otr_type,
 
   /* Lookup the outer class type we want to walk.  */
   if ((context.outer_type || context.speculative_outer_type)
-      && !get_class_context (&context, otr_type))
+      && !context.restrict_to_inner_class (otr_type))
     {
       if (completep)
 	*completep = false;
@@ -3274,7 +3360,7 @@ possible_polymorphic_call_targets (tree otr_type,
       return nodes;
     }
 
-  /* Check that get_class_context kept the main variant.  */
+  /* Check that restrict_to_inner_class kept the main variant.  */
   gcc_assert (!context.outer_type
 	      || TYPE_MAIN_VARIANT (context.outer_type) == context.outer_type);
 
@@ -3302,8 +3388,8 @@ possible_polymorphic_call_targets (tree otr_type,
       if (!node_removal_hook_holder)
 	{
 	  node_removal_hook_holder =
-	    cgraph_add_node_removal_hook (&devirt_node_removal_hook, NULL);
-	  varpool_add_node_removal_hook (&devirt_variable_node_removal_hook,
+	    symtab->add_cgraph_removal_hook (&devirt_node_removal_hook, NULL);
+	  symtab->add_varpool_removal_hook (&devirt_variable_node_removal_hook,
 					 NULL);
 	}
     }
@@ -3780,7 +3866,7 @@ ipa_devirt (void)
 	    if (!flag_devirtualize_speculatively)
 	      continue;
 
-	    if (!cgraph_maybe_hot_edge_p (e))
+	    if (!e->maybe_hot_p ())
 	      {
 		if (dump_file)
 		  fprintf (dump_file, "Call is cold\n\n");
@@ -3831,7 +3917,7 @@ ipa_devirt (void)
 	      {
 		struct cgraph_edge *e2;
 		struct ipa_ref *ref;
-		cgraph_speculative_call_info (e, e2, e, ref);
+		e->speculative_call_info (e2, e, ref);
 		if (e2->callee->ultimate_alias_target ()
 		    == likely_target->ultimate_alias_target ())
 		  {
@@ -3902,8 +3988,8 @@ ipa_devirt (void)
 		  }
 		nconverted++;
 		update = true;
-		cgraph_turn_edge_to_speculative
-		  (e, likely_target, e->count * 8 / 10, e->frequency * 8 / 10);
+		e->make_speculative
+		  (likely_target, e->count * 8 / 10, e->frequency * 8 / 10);
 	      }
 	  }
       if (update)

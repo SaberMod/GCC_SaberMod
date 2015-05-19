@@ -1310,7 +1310,12 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
   else if (TREE_CODE (var) == VAR_DECL && DECL_HARD_REGISTER (var))
     {
       if (really_expand)
-        expand_one_hard_reg_var (var);
+	{
+	  expand_one_hard_reg_var (var);
+	  if (!DECL_HARD_REGISTER (var))
+	    /* Invalid register specification.  */
+	    expand_one_error_var (var);
+	}
     }
   else if (use_register_for_decl (var))
     {
@@ -1677,12 +1682,12 @@ stack_protect_return_slot_p ()
 
 /* Expand all variables used in the function.  */
 
-static rtx
+static rtx_insn *
 expand_used_vars (void)
 {
   tree var, outer_block = DECL_INITIAL (current_function_decl);
   vec<tree> maybe_local_decls = vNULL;
-  rtx var_end_seq = NULL_RTX;
+  rtx_insn *var_end_seq = NULL;
   unsigned i;
   unsigned len;
   bool gen_stack_protect_signal = false;
@@ -1957,7 +1962,7 @@ expand_used_vars (void)
    generated for STMT should have been appended.  */
 
 static void
-maybe_dump_rtl_for_gimple_stmt (gimple stmt, rtx since)
+maybe_dump_rtl_for_gimple_stmt (gimple stmt, rtx_insn *since)
 {
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -2017,7 +2022,7 @@ label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
    last instruction before the just emitted jump sequence.  */
 
 static void
-maybe_cleanup_end_of_block (edge e, rtx last)
+maybe_cleanup_end_of_block (edge e, rtx_insn *last)
 {
   /* Special case: when jumpif decides that the condition is
      trivial it emits an unconditional jump (and the necessary
@@ -2032,7 +2037,7 @@ maybe_cleanup_end_of_block (edge e, rtx last)
      normally isn't there in a cleaned CFG), fix it here.  */
   if (BARRIER_P (get_last_insn ()))
     {
-      rtx insn;
+      rtx_insn *insn;
       remove_edge (e);
       /* Now, we have a single successor block, if we have insns to
 	 insert on the remaining edge we potentially will insert
@@ -2074,7 +2079,7 @@ expand_gimple_cond (basic_block bb, gimple stmt)
   edge new_edge;
   edge true_edge;
   edge false_edge;
-  rtx last2, last;
+  rtx_insn *last2, *last;
   enum tree_code code;
   tree op0, op1;
 
@@ -2220,7 +2225,7 @@ mark_transaction_restart_calls (gimple stmt)
     {
       struct tm_restart_node *n = (struct tm_restart_node *) *slot;
       tree list = n->label_or_list;
-      rtx insn;
+      rtx_insn *insn;
 
       for (insn = next_real_insn (get_last_insn ());
 	   !CALL_P (insn);
@@ -3356,11 +3361,11 @@ expand_gimple_stmt_1 (gimple stmt)
    sets REG_EH_REGION notes if necessary and sets the current source
    location for diagnostics.  */
 
-static rtx
+static rtx_insn *
 expand_gimple_stmt (gimple stmt)
 {
   location_t saved_location = input_location;
-  rtx last = get_last_insn ();
+  rtx_insn *last = get_last_insn ();
   int lp_nr;
 
   gcc_assert (cfun);
@@ -3383,7 +3388,7 @@ expand_gimple_stmt (gimple stmt)
   lp_nr = lookup_stmt_eh_lp (stmt);
   if (lp_nr)
     {
-      rtx insn;
+      rtx_insn *insn;
       for (insn = next_real_insn (last); insn;
 	   insn = next_real_insn (insn))
 	{
@@ -3413,7 +3418,7 @@ expand_gimple_stmt (gimple stmt)
 static basic_block
 expand_gimple_tailcall (basic_block bb, gimple stmt, bool *can_fallthru)
 {
-  rtx last2, last;
+  rtx_insn *last2, *last;
   edge e;
   edge_iterator ei;
   int probability;
@@ -4786,7 +4791,7 @@ expand_debug_source_expr (tree exp)
    deeper than that, create DEBUG_EXPRs and emit DEBUG_INSNs before INSN.  */
 
 static void
-avoid_complex_debug_insns (rtx insn, rtx *exp_p, int depth)
+avoid_complex_debug_insns (rtx_insn *insn, rtx *exp_p, int depth)
 {
   rtx exp = *exp_p;
 
@@ -4838,8 +4843,8 @@ avoid_complex_debug_insns (rtx insn, rtx *exp_p, int depth)
 static void
 expand_debug_locations (void)
 {
-  rtx insn;
-  rtx last = get_last_insn ();
+  rtx_insn *insn;
+  rtx_insn *last = get_last_insn ();
   int save_strict_alias = flag_strict_aliasing;
 
   /* New alias sets while setting up memory attributes cause
@@ -4851,7 +4856,8 @@ expand_debug_locations (void)
     if (DEBUG_INSN_P (insn))
       {
 	tree value = (tree)INSN_VAR_LOCATION_LOC (insn);
-	rtx val, prev_insn, insn2;
+	rtx val;
+	rtx_insn *prev_insn, *insn2;
 	enum machine_mode mode;
 
 	if (value == NULL_TREE)
@@ -4896,7 +4902,8 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
   gimple_stmt_iterator gsi;
   gimple_seq stmts;
   gimple stmt = NULL;
-  rtx note, last;
+  rtx_note *note;
+  rtx_insn *last;
   edge e;
   edge_iterator ei;
 
@@ -4967,7 +4974,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
       maybe_dump_rtl_for_gimple_stmt (stmt, last);
     }
   else
-    note = BB_HEAD (bb) = emit_note (NOTE_INSN_BASIC_BLOCK);
+    BB_HEAD (bb) = note = emit_note (NOTE_INSN_BASIC_BLOCK);
 
   NOTE_BASIC_BLOCK (note) = bb;
 
@@ -5328,14 +5335,14 @@ set_block_levels (tree block, int level)
 static void
 construct_exit_block (void)
 {
-  rtx head = get_last_insn ();
-  rtx end;
+  rtx_insn *head = get_last_insn ();
+  rtx_insn *end;
   basic_block exit_block;
   edge e, e2;
   unsigned ix;
   edge_iterator ei;
   basic_block prev_bb = EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb;
-  rtx orig_end = BB_END (prev_bb);
+  rtx_insn *orig_end = BB_END (prev_bb);
 
   rtl_profile_for_bb (EXIT_BLOCK_PTR_FOR_FN (cfun));
 
@@ -5628,7 +5635,7 @@ pass_expand::execute (function *fun)
   sbitmap blocks;
   edge_iterator ei;
   edge e;
-  rtx var_seq, var_ret_seq;
+  rtx_insn *var_seq, *var_ret_seq;
   unsigned i;
 
   timevar_push (TV_OUT_OF_SSA);
@@ -5845,7 +5852,7 @@ pass_expand::execute (function *fun)
   if (var_ret_seq)
     {
       rtx after = return_label;
-      rtx next = NEXT_INSN (after);
+      rtx_insn *next = NEXT_INSN (after);
       if (next && NOTE_INSN_BASIC_BLOCK_P (next))
 	after = next;
       emit_insn_after (var_ret_seq, after);
@@ -5873,8 +5880,8 @@ pass_expand::execute (function *fun)
 	      if (e->src == ENTRY_BLOCK_PTR_FOR_FN (fun)
 		  && single_succ_p (ENTRY_BLOCK_PTR_FOR_FN (fun)))
 		{
-		  rtx insns = e->insns.r;
-		  e->insns.r = NULL_RTX;
+		  rtx_insn *insns = e->insns.r;
+		  e->insns.r = NULL;
 		  if (NOTE_P (parm_birth_insn)
 		      && NOTE_KIND (parm_birth_insn) == NOTE_INSN_FUNCTION_BEG)
 		    emit_insn_before_noloc (insns, parm_birth_insn, e->dest);

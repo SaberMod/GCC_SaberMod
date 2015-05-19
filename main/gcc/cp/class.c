@@ -208,7 +208,6 @@ static int splay_tree_compare_integer_csts (splay_tree_key k1,
 					    splay_tree_key k2);
 static void warn_about_ambiguous_bases (tree);
 static bool type_requires_array_cookie (tree);
-static bool contains_empty_class_p (tree);
 static bool base_derived_from (tree, tree);
 static int empty_base_at_nonzero_offset_p (tree, tree, splay_tree);
 static tree end_of_base (tree);
@@ -7133,6 +7132,29 @@ currently_open_derived_class (tree t)
   return NULL_TREE;
 }
 
+/* Return the outermost enclosing class type that is still open, or
+   NULL_TREE.  */
+
+tree
+outermost_open_class (void)
+{
+  if (!current_class_type)
+    return NULL_TREE;
+  tree r = NULL_TREE;
+  if (TYPE_BEING_DEFINED (current_class_type))
+    r = current_class_type;
+  for (int i = current_class_depth - 1; i > 0; --i)
+    {
+      if (current_class_stack[i].hidden)
+	break;
+      tree t = current_class_stack[i].type;
+      if (!TYPE_BEING_DEFINED (t))
+	break;
+      r = t;
+    }
+  return r;
+}
+
 /* Returns the innermost class type which is not a lambda closure type.  */
 
 tree
@@ -7794,35 +7816,6 @@ is_empty_class (tree type)
     return 0;
 
   return CLASSTYPE_EMPTY_P (type);
-}
-
-/* Returns true if TYPE contains an empty class.  */
-
-static bool
-contains_empty_class_p (tree type)
-{
-  if (is_empty_class (type))
-    return true;
-  if (CLASS_TYPE_P (type))
-    {
-      tree field;
-      tree binfo;
-      tree base_binfo;
-      int i;
-
-      for (binfo = TYPE_BINFO (type), i = 0;
-	   BINFO_BASE_ITERATE (binfo, i, base_binfo); ++i)
-	if (contains_empty_class_p (BINFO_TYPE (base_binfo)))
-	  return true;
-      for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
-	if (TREE_CODE (field) == FIELD_DECL
-	    && !DECL_ARTIFICIAL (field)
-	    && is_empty_class (TREE_TYPE (field)))
-	  return true;
-    }
-  else if (TREE_CODE (type) == ARRAY_TYPE)
-    return contains_empty_class_p (TREE_TYPE (type));
-  return false;
 }
 
 /* Returns true if TYPE contains no actual data, just various

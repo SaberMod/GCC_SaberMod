@@ -116,7 +116,7 @@ vec<tree, va_gc> *types_used_by_cur_var_decl;
 static struct temp_slot *find_temp_slot_from_address (rtx);
 static void pad_to_arg_alignment (struct args_size *, int, struct args_size *);
 static void pad_below (struct args_size *, enum machine_mode, tree);
-static void reorder_blocks_1 (rtx, tree, vec<tree> *);
+static void reorder_blocks_1 (rtx_insn *, tree, vec<tree> *);
 static int all_blocks (tree, tree *);
 static tree *get_block_vector (tree, int *);
 extern tree debug_find_var_in_block_tree (tree, tree);
@@ -1301,7 +1301,7 @@ emit_initial_value_sets (void)
 {
   struct initial_value_struct *ivs = crtl->hard_reg_initial_vals;
   int i;
-  rtx seq;
+  rtx_insn *seq;
 
   if (ivs == 0)
     return 0;
@@ -1498,12 +1498,13 @@ safe_insn_predicate (int code, int operand, rtx x)
    registers present inside of insn.  The result will be a valid insn.  */
 
 static void
-instantiate_virtual_regs_in_insn (rtx insn)
+instantiate_virtual_regs_in_insn (rtx_insn *insn)
 {
   HOST_WIDE_INT offset;
   int insn_code, i;
   bool any_change = false;
-  rtx set, new_rtx, x, seq;
+  rtx set, new_rtx, x;
+  rtx_insn *seq;
 
   /* There are some special cases to be handled first.  */
   set = single_set (insn);
@@ -1899,7 +1900,7 @@ instantiate_decls (tree fndecl)
 static unsigned int
 instantiate_virtual_regs (void)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   /* Compute the offsets to use for this function.  */
   in_arg_offset = FIRST_PARM_OFFSET (current_function_decl);
@@ -2191,8 +2192,8 @@ struct assign_parm_data_all
   struct args_size stack_args_size;
   tree function_result_decl;
   tree orig_fnargs;
-  rtx first_conversion_insn;
-  rtx last_conversion_insn;
+  rtx_insn *first_conversion_insn;
+  rtx_insn *last_conversion_insn;
   HOST_WIDE_INT pretend_args_size;
   HOST_WIDE_INT extra_pretend_bytes;
   int reg_parm_stack_space;
@@ -3173,8 +3174,9 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
       && reg_mentioned_p (virtual_incoming_args_rtx,
 			  XEXP (data->stack_parm, 0)))
     {
-      rtx linsn = get_last_insn ();
-      rtx sinsn, set;
+      rtx_insn *linsn = get_last_insn ();
+      rtx_insn *sinsn;
+      rtx set;
 
       /* Mark complex types separately.  */
       if (GET_CODE (parmreg) == CONCAT)
@@ -4157,9 +4159,10 @@ clear_block_marks (tree block)
 }
 
 static void
-reorder_blocks_1 (rtx insns, tree current_block, vec<tree> *p_block_stack)
+reorder_blocks_1 (rtx_insn *insns, tree current_block,
+		  vec<tree> *p_block_stack)
 {
-  rtx insn;
+  rtx_insn *insn;
   tree prev_beg = NULL_TREE, prev_end = NULL_TREE;
 
   for (insn = insns; insn; insn = NEXT_INSN (insn))
@@ -4707,7 +4710,7 @@ stack_protect_epilogue (void)
      except adding the prediction by hand.  */
   tmp = get_last_insn ();
   if (JUMP_P (tmp))
-    predict_insn_def (tmp, PRED_NORETURN, TAKEN);
+    predict_insn_def (as_a <rtx_insn *> (tmp), PRED_NORETURN, TAKEN);
 
   expand_call (targetm.stack_protect_fail (), NULL_RTX, /*ignore=*/true);
   free_temp_slots ();
@@ -5025,7 +5028,7 @@ expand_function_end (void)
      space for another stack frame.  */
   if (flag_stack_check == GENERIC_STACK_CHECK)
     {
-      rtx insn, seq;
+      rtx_insn *insn, *seq;
 
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	if (CALL_P (insn))
@@ -5351,9 +5354,10 @@ contains (const_rtx insn, htab_t hash)
 
   if (NONJUMP_INSN_P (insn) && GET_CODE (PATTERN (insn)) == SEQUENCE)
     {
+      rtx_sequence *seq = as_a <rtx_sequence *> (PATTERN (insn));
       int i;
-      for (i = XVECLEN (PATTERN (insn), 0) - 1; i >= 0; i--)
-	if (htab_find (hash, XVECEXP (PATTERN (insn), 0, i)))
+      for (i = seq->len () - 1; i >= 0; i--)
+	if (htab_find (hash, seq->element (i)))
 	  return true;
       return false;
     }
@@ -5629,8 +5633,9 @@ thread_prologue_and_epilogue_insns (void)
   vec<edge> unconverted_simple_returns = vNULL;
   bitmap_head bb_flags;
 #endif
-  rtx returnjump;
-  rtx seq ATTRIBUTE_UNUSED, epilogue_end ATTRIBUTE_UNUSED;
+  rtx_insn *returnjump;
+  rtx seq ATTRIBUTE_UNUSED;
+  rtx_insn *epilogue_end ATTRIBUTE_UNUSED;
   rtx prologue_seq ATTRIBUTE_UNUSED, split_prologue_seq ATTRIBUTE_UNUSED;
   edge e, entry_edge, orig_entry_edge, exit_fallthru_edge;
   edge_iterator ei;
@@ -5641,8 +5646,8 @@ thread_prologue_and_epilogue_insns (void)
 
   inserted = false;
   seq = NULL_RTX;
-  epilogue_end = NULL_RTX;
-  returnjump = NULL_RTX;
+  epilogue_end = NULL;
+  returnjump = NULL;
 
   /* Can't deal with multiple successors of the entry block at the
      moment.  Function should always have at least one entry
@@ -5784,7 +5789,7 @@ thread_prologue_and_epilogue_insns (void)
      EPILOGUE_BEG note and mark the insns as epilogue insns.  */
   FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
     {
-      rtx prev, last, trial;
+      rtx_insn *prev, *last, *trial;
 
       if (e->flags & EDGE_FALLTHRU)
 	continue;
@@ -5893,7 +5898,7 @@ epilogue_done:
 							     )
     {
       basic_block bb = e->src;
-      rtx insn = BB_END (bb);
+      rtx_insn *insn = BB_END (bb);
       rtx ep_seq;
 
       if (!CALL_P (insn)
@@ -5932,7 +5937,7 @@ epilogue_done:
 #ifdef HAVE_epilogue
   if (epilogue_end)
     {
-      rtx insn, next;
+      rtx_insn *insn, *next;
 
       /* Similarly, move any line notes that appear after the epilogue.
          There is no need, however, to be quite so anal about the existence
@@ -5972,7 +5977,7 @@ reposition_prologue_and_epilogue_notes (void)
   if (prologue_insn_hash != NULL)
     {
       size_t len = htab_elements (prologue_insn_hash);
-      rtx insn, last = NULL, note = NULL;
+      rtx_insn *insn, *last = NULL, *note = NULL;
 
       /* Scan from the beginning until we reach the last prologue insn.  */
       /* ??? While we do have the CFG intact, there are two problems:
@@ -6023,7 +6028,7 @@ reposition_prologue_and_epilogue_notes (void)
 
       FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
 	{
-	  rtx insn, first = NULL, note = NULL;
+	  rtx_insn *insn, *first = NULL, *note = NULL;
 	  basic_block bb = e->src;
 
 	  /* Scan from the beginning until we reach the first epilogue insn. */
@@ -6353,7 +6358,7 @@ make_pass_thread_prologue_and_epilogue (gcc::context *ctxt)
      asm ("": "=mr" (inout_2) : "0" (inout_2));  */
 
 static void
-match_asm_constraints_1 (rtx insn, rtx *p_sets, int noutputs)
+match_asm_constraints_1 (rtx_insn *insn, rtx *p_sets, int noutputs)
 {
   int i;
   bool changed = false;
@@ -6365,7 +6370,8 @@ match_asm_constraints_1 (rtx insn, rtx *p_sets, int noutputs)
   memset (output_matched, 0, noutputs * sizeof (bool));
   for (i = 0; i < ninputs; i++)
     {
-      rtx input, output, insns;
+      rtx input, output;
+      rtx_insn *insns;
       const char *constraint = ASM_OPERANDS_INPUT_CONSTRAINT (op, i);
       char *end;
       int match, j;
@@ -6485,7 +6491,8 @@ unsigned
 pass_match_asm_constraints::execute (function *fun)
 {
   basic_block bb;
-  rtx insn, pat, *p_sets;
+  rtx_insn *insn;
+  rtx pat, *p_sets;
   int noutputs;
 
   if (!crtl->has_asm_statement)

@@ -516,7 +516,7 @@ emit_delay_sequence (rtx insn, rtx list, int length)
      the SEQUENCE.   Remember where we want to emit SEQUENCE in AFTER.  */
   rtx after = PREV_INSN (insn);
   remove_insn (insn);
-  NEXT_INSN (insn) = PREV_INSN (insn) = NULL;
+  SET_NEXT_INSN (insn) = SET_PREV_INSN (insn) = NULL;
 
   /* Build our SEQUENCE and rebuild the insn chain.  */
   int i = 1;
@@ -532,7 +532,7 @@ emit_delay_sequence (rtx insn, rtx list, int length)
 
       /* Unlink insn from its original place, and re-emit it into
 	 the sequence.  */
-      NEXT_INSN (tem) = PREV_INSN (tem) = NULL;
+      SET_NEXT_INSN (tem) = SET_PREV_INSN (tem) = NULL;
       XVECEXP (seq, 0, i) = emit_insn (tem);
 
       /* SPARC assembler, for instance, emit warning when debug info is output
@@ -1526,11 +1526,11 @@ redundant_insn (rtx insn, rtx target, rtx delay_list)
       if (GET_CODE (pat) == USE || GET_CODE (pat) == CLOBBER)
 	continue;
 
-      if (GET_CODE (pat) == SEQUENCE)
+      if (rtx_sequence *seq = dyn_cast <rtx_sequence *> (pat))
 	{
 	  /* Stop for a CALL and its delay slots because it is difficult to
 	     track its resource needs correctly.  */
-	  if (CALL_P (XVECEXP (pat, 0, 0)))
+	  if (CALL_P (seq->element (0)))
 	    return 0;
 
 	  /* Stop for an INSN or JUMP_INSN with delayed effects and its delay
@@ -1538,21 +1538,21 @@ redundant_insn (rtx insn, rtx target, rtx delay_list)
 	     correctly.  */
 
 #ifdef INSN_SETS_ARE_DELAYED
-	  if (INSN_SETS_ARE_DELAYED (XVECEXP (pat, 0, 0)))
+	  if (INSN_SETS_ARE_DELAYED (seq->element (0)))
 	    return 0;
 #endif
 
 #ifdef INSN_REFERENCES_ARE_DELAYED
-	  if (INSN_REFERENCES_ARE_DELAYED (XVECEXP (pat, 0, 0)))
+	  if (INSN_REFERENCES_ARE_DELAYED (seq->element (0)))
 	    return 0;
 #endif
 
 	  /* See if any of the insns in the delay slot match, updating
 	     resource requirements as we go.  */
-	  for (i = XVECLEN (pat, 0) - 1; i > 0; i--)
-	    if (GET_CODE (XVECEXP (pat, 0, i)) == GET_CODE (insn)
-		&& rtx_equal_p (PATTERN (XVECEXP (pat, 0, i)), ipat)
-		&& ! find_reg_note (XVECEXP (pat, 0, i), REG_UNUSED, NULL_RTX))
+	  for (i = seq->len () - 1; i > 0; i--)
+	    if (GET_CODE (seq->element (i)) == GET_CODE (insn)
+		&& rtx_equal_p (PATTERN (seq->element (i)), ipat)
+		&& ! find_reg_note (seq->element (i), REG_UNUSED, NULL_RTX))
 	      break;
 
 	  /* If found a match, exit this loop early.  */
@@ -1628,10 +1628,10 @@ redundant_insn (rtx insn, rtx target, rtx delay_list)
       if (GET_CODE (pat) == USE || GET_CODE (pat) == CLOBBER)
 	continue;
 
-      if (GET_CODE (pat) == SEQUENCE)
+      if (rtx_sequence *seq = dyn_cast <rtx_sequence *> (pat))
 	{
 	  bool annul_p = false;
-          rtx control = XVECEXP (pat, 0, 0);
+          rtx control = seq->element (0);
 
 	  /* If this is a CALL_INSN and its delay slots, it is hard to track
 	     the resource needs properly, so give up.  */
@@ -1656,9 +1656,9 @@ redundant_insn (rtx insn, rtx target, rtx delay_list)
 
 	  /* See if any of the insns in the delay slot match, updating
 	     resource requirements as we go.  */
-	  for (i = XVECLEN (pat, 0) - 1; i > 0; i--)
+	  for (i = seq->len () - 1; i > 0; i--)
 	    {
-	      rtx candidate = XVECEXP (pat, 0, i);
+	      rtx candidate = seq->element (i);
 
 	      /* If an insn will be annulled if the branch is false, it isn't
 		 considered as a possible duplicate insn.  */
@@ -2015,9 +2015,9 @@ fill_simple_delay_slots (int non_jumps_p)
 	    rtx next = NEXT_INSN (trial);
 	    rtx prev = PREV_INSN (trial);
 	    if (prev)
-	      NEXT_INSN (prev) = next;
+	      SET_NEXT_INSN (prev) = next;
 	    if (next)
-	      PREV_INSN (next) = prev;
+	      SET_PREV_INSN (next) = prev;
 	  }
 	}
 

@@ -1,3 +1,707 @@
+2014-08-27  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/52892
+	* g++.dg/cpp0x/constexpr-52892-1.C: New.
+	* g++.dg/cpp0x/constexpr-52892-2.C: Likewise.
+	* g++.dg/cpp0x/constexpr-52282-1.C: Likewise.
+
+2014-08-27  Guozhi Wei  <carrot@google.com>
+
+	PR target/62262
+	* gcc.target/aarch64/pr62262.c: New test.
+
+2014-08-26  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/60606
+	PR target/61330
+	* gcc.dg/torture/pr60606-1.c, gcc.target/arm/pr60606-2.c,
+	gcc.target/arm/pr60606-3.c, gcc.target/arm/pr60606-4.c: New tests.
+
+2014-08-26  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gfortran.dg/bessel_7.f90: Bump allowed precision to avoid
+	failure on s390*-*-linux-gnu.
+
+2014-08-26  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62175
+	* g++.dg/torture/pr62175.C: New testcase.
+
+2014-08-25  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* gcc.c-torture/execute/execute.exp: Replace with slightly adapted
+	copy of compile/compile.exp.
+	* gcc.c-torture/execute/20010122-1.c: Skip if -fomit-frame-pointer.
+	* gcc.c-torture/execute/20010129-1.c: Add -mtune=i686 if compiling for
+	i?86-*.
+	* gcc.c-torture/execute/20020404-1.c: Require int32plus.  Skip if
+	m32c-*-*.
+	* gcc.c-torture/execute/20021024-1.c: Require int32plus.
+	* gcc.c-torture/execute/20021127-1.c: Add -std=c99 option.
+	* gcc.c-torture/execute/20030125-1.c: Require c99_runtime.
+	* gcc.c-torture/execute/20030216-1.c: Skip if -O1.
+	* gcc.c-torture/execute/20030222-1.c: Skip on spu-*-*.
+	* gcc.c-torture/execute/20040629-1.c: Require int32plus.
+	* gcc.c-torture/execute/20040703-1.c: Likewise.
+	* gcc.c-torture/execute/20040705-1.c: Likewise.
+	* gcc.c-torture/execute/20040705-2.c: Likewise.
+	* gcc.c-torture/execute/20040709-1.c: Likewise.
+	* gcc.c-torture/execute/20040709-2.c: Likewise.
+	* gcc.c-torture/execute/20040811-1.c: Likewise.
+	* gcc.c-torture/execute/20050316-1.c: Likewise.  Add -Wno-psabi.
+	* gcc.c-torture/execute/20050316-2.c: Use -mno-mmx -Wno-psabi when
+	compiling for x86_64-* or i?86-*.
+	* gcc.c-torture/execute/20050604-1.c: Likewise.
+	* gcc.c-torture/execute/20050316-3.c: Add -Wno-psabi option.
+	* gcc.c-torture/execute/20050604-1.c: Use -mno-mmx when	compiling
+	for x86_64-* or i?86-*.
+	* gcc.c-torture/execute/20061101-1.c: Require int32plus.
+	* gcc.c-torture/execute/20061220-1.c: Skip on rl78-*.
+	* gcc.c-torture/execute/20081117-1.c: Require int32plus.
+	* gcc.c-torture/execute/20101011-1.c: Add -fnon-call-exceptions
+	option.
+	* gcc.c-torture/execute/20111227-2.c: Moved to...
+	* gcc.dg/20111227-2.c: ... here.  Add -free option.
+	* gcc.c-torture/execute/20111227-3.c: Likewise move to...
+	* gcc.dg/20111227-3.c: ... here.  Add -free option.
+	* gcc.c-torture/execute/20120919-1.c: Require int32plus.
+	* gcc.c-torture/execute/920612-1.c: Add -fwrapv option.  Add
+	declarations for abort and exit.
+	* gcc.c-torture/execute/920711-1.c: Likewise.
+	* gcc.c-torture/execute/930529-1.c: Likewise.
+	* gcc.c-torture/execute/980709-1.c: Xfail if on AIX with -msoft-float.
+	* gcc.c-torture/execute/981130-1.c: Xfail on m32r-* with scheduling.
+	* gcc.c-torture/execute/990127-1.c: Add delcarations for abort and
+	exit.
+	* gcc.c-torture/execute/990127-2.c: Add -mpc64 option if compiling
+	for i?86-* or x86_64-*.  Add declarations for abort and exit.
+	* gcc.c-torture/execute/990413-2.c: Skip if not compiling for
+	i?86-* or x86_64-*.
+	* gcc.c-torture/execute/990826-0.c: Xfail if on AIX with -msoft-float.
+	* gcc.c-torture/execute/bf64-1.c: Xfail on mcore-*.
+	* gcc.c-torture/execute/bitfld-4.c: Require int32plus.
+	* gcc.c-torture/execute/cmpsi-2.c: Likewise.
+	* gcc.c-torture/execute/eeprof-1.c: Add -finstrument-functions option.
+	Xfail on powerpc-ibm-aix*.  Add declaration for abort.
+	* gcc.c-torture/execute/ipa-sra-2.c: Require int32plus.
+	* gcc.c-torture/execute/loop-2f.c: Require mmap.  Skip if on
+	m68k-linux.
+	* gcc.c-torture/execute/loop-2g.c: Likewise.
+	* gcc.c-torture/execute/mode-dependent-address.c: Require stdint_types.
+	* gcc.c-torture/execute/nest-align-1.c: Add -mno-eabi option for
+	powerpc-*-eabi*.
+	* gcc.c-torture/execute/pr19689.c: Require int32plus.
+	* gcc.c-torture/execute/pr22493-1.c: Add -fwrapv option.
+	* gcc.c-torture/execute/pr23047.c: Likewise.
+	* gcc.c-torture/execute/pr23135.c: Add -Wno-psabi option.  Add
+	declarations for abort and exit.
+	* gcc.c-torture/execute/pr29797-1.c: Require int32plus.
+	* gcc.c-torture/execute/pr31448.c: Likewise.
+	* gcc.c-torture/execute/pr35456.c: Skip on vax.
+	* gcc.c-torture/execute/pr37573.c: Require int32plus.
+	* gcc.c-torture/execute/pr38151.c: Add -Wno-psabi option.
+	* gcc.c-torture/execute/pr39228.c: Add -mieee for sh* and alpha*.
+	Skip on spu-*.
+	* gcc.c-torture/execute/pr39501.c: Add -ffast-math option.  Add
+	declarations for abort and exit.
+	* gcc.c-torture/execute/pr40386.c: Add declarations for abort and exit.
+	* gcc.c-torture/execute/pr43220.c: Require int32plus.
+	* gcc.c-torture/execute/pr44583.c: Add -mieee option for sh*.
+	* gcc.c-torture/execute/pr45262.c: Require int32plus.
+	* gcc.c-torture/execute/pr47237.c: Xfail on nios2-*.
+	* gcc.c-torture/execute/pr51581-1.c: Require int32plus.
+	* gcc.c-torture/execute/pr51582-2.c: Likewise.
+	* gcc.c-torture/execute/pr52979-1.c: Likewise.
+	* gcc.c-torture/execute/pr52979-2.c: Likewise.
+	* gcc.c-torture/execute/pr56799.c: Likewise.
+	* gcc.c-torture/execute/pr57124.c: Likewise.  Add -fno-strict-overflow
+	option.  Add declarations for abort and exit.
+	* gcc.c-torture/execute/pr57344-2.c: Require int32plus.
+	* gcc.c-torture/execute/pr58570.c: Likewise.
+	* gcc.c-torture/execute/pr60822.c: Likewise.
+	* gcc.c-torture/execute/pr7284-1.c: Likewise.
+	* gcc.c-torture/execute/shiftdi.c: Likewise.
+	* gcc.c-torture/execute/simd-4.c: Require stdint_types.
+	* gcc.c-torture/execute/strncmp-1.c: Xfail if vxworks_kernel.
+	* gcc.c-torture/execute/usmul.c: Require int32plus.
+	* gcc.c-torture/execute/vrp-5.c: Likewise.
+	* gcc.c-torture/execute/vrp-6.c: Likewise.
+	* gcc.c-torture/execute/zerolen-2.c: Skip on epiphany-*.
+	* gcc.c-torture/execute/20010122-1.x: Delete.
+	* gcc.c-torture/execute/20010129-1.x: Delete.
+	* gcc.c-torture/execute/20020404-1.x: Delete.
+	* gcc.c-torture/execute/20021024-1.x: Delete.
+	* gcc.c-torture/execute/20021127-1.x: Delete.
+	* gcc.c-torture/execute/20030125-1.x: Delete.
+	* gcc.c-torture/execute/20030216-1.x: Delete.
+	* gcc.c-torture/execute/20030222-1.x: Delete.
+	* gcc.c-torture/execute/20040629-1.x: Delete.
+	* gcc.c-torture/execute/20040703-1.x: Delete.
+	* gcc.c-torture/execute/20040705-1.x: Delete.
+	* gcc.c-torture/execute/20040705-2.x: Delete.
+	* gcc.c-torture/execute/20040709-1.x: Delete.
+	* gcc.c-torture/execute/20040709-2.x: Delete.
+	* gcc.c-torture/execute/20040811-1.x: Delete.
+	* gcc.c-torture/execute/20050316-1.x: Delete.
+	* gcc.c-torture/execute/20050316-2.x: Delete.
+	* gcc.c-torture/execute/20050316-3.x: Delete.
+	* gcc.c-torture/execute/20050604-1.x: Delete.
+	* gcc.c-torture/execute/20061101-1.x: Delete.
+	* gcc.c-torture/execute/20061220-1.x: Delete.
+	* gcc.c-torture/execute/20081117-1.x: Delete.
+	* gcc.c-torture/execute/20101011-1.x: Delete.
+	* gcc.c-torture/execute/20120919-1.x: Delete.
+	* gcc.c-torture/execute/920612-1.x: Delete.
+	* gcc.c-torture/execute/920710-1.x: Delete.
+	* gcc.c-torture/execute/920711-1.x: Delete.
+	* gcc.c-torture/execute/930529-1.x: Delete.
+	* gcc.c-torture/execute/931004-12.x: Delete.
+	* gcc.c-torture/execute/980709-1.x: Delete.
+	* gcc.c-torture/execute/981130-1.x: Delete.
+	* gcc.c-torture/execute/990127-2.x: Delete.
+	* gcc.c-torture/execute/990413-2.x: Delete.
+	* gcc.c-torture/execute/990826-0.x: Delete.
+	* gcc.c-torture/execute/bf64-1.x: Delete.
+	* gcc.c-torture/execute/bitfld-4.x: Delete.
+	* gcc.c-torture/execute/cmpsi-2.x: Delete.
+	* gcc.c-torture/execute/cvt-1.x: Delete.
+	* gcc.c-torture/execute/eeprof-1.x: Delete.
+	* gcc.c-torture/execute/ipa-sra-2.x: Delete.
+	* gcc.c-torture/execute/loop-2f.x: Delete.
+	* gcc.c-torture/execute/loop-2g.x: Delete.
+	* gcc.c-torture/execute/mode-dependent-address.x: Delete.
+	* gcc.c-torture/execute/nest-align-1.x: Delete.
+	* gcc.c-torture/execute/pr19689.x: Delete.
+	* gcc.c-torture/execute/pr22493-1.x: Delete.
+	* gcc.c-torture/execute/pr23047.x: Delete.
+	* gcc.c-torture/execute/pr23135.x: Delete.
+	* gcc.c-torture/execute/pr29797-1.x: Delete.
+	* gcc.c-torture/execute/pr31448.x: Delete.
+	* gcc.c-torture/execute/pr35456.x: Delete.
+	* gcc.c-torture/execute/pr37573.x: Delete.
+	* gcc.c-torture/execute/pr38151.x: Delete.
+	* gcc.c-torture/execute/pr39228.x: Delete.
+	* gcc.c-torture/execute/pr39501.x: Delete.
+	* gcc.c-torture/execute/pr40386.x: Delete.
+	* gcc.c-torture/execute/pr43220.x: Delete.
+	* gcc.c-torture/execute/pr44683.x: Delete.
+	* gcc.c-torture/execute/pr45262.x: Delete.
+	* gcc.c-torture/execute/pr47237.x: Delete.
+	* gcc.c-torture/execute/pr51581-1.x: Delete.
+	* gcc.c-torture/execute/pr51581-2.x: Delete.
+	* gcc.c-torture/execute/pr52979-1.x: Delete.
+	* gcc.c-torture/execute/pr52979-2.x: Delete.
+	* gcc.c-torture/execute/pr53366-1.x: Delete.
+	* gcc.c-torture/execute/pr56799.x: Delete.
+	* gcc.c-torture/execute/pr57124.x: Delete.
+	* gcc.c-torture/execute/pr57344-2.x: Delete.
+	* gcc.c-torture/execute/pr58570.x: Delete.
+	* gcc.c-torture/execute/pr60822.x: Delete.
+	* gcc.c-torture/execute/pr7284-1.x: Delete.
+	* gcc.c-torture/execute/shiftdi.x: Delete.
+	* gcc.c-torture/execute/simd-4.x: Delete.
+	* gcc.c-torture/execute/strncmp-1.x: Delete.
+	* gcc.c-torture/execute/usmul.x: Delete.
+	* gcc.c-torture/execute/vrp-5.x: Delete.
+	* gcc.c-torture/execute/vrp-6.x: Delete.
+	* gcc.c-torture/execute/zerolen-2.x: Delete.
+
+2014-08-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.old-deja/g++.pt/var1.C: Use c++14, not c++1y, in dg-error.
+
+2014-08-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/34938
+	* g++.dg/template/pr34938-1.C: New.
+	* g++.dg/template/pr34938-2.C: Likewise.
+
+2014-08-24  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/61996
+	* gcc.target/sh/pr61996.c: New.
+
+2014-08-23  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* g++.dg/cpp0x/cplusplus.C: New.
+	* g++.dg/cpp0x/cplusplus_0x.C: New.
+	* g++.dg/cpp0x/auto3.C: Change c++1y to c++14.
+	* g++.dg/cpp0x/auto41.C: Ditto.
+	* g++.dg/cpp0x/auto9.C: Ditto.
+	* g++.dg/cpp0x/initlist26.C: Ditto.
+	* g++.dg/cpp0x/pr59111.C: Ditto.
+	* g++.dg/cpp0x/trailing2.C: Ditto.
+	* g++.dg/cpp1y/attr-deprecated.C: Ditto.
+	* g++.dg/cpp1y/auto-dtor1.C: Ditto.
+	* g++.dg/cpp1y/auto-fn1.C: Ditto.
+	* g++.dg/cpp1y/auto-fn2.C: Ditto.
+	* g++.dg/cpp1y/auto-fn3.C: Ditto.
+	* g++.dg/cpp1y/auto-fn4.C: Ditto.
+	* g++.dg/cpp1y/auto-fn5.C: Ditto.
+	* g++.dg/cpp1y/auto-fn6.C: Ditto.
+	* g++.dg/cpp1y/auto-fn7.C: Ditto.
+	* g++.dg/cpp1y/auto-fn8.C: Ditto.
+	* g++.dg/cpp1y/auto-fn9.C: Ditto.
+	* g++.dg/cpp1y/auto-fn10.C: Ditto.
+	* g++.dg/cpp1y/auto-fn11.C: Ditto.
+	* g++.dg/cpp1y/auto-fn12.C: Ditto.
+	* g++.dg/cpp1y/auto-fn13.C: Ditto.
+	* g++.dg/cpp1y/auto-fn14.C: Ditto.
+	* g++.dg/cpp1y/auto-fn15.C: Ditto.
+	* g++.dg/cpp1y/auto-fn16.C: Ditto.
+	* g++.dg/cpp1y/auto-fn17.C: Ditto.
+	* g++.dg/cpp1y/auto-fn18.C: Ditto.
+	* g++.dg/cpp1y/auto-fn19.C: Ditto.
+	* g++.dg/cpp1y/auto-fn20.C: Ditto.
+	* g++.dg/cpp1y/auto-fn21.C: Ditto.
+	* g++.dg/cpp1y/auto-fn22.C: Ditto.
+	* g++.dg/cpp1y/auto-fn23.C: Ditto.
+	* g++.dg/cpp1y/auto-fn24.C: Ditto.
+	* g++.dg/cpp1y/auto-fn25.C: Ditto.
+	* g++.dg/cpp1y/auto-mangle1.C: Ditto.
+	* g++.dg/cpp1y/auto-neg1.C: Ditto.
+	* g++.dg/cpp1y/digit-sep.C: Ditto.
+	* g++.dg/cpp1y/digit-sep-neg.C: Ditto.
+	* g++.dg/cpp1y/digit-sep-cxx11-neg.C: Ditto.
+	* g++.dg/cpp1y/fn-generic-member-ool.C: Ditto.
+	* g++.dg/cpp1y/lambda-deduce-mult.C: Ditto.
+	* g++.dg/cpp1y/lambda-generic.C: Ditto.
+	* g++.dg/cpp1y/lambda-generic-cfun.C: Ditto.
+	* g++.dg/cpp1y/lambda-generic-dep.C: Ditto.
+	* g++.dg/cpp1y/lambda-generic-mixed.C: Ditto.
+	* g++.dg/cpp1y/lambda-generic-udt.C: Ditto.
+	* g++.dg/cpp1y/lambda-generic-variadic.C: Ditto.
+	* g++.dg/cpp1y/lambda-generic-vla1.C: Ditto.
+	* g++.dg/cpp1y/lambda-generic-x.C: Ditto.
+	* g++.dg/cpp1y/lambda-generic-xcfun.C: Ditto.
+	* g++.dg/cpp1y/lambda-generic-xudt.C: Ditto.
+	* g++.dg/cpp1y/lambda-init.C: Ditto.
+	* g++.dg/cpp1y/lambda-init1.C: Ditto.
+	* g++.dg/cpp1y/lambda-init2.C: Ditto.
+	* g++.dg/cpp1y/lambda-init3.C: Ditto.
+	* g++.dg/cpp1y/lambda-init4.C: Ditto.
+	* g++.dg/cpp1y/lambda-init5.C: Ditto.
+	* g++.dg/cpp1y/lambda-init6.C: Ditto.
+	* g++.dg/cpp1y/lambda-init7.C: Ditto.
+	* g++.dg/cpp1y/lambda-init8.C: Ditto.
+	* g++.dg/cpp1y/lambda-init9.C: Ditto.
+	* g++.dg/cpp1y/mangle1.C: Ditto.
+	* g++.dg/cpp1y/pr57640.C: Ditto.
+	* g++.dg/cpp1y/pr57644.C: Ditto.
+	* g++.dg/cpp1y/pr58500.C: Ditto.
+	* g++.dg/cpp1y/pr58533.C: Ditto.
+	* g++.dg/cpp1y/pr58534.C: Ditto.
+	* g++.dg/cpp1y/pr58535.C: Ditto.
+	* g++.dg/cpp1y/pr58536.C: Ditto.
+	* g++.dg/cpp1y/pr58548.C: Ditto.
+	* g++.dg/cpp1y/pr58549.C: Ditto.
+	* g++.dg/cpp1y/pr58637.C: Ditto.
+	* g++.dg/cpp1y/pr58708.C: Ditto.
+	* g++.dg/cpp1y/pr59110.C: Ditto.
+	* g++.dg/cpp1y/pr59112.C: Ditto.
+	* g++.dg/cpp1y/pr59113.C: Ditto.
+	* g++.dg/cpp1y/pr59629.C: Ditto.
+	* g++.dg/cpp1y/pr59635.C: Ditto.
+	* g++.dg/cpp1y/pr59636.C: Ditto.
+	* g++.dg/cpp1y/pr59638.C: Ditto.
+	* g++.dg/cpp1y/pr59867.C: Ditto.
+	* g++.dg/cpp1y/pr60033.C: Ditto.
+	* g++.dg/cpp1y/pr60052.C: Ditto.
+	* g++.dg/cpp1y/pr60053.C: Ditto.
+	* g++.dg/cpp1y/pr60054.C: Ditto.
+	* g++.dg/cpp1y/pr60064.C: Ditto.
+	* g++.dg/cpp1y/pr60065.C: Ditto.
+	* g++.dg/cpp1y/pr60190.C: Ditto.
+	* g++.dg/cpp1y/pr60311.C: Ditto.
+	* g++.dg/cpp1y/pr60332.C: Ditto.
+	* g++.dg/cpp1y/pr60376.C: Ditto.
+	* g++.dg/cpp1y/pr60377.C: Ditto.
+	* g++.dg/cpp1y/pr60384.C: Ditto.
+	* g++.dg/cpp1y/pr60390.C: Ditto.
+	* g++.dg/cpp1y/pr60391.C: Ditto.
+	* g++.dg/cpp1y/pr60393.C: Ditto.
+	* g++.dg/cpp1y/pr60573.C: Ditto.
+	* g++.dg/cpp1y/pr60626.C: Ditto.
+	* g++.dg/cpp1y/pr60627.C: Ditto.
+	* g++.dg/cpp1y/regress1.C: Ditto.
+	* g++.dg/cpp1y/system-binary-constants-1.C: Ditto.
+	* g++.dg/cpp1y/udlit-char-template.C: Ditto.
+	* g++.dg/cpp1y/udlit-char-template-neg.C: Ditto.
+	* g++.dg/cpp1y/udlit-empty-string-neg.C: Ditto.
+	* g++.dg/cpp1y/udlit-enc-prefix-neg.C: Ditto.
+	* g++.dg/cpp1y/udlit-userdef-string.C: Ditto.
+	* g++.dg/cpp1y/var-templ1.C: Ditto.
+	* g++.dg/cpp1y/var-templ2.C: Ditto.
+	* g++.dg/cpp1y/var-templ3.C: Ditto.
+	* g++.dg/cpp1y/var-templ4.C: Ditto.
+	* g++.dg/cpp1y/var-templ5.C: Ditto.
+	* g++.dg/cpp1y/var-templ6.C: Ditto.
+	* g++.dg/cpp1y/var-templ7.C: Ditto.
+	* g++.dg/cpp1y/vla1.C: Ditto.
+	* g++.dg/cpp1y/vla2.C: Ditto.
+	* g++.dg/cpp1y/vla3.C: Ditto.
+	* g++.dg/cpp1y/vla4.C: Ditto.
+	* g++.dg/cpp1y/vla5.C: Ditto.
+	* g++.dg/cpp1y/vla8.C: Ditto.
+	* g++.dg/cpp1y/vla9.C: Ditto.
+	* g++.dg/cpp1y/vla10.C: Ditto.
+	* g++.dg/cpp1y/vla11.C: Ditto.
+	* g++.dg/cpp1y/vla12.C: Ditto.
+	* g++.dg/cpp1y/vla13.C: Ditto.
+	* g++.dg/cpp1y/vla-initlist1.C: Ditto.
+	* g++.dg/ext/vector23.C: Ditto.
+	* g++.dg/ext/vla11.C: Ditto.
+	* gcc/testsuite/g++.dg/ubsan/cxx1y-vla.C: Ditto.
+	* g++.dg/warn/Wvla-2.C: Ditto.
+	* g++.dg/debug/dwarf2/auto1.C: Ditto.
+	* g++.dg/cpp1z/typename-tmpl-tmpl-parm-ped-neg.C: Ditto.
+	* g++.dg/cpp1y/cplusplus.C: Check for exact date.
+	* g++.dg/cpp1y/system-binary-constants-1.C: Check C++14 instead of C++1y
+	in error message.
+	* g++.dg/system-binary-constants-1.C: Ditto.
+	* g++.dg/cpp1y/cplusplus_1y.C: New.
+	* g++.dg/cpp1z/cplusplus.C: New.
+	* lib/target-supports.exp:
+	(check_effective_target_c++1y*): Rename to check_effective_target_c++14*
+	(check_effective_target_c++11_only): Call check_effective_target_c++14;
+	(check_effective_target_c++11_down): Ditto.
+
+2014-08-22  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/62199
+	* c-c++-common/pr62199.c: New test.
+	* c-c++-common/pr62199-2.c: New test.
+	* g++.dg/warn/Wparentheses-25.C: Drop XFAILs.
+
+2014-08-22  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c++/57709
+	* g++.dg/Wshadow.C: New test.
+
+2014-08-22  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR fortran/62135
+	* gfortran.dg/pr62135.f90: New test.
+
+2014-08-22  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* g++.dg/warn/wdate-time.C: Remove.
+	* gcc.dg/wdate-time.c: Move from here...
+	* c-c++-common/wdate-time.c: ... to here.
+
+2014-08-22  Joost VandeVondele  <Joost.VandeVondele@mat.ethz.ch>
+
+	* gfortran.dg/use_without_only_1.f90: New test.
+
+2014-08-22  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR other/62008
+	* c-c++-common/cilk-plus/AN/pr62008.c: New test.
+
+2014-08-22  Tony Wang  <tony.wang@arm.com>
+
+	* g++.dg/tls/thread_local6.C: Skip this test case when target uses
+	dejagnu wrapper.
+
+2014-08-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/62214
+	* gfortran.dg/array_assignment_5.f90:  New test.
+
+2014-08-21  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_logical_op_short_circuit): Add nios2.
+	* gcc.dg/tree-ssa/reassoc-33.c: Skip for nios2.
+	* gcc.dg/tree-ssa/reassoc-34.c: Likewise.
+	* gcc.dg/tree-ssa/reassoc-35.c: Likewise.
+	* gcc.dg/tree-ssa/reassoc-36.c: Likewise.
+	* gcc.dg/tree-ssa/interposition.c: Require fpic effective target
+	for test using -fPIC.
+	* gcc.dg/lto/pr61526_0.c: Likewise.
+
+2014-08-21  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR tree-optimization/62091
+	* g++.dg/ipa/devirt-37.C: Update template.
+	* g++.dg/ipa/devirt-40.C: New testcase.
+
+2014-08-21  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/62112
+	* gcc.dg/tree-ssa/pr62112-1.c: New file.
+	* gcc.dg/tree-ssa/pr62112-2.c: Likewise.
+	* gcc.c-torture/execute/pr35472.c: Add noclone attribute.
+	* gcc.c-torture/execute/20071219-1.c: Likewise.
+
+2014-08-20  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* testsuite/gcc.target/powerpc/builtins-1.c: New test.
+
+2014-08-20  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/swaps-p8-1.c: New test.
+	* gcc.target/powerpc/swaps-p8-2.c: New test.
+	* gcc.target/powerpc/swaps-p8-3.c: New test.
+	* gcc.target/powerpc/swaps-p8-4.c: New test.
+	* gcc.target/powerpc/swaps-p8-5.c: New test.
+	* gcc.target/powerpc/swaps-p8-6.c: New test.
+	* gcc.target/powerpc/swaps-p8-7.c: New test.
+	* gcc.target/powerpc/swaps-p8-8.c: New test.
+	* gcc.target/powerpc/swaps-p8-9.c: New test.
+	* gcc.target/powerpc/swaps-p8-10.c: New test.
+	* gcc.target/powerpc/swaps-p8-11.c: New test.
+	* gcc.target/powerpc/swaps-p8-12.c: New test.
+
+2014-08-20  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/ipa/ctor-empty-1.c: Update template.
+
+2014-08-20  Jan Hubicka  <hubicka@ucw.cz>
+
+	* g++.dg/ipa/devirt-37.C: Fix testcase.
+
+2014-08-20  Martin Jambor  <mjambor@suse.cz>
+	    Wei Mi  <wmi@google.com>
+
+	PR ipa/60449
+	PR middle-end/61776
+	* testsuite/gcc.dg/lto/pr60449_1.c: New test.
+	* testsuite/gcc.dg/lto/pr60449_0.c: New test.
+	* testsuite/gcc.dg/pr61776.c: New test.
+
+2014-08-20  Steve Ellcey  <sellcey@mips.com>
+
+	PR middle-end/49191
+	* lib/target-supports.exp (check_effective_target_non_strict_align):
+	Add function description.
+
+2014-08-20  Jan Hubicka  <hubicka@ucw.cz>
+
+	* testsuite/g++.dg/ipa/devirt-17.C: Update template.
+	* testsuite/g++.dg/ipa/devirt-16.C: Update template.
+
+2014-08-20  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c/59304
+	* opts-common.c (set_option): Call diagnostic_classify_diagnostic
+	before setting the option.
+	* diagnostic.c (diagnostic_classify_diagnostic): Record
+	command-line status.
+
+2014-08-20  Mark Wielaard  <mjw@redhat.com>
+
+	* gcc.dg/guality/restrict.c: Add `used' attribute to all variables.
+
+2014-08-20  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* lib/gcc-defs.exp (${tool}_check_unsupported_p):
+	Return memory full when we have a tiny target and relocation
+	truncation occurs.
+	* lib/gcc-dg.exp (gcc-dg-prune): Likewise.
+	* lib/objc.exp (${tool}_check_unsupported_p): Likewise.
+	* lib/target-supports.exp (check_effective_target_tiny): New function.
+
+2014-08-20  Joost VandeVondele  <Joost.VandeVondele@mat.ethz.ch>
+
+	* gfortran.dg/errnocheck_1.f90: New test.
+	* gfortran.dg/associative_1.f90: New test.
+
+2014-08-20  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR preprocessor/51303
+	* gcc.dg/cpp/Wmissingdirs.c: Test for the warning option.
+
+2014-08-20  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c/60975
+	PR c/53063
+	* gcc.dg/cpp/Wvariadic-1p.c: New test.
+
+2014-08-19  Janis Johnson  <janisjo@codesourcery.com>
+
+	* lib/target-supports.exp 
+	(check_effective_target_arm_v8_neon_ok_nocache): Add
+	"-march-armv8-a" to compile flags.
+
+2014-08-19  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/62153
+	* c-c++-common/Wbool-compare-1.c: New test.
+
+2014-08-19  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c/45584
+	* gcc.dg/pr13519-1.c: Adjust.
+
+2014-08-19  Mark Wielaard  <mjw@redhat.com>
+
+	* gcc.dg/guality/const-volatile.c: Add `used' attribute to pi.
+
+2014-07-08  Mark Wielaard  <mjw@redhat.com>
+
+	PR debug/59051
+	* gcc.dg/guality/restrict.c: New test.
+
+2014-08-19  Mark Wielaard  <mjw@redhat.com>
+
+	* lib/gcc-gdb-test.exp (gdb-test): Handle type:var for gdb ptype
+	matching. Catch '<unknown type in ' to recognize older gdb versions.
+	* gcc.dg/guality/const-volatile.c: New test.
+
+2014-08-19  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.dg/debug/dwarf2/nested-4.C: XFAIL on *-*-solaris2.1[1-9]* &&
+	!gas.
+
+2014-08-19  Marek Polacek  <polacek@redhat.com>
+
+	* gcc.dg/Wc99-c11-compat-1.c: New test.
+	* gcc.dg/Wc99-c11-compat-2.c: New test.
+	* gcc.dg/Wc99-c11-compat-3.c: New test.
+	* gcc.dg/Wc99-c11-compat-4.c: New test.
+	* gcc.dg/Wc99-c11-compat-5.c: New test.
+	* gcc.dg/Wc99-c11-compat-6.c: New test.
+	* gcc.dg/Wc99-c11-compat-7.c: New test.
+
+2014-08-19  Marek Polacek  <polacek@redhat.com>
+
+	* gcc.dg/Wc90-c99-compat-4.c: Remove all dg-warnings.
+	* gcc.dg/Wc90-c99-compat-5.c: Remove all dg-errors.
+	* gcc.dg/Wc90-c99-compat-7.c: New test.
+	* gcc.dg/Wc90-c99-compat-8.c: New test.
+	* gcc.dg/Wdeclaration-after-statement-4.c: New test.
+
+2014-08-19  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+	    Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR c/52952
+	* gcc.dg/redecl-4.c: Add column markers.
+	* gcc.dg/format/bitfld-1.c: Likewise.
+	* gcc.dg/format/attr-2.c: Likewise.
+	* gcc.dg/format/attr-6.c: Likewise.
+	* gcc.dg/format/array-1.c: Likewise.
+	* gcc.dg/format/attr-7.c: Likewise.
+	* gcc.dg/format/asm_fprintf-1.c: Likewise.
+	* gcc.dg/format/attr-4.c: Likewise.
+	* gcc.dg/format/branch-1.c: Likewise.
+	* gcc.dg/format/c90-printf-1.c: Likewise.
+
+2014-08-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* guality/nrv-1.c: Add `used' attribute to a1.
+
+2014-08-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62090
+	* gcc.dg/pr62090-2.c: New testcase.
+
+2014-08-18  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* g++.dg/ipa/pr61800.C: New.
+
+2014-08-18  Yury Gribov  <y.gribov@samsung.com>
+
+	PR sanitizer/62089
+	* c-c++-common/asan/pr62089.c: New test.
+	* c-c++-common/asan/bitfield-1.c: New test.
+	* c-c++-common/asan/bitfield-2.c: New test.
+	* c-c++-common/asan/bitfield-3.c: New test.
+	* c-c++-common/asan/bitfield-4.c: New test.
+
+2014-08-18  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR tree-optimization/52904
+	* gcc.dg/pr52904.c: New test.
+
+2014-08-17  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/finalize_27.f90: New.
+
+2014-08-16  Andrew Pinski  <apinski@cavium.com>
+
+	* gcc.c-torture/compile/20140816-1.c: New testcase.
+
+2014-08-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/52819
+	* g++.dg/template/pr52819.C: New.
+
+2014-08-15  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/62142
+	* gfortran.dg/realloc_on_assign_24.f90:  New test.
+
+2014-08-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/62072
+	Revert:
+	2014-07-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	DR 1584
+	PR c++/57466
+	* g++.dg/template/pr57466.C: New.
+	* g++.dg/cpp0x/pr57466.C: Likewise.
+	* g++.dg/template/unify6.C: Update.
+
+	* g++.dg/cpp0x/sfinae52.C: New.
+
+2014-08-15  Ilya Tocar  <tocarip@gmail.com>
+
+	PR target/61878
+	* gcc.target/i386/avx512f-typecast-1.c: New test.
+	* gcc.target/i386/avx512f-vpcmpequd-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpequd-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpequq-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpequq-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpged-1.c: Add new intrinsic.
+	* gcc.target/i386/avx512f-vpcmpged-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpgeq-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpgeq-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpgeud-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpgeud-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpgeuq-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpgeuq-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpgtud-1.c: New test.
+	* gcc.target/i386/avx512f-vpcmpgtud-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpgtuq-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpgtuq-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpled-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpled-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpleq-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpleq-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpleud-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpleud-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpleuq-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpleuq-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpltd-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpltd-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpltq-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpltq-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpltud-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpltud-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpltuq-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpltuq-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpneqd-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpneqd-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpneqq-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpneqq-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpnequd-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpnequd-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpnequq-1.c: Ditto.
+	* gcc.target/i386/avx512f-vpcmpnequq-2.c: Ditto.
+
+2014-08-15  Jakub Jelinek  <jakub@redhat.com>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/62131
+	* gfortran.dg/gomp/pr62131.f90: New test.
+
+2014-08-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62031
+	* gcc.dg/torture/pr62031.c: New testcase.
+
 2014-08-15  Bin Cheng  <bin.cheng@arm.com>
 
 	* gcc.dg/tree-ssa/ivopts-lt-2.c: New test.

@@ -2317,12 +2317,13 @@ check_template_variable (tree decl)
 {
   tree ctx = CP_DECL_CONTEXT (decl);
   int wanted = num_template_headers_for_class (ctx);
-  if (!TYPE_P (ctx) || !CLASSTYPE_TEMPLATE_INFO (ctx))
+  if (DECL_LANG_SPECIFIC (decl) && DECL_TEMPLATE_INFO (decl)
+      && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (decl)))
     {
-      if (cxx_dialect < cxx1y)
+      if (cxx_dialect < cxx14)
         pedwarn (DECL_SOURCE_LOCATION (decl), 0,
                  "variable templates only available with "
-                 "-std=c++1y or -std=gnu++1y");
+                 "-std=c++14 or -std=gnu++14");
 
       // Namespace-scope variable templates should have a template header.
       ++wanted;
@@ -2332,7 +2333,8 @@ check_template_variable (tree decl)
       bool warned = pedwarn (DECL_SOURCE_LOCATION (decl), 0,
 			     "too many template headers for %D (should be %d)",
 			     decl, wanted);
-      if (warned && CLASSTYPE_TEMPLATE_SPECIALIZATION (ctx))
+      if (warned && CLASS_TYPE_P (ctx)
+	  && CLASSTYPE_TEMPLATE_SPECIALIZATION (ctx))
 	inform (DECL_SOURCE_LOCATION (decl),
 		"members of an explicitly specialized class are defined "
 		"without a template header");
@@ -2460,11 +2462,9 @@ check_explicit_specialization (tree declarator,
       /* Fall through.  */
     case tsk_expl_spec:
       if (VAR_P (decl) && TREE_CODE (declarator) != TEMPLATE_ID_EXPR)
-        {
-           // In cases like template<> constexpr bool v = true;
-           error ("%qD is not a template variable", dname);
-           break;
-        }
+	/* In cases like template<> constexpr bool v = true;
+	   We'll give an error in check_template_variable.  */
+	break;
 
       SET_DECL_TEMPLATE_SPECIALIZATION (decl);
       if (ctype)
@@ -4731,6 +4731,9 @@ push_template_decl_real (tree decl, bool is_friend)
          template <typename T> friend void A<T>::f();
        is not primary.  */
     is_primary = false;
+  else if (TREE_CODE (decl) == TYPE_DECL
+	   && LAMBDA_TYPE_P (TREE_TYPE (decl)))
+    is_primary = false;
   else
     is_primary = template_parm_scope_p ();
 
@@ -4783,14 +4786,7 @@ push_template_decl_real (tree decl, bool is_friend)
 	/* alias-declaration */
 	gcc_assert (!DECL_ARTIFICIAL (decl));
       else if (VAR_P (decl))
-        {
-          if (!DECL_DECLARED_CONSTEXPR_P (decl))
-            {
-              sorry ("template declaration of non-constexpr variable %qD",
-		     decl);
-              return error_mark_node;
-            }
-        }
+	/* C++14 variable template. */;
       else
 	{
 	  error ("template declaration of %q#D", decl);
@@ -9246,6 +9242,11 @@ instantiate_class_template_1 (tree type)
 		  && DECL_OMP_DECLARE_REDUCTION_P (r))
 		cp_check_omp_declare_reduction (r);
 	    }
+	  else if (DECL_CLASS_TEMPLATE_P (t)
+		   && LAMBDA_TYPE_P (TREE_TYPE (t)))
+	    /* A closure type for a lambda in a default argument for a
+	       member template.  Ignore it; it will be instantiated with
+	       the default argument.  */;
 	  else
 	    {
 	      /* Build new TYPE_FIELDS.  */
@@ -11135,13 +11136,12 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 		   same_type_p, because DECL_CONTEXT is always
 		   canonical...  */
 		if (ctx == DECL_CONTEXT (t)
-		    && (TREE_CODE (t) != TYPE_DECL
-			/* ... unless T is a member template; in which
-			   case our caller can be willing to create a
-			   specialization of that template represented
-			   by T.  */
-			|| !(DECL_TI_TEMPLATE (t)
-			     && DECL_MEMBER_TEMPLATE_P (DECL_TI_TEMPLATE (t)))))
+		    /* ... unless T is a member template; in which
+		       case our caller can be willing to create a
+		       specialization of that template represented
+		       by T.  */
+		    && !(DECL_TI_TEMPLATE (t)
+			 && DECL_MEMBER_TEMPLATE_P (DECL_TI_TEMPLATE (t))))
 		  spec = t;
 	      }
 
@@ -11234,6 +11234,8 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 		  }
 		SET_DECL_VALUE_EXPR (r, ve);
 	      }
+	    if (TREE_STATIC (r) || DECL_EXTERNAL (r))
+	      set_decl_tls_model (r, decl_tls_model (t));
 	  }
 	else if (DECL_SELF_REFERENCE_P (t))
 	  SET_DECL_SELF_REFERENCE_P (r);
@@ -12139,7 +12141,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  r = cp_build_reference_type (type, TYPE_REF_IS_RVALUE (t));
 	r = cp_build_qualified_type_real (r, cp_type_quals (t), complain);
 
-	if (cxx_dialect >= cxx1y
+	if (cxx_dialect >= cxx14
 	    && !(TREE_CODE (t) == REFERENCE_TYPE && REFERENCE_VLA_OK (t))
 	    && array_of_runtime_bound_p (type)
 	    && (flag_iso || warn_vla > 0))
@@ -15415,6 +15417,17 @@ tsubst_copy_and_build (tree t,
     case PARM_DECL:
       {
 	tree r = tsubst_copy (t, args, complain, in_decl);
+	if (VAR_P (r)
+	    && !processing_template_decl
+	    && !cp_unevaluated_operand
+	    && (TREE_STATIC (r) || DECL_EXTERNAL (r))
+	    && DECL_THREAD_LOCAL_P (r))
+	  {
+	    if (tree wrap = get_tls_wrapper_fn (r))
+	      /* Replace an evaluated use of the thread_local variable with
+		 a call to its wrapper.  */
+	      r = build_cxx_call (wrap, 0, NULL, tf_warning_or_error);
+	  }
 
 	if (TREE_CODE (TREE_TYPE (t)) != REFERENCE_TYPE)
 	  /* If the original type was a reference, we'll be wrapped in
@@ -17288,11 +17301,6 @@ check_cv_quals_for_unify (int strict, tree arg, tree parm)
 {
   int arg_quals = cp_type_quals (arg);
   int parm_quals = cp_type_quals (parm);
-
-  /* DR 1584: cv-qualification of a deduced function type is
-     ignored; see 8.3.5 [dcl.fct].  */
-  if (TREE_CODE (arg) == FUNCTION_TYPE)
-    return 1;
 
   if (TREE_CODE (parm) == TEMPLATE_TYPE_PARM
       && !(strict & UNIFY_ALLOW_OUTER_MORE_CV_QUAL))
@@ -19721,8 +19729,6 @@ template_for_substitution (tree decl)
 	 cannot restructure the loop to just keep going until we find
 	 a template with a definition, since that might go too far if
 	 a specialization was declared, but not defined.  */
-      gcc_assert (!VAR_P (decl)
-		  || DECL_IN_AGGR_P (DECL_TEMPLATE_RESULT (tmpl)));
 
       /* Fetch the more general template.  */
       tmpl = DECL_TI_TEMPLATE (tmpl);
@@ -20114,6 +20120,9 @@ instantiate_decl (tree d, int defer_ok,
 
       if (enter_context)
         pop_nested_class ();
+
+      if (variable_template_p (td))
+	note_variable_template_instantiation (d);
     }
   else if (TREE_CODE (d) == FUNCTION_DECL && DECL_DEFAULTED_FN (code_pattern))
     synthesize_method (d);

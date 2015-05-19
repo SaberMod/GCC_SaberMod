@@ -391,15 +391,17 @@ update_visibility_by_resolution_info (symtab_node * node)
 
   define = (node->resolution == LDPR_PREVAILING_DEF_IRONLY
 	    || node->resolution == LDPR_PREVAILING_DEF
+	    || node->resolution == LDPR_UNDEF
 	    || node->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP);
 
   /* The linker decisions ought to agree in the whole group.  */
   if (node->same_comdat_group)
     for (symtab_node *next = node->same_comdat_group;
 	 next != node; next = next->same_comdat_group)
-      gcc_assert (!node->externally_visible
+      gcc_assert (!next->externally_visible
 		  || define == (next->resolution == LDPR_PREVAILING_DEF_IRONLY
 			        || next->resolution == LDPR_PREVAILING_DEF
+			        || next->resolution == LDPR_UNDEF
 			        || next->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP));
 
   if (node->same_comdat_group)
@@ -578,11 +580,11 @@ function_and_variable_visibility (bool whole_program)
 		{
 		  struct cgraph_edge *e = node->callers;
 
-		  cgraph_redirect_edge_callee (e, alias);
+		  e->redirect_callee (alias);
 		  if (gimple_has_body_p (e->caller->decl))
 		    {
 		      push_cfun (DECL_STRUCT_FUNCTION (e->caller->decl));
-		      cgraph_redirect_edge_call_stmt_to_callee (e);
+		      e->redirect_call_stmt_to_callee ();
 		      pop_cfun ();
 		    }
 		}
@@ -719,7 +721,7 @@ function_and_variable_visibility (bool whole_program)
 	  fprintf (dump_file, " %s", vnode->name ());
       fprintf (dump_file, "\n\n");
     }
-  cgraph_function_flags_ready = true;
+  symtab->function_flags_ready = true;
   return 0;
 }
 

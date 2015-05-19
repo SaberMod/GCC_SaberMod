@@ -2034,7 +2034,8 @@ cris_simple_epilogue (void)
 void
 cris_emit_trap_for_misalignment (rtx mem)
 {
-  rtx addr, reg, ok_label, andop, jmp;
+  rtx addr, reg, ok_label, andop;
+  rtx_insn *jmp;
   int natural_alignment;
   gcc_assert (MEM_P (mem));
 
@@ -2577,7 +2578,7 @@ cris_legitimate_pic_operand (rtx x)
 void 
 cris_asm_output_ident (const char *string)
 {
-  if (cgraph_state != CGRAPH_STATE_PARSING)
+  if (symtab->state != PARSING)
     return;
 
   default_asm_output_ident_directive (string);

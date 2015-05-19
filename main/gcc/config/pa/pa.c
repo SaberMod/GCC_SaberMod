@@ -117,8 +117,8 @@ static bool pa_function_value_regno_p (const unsigned int);
 static void pa_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void update_total_code_bytes (unsigned int);
 static void pa_output_function_epilogue (FILE *, HOST_WIDE_INT);
-static int pa_adjust_cost (rtx, rtx, rtx, int);
-static int pa_adjust_priority (rtx, int);
+static int pa_adjust_cost (rtx_insn *, rtx, rtx_insn *, int);
+static int pa_adjust_priority (rtx_insn *, int);
 static int pa_issue_rate (void);
 static void pa_som_asm_init_sections (void) ATTRIBUTE_UNUSED;
 static section *pa_som_tm_clone_table_section (void) ATTRIBUTE_UNUSED;
@@ -4137,8 +4137,7 @@ static void
 pa_output_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
   rtx insn = get_last_insn ();
-
-  last_address = 0;
+  bool extra_nop;
 
   /* pa_expand_epilogue does the dirty work now.  We just need
      to output the assembler directives which denote the end
@@ -4162,8 +4161,10 @@ pa_output_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
   if (insn && CALL_P (insn))
     {
       fputs ("\tnop\n", file);
-      last_address += 4;
+      extra_nop = true;
     }
+  else
+    extra_nop = false;
 
   fputs ("\t.EXIT\n\t.PROCEND\n", file);
 
@@ -4176,12 +4177,13 @@ pa_output_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
       cfun->machine->in_nsubspa = 2;
     }
 
-  /* Thunks do their own accounting.  */
+  /* Thunks do their own insn accounting.  */
   if (cfun->is_thunk)
     return;
 
   if (INSN_ADDRESSES_SET_P ())
     {
+      last_address = extra_nop ? 4 : 0;
       insn = get_last_nonnote_insn ();
       last_address += INSN_ADDRESSES (INSN_UID (insn));
       if (INSN_P (insn))
@@ -4645,7 +4647,7 @@ pa_emit_bcond_fp (rtx operands[])
    a dependency LINK or INSN on DEP_INSN.  COST is the current cost.  */
 
 static int
-pa_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
+pa_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
 {
   enum attr_type attr_type;
 
@@ -4834,7 +4836,7 @@ pa_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 /* Adjust scheduling priorities.  We use this to try and keep addil
    and the next use of %r1 close together.  */
 static int
-pa_adjust_priority (rtx insn, int priority)
+pa_adjust_priority (rtx_insn *insn, int priority)
 {
   rtx set = single_set (insn);
   rtx src, dest;
@@ -4891,7 +4893,7 @@ pa_issue_rate (void)
    Also compute the length of an inline block move here as it is too
    complicated to express as a length attribute in pa.md.  */
 int
-pa_adjust_insn_length (rtx insn, int length)
+pa_adjust_insn_length (rtx_insn *insn, int length)
 {
   rtx pat = PATTERN (insn);
 
@@ -4899,7 +4901,7 @@ pa_adjust_insn_length (rtx insn, int length)
   if ((unsigned int) length >= INT_MAX)
     {
       if (GET_CODE (pat) == SEQUENCE)
-	insn = XVECEXP (pat, 0, 0);
+	insn = as_a <rtx_insn *> (XVECEXP (pat, 0, 0));
 
       switch (get_attr_type (insn))
 	{
@@ -7492,7 +7494,7 @@ length_fp_args (rtx insn)
    over estimate the length than to under estimate it.  */
 
 int
-pa_attr_length_millicode_call (rtx insn)
+pa_attr_length_millicode_call (rtx_insn *insn)
 {
   unsigned long distance = -1;
   unsigned long total = IN_NAMED_SECTION_P (cfun->decl) ? 0 : total_code_bytes;
@@ -7688,7 +7690,7 @@ pa_output_millicode_call (rtx insn, rtx call_dest)
    these sequences.  */
 
 int
-pa_attr_length_call (rtx insn, int sibcall)
+pa_attr_length_call (rtx_insn *insn, int sibcall)
 {
   int local_call;
   rtx call, call_dest;
@@ -7778,7 +7780,7 @@ pa_attr_length_call (rtx insn, int sibcall)
    CALL_DEST is the routine we are calling.  */
 
 const char *
-pa_output_call (rtx insn, rtx call_dest, int sibcall)
+pa_output_call (rtx_insn *insn, rtx call_dest, int sibcall)
 {
   int delay_insn_deleted = 0;
   int delay_slot_filled = 0;
@@ -8067,7 +8069,7 @@ pa_output_call (rtx insn, rtx call_dest, int sibcall)
    the sequence itself.  */
 
 int
-pa_attr_length_indirect_call (rtx insn)
+pa_attr_length_indirect_call (rtx_insn *insn)
 {
   unsigned long distance = -1;
   unsigned long total = IN_NAMED_SECTION_P (cfun->decl) ? 0 : total_code_bytes;
@@ -8100,7 +8102,7 @@ pa_attr_length_indirect_call (rtx insn)
 }
 
 const char *
-pa_output_indirect_call (rtx insn, rtx call_dest)
+pa_output_indirect_call (rtx_insn *insn, rtx call_dest)
 {
   rtx xoperands[1];
 
@@ -8275,12 +8277,16 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 		   || ((DECL_SECTION_NAME (thunk_fndecl)
 			== DECL_SECTION_NAME (function))
 		       && last_address < 262132)))
+	      /* In this case, we need to be able to reach the start of
+		 the stub table even though the function is likely closer
+		 and can be jumped to directly.  */
 	      || (targetm_common.have_named_sections
 		  && DECL_SECTION_NAME (thunk_fndecl) == NULL
 		  && DECL_SECTION_NAME (function) == NULL
-		  && last_address < 262132)
+		  && total_code_bytes < MAX_PCREL17F_OFFSET)
+	      /* Likewise.  */
 	      || (!targetm_common.have_named_sections
-		  && last_address < 262132))))
+		  && total_code_bytes < MAX_PCREL17F_OFFSET))))
     {
       if (!val_14)
 	output_asm_insn ("addil L'%2,%%r26", xoperands);
@@ -8926,40 +8932,15 @@ pa_following_call (rtx insn)
 }
 
 /* We use this hook to perform a PA specific optimization which is difficult
-   to do in earlier passes.
-
-   We surround the jump table itself with BEGIN_BRTAB and END_BRTAB
-   insns.  Those insns mark where we should emit .begin_brtab and
-   .end_brtab directives when using GAS.  This allows for better link
-   time optimizations.  */
+   to do in earlier passes.  */
 
 static void
 pa_reorg (void)
 {
-  rtx insn;
-
   remove_useless_addtr_insns (1);
 
   if (pa_cpu < PROCESSOR_8000)
     pa_combine_instructions ();
-
-    /* Still need brtab marker insns.  FIXME: the presence of these
-       markers disables output of the branch table to readonly memory,
-       and any alignment directives that might be needed.  Possibly,
-       the begin_brtab insn should be output before the label for the
-       table.  This doesn't matter at the moment since the tables are
-       always output in the text section.  */
-    for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-      {
-	/* Find an ADDR_VEC insn.  */
-	if (! JUMP_TABLE_DATA_P (insn))
-	  continue;
-
-	/* Now generate markers for the beginning and end of the
-	   branch table.  */
-	emit_insn_before (gen_begin_brtab (), insn);
-	emit_insn_after (gen_end_brtab (), insn);
-      }
 }
 
 /* The PA has a number of odd instructions which can perform multiple
@@ -10552,6 +10533,48 @@ pa_legitimize_reload_address (rtx ad, enum machine_mode mode,
     }
 
   return NULL_RTX;
+}
+
+/* Output address vector.  */
+
+void
+pa_output_addr_vec (rtx lab, rtx body)
+{
+  int idx, vlen = XVECLEN (body, 0);
+
+  targetm.asm_out.internal_label (asm_out_file, "L", CODE_LABEL_NUMBER (lab));
+  if (TARGET_GAS)
+    fputs ("\t.begin_brtab\n", asm_out_file);
+  for (idx = 0; idx < vlen; idx++)
+    {
+      ASM_OUTPUT_ADDR_VEC_ELT
+	(asm_out_file, CODE_LABEL_NUMBER (XEXP (XVECEXP (body, 0, idx), 0)));
+    }
+  if (TARGET_GAS)
+    fputs ("\t.end_brtab\n", asm_out_file);
+}
+
+/* Output address difference vector.  */
+
+void
+pa_output_addr_diff_vec (rtx lab, rtx body)
+{
+  rtx base = XEXP (XEXP (body, 0), 0);
+  int idx, vlen = XVECLEN (body, 1);
+
+  targetm.asm_out.internal_label (asm_out_file, "L", CODE_LABEL_NUMBER (lab));
+  if (TARGET_GAS)
+    fputs ("\t.begin_brtab\n", asm_out_file);
+  for (idx = 0; idx < vlen; idx++)
+    {
+      ASM_OUTPUT_ADDR_DIFF_ELT
+	(asm_out_file,
+	 body,
+	 CODE_LABEL_NUMBER (XEXP (XVECEXP (body, 1, idx), 0)),
+	 CODE_LABEL_NUMBER (base));
+    }
+  if (TARGET_GAS)
+    fputs ("\t.end_brtab\n", asm_out_file);
 }
 
 #include "gt-pa.h"

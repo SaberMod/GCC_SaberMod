@@ -59,7 +59,7 @@ along with GCC; see the file COPYING3.  If not see
 
 static void validate_replace_rtx_1 (rtx *, rtx, rtx, rtx, bool);
 static void validate_replace_src_1 (rtx *, void *);
-static rtx split_insn (rtx);
+static rtx split_insn (rtx_insn *);
 
 struct target_recog default_target_recog;
 #if SWITCHABLE_TARGET
@@ -500,13 +500,13 @@ confirm_change_group (void)
       if (object)
 	{
 	  if (object != last_object && last_object && INSN_P (last_object))
-	    df_insn_rescan (last_object);
+	    df_insn_rescan (as_a <rtx_insn *> (last_object));
 	  last_object = object;
 	}
     }
 
   if (last_object && INSN_P (last_object))
-    df_insn_rescan (last_object);
+    df_insn_rescan (as_a <rtx_insn *> (last_object));
   num_changes = 0;
 }
 
@@ -2772,11 +2772,11 @@ reg_fits_class_p (const_rtx operand, reg_class_t cl, int offset,
    or NULL if unsuccessful.  */
 
 static rtx
-split_insn (rtx insn)
+split_insn (rtx_insn *insn)
 {
   /* Split insns here to get max fine-grain parallelism.  */
-  rtx first = PREV_INSN (insn);
-  rtx last = try_split (PATTERN (insn), insn, 1);
+  rtx_insn *first = PREV_INSN (insn);
+  rtx_insn *last = try_split (PATTERN (insn), insn, 1);
   rtx insn_set, last_set, note;
 
   if (last == insn)
@@ -2837,7 +2837,7 @@ split_all_insns (void)
 
   FOR_EACH_BB_REVERSE_FN (bb, cfun)
     {
-      rtx insn, next;
+      rtx_insn *insn, *next;
       bool finish = false;
 
       rtl_profile_for_bb (bb);
@@ -2893,7 +2893,7 @@ split_all_insns (void)
 unsigned int
 split_all_insns_noflow (void)
 {
-  rtx next, insn;
+  rtx_insn *next, *insn;
 
   for (insn = get_insns (); insn; insn = next)
     {
@@ -3396,7 +3396,7 @@ static void
 peep2_update_life (basic_block bb, int match_len, rtx last, rtx prev)
 {
   int i = peep2_buf_position (peep2_current + match_len + 1);
-  rtx x;
+  rtx_insn *x;
   regset_head live;
 
   INIT_REG_SET (&live);
@@ -3405,7 +3405,7 @@ peep2_update_life (basic_block bb, int match_len, rtx last, rtx prev)
   gcc_assert (peep2_current_count >= match_len + 1);
   peep2_current_count -= match_len + 1;
 
-  x = last;
+  x = as_a <rtx_insn *> (last);
   do
     {
       if (INSN_P (x))
@@ -3461,7 +3461,7 @@ peep2_fill_buffer (basic_block bb, rtx insn, regset live)
   COPY_REG_SET (peep2_insn_data[pos].live_before, live);
   peep2_current_count++;
 
-  df_simulate_one_insn_forwards (bb, insn, live);
+  df_simulate_one_insn_forwards (bb, as_a <rtx_insn *> (insn), live);
   return true;
 }
 

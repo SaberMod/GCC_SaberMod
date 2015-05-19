@@ -560,6 +560,8 @@ apply_for_each_ext_block (void (*func) (tree))
     }
 }
 
+static void warn_defaults_to (location_t, int, const char *, ...)
+    ATTRIBUTE_GCC_DIAG(3,4);
 
 /* T is a statement.  Add it to the statement-tree.  This is the
    C/ObjC version--C++ has a slightly different version of this
@@ -1894,12 +1896,9 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 		 newdecl);
 	  locate_old_decl (olddecl);
 	}
-      else if (pedantic && !flag_isoc11)
-	{
-	  pedwarn (input_location, OPT_Wpedantic,
-		   "redefinition of typedef %q+D", newdecl);
-	  locate_old_decl (olddecl);
-	}
+      else if (pedwarn_c99 (input_location, OPT_Wpedantic,
+			    "redefinition of typedef %q+D", newdecl))
+	locate_old_decl (olddecl);
 
       return true;
     }
@@ -4999,29 +4998,41 @@ check_bitfield_type_and_width (tree *type, tree *width, tree orig_name)
 static void
 warn_variable_length_array (tree name, tree size)
 {
-  int const_size = TREE_CONSTANT (size);
-  enum opt_code opt = (warn_vla == -1 && !warn_c90_c99_compat)
-		      ? OPT_Wpedantic : OPT_Wvla;
-
-  if (const_size)
+  if (TREE_CONSTANT (size))
     {
       if (name)
-	pedwarn_c90 (input_location, opt,
+	pedwarn_c90 (input_location, OPT_Wvla,
 		     "ISO C90 forbids array %qE whose size "
 		     "can%'t be evaluated", name);
       else
-	pedwarn_c90 (input_location, opt, "ISO C90 forbids array "
+	pedwarn_c90 (input_location, OPT_Wvla, "ISO C90 forbids array "
 		     "whose size can%'t be evaluated");
     }
   else
     {
       if (name)
-	pedwarn_c90 (input_location, opt,
+	pedwarn_c90 (input_location, OPT_Wvla,
 		     "ISO C90 forbids variable length array %qE", name);
       else
-	pedwarn_c90 (input_location, opt, "ISO C90 forbids variable "
+	pedwarn_c90 (input_location, OPT_Wvla, "ISO C90 forbids variable "
 		     "length array");
     }
+}
+
+/* Print warning about defaulting to int if necessary.  */
+
+static void
+warn_defaults_to (location_t location, int opt, const char *gmsgid, ...)
+{
+  diagnostic_info diagnostic;
+  va_list ap;
+
+  va_start (ap, gmsgid);
+  diagnostic_set_info (&diagnostic, gmsgid, &ap, location,
+                       flag_isoc99 ? DK_PEDWARN : DK_WARNING);
+  diagnostic.option_index = opt;
+  report_diagnostic (&diagnostic);
+  va_end (ap);
 }
 
 /* Given declspecs and a declarator,
@@ -5200,12 +5211,12 @@ grokdeclarator (const struct c_declarator *declarator,
       else
 	{
 	  if (name)
-	    pedwarn_c99 (loc, flag_isoc99 ? 0 : OPT_Wimplicit_int,
-			 "type defaults to %<int%> in declaration of %qE",
-			 name);
+	    warn_defaults_to (loc, flag_isoc99 ? 0 : OPT_Wimplicit_int,
+			      "type defaults to %<int%> in declaration "
+			      "of %qE", name);
 	  else
-	    pedwarn_c99 (input_location, flag_isoc99 ? 0 : OPT_Wimplicit_int,
-			 "type defaults to %<int%> in type name");
+	    warn_defaults_to (loc, flag_isoc99 ? 0 : OPT_Wimplicit_int,
+			      "type defaults to %<int%> in type name");
 	}
     }
 
@@ -6332,15 +6343,12 @@ grokdeclarator (const struct c_declarator *declarator,
 	      DECL_DECLARED_INLINE_P (decl) = 1;
 	    if (declspecs->noreturn_p)
 	      {
-		if (!flag_isoc11)
-		  {
-		    if (flag_isoc99)
-		      pedwarn (loc, OPT_Wpedantic,
+		if (flag_isoc99)
+		  pedwarn_c99 (loc, OPT_Wpedantic,
 			       "ISO C99 does not support %<_Noreturn%>");
-		    else
-		      pedwarn (loc, OPT_Wpedantic,
+		else
+		  pedwarn_c99 (loc, OPT_Wpedantic,
 			       "ISO C90 does not support %<_Noreturn%>");
-		  }
 		TREE_THIS_VOLATILE (decl) = 1;
 	      }
 	  }
@@ -7047,15 +7055,12 @@ grokfield (location_t loc,
 	  pedwarn (loc, 0, "declaration does not declare anything");
 	  return NULL_TREE;
 	}
-      if (!flag_isoc11)
-	{
-	  if (flag_isoc99)
-	    pedwarn (loc, OPT_Wpedantic,
+      if (flag_isoc99)
+	pedwarn_c99 (loc, OPT_Wpedantic,
 		     "ISO C99 doesn%'t support unnamed structs/unions");
-	  else
-	    pedwarn (loc, OPT_Wpedantic,
+      else
+	pedwarn_c99 (loc, OPT_Wpedantic,
 		     "ISO C90 doesn%'t support unnamed structs/unions");
-	}
     }
 
   value = grokdeclarator (declarator, declspecs, FIELD, false,
@@ -7996,9 +8001,10 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
     }
 
   if (warn_about_return_type)
-    pedwarn_c99 (loc, flag_isoc99 ? 0
-		 : (warn_return_type ? OPT_Wreturn_type : OPT_Wimplicit_int),
-		 "return type defaults to %<int%>");
+    warn_defaults_to (loc, flag_isoc99 ? 0
+			   : (warn_return_type ? OPT_Wreturn_type
+			      : OPT_Wimplicit_int),
+		      "return type defaults to %<int%>");
 
   /* Make the init_value nonzero so pushdecl knows this is not tentative.
      error_mark_node is replaced below (in pop_scope) with the BLOCK.  */
@@ -8738,12 +8744,12 @@ finish_function (void)
 
 	  /* ??? Objc emits functions after finalizing the compilation unit.
 	     This should be cleaned up later and this conditional removed.  */
-	  if (cgraph_global_info_ready)
+	  if (symtab->global_info_ready)
 	    {
 	      cgraph_node::add_new_function (fndecl, false);
 	      return;
 	    }
-	  cgraph_finalize_function (fndecl, false);
+	  cgraph_node::finalize_function (fndecl, false);
 	}
       else
 	{
@@ -9976,14 +9982,14 @@ declspecs_add_scspec (source_location loc,
 	     identifier in the implementation namespace; only diagnose
 	     it for the C11 spelling because of existing code using
 	     the other spelling.  */
-	  if (!flag_isoc11 && !specs->thread_gnu_p)
+	  if (!specs->thread_gnu_p)
 	    {
 	      if (flag_isoc99)
-		pedwarn (loc, OPT_Wpedantic,
-			 "ISO C99 does not support %qE", scspec);
+		pedwarn_c99 (loc, OPT_Wpedantic,
+			     "ISO C99 does not support %qE", scspec);
 	      else
-		pedwarn (loc, OPT_Wpedantic,
-			 "ISO C90 does not support %qE", scspec);
+		pedwarn_c99 (loc, OPT_Wpedantic,
+			     "ISO C90 does not support %qE", scspec);
 	    }
 	  specs->locations[cdw_thread] = loc;
 	}
@@ -10506,7 +10512,7 @@ c_write_global_declarations (void)
 
   /* We're done parsing; proceed to optimize and emit assembly.
      FIXME: shouldn't be the front end's responsibility to call this.  */
-  finalize_compilation_unit ();
+  symtab->finalize_compilation_unit ();
 
   timevar_stop (TV_PHASE_OPT_GEN);
   timevar_start (TV_PHASE_DBGINFO);

@@ -182,20 +182,20 @@ int assembler_dialect;
 
 static bool shmedia_space_reserved_for_target_registers;
 
-static void split_branches (rtx);
+static void split_branches (rtx_insn *);
 static int branch_dest (rtx);
 static void print_slot (rtx);
-static rtx add_constant (rtx, enum machine_mode, rtx);
-static void dump_table (rtx, rtx);
-static bool broken_move (rtx);
-static bool mova_p (rtx);
-static rtx find_barrier (int, rtx, rtx);
+static rtx_code_label *add_constant (rtx, enum machine_mode, rtx);
+static void dump_table (rtx_insn *, rtx_insn *);
+static bool broken_move (rtx_insn *);
+static bool mova_p (rtx_insn *);
+static rtx_insn *find_barrier (int, rtx_insn *, rtx_insn *);
 static bool noncall_uses_reg (rtx, rtx, rtx *);
 static rtx gen_block_redirect (rtx, int, int);
 static void sh_reorg (void);
 static void sh_option_override (void);
 static void output_stack_adjust (int, rtx, int, HARD_REG_SET *, bool);
-static rtx frame_insn (rtx);
+static rtx_insn *frame_insn (rtx);
 static rtx push (int);
 static void pop (int);
 static void push_regs (HARD_REG_SET *, int);
@@ -203,8 +203,8 @@ static int calc_live_regs (HARD_REG_SET *);
 static HOST_WIDE_INT rounded_frame_size (int);
 static bool sh_frame_pointer_required (void);
 static void sh_emit_mode_set (int, int, int, HARD_REG_SET);
-static int sh_mode_needed (int, rtx);
-static int sh_mode_after (int, int, rtx);
+static int sh_mode_needed (int, rtx_insn *);
+static int sh_mode_after (int, int, rtx_insn *);
 static int sh_mode_entry (int);
 static int sh_mode_exit (int);
 static int sh_mode_priority (int entity, int n);
@@ -227,9 +227,9 @@ static void sh_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static void sh_insert_attributes (tree, tree *);
 static const char *sh_check_pch_target_flags (int);
 static int sh_register_move_cost (enum machine_mode, reg_class_t, reg_class_t);
-static int sh_adjust_cost (rtx, rtx, rtx, int);
+static int sh_adjust_cost (rtx_insn *, rtx, rtx_insn *, int);
 static int sh_issue_rate (void);
-static int sh_dfa_new_cycle (FILE *, int, rtx, int, int, int *sort_p);
+static int sh_dfa_new_cycle (FILE *, int, rtx_insn *, int, int, int *sort_p);
 static short find_set_regmode_weight (rtx, enum machine_mode);
 static short find_insn_regmode_weight (rtx, enum machine_mode);
 static void find_regmode_weight (basic_block, enum machine_mode);
@@ -237,13 +237,13 @@ static int find_r0_life_regions (basic_block);
 static void  sh_md_init_global (FILE *, int, int);
 static void  sh_md_finish_global (FILE *, int);
 static int rank_for_reorder (const void *, const void *);
-static void swap_reorder (rtx *, int);
-static void ready_reorder (rtx *, int);
+static void swap_reorder (rtx_insn **, int);
+static void ready_reorder (rtx_insn **, int);
 static bool high_pressure (enum machine_mode);
-static int sh_reorder (FILE *, int, rtx *, int *, int);
-static int sh_reorder2 (FILE *, int, rtx *, int *, int);
+static int sh_reorder (FILE *, int, rtx_insn **, int *, int);
+static int sh_reorder2 (FILE *, int, rtx_insn **, int *, int);
 static void sh_md_init (FILE *, int, int);
-static int sh_variable_issue (FILE *, int, rtx, int);
+static int sh_variable_issue (FILE *, int, rtx_insn *, int);
 
 static bool sh_function_ok_for_sibcall (tree, tree);
 
@@ -265,7 +265,7 @@ static int and_xor_ior_costs (rtx, int);
 static int addsubcosts (rtx);
 static int multcosts (rtx);
 static bool unspec_caller_rtx_p (rtx);
-static bool sh_cannot_copy_insn_p (rtx);
+static bool sh_cannot_copy_insn_p (rtx_insn *);
 static bool sh_rtx_costs (rtx, int, int, int, int *, bool);
 static int sh_address_cost (rtx, enum machine_mode, addr_space_t, bool);
 static int sh_pr_n_sets (void);
@@ -886,6 +886,12 @@ sh_option_override (void)
        targetm.asm_out.aligned_op.di = NULL;
        targetm.asm_out.unaligned_op.di = NULL;
     }
+
+  /* User/priviledged mode is supported only on SH3*, SH4* and SH5*.
+     Disable it for everything else.  */
+  if (! (TARGET_SH3 || TARGET_SH5) && TARGET_USERMODE)
+    TARGET_USERMODE = false;
+
   if (TARGET_SH1)
     {
       if (! strcmp (sh_div_str, "call-div1"))
@@ -2025,7 +2031,7 @@ expand_cbranchsi4 (rtx *operands, enum rtx_code comparison, int probability)
   emit_insn (gen_rtx_SET (VOIDmode, get_t_reg_rtx (),
 			  gen_rtx_fmt_ee (comparison, SImode,
 					  operands[1], operands[2])));
-  rtx jump = emit_jump_insn (branch_expander (operands[3]));
+  rtx_insn *jump = emit_jump_insn (branch_expander (operands[3]));
   if (probability >= 0)
     add_int_reg_note (jump, REG_BR_PROB, probability);
 }
@@ -2051,7 +2057,7 @@ bool
 expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
 {
   enum rtx_code msw_taken, msw_skip, lsw_taken;
-  rtx skip_label = NULL_RTX;
+  rtx_code_label *skip_label = NULL;
   rtx op1h, op1l, op2h, op2l;
   int num_branches;
   int prob, rev_prob;
@@ -2489,7 +2495,7 @@ sh_emit_compare_and_set (rtx *operands, enum machine_mode mode)
   enum rtx_code code = GET_CODE (operands[1]);
   rtx op0 = operands[2];
   rtx op1 = operands[3];
-  rtx lab = NULL_RTX;
+  rtx_code_label *lab = NULL;
   bool invert = false;
   rtx tem;
 
@@ -2643,14 +2649,14 @@ print_slot (rtx insn)
 }
 
 const char *
-output_far_jump (rtx insn, rtx op)
+output_far_jump (rtx_insn *insn, rtx op)
 {
   struct { rtx lab, reg, op; } this_jmp;
   rtx braf_base_lab = NULL_RTX;
   const char *jump;
   int far;
   int offset = branch_dest (insn) - INSN_ADDRESSES (INSN_UID (insn));
-  rtx prev;
+  rtx_insn *prev;
 
   this_jmp.lab = gen_label_rtx ();
 
@@ -2840,9 +2846,9 @@ output_branch (int logic, rtx insn, rtx *operands)
    follow jmp and bt, if the address is in range.  */
 const char *
 output_branchy_insn (enum rtx_code code, const char *templ,
-		     rtx insn, rtx *operands)
+		     rtx_insn *insn, rtx *operands)
 {
-  rtx next_insn = NEXT_INSN (insn);
+  rtx_insn *next_insn = NEXT_INSN (insn);
 
   if (next_insn && JUMP_P (next_insn) && condjump_p (next_insn))
     {
@@ -2880,7 +2886,7 @@ output_branchy_insn (enum rtx_code code, const char *templ,
 }
 
 const char *
-output_ieee_ccmpeq (rtx insn, rtx *operands)
+output_ieee_ccmpeq (rtx_insn *insn, rtx *operands)
 {
   return output_branchy_insn (NE,      "bt	%l9" "\n"
 				  "	fcmp/eq	%1,%0",
@@ -2942,7 +2948,7 @@ unspec_caller_rtx_p (rtx pat)
 /* Indicate that INSN cannot be duplicated.  This is true for insn
    that generates a unique label.  */
 static bool
-sh_cannot_copy_insn_p (rtx insn)
+sh_cannot_copy_insn_p (rtx_insn *insn)
 {
   rtx pat;
 
@@ -4506,7 +4512,7 @@ static alloc_pool label_ref_list_pool;
 
 typedef struct label_ref_list_d
 {
-  rtx label;
+  rtx_code_label *label;
   struct label_ref_list_d *next;
 } *label_ref_list_t;
 
@@ -4566,7 +4572,7 @@ typedef struct label_ref_list_d
 typedef struct
 {
   rtx value;			/* Value in table.  */
-  rtx label;			/* Label of value.  */
+  rtx_code_label *label;	/* Label of value.  */
   label_ref_list_t wend;	/* End of window.  */
   enum machine_mode mode;	/* Mode of value.  */
 
@@ -4582,7 +4588,7 @@ typedef struct
 #define MAX_POOL_SIZE 372
 static pool_node pool_vector[MAX_POOL_SIZE];
 static int pool_size;
-static rtx pool_window_label;
+static rtx_code_label *pool_window_label;
 static int pool_window_last;
 
 static int max_labelno_before_reorg;
@@ -4598,11 +4604,11 @@ static int max_labelno_before_reorg;
    necessary.  */
 
 /* Add a constant to the pool and return its label.  */
-static rtx
+static rtx_code_label *
 add_constant (rtx x, enum machine_mode mode, rtx last_value)
 {
   int i;
-  rtx lab, new_rtx;
+  rtx_code_label *lab, *new_rtx;
   label_ref_list_t ref, newref;
 
   /* First see if we've already got it.  */
@@ -4677,9 +4683,9 @@ add_constant (rtx x, enum machine_mode mode, rtx last_value)
    these insns at a 4-byte  aligned position.  BARRIER is the barrier
    after which we are to place the table.  */
 static void
-dump_table (rtx start, rtx barrier)
+dump_table (rtx_insn *start, rtx_insn *barrier)
 {
-  rtx scan = barrier;
+  rtx_insn *scan = barrier;
   int i;
   bool need_align = true;
   rtx lab;
@@ -4854,7 +4860,7 @@ dump_table (rtx start, rtx barrier)
   scan = emit_insn_after (gen_consttable_end (), scan);
   scan = emit_barrier_after (scan);
   pool_size = 0;
-  pool_window_label = NULL_RTX;
+  pool_window_label = NULL;
   pool_window_last = 0;
 }
 
@@ -4866,7 +4872,7 @@ dump_table (rtx start, rtx barrier)
    CONST_DOUBLE input value is CONST_OK_FOR_I08.  For a SFmode move, we don't
    need to fix it if the input value is CONST_OK_FOR_I08.  */
 static bool
-broken_move (rtx insn)
+broken_move (rtx_insn *insn)
 {
   if (NONJUMP_INSN_P (insn))
     {
@@ -4913,7 +4919,7 @@ broken_move (rtx insn)
 
 /* Return true if the specified insn is a mova insn.  */
 static bool
-mova_p (rtx insn)
+mova_p (rtx_insn *insn)
 {
   return (NONJUMP_INSN_P (insn)
 	  && GET_CODE (PATTERN (insn)) == SET
@@ -4925,7 +4931,7 @@ mova_p (rtx insn)
 
 /* Fix up a mova from a switch that went out of range.  */
 static void
-fixup_mova (rtx mova)
+fixup_mova (rtx_insn *mova)
 {
   PUT_MODE (XEXP (MOVA_LABELREF (mova), 0), QImode);
   if (! flag_pic)
@@ -4969,7 +4975,7 @@ fixup_mova (rtx mova)
    return 0 if *first_mova was replaced, 1 if new_mova was replaced,
    2 if new_mova has been assigned to *first_mova, -1 otherwise..  */
 static int
-untangle_mova (int *num_mova, rtx *first_mova, rtx new_mova)
+untangle_mova (int *num_mova, rtx_insn **first_mova, rtx_insn *new_mova)
 {
   int n_addr = 0; /* Initialization to shut up spurious warning.  */
   int f_target, n_target = 0; /* Likewise.  */
@@ -5018,8 +5024,8 @@ untangle_mova (int *num_mova, rtx *first_mova, rtx new_mova)
 /* Find the last barrier from insn FROM which is close enough to hold the
    constant pool.  If we can't find one, then create one near the end of
    the range.  */
-static rtx
-find_barrier (int num_mova, rtx mova, rtx from)
+static rtx_insn *
+find_barrier (int num_mova, rtx_insn *mova, rtx_insn *from)
 {
   int count_si = 0;
   int count_hi = 0;
@@ -5029,14 +5035,14 @@ find_barrier (int num_mova, rtx mova, rtx from)
   int hi_align = 2;
   int si_align = 2;
   int leading_mova = num_mova;
-  rtx barrier_before_mova = NULL_RTX;
-  rtx found_barrier = NULL_RTX;
-  rtx good_barrier = NULL_RTX;
+  rtx_insn *barrier_before_mova = NULL;
+  rtx_insn *found_barrier = NULL;
+  rtx_insn *good_barrier = NULL;
   int si_limit;
   int hi_limit;
-  rtx orig = from;
+  rtx_insn *orig = from;
   rtx last_got = NULL_RTX;
-  rtx last_symoff = NULL_RTX;
+  rtx_insn *last_symoff = NULL;
 
   /* For HImode: range is 510, add 4 because pc counts from address of
      second instruction after this one, subtract 2 for the jump instruction
@@ -5096,7 +5102,7 @@ find_barrier (int num_mova, rtx mova, rtx from)
 
       if (BARRIER_P (from))
 	{
-	  rtx next;
+	  rtx_insn *next;
 
 	  found_barrier = from;
 
@@ -5291,7 +5297,7 @@ find_barrier (int num_mova, rtx mova, rtx from)
     {
       /* We didn't find a barrier in time to dump our stuff,
 	 so we'll make one.  */
-      rtx label = gen_label_rtx ();
+      rtx_code_label *label = gen_label_rtx ();
 
       /* Don't emit a constant table in the middle of insns for
 	 casesi_worker_2.  This is a bit overkill but is enough
@@ -5339,7 +5345,7 @@ find_barrier (int num_mova, rtx mova, rtx from)
 	 CALL_ARG_LOCATION note.  */
       if (CALL_P (from))
 	{
-	  rtx next = NEXT_INSN (from);
+	  rtx_insn *next = NEXT_INSN (from);
 	  if (next && NOTE_P (next)
 	      && NOTE_KIND (next) == NOTE_INSN_CALL_ARG_LOCATION)
 	    from = next;
@@ -5980,7 +5986,7 @@ sh_loop_align (rtx label)
 static void
 sh_reorg (void)
 {
-  rtx first, insn, mova = NULL_RTX;
+  rtx_insn *first, *insn, *mova = NULL;
   int num_mova;
   rtx r0_rtx = gen_rtx_REG (Pmode, 0);
   rtx r0_inc_rtx = gen_rtx_POST_INC (Pmode, r0_rtx);
@@ -6026,7 +6032,8 @@ sh_reorg (void)
 
       for (insn = first; insn; insn = NEXT_INSN (insn))
 	{
-	  rtx pattern, reg, link, set, scan, dies, label;
+	  rtx pattern, reg, set, dies, label;
+	  rtx_insn *link, *scan;
 	  int rescan = 0, foundinsn = 0;
 
 	  if (CALL_P (insn))
@@ -6266,10 +6273,10 @@ sh_reorg (void)
 	  || (NONJUMP_INSN_P (insn)
 	      && recog_memoized (insn) == CODE_FOR_casesi_worker_2))
 	{
-	  rtx scan;
+	  rtx_insn *scan;
 	  /* Scan ahead looking for a barrier to stick the constant table
 	     behind.  */
-	  rtx barrier = find_barrier (num_mova, mova, insn);
+	  rtx_insn *barrier = find_barrier (num_mova, mova, insn);
 	  rtx last_float_move = NULL_RTX, last_float = 0, *last_float_addr = NULL;
 	  int need_aligned_label = 0;
 
@@ -6467,9 +6474,9 @@ get_dest_uid (rtx label, int max_uid)
    newly created instructions into account.  It also allows us to
    find branches with common targets more easily.  */
 static void
-split_branches (rtx first)
+split_branches (rtx_insn *first)
 {
-  rtx insn;
+  rtx_insn *insn;
   struct far_branch **uid_branch, *far_branch_list = 0;
   int max_uid = get_max_uid ();
   int ok;
@@ -6688,7 +6695,7 @@ split_branches (rtx first)
    variable length.  This is because the second pass of shorten_branches
    does not bother to update them.  */
 void
-final_prescan_insn (rtx insn, rtx *opvec ATTRIBUTE_UNUSED,
+final_prescan_insn (rtx_insn *insn, rtx *opvec ATTRIBUTE_UNUSED,
 		    int noperands ATTRIBUTE_UNUSED)
 {
   if (TARGET_DUMPISIZE)
@@ -6784,7 +6791,7 @@ static void
 output_stack_adjust (int size, rtx reg, int epilogue_p,
 		     HARD_REG_SET *live_regs_mask, bool frame_p)
 {
-  rtx (*emit_fn) (rtx) = frame_p ? &frame_insn : &emit_insn;
+  rtx_insn *(*emit_fn) (rtx) = frame_p ? &frame_insn : &emit_insn;
   if (size)
     {
       HOST_WIDE_INT align = STACK_BOUNDARY / BITS_PER_UNIT;
@@ -6944,12 +6951,12 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 
 /* Emit the specified insn and mark it as frame related.
    FIXME: Rename this to emit_frame_insn.  */
-static rtx
+static rtx_insn *
 frame_insn (rtx x)
 {
-  x = emit_insn (x);
-  RTX_FRAME_RELATED_P (x) = 1;
-  return x;
+  rtx_insn *insn = emit_insn (x);
+  RTX_FRAME_RELATED_P (insn) = 1;
+  return insn;
 }
 
 /* Output RTL to push register RN onto the stack.  */
@@ -10142,7 +10149,7 @@ fpscr_set_from_mem (int mode, HARD_REG_SET regs_live)
 static bool
 sequence_insn_p (rtx insn)
 {
-  rtx prev, next;
+  rtx_insn *prev, *next;
 
   prev = PREV_INSN (insn);
   if (prev == NULL)
@@ -10156,7 +10163,7 @@ sequence_insn_p (rtx insn)
 }
 
 int
-sh_insn_length_adjustment (rtx insn)
+sh_insn_length_adjustment (rtx_insn *insn)
 {
   /* Instructions with unfilled delay slots take up an extra two bytes for
      the nop in the delay slot.  */
@@ -10730,7 +10737,7 @@ sh_can_redirect_branch (rtx branch1, rtx branch2)
   if (flag_expensive_optimizations && simplejump_p (branch2))
     {
       rtx dest = XEXP (SET_SRC (single_set (branch2)), 0);
-      rtx insn;
+      rtx_insn *insn;
       int distance;
 
       for (distance = 0, insn = NEXT_INSN (branch1);
@@ -10777,7 +10784,8 @@ sh_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
    the same cost as a data-dependence.  The return value should be
    the new value for COST.  */
 static int
-sh_adjust_cost (rtx insn, rtx link ATTRIBUTE_UNUSED, rtx dep_insn, int cost)
+sh_adjust_cost (rtx_insn *insn, rtx link ATTRIBUTE_UNUSED,
+		rtx_insn *dep_insn, int cost)
 {
   rtx reg, use_pat;
 
@@ -11094,7 +11102,7 @@ find_insn_regmode_weight (rtx insn, enum machine_mode mode)
 static void
 find_regmode_weight (basic_block b, enum machine_mode mode)
 {
-  rtx insn, next_tail, head, tail;
+  rtx_insn *insn, *next_tail, *head, *tail;
 
   get_ebb_head_tail (b, b, &head, &tail);
   next_tail = NEXT_INSN (tail);
@@ -11120,8 +11128,8 @@ find_regmode_weight (basic_block b, enum machine_mode mode)
 static int
 rank_for_reorder (const void *x, const void *y)
 {
-  rtx tmp = *(const rtx *) y;
-  rtx tmp2 = *(const rtx *) x;
+  rtx_insn *tmp = *(rtx_insn * const *) y;
+  rtx_insn *tmp2 = *(rtx_insn * const *) x;
 
   /* The insn in a schedule group should be issued the first.  */
   if (SCHED_GROUP_P (tmp) != SCHED_GROUP_P (tmp2))
@@ -11135,9 +11143,9 @@ rank_for_reorder (const void *x, const void *y)
 
 /* Resort the array A in which only element at index N may be out of order.  */
 static void
-swap_reorder (rtx *a, int n)
+swap_reorder (rtx_insn **a, int n)
 {
-  rtx insn = a[n - 1];
+  rtx_insn *insn = a[n - 1];
   int i = n - 2;
 
   while (i >= 0 && rank_for_reorder (a + i, &insn) >= 0)
@@ -11150,19 +11158,19 @@ swap_reorder (rtx *a, int n)
 
 /* Sort the ready list by ascending priority.  */
 static void
-ready_reorder (rtx *ready, int nready)
+ready_reorder (rtx_insn **ready, int nready)
 {
   if (nready == 2)
     swap_reorder (ready, nready);
   else if (nready > 2)
-     qsort (ready, nready, sizeof (rtx), rank_for_reorder);
+     qsort (ready, nready, sizeof (rtx_insn *), rank_for_reorder);
 }
 
 /* Count life regions of r0 for a block.  */
 static int
 find_r0_life_regions (basic_block b)
 {
-  rtx end, insn;
+  rtx_insn *end, *insn;
   rtx pset;
   rtx r0_reg;
   int live;
@@ -11265,7 +11273,7 @@ sh_scalar_mode_supported_p (enum machine_mode mode)
 static int
 sh_variable_issue (FILE *dump ATTRIBUTE_UNUSED,
 		   int sched_verbose ATTRIBUTE_UNUSED,
-		   rtx insn,
+		   rtx_insn *insn,
 		   int can_issue_more)
 {
   if (GET_CODE (PATTERN (insn)) != USE
@@ -11319,7 +11327,7 @@ high_pressure (enum machine_mode mode)
 static int
 sh_reorder (FILE *dump ATTRIBUTE_UNUSED,
 	    int sched_verbose ATTRIBUTE_UNUSED,
-	    rtx *ready,
+	    rtx_insn **ready,
 	    int *n_readyp,
 	    int clock_var ATTRIBUTE_UNUSED)
 {
@@ -11338,7 +11346,7 @@ sh_reorder (FILE *dump ATTRIBUTE_UNUSED,
 static int
 sh_reorder2 (FILE *dump ATTRIBUTE_UNUSED,
 	     int sched_verbose ATTRIBUTE_UNUSED,
-	     rtx *ready ATTRIBUTE_UNUSED,
+	     rtx_insn **ready ATTRIBUTE_UNUSED,
 	     int *n_readyp ATTRIBUTE_UNUSED,
 	     int clock_var ATTRIBUTE_UNUSED)
 {
@@ -11362,7 +11370,7 @@ sh_reorder2 (FILE *dump ATTRIBUTE_UNUSED,
 static int
 sh_dfa_new_cycle (FILE *sched_dump ATTRIBUTE_UNUSED,
 		  int sched_verbose ATTRIBUTE_UNUSED,
-		  rtx insn ATTRIBUTE_UNUSED,
+		  rtx_insn *insn ATTRIBUTE_UNUSED,
 		  int last_clock_var,
 		  int clock_var,
 		  int *sort_p)
@@ -12361,7 +12369,8 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 {
   CUMULATIVE_ARGS cum;
   int structure_value_byref = 0;
-  rtx this_rtx, this_value, sibcall, insns, funexp;
+  rtx this_rtx, this_value, sibcall, funexp;
+  rtx_insn *insns;
   tree funtype = TREE_TYPE (function);
   int simple_add = CONST_OK_FOR_ADD (delta);
   int did_load = 0;
@@ -13505,7 +13514,7 @@ sh_find_equiv_gbr_addr (rtx insn, rtx mem)
    'prev_nonnote_insn_bb'.  When the insn is found, try to extract the rtx
    of the reg set.  */
 set_of_reg
-sh_find_set_of_reg (rtx reg, rtx insn, rtx(*stepfunc)(rtx))
+sh_find_set_of_reg (rtx reg, rtx insn, rtx_insn *(*stepfunc)(rtx))
 {
   set_of_reg result;
   result.insn = insn;
@@ -13622,13 +13631,13 @@ sh_emit_mode_set (int entity ATTRIBUTE_UNUSED, int mode,
 }
 
 static int
-sh_mode_needed (int entity ATTRIBUTE_UNUSED, rtx insn)
+sh_mode_needed (int entity ATTRIBUTE_UNUSED, rtx_insn *insn)
 {
   return recog_memoized (insn) >= 0  ? get_attr_fp_mode (insn) : FP_MODE_NONE;
 }
 
 static int
-sh_mode_after (int entity ATTRIBUTE_UNUSED, int mode, rtx insn)
+sh_mode_after (int entity ATTRIBUTE_UNUSED, int mode, rtx_insn *insn)
 {
   if (TARGET_HITACHI && recog_memoized (insn) >= 0 &&
       get_attr_fp_set (insn) != FP_SET_NONE)
