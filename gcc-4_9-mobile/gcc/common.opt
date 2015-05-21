@@ -621,6 +621,10 @@ Wpedantic
 Common Var(pedantic) Warning
 Issue warnings needed for strict compliance to the standard
 
+Wpoison-system-directories
+Common Var(flag_poison_system_directories) Init(POISON_SYSTEM_DIRECTORIES_DEFAULT) Warning
+Warn for -I and -L options using system directories if cross compiling
+
 Wshadow
 Common Var(warn_shadow) Warning
 Warn when one local variable shadows another
