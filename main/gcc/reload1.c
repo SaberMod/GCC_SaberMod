@@ -2358,7 +2358,7 @@ set_label_offsets (rtx x, rtx_insn *insn, int initial_p)
       if (LABEL_REF_NONLOCAL_P (x))
 	return;
 
-      x = XEXP (x, 0);
+      x = LABEL_REF_LABEL (x);
 
       /* ... fall through ...  */
 
@@ -2460,13 +2460,13 @@ set_label_offsets (rtx x, rtx_insn *insn, int initial_p)
 	case IF_THEN_ELSE:
 	  tem = XEXP (SET_SRC (x), 1);
 	  if (GET_CODE (tem) == LABEL_REF)
-	    set_label_offsets (XEXP (tem, 0), insn, initial_p);
+	    set_label_offsets (LABEL_REF_LABEL (tem), insn, initial_p);
 	  else if (GET_CODE (tem) != PC && GET_CODE (tem) != RETURN)
 	    break;
 
 	  tem = XEXP (SET_SRC (x), 2);
 	  if (GET_CODE (tem) == LABEL_REF)
-	    set_label_offsets (XEXP (tem, 0), insn, initial_p);
+	    set_label_offsets (LABEL_REF_LABEL (tem), insn, initial_p);
 	  else if (GET_CODE (tem) != PC && GET_CODE (tem) != RETURN)
 	    break;
 	  return;
@@ -8562,12 +8562,12 @@ emit_reload_insns (struct insn_chain *chain)
    Return the emitted insn if valid, else return NULL.  */
 
 static rtx_insn *
-emit_insn_if_valid_for_reload (rtx insn)
+emit_insn_if_valid_for_reload (rtx pat)
 {
   rtx_insn *last = get_last_insn ();
   int code;
 
-  insn = emit_insn (insn);
+  rtx_insn *insn = emit_insn (pat);
   code = recog_memoized (insn);
 
   if (code >= 0)
@@ -8577,7 +8577,7 @@ emit_insn_if_valid_for_reload (rtx insn)
 	 validity determination, i.e., the way it would after reload has
 	 completed.  */
       if (constrain_operands (1))
-	return as_a <rtx_insn *> (insn);
+	return insn;
     }
 
   delete_insns_since (last);
@@ -8594,7 +8594,7 @@ static rtx_insn *
 gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
 {
   rtx_insn *last = get_last_insn ();
-  rtx tem;
+  rtx_insn *tem;
 #ifdef SECONDARY_MEMORY_NEEDED
   rtx tem1, tem2;
 #endif
@@ -8847,7 +8847,7 @@ delete_output_reload (rtx_insn *insn, int j, int last_reload_reg,
 
   /* It is possible that this reload has been only used to set another reload
      we eliminated earlier and thus deleted this instruction too.  */
-  if (INSN_DELETED_P (output_reload_insn))
+  if (output_reload_insn->deleted ())
     return;
 
   /* Get the raw pseudo-register referred to.  */

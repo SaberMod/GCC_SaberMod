@@ -122,32 +122,10 @@ aarch64_types_unopu_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_unsigned, qualifier_unsigned };
 #define TYPES_UNOPU (aarch64_types_unopu_qualifiers)
 #define TYPES_CREATE (aarch64_types_unop_qualifiers)
-#define TYPES_REINTERP_SS (aarch64_types_unop_qualifiers)
-static enum aarch64_type_qualifiers
-aarch64_types_unop_su_qualifiers[SIMD_MAX_BUILTIN_ARGS]
-  = { qualifier_none, qualifier_unsigned };
-#define TYPES_REINTERP_SU (aarch64_types_unop_su_qualifiers)
-static enum aarch64_type_qualifiers
-aarch64_types_unop_sp_qualifiers[SIMD_MAX_BUILTIN_ARGS]
-  = { qualifier_none, qualifier_poly };
-#define TYPES_REINTERP_SP (aarch64_types_unop_sp_qualifiers)
-static enum aarch64_type_qualifiers
-aarch64_types_unop_us_qualifiers[SIMD_MAX_BUILTIN_ARGS]
-  = { qualifier_unsigned, qualifier_none };
-#define TYPES_REINTERP_US (aarch64_types_unop_us_qualifiers)
-static enum aarch64_type_qualifiers
-aarch64_types_unop_ps_qualifiers[SIMD_MAX_BUILTIN_ARGS]
-  = { qualifier_poly, qualifier_none };
-#define TYPES_REINTERP_PS (aarch64_types_unop_ps_qualifiers)
 static enum aarch64_type_qualifiers
 aarch64_types_binop_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_none, qualifier_none, qualifier_maybe_immediate };
 #define TYPES_BINOP (aarch64_types_binop_qualifiers)
-static enum aarch64_type_qualifiers
-aarch64_types_cmtst_qualifiers[SIMD_MAX_BUILTIN_ARGS]
-  = { qualifier_none, qualifier_none, qualifier_none,
-      qualifier_internal, qualifier_internal };
-#define TYPES_TST (aarch64_types_cmtst_qualifiers)
 static enum aarch64_type_qualifiers
 aarch64_types_binopv_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_void, qualifier_none, qualifier_none };
@@ -180,10 +158,10 @@ aarch64_types_ternopu_qualifiers[SIMD_MAX_BUILTIN_ARGS]
 #define TYPES_TERNOPU (aarch64_types_ternopu_qualifiers)
 
 static enum aarch64_type_qualifiers
-aarch64_types_quadop_qualifiers[SIMD_MAX_BUILTIN_ARGS]
+aarch64_types_ternop_lane_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_none, qualifier_none, qualifier_none,
-      qualifier_none, qualifier_none };
-#define TYPES_QUADOP (aarch64_types_quadop_qualifiers)
+      qualifier_none, qualifier_immediate };
+#define TYPES_TERNOP_LANE (aarch64_types_ternop_lane_qualifiers)
 
 static enum aarch64_type_qualifiers
 aarch64_types_getlane_qualifiers[SIMD_MAX_BUILTIN_ARGS]
@@ -299,93 +277,7 @@ aarch64_types_storestruct_lane_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   VAR11 (T, N, MAP, A, B, C, D, E, F, G, H, I, J, K) \
   VAR1 (T, N, MAP, L)
 
-/* BUILTIN_<ITERATOR> macros should expand to cover the same range of
-   modes as is given for each define_mode_iterator in
-   config/aarch64/iterators.md.  */
-
-#define BUILTIN_DX(T, N, MAP) \
-  VAR2 (T, N, MAP, di, df)
-#define BUILTIN_GPF(T, N, MAP) \
-  VAR2 (T, N, MAP, sf, df)
-#define BUILTIN_SDQ_I(T, N, MAP) \
-  VAR4 (T, N, MAP, qi, hi, si, di)
-#define BUILTIN_SD_HSI(T, N, MAP) \
-  VAR2 (T, N, MAP, hi, si)
-#define BUILTIN_V2F(T, N, MAP) \
-  VAR2 (T, N, MAP, v2sf, v2df)
-#define BUILTIN_VALL(T, N, MAP) \
-  VAR10 (T, N, MAP, v8qi, v16qi, v4hi, v8hi, v2si, \
-	 v4si, v2di, v2sf, v4sf, v2df)
-#define BUILTIN_VALLDI(T, N, MAP) \
-  VAR11 (T, N, MAP, v8qi, v16qi, v4hi, v8hi, v2si, \
-	 v4si, v2di, v2sf, v4sf, v2df, di)
-#define BUILTIN_VALLDIF(T, N, MAP) \
-  VAR12 (T, N, MAP, v8qi, v16qi, v4hi, v8hi, v2si, \
-	 v4si, v2di, v2sf, v4sf, v2df, di, df)
-#define BUILTIN_VB(T, N, MAP) \
-  VAR2 (T, N, MAP, v8qi, v16qi)
-#define BUILTIN_VD(T, N, MAP) \
-  VAR4 (T, N, MAP, v8qi, v4hi, v2si, v2sf)
-#define BUILTIN_VD1(T, N, MAP) \
-  VAR5 (T, N, MAP, v8qi, v4hi, v2si, v2sf, v1df)
-#define BUILTIN_VDC(T, N, MAP) \
-  VAR6 (T, N, MAP, v8qi, v4hi, v2si, v2sf, di, df)
-#define BUILTIN_VDIC(T, N, MAP) \
-  VAR3 (T, N, MAP, v8qi, v4hi, v2si)
-#define BUILTIN_VDN(T, N, MAP) \
-  VAR3 (T, N, MAP, v4hi, v2si, di)
-#define BUILTIN_VDQ(T, N, MAP) \
-  VAR7 (T, N, MAP, v8qi, v16qi, v4hi, v8hi, v2si, v4si, v2di)
-#define BUILTIN_VDQF(T, N, MAP) \
-  VAR3 (T, N, MAP, v2sf, v4sf, v2df)
-#define BUILTIN_VDQF_DF(T, N, MAP) \
-  VAR4 (T, N, MAP, v2sf, v4sf, v2df, df)
-#define BUILTIN_VDQH(T, N, MAP) \
-  VAR2 (T, N, MAP, v4hi, v8hi)
-#define BUILTIN_VDQHS(T, N, MAP) \
-  VAR4 (T, N, MAP, v4hi, v8hi, v2si, v4si)
-#define BUILTIN_VDQIF(T, N, MAP) \
-  VAR9 (T, N, MAP, v8qi, v16qi, v4hi, v8hi, v2si, v4si, v2sf, v4sf, v2df)
-#define BUILTIN_VDQM(T, N, MAP) \
-  VAR6 (T, N, MAP, v8qi, v16qi, v4hi, v8hi, v2si, v4si)
-#define BUILTIN_VDQV(T, N, MAP) \
-  VAR5 (T, N, MAP, v8qi, v16qi, v4hi, v8hi, v4si)
-#define BUILTIN_VDQQH(T, N, MAP) \
-  VAR4 (T, N, MAP, v8qi, v16qi, v4hi, v8hi)
-#define BUILTIN_VDQ_BHSI(T, N, MAP) \
-  VAR6 (T, N, MAP, v8qi, v16qi, v4hi, v8hi, v2si, v4si)
-#define BUILTIN_VDQ_I(T, N, MAP) \
-  VAR7 (T, N, MAP, v8qi, v16qi, v4hi, v8hi, v2si, v4si, v2di)
-#define BUILTIN_VDW(T, N, MAP) \
-  VAR3 (T, N, MAP, v8qi, v4hi, v2si)
-#define BUILTIN_VD_BHSI(T, N, MAP) \
-  VAR3 (T, N, MAP, v8qi, v4hi, v2si)
-#define BUILTIN_VD_HSI(T, N, MAP) \
-  VAR2 (T, N, MAP, v4hi, v2si)
-#define BUILTIN_VQ(T, N, MAP) \
-  VAR6 (T, N, MAP, v16qi, v8hi, v4si, v2di, v4sf, v2df)
-#define BUILTIN_VQN(T, N, MAP) \
-  VAR3 (T, N, MAP, v8hi, v4si, v2di)
-#define BUILTIN_VQW(T, N, MAP) \
-  VAR3 (T, N, MAP, v16qi, v8hi, v4si)
-#define BUILTIN_VQ_HSI(T, N, MAP) \
-  VAR2 (T, N, MAP, v8hi, v4si)
-#define BUILTIN_VQ_S(T, N, MAP) \
-  VAR6 (T, N, MAP, v8qi, v16qi, v4hi, v8hi, v2si, v4si)
-#define BUILTIN_VSDQ_HSI(T, N, MAP) \
-  VAR6 (T, N, MAP, v4hi, v8hi, v2si, v4si, hi, si)
-#define BUILTIN_VSDQ_I(T, N, MAP) \
-  VAR11 (T, N, MAP, v8qi, v16qi, v4hi, v8hi, v2si, v4si, v2di, qi, hi, si, di)
-#define BUILTIN_VSDQ_I_BHSI(T, N, MAP) \
-  VAR10 (T, N, MAP, v8qi, v16qi, v4hi, v8hi, v2si, v4si, v2di, qi, hi, si)
-#define BUILTIN_VSDQ_I_DI(T, N, MAP) \
-  VAR8 (T, N, MAP, v8qi, v16qi, v4hi, v8hi, v2si, v4si, v2di, di)
-#define BUILTIN_VSD_HSI(T, N, MAP) \
-  VAR4 (T, N, MAP, v4hi, v2si, hi, si)
-#define BUILTIN_VSQN_HSDI(T, N, MAP) \
-  VAR6 (T, N, MAP, v8hi, v4si, v2di, hi, si, di)
-#define BUILTIN_VSTRUCT(T, N, MAP) \
-  VAR3 (T, N, MAP, oi, ci, xi)
+#include "aarch64-builtin-iterators.h"
 
 static aarch64_simd_builtin_datum aarch64_simd_builtin_data[] = {
 #include "aarch64-simd-builtins.def"
@@ -906,8 +798,11 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
 	    case SIMD_ARG_CONSTANT:
 	      if (!(*insn_data[icode].operand[argc + have_retval].predicate)
 		  (op[argc], mode[argc]))
+	      {
 		error_at (EXPR_LOCATION (exp), "incompatible type for argument %d, "
 		       "expected %<const int%>", argc + 1);
+		return const0_rtx;
+	      }
 	      break;
 
 	    case SIMD_ARG_STOP:
@@ -972,7 +867,7 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
       }
 
   if (!pat)
-    return 0;
+    return NULL_RTX;
 
   emit_insn (pat);
 
@@ -1063,8 +958,9 @@ aarch64_crc32_expand_builtin (int fcode, tree exp, rtx target)
     op1 = copy_to_mode_reg (mode1, op1);
 
   pat = GEN_FCN (icode) (target, op0, op1);
-  if (! pat)
-    return 0;
+  if (!pat)
+    return NULL_RTX;
+
   emit_insn (pat);
   return target;
 }
@@ -1116,7 +1012,7 @@ aarch64_expand_builtin (tree exp,
   else if (fcode >= AARCH64_CRC32_BUILTIN_BASE && fcode <= AARCH64_CRC32_BUILTIN_MAX)
     return aarch64_crc32_expand_builtin (fcode, exp, target);
 
-  return NULL_RTX;
+  gcc_unreachable ();
 }
 
 tree
@@ -1281,24 +1177,6 @@ aarch64_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED, tree *args,
       BUILTIN_VALLDI (UNOP, abs, 2)
 	return fold_build1 (ABS_EXPR, type, args[0]);
 	break;
-      VAR1 (REINTERP_SS, reinterpretdi, 0, v1df)
-      VAR1 (REINTERP_SS, reinterpretv8qi, 0, v1df)
-      VAR1 (REINTERP_SS, reinterpretv4hi, 0, v1df)
-      VAR1 (REINTERP_SS, reinterpretv2si, 0, v1df)
-      VAR1 (REINTERP_SS, reinterpretv2sf, 0, v1df)
-      BUILTIN_VD (REINTERP_SS, reinterpretv1df, 0)
-      BUILTIN_VD (REINTERP_SU, reinterpretv1df, 0)
-      VAR1 (REINTERP_US, reinterpretdi, 0, v1df)
-      VAR1 (REINTERP_US, reinterpretv8qi, 0, v1df)
-      VAR1 (REINTERP_US, reinterpretv4hi, 0, v1df)
-      VAR1 (REINTERP_US, reinterpretv2si, 0, v1df)
-      VAR1 (REINTERP_US, reinterpretv2sf, 0, v1df)
-      BUILTIN_VD (REINTERP_SP, reinterpretv1df, 0)
-      VAR1 (REINTERP_PS, reinterpretdi, 0, v1df)
-      VAR1 (REINTERP_PS, reinterpretv8qi, 0, v1df)
-      VAR1 (REINTERP_PS, reinterpretv4hi, 0, v1df)
-      VAR1 (REINTERP_PS, reinterpretv2sf, 0, v1df)
-	return fold_build1 (VIEW_CONVERT_EXPR, type, args[0]);
       VAR1 (UNOP, floatv2si, 2, v2sf)
       VAR1 (UNOP, floatv4si, 2, v4sf)
       VAR1 (UNOP, floatv2di, 2, v2df)
@@ -1484,41 +1362,6 @@ aarch64_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
 #undef AARCH64_CHECK_BUILTIN_MODE
 #undef AARCH64_FIND_FRINT_VARIANT
-#undef BUILTIN_DX
-#undef BUILTIN_SDQ_I
-#undef BUILTIN_SD_HSI
-#undef BUILTIN_V2F
-#undef BUILTIN_VALL
-#undef BUILTIN_VB
-#undef BUILTIN_VD
-#undef BUILTIN_VD1
-#undef BUILTIN_VDC
-#undef BUILTIN_VDIC
-#undef BUILTIN_VDN
-#undef BUILTIN_VDQ
-#undef BUILTIN_VDQF
-#undef BUILTIN_VDQH
-#undef BUILTIN_VDQHS
-#undef BUILTIN_VDQIF
-#undef BUILTIN_VDQM
-#undef BUILTIN_VDQV
-#undef BUILTIN_VDQ_BHSI
-#undef BUILTIN_VDQ_I
-#undef BUILTIN_VDW
-#undef BUILTIN_VD_BHSI
-#undef BUILTIN_VD_HSI
-#undef BUILTIN_VQ
-#undef BUILTIN_VQN
-#undef BUILTIN_VQW
-#undef BUILTIN_VQ_HSI
-#undef BUILTIN_VQ_S
-#undef BUILTIN_VSDQ_HSI
-#undef BUILTIN_VSDQ_I
-#undef BUILTIN_VSDQ_I_BHSI
-#undef BUILTIN_VSDQ_I_DI
-#undef BUILTIN_VSD_HSI
-#undef BUILTIN_VSQN_HSDI
-#undef BUILTIN_VSTRUCT
 #undef CF0
 #undef CF1
 #undef CF2

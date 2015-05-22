@@ -1016,7 +1016,7 @@ sparc_do_work_around_errata (void)
 	  /* The problematic combination is with the sibling FP register.  */
 	  const unsigned int x = REGNO (SET_DEST (set));
 	  const unsigned int y = x ^ 1;
-	  rtx after;
+	  rtx_insn *after;
 	  int i;
 
 	  next = next_active_insn (insn);
@@ -1050,15 +1050,16 @@ sparc_do_work_around_errata (void)
 		  if (++i == n_insns)
 		    break;
 		  branch_p = true;
-		  after = NULL_RTX;
+		  after = NULL;
 		}
 	      /* This is a branch with a filled delay slot.  */
-	      else if (GET_CODE (PATTERN (after)) == SEQUENCE)
+	      else if (rtx_sequence *seq =
+		         dyn_cast <rtx_sequence *> (PATTERN (after)))
 		{
 		  if (++i == n_insns)
 		    break;
 		  branch_p = true;
-		  after = XVECEXP (PATTERN (after), 0, 1);
+		  after = seq->insn (1);
 		}
 	      /* This is a regular instruction.  */
 	      else
@@ -3478,7 +3479,7 @@ emit_cbcond_nop (rtx insn)
 /* Return nonzero if TRIAL can go into the call delay slot.  */
 
 int
-eligible_for_call_delay (rtx trial)
+eligible_for_call_delay (rtx_insn *trial)
 {
   rtx pat;
 
@@ -3604,7 +3605,7 @@ eligible_for_restore_insn (rtx trial, bool return_p)
 /* Return nonzero if TRIAL can go into the function return's delay slot.  */
 
 int
-eligible_for_return_delay (rtx trial)
+eligible_for_return_delay (rtx_insn *trial)
 {
   int regno;
   rtx pat;
@@ -3670,7 +3671,7 @@ eligible_for_return_delay (rtx trial)
 /* Return nonzero if TRIAL can go into the sibling call's delay slot.  */
 
 int
-eligible_for_sibcall_delay (rtx trial)
+eligible_for_sibcall_delay (rtx_insn *trial)
 {
   rtx pat;
 

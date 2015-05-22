@@ -17,6 +17,8 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#ifndef GCC_RELOAD_H
+#define GCC_RELOAD_H
 
 /* If secondary reloads are the same for inputs and outputs, define those
    macros here.  */
@@ -446,7 +448,7 @@ extern void setup_save_areas (void);
 extern void save_call_clobbered_regs (void);
 
 /* Replace (subreg (reg)) with the appropriate (reg) for any operands.  */
-extern void cleanup_subreg_operands (rtx);
+extern void cleanup_subreg_operands (rtx_insn *);
 
 /* Debugging support.  */
 extern void debug_reload_to_stream (FILE *);
@@ -458,3 +460,5 @@ extern rtx reload_adjust_reg_for_mode (rtx, enum machine_mode);
 
 /* Allocate or grow the reg_equiv tables, initializing new entries to 0.  */
 extern void grow_reg_equivs (void);
+
+#endif /* GCC_RELOAD_H */

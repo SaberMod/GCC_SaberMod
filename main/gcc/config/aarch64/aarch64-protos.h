@@ -213,6 +213,7 @@ bool aarch64_simd_valid_immediate (rtx, enum machine_mode, bool,
 				   struct simd_immediate_info *);
 bool aarch64_symbolic_address_p (rtx);
 bool aarch64_uimm12_shift (HOST_WIDE_INT);
+bool aarch64_use_return_insn_p (void);
 const char *aarch64_output_casesi (rtx *);
 const char *aarch64_rewrite_selected_cpu (const char *name);
 
@@ -225,7 +226,7 @@ enum machine_mode aarch64_hard_regno_caller_save_mode (unsigned, unsigned,
 						       enum machine_mode);
 int aarch64_hard_regno_mode_ok (unsigned, enum machine_mode);
 int aarch64_hard_regno_nregs (unsigned, enum machine_mode);
-int aarch64_simd_attr_length_move (rtx);
+int aarch64_simd_attr_length_move (rtx_insn *);
 int aarch64_uxt_size (int, HOST_WIDE_INT);
 rtx aarch64_final_eh_return_addr (void);
 rtx aarch64_legitimize_reload_address (rtx *, enum machine_mode, int, int, int);
@@ -268,9 +269,6 @@ void aarch64_simd_emit_pair_result_insn (enum machine_mode,
 rtx aarch64_simd_expand_builtin (int, tree, rtx);
 
 void aarch64_simd_lane_bounds (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
-
-/* Emit code for reinterprets.  */
-void aarch64_simd_reinterpret (rtx, rtx);
 
 void aarch64_split_128bit_move (rtx, rtx);
 

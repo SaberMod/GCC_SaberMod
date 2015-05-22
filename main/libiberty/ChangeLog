@@ -1,3 +1,21 @@
+2014-09-23  Iain Buclaw  <ibuclaw@gdcproject.org>
+
+	* Makefile.in (CFILES): Add d-demangle.c.
+	(REQUIRED_OFILES): Add d-demangle.o.
+	* cplus-dem.c (libiberty_demanglers): Add dlang_demangling case.
+	(cplus_demangle): Likewise.
+	* d-demangle.c: New file.
+	* testsuite/Makefile.in (really-check): Add check-d-demangle.
+	* testsuite/d-demangle-expected: New file.
+
+2014-09-19  Ian Lance Taylor  <iant@google.com>
+
+	* simple-object-elf.c (simple_object_elf_write_ehdr): Correctly
+	handle objects with more than SHN_LORESERVE sections.
+	(simple_object_elf_write_shdr): Add sh_link parameter.
+	(simple_object_elf_write_to_file): Correctly handle objects with
+	more than SHN_LORESERVE sections.
+
 2014-08-29  Andrew Burgess  <aburgess@broadcom.com>
 
 	* cp-demangle.c (d_dump): Only access field from s_fixed part of

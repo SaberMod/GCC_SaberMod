@@ -42,11 +42,11 @@ extern void init_insn_lengths (void);
 
 /* Obtain the current length of an insn.  If branch shortening has been done,
    get its actual length.  Otherwise, get its maximum length.  */
-extern int get_attr_length (rtx);
+extern int get_attr_length (rtx_insn *);
 
 /* Obtain the current length of an insn.  If branch shortening has been done,
    get its actual length.  Otherwise, get its minimum length.  */
-extern int get_attr_min_length (rtx);
+extern int get_attr_min_length (rtx_insn *);
 
 /* Make a pass over all insns and compute their actual lengths by shortening
    any branches of variable length if possible.  */
@@ -328,7 +328,7 @@ extern rtx_insn *current_output_insn;
 /* Nonzero while outputting an `asm' with operands.
    This means that inconsistencies are the user's fault, so don't die.
    The precise value is the insn being output, to pass to error_for_asm.  */
-extern rtx this_is_asm_operands;
+extern const rtx_insn *this_is_asm_operands;
 
 /* Carry information from ASM_DECLARE_OBJECT_NAME
    to ASM_FINISH_DECLARE_OBJECT.  */

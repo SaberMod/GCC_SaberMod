@@ -1449,7 +1449,7 @@ init_gid_map (void)
       ent.node = n;
       f = DECL_STRUCT_FUNCTION (n->decl);
       /* Do not care to indirect call promote a function with id.  */
-      if (!f || DECL_ABSTRACT (n->decl))
+      if (!f || DECL_ABSTRACT_P (n->decl))
         continue;
       /* The global function id computed at profile-use time
         is slightly different from the one computed in

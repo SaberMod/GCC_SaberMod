@@ -151,7 +151,7 @@ extern const int length_unit_log; /* This is defined in insn-attrtab.c.  */
 /* Nonzero while outputting an `asm' with operands.
    This means that inconsistencies are the user's fault, so don't die.
    The precise value is the insn being output, to pass to error_for_asm.  */
-rtx this_is_asm_operands;
+const rtx_insn *this_is_asm_operands;
 
 /* Number of operands of this insn, for an `asm' with operands.  */
 static unsigned int insn_noperands;
@@ -378,9 +378,8 @@ init_insn_lengths (void)
    get its actual length.  Otherwise, use FALLBACK_FN to calculate the
    length.  */
 static int
-get_attr_length_1 (rtx uncast_insn, int (*fallback_fn) (rtx))
+get_attr_length_1 (rtx_insn *insn, int (*fallback_fn) (rtx_insn *))
 {
-  rtx_insn *insn = as_a <rtx_insn *> (uncast_insn);
   rtx body;
   int i;
   int length = 0;
@@ -431,7 +430,7 @@ get_attr_length_1 (rtx uncast_insn, int (*fallback_fn) (rtx))
 /* Obtain the current length of an insn.  If branch shortening has been done,
    get its actual length.  Otherwise, get its maximum length.  */
 int
-get_attr_length (rtx insn)
+get_attr_length (rtx_insn *insn)
 {
   return get_attr_length_1 (insn, insn_default_length);
 }
@@ -439,7 +438,7 @@ get_attr_length (rtx insn)
 /* Obtain the current length of an insn.  If branch shortening has been done,
    get its actual length.  Otherwise, get its minimum length.  */
 int
-get_attr_min_length (rtx insn)
+get_attr_min_length (rtx_insn *insn)
 {
   return get_attr_length_1 (insn, insn_min_length);
 }
@@ -502,25 +501,25 @@ get_attr_min_length (rtx insn)
 #endif
 
 int
-default_label_align_after_barrier_max_skip (rtx insn ATTRIBUTE_UNUSED)
+default_label_align_after_barrier_max_skip (rtx_insn *insn ATTRIBUTE_UNUSED)
 {
   return 0;
 }
 
 int
-default_loop_align_max_skip (rtx insn ATTRIBUTE_UNUSED)
+default_loop_align_max_skip (rtx_insn *insn ATTRIBUTE_UNUSED)
 {
   return align_loops_max_skip;
 }
 
 int
-default_label_align_max_skip (rtx insn ATTRIBUTE_UNUSED)
+default_label_align_max_skip (rtx_insn *insn ATTRIBUTE_UNUSED)
 {
   return align_labels_max_skip;
 }
 
 int
-default_jump_align_max_skip (rtx insn ATTRIBUTE_UNUSED)
+default_jump_align_max_skip (rtx_insn *insn ATTRIBUTE_UNUSED)
 {
   return align_jumps_max_skip;
 }
@@ -1110,7 +1109,7 @@ shorten_branches (rtx_insn *first)
 #endif /* CASE_VECTOR_SHORTEN_MODE */
 
   /* Compute initial lengths, addresses, and varying flags for each insn.  */
-  int (*length_fun) (rtx) = increasing ? insn_min_length : insn_default_length;
+  int (*length_fun) (rtx_insn *) = increasing ? insn_min_length : insn_default_length;
 
   for (insn_current_address = 0, insn = first;
        insn != 0;
@@ -1136,7 +1135,7 @@ shorten_branches (rtx_insn *first)
       if (NOTE_P (insn) || BARRIER_P (insn)
 	  || LABEL_P (insn) || DEBUG_INSN_P (insn))
 	continue;
-      if (INSN_DELETED_P (insn))
+      if (insn->deleted ())
 	continue;
 
       body = PATTERN (insn);
@@ -1162,7 +1161,7 @@ shorten_branches (rtx_insn *first)
 #else
 	  const_delay_slots = 0;
 #endif
-	  int (*inner_length_fun) (rtx)
+	  int (*inner_length_fun) (rtx_insn *)
 	    = const_delay_slots ? length_fun : insn_default_length;
 	  /* Inside a delay slot sequence, we do not do any branch shortening
 	     if the shortening could change the number of delay slots
@@ -1417,13 +1416,14 @@ shorten_branches (rtx_insn *first)
 
 	  if (NONJUMP_INSN_P (insn) && GET_CODE (PATTERN (insn)) == SEQUENCE)
 	    {
+	      rtx_sequence *seqn = as_a <rtx_sequence *> (PATTERN (insn));
 	      int i;
 
 	      body = PATTERN (insn);
 	      new_length = 0;
-	      for (i = 0; i < XVECLEN (body, 0); i++)
+	      for (i = 0; i < seqn->len (); i++)
 		{
-		  rtx inner_insn = XVECEXP (body, 0, i);
+		  rtx_insn *inner_insn = seqn->insn (i);
 		  int inner_uid = INSN_UID (inner_insn);
 		  int inner_length;
 
@@ -2190,7 +2190,7 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 
   /* Ignore deleted insns.  These can occur when we split insns (due to a
      template of "#") while not optimizing.  */
-  if (INSN_DELETED_P (insn))
+  if (insn->deleted ())
     return NEXT_INSN (insn);
 
   switch (GET_CODE (insn))
@@ -2499,7 +2499,8 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  rtx note = find_reg_note (insn, REG_CC_SETTER, NULL_RTX);
 	  if (note)
 	    {
-	      NOTICE_UPDATE_CC (PATTERN (XEXP (note, 0)), XEXP (note, 0));
+	      rtx_insn *other = as_a <rtx_insn *> (XEXP (note, 0));
+	      NOTICE_UPDATE_CC (PATTERN (other), other);
 	      cc_prev_status = cc_status;
 	    }
 	}
@@ -3111,7 +3112,7 @@ notice_source_line (rtx_insn *insn, bool *is_stmt)
    directly to the desired hard register.  */
 
 void
-cleanup_subreg_operands (rtx insn)
+cleanup_subreg_operands (rtx_insn *insn)
 {
   int i;
   bool changed = false;
@@ -3147,7 +3148,7 @@ cleanup_subreg_operands (rtx insn)
 	*recog_data.dup_loc[i] = walk_alter_subreg (recog_data.dup_loc[i], &changed);
     }
   if (changed)
-    df_insn_rescan (as_a <rtx_insn *> (insn));
+    df_insn_rescan (insn);
 }
 
 /* If X is a SUBREG, try to replace it with a REG or a MEM, based on
@@ -3809,7 +3810,7 @@ output_asm_label (rtx x)
   char buf[256];
 
   if (GET_CODE (x) == LABEL_REF)
-    x = XEXP (x, 0);
+    x = LABEL_REF_LABEL (x);
   if (LABEL_P (x)
       || (NOTE_P (x)
 	  && NOTE_KIND (x) == NOTE_INSN_DELETED_LABEL))
@@ -3899,7 +3900,7 @@ output_addr_const (FILE *file, rtx x)
       break;
 
     case LABEL_REF:
-      x = XEXP (x, 0);
+      x = LABEL_REF_LABEL (x);
       /* Fall through.  */
     case CODE_LABEL:
       ASM_GENERATE_INTERNAL_LABEL (buf, "L", CODE_LABEL_NUMBER (x));

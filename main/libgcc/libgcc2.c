@@ -1506,7 +1506,7 @@ __fixsfdi (SFtype a)
 XFtype
 __floatdixf (DWtype u)
 {
-#if W_TYPE_SIZE > XF_SIZE
+#if W_TYPE_SIZE > __LIBGCC_XF_MANT_DIG__
 # error
 #endif
   XFtype d = (Wtype) (u >> W_TYPE_SIZE);
@@ -1520,7 +1520,7 @@ __floatdixf (DWtype u)
 XFtype
 __floatundixf (UDWtype u)
 {
-#if W_TYPE_SIZE > XF_SIZE
+#if W_TYPE_SIZE > __LIBGCC_XF_MANT_DIG__
 # error
 #endif
   XFtype d = (UWtype) (u >> W_TYPE_SIZE);
@@ -1534,7 +1534,7 @@ __floatundixf (UDWtype u)
 TFtype
 __floatditf (DWtype u)
 {
-#if W_TYPE_SIZE > TF_SIZE
+#if W_TYPE_SIZE > __LIBGCC_TF_MANT_DIG__
 # error
 #endif
   TFtype d = (Wtype) (u >> W_TYPE_SIZE);
@@ -1548,7 +1548,7 @@ __floatditf (DWtype u)
 TFtype
 __floatunditf (UDWtype u)
 {
-#if W_TYPE_SIZE > TF_SIZE
+#if W_TYPE_SIZE > __LIBGCC_TF_MANT_DIG__
 # error
 #endif
   TFtype d = (UWtype) (u >> W_TYPE_SIZE);
@@ -1568,11 +1568,11 @@ __floatunditf (UDWtype u)
 #if defined(L_floatdisf)
 #define FUNC __floatdisf
 #define FSTYPE SFtype
-#define FSSIZE SF_SIZE
+#define FSSIZE __LIBGCC_SF_MANT_DIG__
 #else
 #define FUNC __floatdidf
 #define FSTYPE DFtype
-#define FSSIZE DF_SIZE
+#define FSSIZE __LIBGCC_DF_MANT_DIG__
 #endif
 
 FSTYPE
@@ -1584,18 +1584,18 @@ FUNC (DWtype u)
   f *= Wtype_MAXp1_F;
   f += (UWtype)u;
   return f;
-#elif (LIBGCC2_HAS_DF_MODE && F_MODE_OK (DF_SIZE))	\
-     || (LIBGCC2_HAS_XF_MODE && F_MODE_OK (XF_SIZE))	\
-     || (LIBGCC2_HAS_TF_MODE && F_MODE_OK (TF_SIZE))
+#elif (LIBGCC2_HAS_DF_MODE && F_MODE_OK (__LIBGCC_DF_MANT_DIG__))	\
+     || (LIBGCC2_HAS_XF_MODE && F_MODE_OK (__LIBGCC_XF_MANT_DIG__))	\
+     || (LIBGCC2_HAS_TF_MODE && F_MODE_OK (__LIBGCC_TF_MANT_DIG__))
 
-#if (LIBGCC2_HAS_DF_MODE && F_MODE_OK (DF_SIZE))
-# define FSIZE DF_SIZE
+#if (LIBGCC2_HAS_DF_MODE && F_MODE_OK (__LIBGCC_DF_MANT_DIG__))
+# define FSIZE __LIBGCC_DF_MANT_DIG__
 # define FTYPE DFtype
-#elif (LIBGCC2_HAS_XF_MODE && F_MODE_OK (XF_SIZE))
-# define FSIZE XF_SIZE
+#elif (LIBGCC2_HAS_XF_MODE && F_MODE_OK (__LIBGCC_XF_MANT_DIG__))
+# define FSIZE __LIBGCC_XF_MANT_DIG__
 # define FTYPE XFtype
-#elif (LIBGCC2_HAS_TF_MODE && F_MODE_OK (TF_SIZE))
-# define FSIZE TF_SIZE
+#elif (LIBGCC2_HAS_TF_MODE && F_MODE_OK (__LIBGCC_TF_MANT_DIG__))
+# define FSIZE __LIBGCC_TF_MANT_DIG__
 # define FTYPE TFtype
 #else
 # error
@@ -1684,11 +1684,11 @@ FUNC (DWtype u)
 #if defined(L_floatundisf)
 #define FUNC __floatundisf
 #define FSTYPE SFtype
-#define FSSIZE SF_SIZE
+#define FSSIZE __LIBGCC_SF_MANT_DIG__
 #else
 #define FUNC __floatundidf
 #define FSTYPE DFtype
-#define FSSIZE DF_SIZE
+#define FSSIZE __LIBGCC_DF_MANT_DIG__
 #endif
 
 FSTYPE
@@ -1700,18 +1700,18 @@ FUNC (UDWtype u)
   f *= Wtype_MAXp1_F;
   f += (UWtype)u;
   return f;
-#elif (LIBGCC2_HAS_DF_MODE && F_MODE_OK (DF_SIZE))	\
-     || (LIBGCC2_HAS_XF_MODE && F_MODE_OK (XF_SIZE))	\
-     || (LIBGCC2_HAS_TF_MODE && F_MODE_OK (TF_SIZE))
+#elif (LIBGCC2_HAS_DF_MODE && F_MODE_OK (__LIBGCC_DF_MANT_DIG__))	\
+     || (LIBGCC2_HAS_XF_MODE && F_MODE_OK (__LIBGCC_XF_MANT_DIG__))	\
+     || (LIBGCC2_HAS_TF_MODE && F_MODE_OK (__LIBGCC_TF_MANT_DIG__))
 
-#if (LIBGCC2_HAS_DF_MODE && F_MODE_OK (DF_SIZE))
-# define FSIZE DF_SIZE
+#if (LIBGCC2_HAS_DF_MODE && F_MODE_OK (__LIBGCC_DF_MANT_DIG__))
+# define FSIZE __LIBGCC_DF_MANT_DIG__
 # define FTYPE DFtype
-#elif (LIBGCC2_HAS_XF_MODE && F_MODE_OK (XF_SIZE))
-# define FSIZE XF_SIZE
+#elif (LIBGCC2_HAS_XF_MODE && F_MODE_OK (__LIBGCC_XF_MANT_DIG__))
+# define FSIZE __LIBGCC_XF_MANT_DIG__
 # define FTYPE XFtype
-#elif (LIBGCC2_HAS_TF_MODE && F_MODE_OK (TF_SIZE))
-# define FSIZE TF_SIZE
+#elif (LIBGCC2_HAS_TF_MODE && F_MODE_OK (__LIBGCC_TF_MANT_DIG__))
+# define FSIZE __LIBGCC_TF_MANT_DIG__
 # define FTYPE TFtype
 #else
 # error
@@ -1865,35 +1865,26 @@ NAME (TYPE x, int m)
 # define MTYPE	SFtype
 # define CTYPE	SCtype
 # define MODE	sc
-# define CEXT	f
-# define NOTRUNC __FLT_EVAL_METHOD__ == 0
+# define CEXT	__LIBGCC_SF_FUNC_EXT__
+# define NOTRUNC __LIBGCC_SF_EXCESS_PRECISION__
 #elif defined(L_muldc3) || defined(L_divdc3)
 # define MTYPE	DFtype
 # define CTYPE	DCtype
 # define MODE	dc
-# if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 64
-#  define CEXT	l
-#  define NOTRUNC 1
-# else
-#  define CEXT
-#  define NOTRUNC __FLT_EVAL_METHOD__ == 0 || __FLT_EVAL_METHOD__ == 1
-# endif
+# define CEXT	__LIBGCC_DF_FUNC_EXT__
+# define NOTRUNC __LIBGCC_DF_EXCESS_PRECISION__
 #elif defined(L_mulxc3) || defined(L_divxc3)
 # define MTYPE	XFtype
 # define CTYPE	XCtype
 # define MODE	xc
-# define CEXT	l
-# define NOTRUNC 1
+# define CEXT	__LIBGCC_XF_FUNC_EXT__
+# define NOTRUNC __LIBGCC_XF_EXCESS_PRECISION__
 #elif defined(L_multc3) || defined(L_divtc3)
 # define MTYPE	TFtype
 # define CTYPE	TCtype
 # define MODE	tc
-# if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128
-#  define CEXT l
-# else
-#  define CEXT LIBGCC2_TF_CEXT
-# endif
-# define NOTRUNC 1
+# define CEXT	__LIBGCC_TF_FUNC_EXT__
+# define NOTRUNC __LIBGCC_TF_EXCESS_PRECISION__
 #else
 # error
 #endif

@@ -1922,7 +1922,7 @@ cris_normal_notice_update_cc (rtx exp, rtx insn)
     check-cc-attribute methods.  */
 
 void
-cris_notice_update_cc (rtx exp, rtx insn)
+cris_notice_update_cc (rtx exp, rtx_insn *insn)
 {
   enum attr_cc attrval = get_attr_cc (insn);
 
@@ -2410,7 +2410,7 @@ cris_side_effect_mode_ok (enum rtx_code code, rtx *ops,
 bool
 cris_cc0_user_requires_cmp (rtx insn)
 {
-  rtx cc0_user = NULL;
+  rtx_insn *cc0_user = NULL;
   rtx body;
   rtx set;
 

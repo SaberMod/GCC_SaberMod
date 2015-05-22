@@ -270,21 +270,14 @@ builtin_define_float_constants (const char *name_prefix,
       sprintf (buf, "0x1p%d", 1 - fmt->p);
   builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix, fp_cast);
 
-  /* For C++ std::numeric_limits<T>::denorm_min.  The minimum denormalized
-     positive floating-point number, b**(emin-p).  Zero for formats that
-     don't support denormals.  */
+  /* For C++ std::numeric_limits<T>::denorm_min and C11 *_TRUE_MIN.
+     The minimum denormalized positive floating-point number, b**(emin-p).
+     The minimum normalized positive floating-point number for formats
+     that don't support denormals.  */
   sprintf (name, "__%s_DENORM_MIN__", name_prefix);
-  if (fmt->has_denorm)
-    {
-      sprintf (buf, "0x1p%d", fmt->emin - fmt->p);
-      builtin_define_with_hex_fp_value (name, type, decimal_dig,
-					buf, fp_suffix, fp_cast);
-    }
-  else
-    {
-      sprintf (buf, "0.0%s", fp_suffix);
-      builtin_define_with_value (name, buf, 0);
-    }
+  sprintf (buf, "0x1p%d", fmt->emin - (fmt->has_denorm ? fmt->p : 1));
+  builtin_define_with_hex_fp_value (name, type, decimal_dig,
+				    buf, fp_suffix, fp_cast);
 
   sprintf (name, "__%s_HAS_DENORM__", name_prefix);
   builtin_define_with_value (name, fmt->has_denorm ? "1" : "0", 0);
@@ -944,6 +937,73 @@ c_cpp_builtins (cpp_reader *pfile)
   /* For libgcc-internal use only.  */
   if (flag_building_libgcc)
     {
+      /* Properties of floating-point modes for libgcc2.c.  */
+      for (enum machine_mode mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
+	   mode != VOIDmode;
+	   mode = GET_MODE_WIDER_MODE (mode))
+	{
+	  const char *name = GET_MODE_NAME (mode);
+	  char *macro_name
+	    = (char *) alloca (strlen (name)
+			       + sizeof ("__LIBGCC__MANT_DIG__"));
+	  sprintf (macro_name, "__LIBGCC_%s_MANT_DIG__", name);
+	  builtin_define_with_int_value (macro_name,
+					 REAL_MODE_FORMAT (mode)->p);
+	  if (!targetm.scalar_mode_supported_p (mode)
+	      || !targetm.libgcc_floating_mode_supported_p (mode))
+	    continue;
+	  macro_name = (char *) alloca (strlen (name)
+					+ sizeof ("__LIBGCC_HAS__MODE__"));
+	  sprintf (macro_name, "__LIBGCC_HAS_%s_MODE__", name);
+	  cpp_define (pfile, macro_name);
+	  macro_name = (char *) alloca (strlen (name)
+					+ sizeof ("__LIBGCC__FUNC_EXT__"));
+	  sprintf (macro_name, "__LIBGCC_%s_FUNC_EXT__", name);
+	  const char *suffix;
+	  if (mode == TYPE_MODE (double_type_node))
+	    suffix = "";
+	  else if (mode == TYPE_MODE (float_type_node))
+	    suffix = "f";
+	  else if (mode == TYPE_MODE (long_double_type_node))
+	    suffix = "l";
+	  /* ??? The following assumes the built-in functions (defined
+	     in target-specific code) match the suffixes used for
+	     constants.  Because in fact such functions are not
+	     defined for the 'w' suffix, 'l' is used there
+	     instead.  */
+	  else if (mode == targetm.c.mode_for_suffix ('q'))
+	    suffix = "q";
+	  else if (mode == targetm.c.mode_for_suffix ('w'))
+	    suffix = "l";
+	  else
+	    gcc_unreachable ();
+	  builtin_define_with_value (macro_name, suffix, 0);
+	  bool excess_precision = false;
+	  if (TARGET_FLT_EVAL_METHOD != 0
+	      && mode != TYPE_MODE (long_double_type_node)
+	      && (mode == TYPE_MODE (float_type_node)
+		  || mode == TYPE_MODE (double_type_node)))
+	    switch (TARGET_FLT_EVAL_METHOD)
+	      {
+	      case -1:
+	      case 2:
+		excess_precision = true;
+		break;
+
+	      case 1:
+		excess_precision = mode == TYPE_MODE (float_type_node);
+		break;
+
+	      default:
+		gcc_unreachable ();
+	      }
+	  macro_name = (char *) alloca (strlen (name)
+					+ sizeof ("__LIBGCC__EXCESS_"
+						  "PRECISION__"));
+	  sprintf (macro_name, "__LIBGCC_%s_EXCESS_PRECISION__", name);
+	  builtin_define_with_int_value (macro_name, excess_precision);
+	}
+
       /* For libgcc crtstuff.c and libgcc2.c.  */
       builtin_define_with_int_value ("__LIBGCC_EH_TABLES_CAN_BE_READ_ONLY__",
 				     EH_TABLES_CAN_BE_READ_ONLY);

@@ -1076,15 +1076,15 @@ static bool rs6000_debug_rtx_costs (rtx, int, int, int, int *, bool);
 static int rs6000_debug_address_cost (rtx, enum machine_mode, addr_space_t,
 				      bool);
 static int rs6000_debug_adjust_cost (rtx_insn *, rtx, rtx_insn *, int);
-static bool is_microcoded_insn (rtx);
-static bool is_nonpipeline_insn (rtx);
-static bool is_cracked_insn (rtx);
+static bool is_microcoded_insn (rtx_insn *);
+static bool is_nonpipeline_insn (rtx_insn *);
+static bool is_cracked_insn (rtx_insn *);
 static bool is_load_insn (rtx, rtx *);
 static bool is_store_insn (rtx, rtx *);
-static bool set_to_load_agen (rtx,rtx);
-static bool insn_terminates_group_p (rtx , enum group_termination);
-static bool insn_must_be_first_in_group (rtx);
-static bool insn_must_be_last_in_group (rtx);
+static bool set_to_load_agen (rtx_insn *,rtx_insn *);
+static bool insn_terminates_group_p (rtx_insn *, enum group_termination);
+static bool insn_must_be_first_in_group (rtx_insn *);
+static bool insn_must_be_last_in_group (rtx_insn *);
 static void altivec_init_builtins (void);
 static tree builtin_function_type (enum machine_mode, enum machine_mode,
 				   enum machine_mode, enum machine_mode,
@@ -1780,7 +1780,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
     return GET_MODE_CLASS (mode) == MODE_CC;
 
   if (CA_REGNO_P (regno))
-    return mode == BImode;
+    return mode == Pmode || mode == SImode;
 
   /* AltiVec only in AldyVec registers.  */
   if (ALTIVEC_REGNO_P (regno))
@@ -2475,7 +2475,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
   rs6000_regno_regclass[LR_REGNO] = LINK_REGS;
   rs6000_regno_regclass[CTR_REGNO] = CTR_REGS;
-  rs6000_regno_regclass[CA_REGNO] = CA_REGS;
+  rs6000_regno_regclass[CA_REGNO] = NO_REGS;
   rs6000_regno_regclass[VRSAVE_REGNO] = VRSAVE_REGS;
   rs6000_regno_regclass[VSCR_REGNO] = VRSAVE_REGS;
   rs6000_regno_regclass[SPE_ACC_REGNO] = SPE_ACC_REGS;
@@ -4134,7 +4134,7 @@ rs6000_loop_align (rtx label)
 
 /* Implement TARGET_LOOP_ALIGN_MAX_SKIP. */
 static int
-rs6000_loop_align_max_skip (rtx label)
+rs6000_loop_align_max_skip (rtx_insn *label)
 {
   return (1 << rs6000_loop_align (label)) - 1;
 }
@@ -5939,7 +5939,7 @@ rs6000_special_adjust_field_align_p (tree field, unsigned int computed)
 	      warned = true;
 	      inform (input_location,
 		      "the layout of aggregates containing vectors with"
-		      " %d-byte alignment has changed in GCC 4.10",
+		      " %d-byte alignment has changed in GCC 5",
 		      computed / BITS_PER_UNIT);
 	    }
 	}
@@ -9307,7 +9307,7 @@ rs6000_function_arg_boundary (enum machine_mode mode, const_tree type)
 	      warned = true;
 	      inform (input_location,
 		      "the ABI of passing aggregates with %d-byte alignment"
-		      " has changed in GCC 4.10",
+		      " has changed in GCC 5",
 		      (int) TYPE_ALIGN (type) / BITS_PER_UNIT);
 	    }
 	}
@@ -10428,7 +10428,7 @@ rs6000_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 		  warned = true;
 		  inform (input_location,
 			  "the ABI of passing homogeneous float aggregates"
-			  " has changed in GCC 4.10");
+			  " has changed in GCC 5");
 		}
 	    }
 
@@ -26643,7 +26643,7 @@ rs6000_debug_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn,
    Return false otherwise.  */
 
 static bool
-is_microcoded_insn (rtx insn)
+is_microcoded_insn (rtx_insn *insn)
 {
   if (!insn || !NONDEBUG_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) == USE
@@ -26674,7 +26674,7 @@ is_microcoded_insn (rtx insn)
    by the processor (and therefore occupies 2 issue slots).  */
 
 static bool
-is_cracked_insn (rtx insn)
+is_cracked_insn (rtx_insn *insn)
 {
   if (!insn || !NONDEBUG_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) == USE
@@ -26719,7 +26719,7 @@ is_cracked_insn (rtx insn)
    the branch slot.  */
 
 static bool
-is_branch_slot_insn (rtx insn)
+is_branch_slot_insn (rtx_insn *insn)
 {
   if (!insn || !NONDEBUG_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) == USE
@@ -26740,7 +26740,7 @@ is_branch_slot_insn (rtx insn)
 /* The function returns true if out_inst sets a value that is
    used in the address generation computation of in_insn */
 static bool
-set_to_load_agen (rtx out_insn, rtx in_insn)
+set_to_load_agen (rtx_insn *out_insn, rtx_insn *in_insn)
 {
   rtx out_set, in_set;
 
@@ -26907,7 +26907,7 @@ rs6000_adjust_priority (rtx_insn *insn ATTRIBUTE_UNUSED, int priority)
 
 /* Return true if the instruction is nonpipelined on the Cell. */
 static bool
-is_nonpipeline_insn (rtx insn)
+is_nonpipeline_insn (rtx_insn *insn)
 {
   enum attr_type type;
   if (!insn || !NONDEBUG_INSN_P (insn)
@@ -27460,7 +27460,7 @@ rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx_insn **ready,
    the first insn in the group it belongs to).  */
 
 static bool
-insn_terminates_group_p (rtx insn, enum group_termination which_group)
+insn_terminates_group_p (rtx_insn *insn, enum group_termination which_group)
 {
   bool first, last;
 
@@ -27483,7 +27483,7 @@ insn_terminates_group_p (rtx insn, enum group_termination which_group)
 
 
 static bool
-insn_must_be_first_in_group (rtx insn)
+insn_must_be_first_in_group (rtx_insn *insn)
 {
   enum attr_type type;
 
@@ -27661,7 +27661,7 @@ insn_must_be_first_in_group (rtx insn)
 }
 
 static bool
-insn_must_be_last_in_group (rtx insn)
+insn_must_be_last_in_group (rtx_insn *insn)
 {
   enum attr_type type;
 
@@ -27823,7 +27823,7 @@ is_costly_group (rtx *group_insns, rtx next_insn)
 
 static int
 force_new_group (int sched_verbose, FILE *dump, rtx *group_insns,
-		 rtx next_insn, bool *group_end, int can_issue_more,
+		 rtx_insn *next_insn, bool *group_end, int can_issue_more,
 		 int *group_count)
 {
   rtx nop;
@@ -28929,7 +28929,7 @@ get_prev_label (tree function_name)
    CALL_DEST is the routine we are calling.  */
 
 char *
-output_call (rtx insn, rtx *operands, int dest_operand_number,
+output_call (rtx_insn *insn, rtx *operands, int dest_operand_number,
 	     int cookie_operand_number)
 {
   static char buf[256];
@@ -30111,6 +30111,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	}
       break;
 
+    case NE:
     case EQ:
     case GTU:
     case LTU:
@@ -33044,25 +33045,14 @@ rs6000_split_logical (rtx operands[3],
 
 /* Return true if the peephole2 can combine a load involving a combination of
    an addis instruction and a load with an offset that can be fused together on
-   a power8.
-
-   The operands are:
-	operands[0]	register set with addis
-	operands[1]	value set via addis
-	operands[2]	target register being loaded
-	operands[3]	D-form memory reference using operands[0].
-
-   In addition, we are passed a boolean that is true if this is a peephole2,
-   and we can use see if the addis_reg is dead after the insn and can be
-   replaced by the target register.  */
+   a power8.  */
 
 bool
-fusion_gpr_load_p (rtx *operands, bool peep2_p)
+fusion_gpr_load_p (rtx addis_reg,	/* register set via addis.  */
+		   rtx addis_value,	/* addis value.  */
+		   rtx target,		/* target register that is loaded.  */
+		   rtx mem)		/* bottom part of the memory addr. */
 {
-  rtx addis_reg = operands[0];
-  rtx addis_value = operands[1];
-  rtx target = operands[2];
-  rtx mem = operands[3];
   rtx addr;
   rtx base_reg;
 
@@ -33076,9 +33066,6 @@ fusion_gpr_load_p (rtx *operands, bool peep2_p)
   if (!fusion_gpr_addis (addis_value, GET_MODE (addis_value)))
     return false;
 
-  if (!fusion_gpr_mem_load (mem, GET_MODE (mem)))
-    return false;
-
   /* Allow sign/zero extension.  */
   if (GET_CODE (mem) == ZERO_EXTEND
       || (GET_CODE (mem) == SIGN_EXTEND && TARGET_P8_FUSION_SIGN))
@@ -33087,22 +33074,22 @@ fusion_gpr_load_p (rtx *operands, bool peep2_p)
   if (!MEM_P (mem))
     return false;
 
+  if (!fusion_gpr_mem_load (mem, GET_MODE (mem)))
+    return false;
+
   addr = XEXP (mem, 0);			/* either PLUS or LO_SUM.  */
   if (GET_CODE (addr) != PLUS && GET_CODE (addr) != LO_SUM)
     return false;
 
   /* Validate that the register used to load the high value is either the
-     register being loaded, or we can safely replace its use in a peephole2.
+     register being loaded, or we can safely replace its use.
 
-     If this is a peephole2, we assume that there are 2 instructions in the
-     peephole (addis and load), so we want to check if the target register was
-     not used in the memory address and the register to hold the addis result
-     is dead after the peephole.  */
+     This function is only called from the peephole2 pass and we assume that
+     there are 2 instructions in the peephole (addis and load), so we want to
+     check if the target register was not used in the memory address and the
+     register to hold the addis result is dead after the peephole.  */
   if (REGNO (addis_reg) != REGNO (target))
     {
-      if (!peep2_p)
-	return false;
-
       if (reg_mentioned_p (target, mem))
 	return false;
 
@@ -33143,9 +33130,6 @@ expand_fusion_gpr_load (rtx *operands)
   enum machine_mode extend_mode = target_mode;
   enum machine_mode ptr_mode = Pmode;
   enum rtx_code extend = UNKNOWN;
-  rtx addis_reg = ((ptr_mode == target_mode)
-		   ? target
-		   : simplify_subreg (ptr_mode, target, target_mode, 0));
 
   if (GET_CODE (orig_mem) == ZERO_EXTEND
       || (TARGET_P8_FUSION_SIGN && GET_CODE (orig_mem) == SIGN_EXTEND))
@@ -33162,13 +33146,14 @@ expand_fusion_gpr_load (rtx *operands)
   gcc_assert (plus_or_lo_sum == PLUS || plus_or_lo_sum == LO_SUM);
 
   offset = XEXP (orig_addr, 1);
-  new_addr = gen_rtx_fmt_ee (plus_or_lo_sum, ptr_mode, addis_reg, offset);
-  new_mem = change_address (orig_mem, target_mode, new_addr);
+  new_addr = gen_rtx_fmt_ee (plus_or_lo_sum, ptr_mode, addis_value, offset);
+  new_mem = replace_equiv_address_nv (orig_mem, new_addr, false);
 
   if (extend != UNKNOWN)
     new_mem = gen_rtx_fmt_e (ZERO_EXTEND, extend_mode, new_mem);
 
-  emit_insn (gen_rtx_SET (VOIDmode, addis_reg, addis_value));
+  new_mem = gen_rtx_UNSPEC (extend_mode, gen_rtvec (1, new_mem),
+			    UNSPEC_FUSION_GPR);
   emit_insn (gen_rtx_SET (VOIDmode, target, new_mem));
 
   if (extend == SIGN_EXTEND)
@@ -33187,55 +33172,40 @@ expand_fusion_gpr_load (rtx *operands)
 }
 
 /* Return a string to fuse an addis instruction with a gpr load to the same
-   register that we loaded up the addis instruction.  The code is complicated,
-   so we call output_asm_insn directly, and just return "".
+   register that we loaded up the addis instruction.  The address that is used
+   is the logical address that was formed during peephole2:
+	(lo_sum (high) (low-part))
 
-   The operands are:
-	operands[0]	register set with addis (must be same reg as target).
-	operands[1]	value set via addis
-	operands[2]	target register being loaded
-	operands[3]	D-form memory reference using operands[0].  */
+   The code is complicated, so we call output_asm_insn directly, and just
+   return "".  */
 
 const char *
-emit_fusion_gpr_load (rtx *operands)
+emit_fusion_gpr_load (rtx target, rtx mem)
 {
-  rtx addis_reg = operands[0];
-  rtx addis_value = operands[1];
-  rtx target = operands[2];
-  rtx mem = operands[3];
+  rtx addis_value;
   rtx fuse_ops[10];
   rtx addr;
   rtx load_offset;
   const char *addis_str = NULL;
   const char *load_str = NULL;
-  const char *extend_insn = NULL;
   const char *mode_name = NULL;
   char insn_template[80];
   enum machine_mode mode;
   const char *comment_str = ASM_COMMENT_START;
-  bool sign_p = false;
 
-  gcc_assert (REG_P (addis_reg) && REG_P (target));
-  gcc_assert (REGNO (addis_reg) == REGNO (target));
+  if (GET_CODE (mem) == ZERO_EXTEND)
+    mem = XEXP (mem, 0);
+
+  gcc_assert (REG_P (target) && MEM_P (mem));
 
   if (*comment_str == ' ')
     comment_str++;
 
-  /* Allow sign/zero extension.  */
-  if (GET_CODE (mem) == ZERO_EXTEND)
-    mem = XEXP (mem, 0);
-
-  else if (GET_CODE (mem) == SIGN_EXTEND && TARGET_P8_FUSION_SIGN)
-    {
-      sign_p = true;
-      mem = XEXP (mem, 0);
-    }
-
-  gcc_assert (MEM_P (mem));
   addr = XEXP (mem, 0);
   if (GET_CODE (addr) != PLUS && GET_CODE (addr) != LO_SUM)
     gcc_unreachable ();
 
+  addis_value = XEXP (addr, 0);
   load_offset = XEXP (addr, 1);
 
   /* Now emit the load instruction to the same register.  */
@@ -33245,29 +33215,22 @@ emit_fusion_gpr_load (rtx *operands)
     case QImode:
       mode_name = "char";
       load_str = "lbz";
-      extend_insn = "extsb %0,%0";
       break;
 
     case HImode:
       mode_name = "short";
       load_str = "lhz";
-      extend_insn = "extsh %0,%0";
       break;
 
     case SImode:
       mode_name = "int";
       load_str = "lwz";
-      extend_insn = "extsw %0,%0";
       break;
 
     case DImode:
-      if (TARGET_POWERPC64)
-	{
-	  mode_name = "long";
-	  load_str = "ld";
-	}
-      else
-	gcc_unreachable ();
+      gcc_assert (TARGET_POWERPC64);
+      mode_name = "long";
+      load_str = "ld";
       break;
 
     default:
@@ -33411,14 +33374,6 @@ emit_fusion_gpr_load (rtx *operands)
   else
     fatal_insn ("Unable to generate load offset for fusion", load_offset);
 
-  /* Handle sign extension.  The peephole2 pass generates this as a separate
-     insn, but we handle it just in case it got reattached.  */
-  if (sign_p)
-    {
-      gcc_assert (extend_insn != NULL);
-      output_asm_insn (extend_insn, fuse_ops);
-    }
-
   return "";
 }
 
@@ -33524,7 +33479,8 @@ enum special_handling_values {
   SH_SUBREG,
   SH_NOSWAP_LD,
   SH_NOSWAP_ST,
-  SH_EXTRACT
+  SH_EXTRACT,
+  SH_SPLAT
 };
 
 /* Union INSN with all insns containing definitions that reach USE.
@@ -33735,43 +33691,57 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
 	   vector splat are element-order sensitive.  A few of these
 	   cases might be workable with special handling if required.  */
 	int val = XINT (op, 1);
-	if (val == UNSPEC_VMRGH_DIRECT
-	    || val == UNSPEC_VMRGL_DIRECT
-	    || val == UNSPEC_VPACK_SIGN_SIGN_SAT
-	    || val == UNSPEC_VPACK_SIGN_UNS_SAT
-	    || val == UNSPEC_VPACK_UNS_UNS_MOD
-	    || val == UNSPEC_VPACK_UNS_UNS_MOD_DIRECT
-	    || val == UNSPEC_VPACK_UNS_UNS_SAT
-	    || val == UNSPEC_VPERM
-	    || val == UNSPEC_VPERM_UNS
-	    || val == UNSPEC_VPERMHI
-	    || val == UNSPEC_VPERMSI
-	    || val == UNSPEC_VPKPX
-	    || val == UNSPEC_VSLDOI
-	    || val == UNSPEC_VSLO
-	    || val == UNSPEC_VSPLT_DIRECT
-	    || val == UNSPEC_VSRO
-	    || val == UNSPEC_VSUM2SWS
-	    || val == UNSPEC_VSUM4S
-	    || val == UNSPEC_VSUM4UBS
-	    || val == UNSPEC_VSUMSWS
-	    || val == UNSPEC_VSUMSWS_DIRECT
-	    || val == UNSPEC_VSX_CONCAT
-	    || val == UNSPEC_VSX_CVSPDP
-	    || val == UNSPEC_VSX_CVSPDPN
-	    || val == UNSPEC_VSX_SET
-	    || val == UNSPEC_VSX_SLDWI
-	    || val == UNSPEC_VUNPACK_HI_SIGN
-	    || val == UNSPEC_VUNPACK_HI_SIGN_DIRECT
-	    || val == UNSPEC_VUNPACK_LO_SIGN
-	    || val == UNSPEC_VUNPACK_LO_SIGN_DIRECT
-	    || val == UNSPEC_VUPKHPX
-	    || val == UNSPEC_VUPKHS_V4SF
-	    || val == UNSPEC_VUPKHU_V4SF
-	    || val == UNSPEC_VUPKLPX
-	    || val == UNSPEC_VUPKLS_V4SF
-	    || val == UNSPEC_VUPKHU_V4SF)
-	  return 0;
+	switch (val)
+	  {
+	  default:
+	    break;
+	  case UNSPEC_VMRGH_DIRECT:
+	  case UNSPEC_VMRGL_DIRECT:
+	  case UNSPEC_VPACK_SIGN_SIGN_SAT:
+	  case UNSPEC_VPACK_SIGN_UNS_SAT:
+	  case UNSPEC_VPACK_UNS_UNS_MOD:
+	  case UNSPEC_VPACK_UNS_UNS_MOD_DIRECT:
+	  case UNSPEC_VPACK_UNS_UNS_SAT:
+	  case UNSPEC_VPERM:
+	  case UNSPEC_VPERM_UNS:
+	  case UNSPEC_VPERMHI:
+	  case UNSPEC_VPERMSI:
+	  case UNSPEC_VPKPX:
+	  case UNSPEC_VSLDOI:
+	  case UNSPEC_VSLO:
+	  case UNSPEC_VSRO:
+	  case UNSPEC_VSUM2SWS:
+	  case UNSPEC_VSUM4S:
+	  case UNSPEC_VSUM4UBS:
+	  case UNSPEC_VSUMSWS:
+	  case UNSPEC_VSUMSWS_DIRECT:
+	  case UNSPEC_VSX_CONCAT:
+	  case UNSPEC_VSX_SET:
+	  case UNSPEC_VSX_SLDWI:
+	  case UNSPEC_VUNPACK_HI_SIGN:
+	  case UNSPEC_VUNPACK_HI_SIGN_DIRECT:
+	  case UNSPEC_VUNPACK_LO_SIGN:
+	  case UNSPEC_VUNPACK_LO_SIGN_DIRECT:
+	  case UNSPEC_VUPKHPX:
+	  case UNSPEC_VUPKHS_V4SF:
+	  case UNSPEC_VUPKHU_V4SF:
+	  case UNSPEC_VUPKLPX:
+	  case UNSPEC_VUPKLS_V4SF:
+	  case UNSPEC_VUPKLU_V4SF:
+	  /* The following could be handled as an idiom with XXSPLTW.
+	     These place a scalar in BE element zero, but the XXSPLTW
+	     will currently expect it in BE element 2 in a swapped
+	     region.  When one of these feeds an XXSPLTW with no other
+	     defs/uses either way, we can avoid the lane change for
+	     XXSPLTW and things will be correct.  TBD.  */
+	  case UNSPEC_VSX_CVDPSPN:
+	  case UNSPEC_VSX_CVSPDP:
+	  case UNSPEC_VSX_CVSPDPN:
+	    return 0;
+	  case UNSPEC_VSPLT_DIRECT:
+	    *special = SH_SPLAT;
+	    return 1;
+	  }
       }
 
     default:
@@ -33823,9 +33793,10 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
     return 0;
 
   /* Loads and stores seen here are not permuting, but we can still
-     fix them up by converting them to permuting ones.  Exception:
-     UNSPEC_LVX and UNSPEC_STVX, which have a PARALLEL body instead
-     of a SET.  */
+     fix them up by converting them to permuting ones.  Exceptions:
+     UNSPEC_LVE, UNSPEC_LVX, and UNSPEC_STVX, which have a PARALLEL
+     body instead of a SET; and UNSPEC_STVE, which has an UNSPEC
+     for the SET source.  */
   rtx body = PATTERN (insn);
   int i = INSN_UID (insn);
 
@@ -33842,7 +33813,7 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
 
   if (insn_entry[i].is_store)
     {
-      if (GET_CODE (body) == SET)
+      if (GET_CODE (body) == SET && GET_CODE (SET_SRC (body)) != UNSPEC)
 	{
 	  *special = SH_NOSWAP_ST;
 	  return 1;
@@ -34098,25 +34069,43 @@ permute_store (rtx_insn *insn)
 	     INSN_UID (insn));
 }
 
-/* Given OP that contains a vector extract operation, change the index
-   of the extracted lane to count from the other side of the vector.  */
+/* Given OP that contains a vector extract operation, adjust the index
+   of the extracted lane to account for the doubleword swap.  */
 static void
 adjust_extract (rtx_insn *insn)
 {
-  rtx body = PATTERN (insn);
+  rtx src = SET_SRC (PATTERN (insn));
   /* The vec_select may be wrapped in a vec_duplicate for a splat, so
      account for that.  */
-  rtx sel = (GET_CODE (body) == VEC_DUPLICATE
-	     ? XEXP (XEXP (body, 0), 1)
-	     : XEXP (body, 1));
+  rtx sel = GET_CODE (src) == VEC_DUPLICATE ? XEXP (src, 0) : src;
   rtx par = XEXP (sel, 1);
-  int nunits = GET_MODE_NUNITS (GET_MODE (XEXP (sel, 0)));
-  XVECEXP (par, 0, 0) = GEN_INT (nunits - 1 - INTVAL (XVECEXP (par, 0, 0)));
+  int half_elts = GET_MODE_NUNITS (GET_MODE (XEXP (sel, 0))) >> 1;
+  int lane = INTVAL (XVECEXP (par, 0, 0));
+  lane = lane >= half_elts ? lane - half_elts : lane + half_elts;
+  XVECEXP (par, 0, 0) = GEN_INT (lane);
   INSN_CODE (insn) = -1; /* Force re-recognition.  */
   df_insn_rescan (insn);
 
   if (dump_file)
     fprintf (dump_file, "Changing lane for extract %d\n", INSN_UID (insn));
+}
+
+/* Given OP that contains a vector direct-splat operation, adjust the index
+   of the source lane to account for the doubleword swap.  */
+static void
+adjust_splat (rtx_insn *insn)
+{
+  rtx body = PATTERN (insn);
+  rtx unspec = XEXP (body, 1);
+  int half_elts = GET_MODE_NUNITS (GET_MODE (unspec)) >> 1;
+  int lane = INTVAL (XVECEXP (unspec, 0, 1));
+  lane = lane >= half_elts ? lane - half_elts : lane + half_elts;
+  XVECEXP (unspec, 0, 1) = GEN_INT (lane);
+  INSN_CODE (insn) = -1; /* Force re-recognition.  */
+  df_insn_rescan (insn);
+
+  if (dump_file)
+    fprintf (dump_file, "Changing lane for splat %d\n", INSN_UID (insn));
 }
 
 /* The insn described by INSN_ENTRY[I] can be swapped, but only
@@ -34160,6 +34149,11 @@ handle_special_swappables (swap_web_entry *insn_entry, unsigned i)
     case SH_EXTRACT:
       /* Change the lane on an extract operation.  */
       adjust_extract (insn);
+      break;
+    case SH_SPLAT:
+      /* Change the lane on a direct-splat operation.  */
+      adjust_splat (insn);
+      break;
     }
 }
 
@@ -34184,7 +34178,7 @@ replace_swap_with_copy (swap_web_entry *insn_entry, unsigned i)
 
   df_insn_delete (insn);
   remove_insn (insn);
-  INSN_DELETED_P (insn) = 1;
+  insn->set_deleted ();
 }
 
 /* Dump the swap table to DUMP_FILE.  */
@@ -34230,6 +34224,8 @@ dump_swap_insn_table (swap_web_entry *insn_entry)
 	      fputs ("special:store ", dump_file);
 	    else if (insn_entry[i].special_handling == SH_EXTRACT)
 	      fputs ("special:extract ", dump_file);
+	    else if (insn_entry[i].special_handling == SH_SPLAT)
+	      fputs ("special:splat ", dump_file);
 	  }
 	if (insn_entry[i].web_not_optimizable)
 	  fputs ("unoptimizable ", dump_file);

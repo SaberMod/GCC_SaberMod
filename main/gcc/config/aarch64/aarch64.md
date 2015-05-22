@@ -360,6 +360,19 @@
   [(set_attr "type" "branch")]
 )
 
+(define_expand "return"
+  [(simple_return)]
+  "aarch64_use_return_insn_p ()"
+  ""
+)
+
+(define_insn "simple_return"
+  [(simple_return)]
+  ""
+  "ret"
+  [(set_attr "type" "branch")]
+)
+
 (define_insn "eh_return"
   [(unspec_volatile [(match_operand:DI 0 "register_operand" "r")]
     UNSPECV_EH_RETURN)]
@@ -4027,7 +4040,7 @@
 })
 
 (define_insn "stack_protect_test_<mode>"
-  [(set (match_operand:PTR 0 "register_operand")
+  [(set (match_operand:PTR 0 "register_operand" "=r")
 	(unspec:PTR [(match_operand:PTR 1 "memory_operand" "m")
 		     (match_operand:PTR 2 "memory_operand" "m")]
 	 UNSPEC_SP_TEST))

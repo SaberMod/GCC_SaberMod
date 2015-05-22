@@ -1,3 +1,151 @@
+2014-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/63249
+	* semantics.c (handle_omp_array_sections_1): Call mark_rvalue_use
+	on low_bound and length.
+
+2014-09-24  Aldy Hernandez  <aldyh@redhat.com>
+
+	* class.c, decl.c, optimize.c: Rename all instances of
+	DECL_ABSTRACT to DECL_ABSTRACT_P.
+
+2014-09-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61405
+	PR c/53874
+	* semantics.c (finish_switch_cond): Call unlowered_expr_type.
+	* tree.c (bot_manip): Add default case.
+	* parser.c (cp_parser_primary_expression): Cast the controlling
+	expression of a switch to an int.
+	(cp_parser_unqualified_id): Likewise.
+
+2014-09-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/61857
+	* parser.c (cp_parser_skip_to_closing_square_bracket,
+	cp_parser_array_designator_p): New.
+	(cp_parser_initializer_list): Use the latter.
+
+2014-09-22  Jason Merrill  <jason@redhat.com>
+
+	* semantics.c (finish_non_static_data_member): In diagnostic, give
+	error at point of use and note at point of declaration.
+
+	PR c++/63320
+	PR c++/60463
+	PR c++/60755
+	* lambda.c (maybe_resolve_dummy, lambda_expr_this_capture): Handle
+	not finding 'this'.
+
+2014-09-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/62219
+	* pt.c (check_default_tmpl_args): Check LAMBDA_FUNCTION_P.
+
+2014-09-22  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (poplevel): Don't warn about unused vars in template scope.
+	* error.c (dump_decl): Handle variable templates.
+
+2014-09-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/62017
+	* decl.c (begin_destructor_body): Only clobber the as-base part of
+	*this.
+
+2014-09-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/61392
+	* mangle.c (write_expression): Use unresolved-name mangling for
+	DR850 case.
+
+	PR c++/61465
+	* call.c (convert_like_real) [ck_identity]: Call mark_rvalue_use
+	after pulling out an element from a CONSTRUCTOR.
+
+2014-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/63248
+	* semantics.c (finish_omp_clauses): Don't call cp_omp_mappable_type
+	on type of type dependent expressions, and don't call it if
+	handle_omp_array_sections has kept TREE_LIST because something
+	was type dependent.
+	* pt.c (tsubst_expr) <case OMP_TARGET, case OMP_TARGET_DATA>:
+	Use keep_next_level, begin_omp_structured_block and
+	finish_omp_structured_block instead of push_stmt_list and
+	pop_stmt_list.
+
+2014-09-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/62232
+	* class.c (finish_struct_1): Do not -Wnon-virtual-dtor warn
+	for final class types.
+
+2014-09-15  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (lookup_template_class_1): Splice out abi_tag attribute if
+	necessary.  Call inherit_targ_abi_tags here.
+	* class.c (check_bases_and_members): Not here.
+	(inherit_targ_abi_tags): Check CLASS_TYPE_P.
+	* cp-tree.h: Declare inherit_targ_abi_tags.
+
+2014-09-15  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Do not diagnose lambda default arguments in c++14 modes.
+	* parser.c (cp_parser_lambda_declarator_opt): Make the pedwarn
+	conditional.
+
+2014-09-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* Make-lang.in (check_g++_parallelize): Change to just an upper bound
+	number.
+
+2014-09-13  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/60862
+	* parser.c (cp_parser_postfix_expression) <case CPP_OPEN_PAREN>: Set
+	location of a call expression.
+
+2014-09-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/63201
+	* decl.c (start_decl): Handle specialization of member variable
+	template.
+	* pt.c (check_explicit_specialization): Adjust error.
+
+2014-09-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/61489
+	* typeck2.c (process_init_constructor_record): Do not warn about
+	missing field initializer if EMPTY_CONSTRUCTOR_P (init).
+
+2014-09-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/63139
+	* pt.c (tsubst_pack_expansion): Simplify substitution into T....
+	(tsubst): Don't throw away PACK_EXPANSION_EXTRA_ARGS.
+
+2014-09-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/61659
+	* decl.c (grokfndecl): Don't set DECL_COMDAT on static inlines.
+	(duplicate_decls, start_decl): Likewise.
+	* pt.c (check_explicit_specialization): Likewise.
+	(push_template_decl_real): Or static templates.
+
+2014-09-08  Jason Merrill  <jason@redhat.com>
+
+	* typeck.c (build_class_member_access_expr): Move
+	-Winvalid-offsetof code...
+	* semantics.c (finish_offsetof): ...here.
+	* parser.c (cp_parser_builtin_offsetof): Remember the location of
+	the type argument.
+	* pt.c (tsubst_copy_and_build) [OFFSETOF_EXPR]: Preserve it.
+
+	PR c++/62255
+	* pt.c (instantiate_decl): Handle recursive instantiation of
+	static data member.
+
 2014-09-05  Jason Merrill  <jason@redhat.com>
 
 	PR c++/62659

@@ -166,7 +166,7 @@ init_ic_make_global_vars (void)
   if (targetm.have_tls)
     set_decl_tls_model (ic_void_ptr_var, decl_default_tls_model (ic_void_ptr_var));
 
-	varpool_node::finalize_decl (ic_void_ptr_var);
+  varpool_node::finalize_decl (ic_void_ptr_var);
 
   gcov_type_ptr = build_pointer_type (get_gcov_type ());
   /* Workaround for binutils bug 14342.  Once it is fixed, remove lto path.  */
@@ -202,8 +202,8 @@ init_ic_make_global_vars (void)
 
   if (!flag_dyn_ipa)
     {
-			varpool_node::finalize_decl (ic_void_ptr_var);
-			varpool_node::finalize_decl (ic_gcov_type_ptr_var);
+      varpool_node::finalize_decl (ic_void_ptr_var);
+      varpool_node::finalize_decl (ic_gcov_type_ptr_var);
     }
 }
 
@@ -1067,8 +1067,7 @@ gimple_gen_ic_func_topn_profiler (void)
   tree cur_func, gcov_info, cur_func_id;
 
   if (DECL_STATIC_CONSTRUCTOR (current_function_decl)
-      || DECL_STATIC_CONSTRUCTOR (current_function_decl)
-      || DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (current_function_decl))
+      || DECL_STATIC_CONSTRUCTOR (current_function_decl))
     return;
 
   gimple_init_edge_profiler ();
@@ -1132,8 +1131,7 @@ gimple_gen_dc_func_profiler (void)
   tree cur_func, gcov_info, cur_func_id;
 
   if (DECL_STATIC_CONSTRUCTOR (current_function_decl) 
-      || DECL_STATIC_CONSTRUCTOR (current_function_decl)
-      || DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (current_function_decl))
+      || DECL_STATIC_CONSTRUCTOR (current_function_decl))
     return;
 
   gimple_init_edge_profiler ();

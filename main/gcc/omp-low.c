@@ -11717,9 +11717,22 @@ ipa_simd_modify_stmt_ops (tree *tp, int *walk_subtrees, void *data)
   if (tp != orig_tp)
     {
       repl = build_fold_addr_expr (repl);
-      gimple stmt
-	= gimple_build_assign (make_ssa_name (TREE_TYPE (repl), NULL), repl);
-      repl = gimple_assign_lhs (stmt);
+      gimple stmt;
+      if (is_gimple_debug (info->stmt))
+	{
+	  tree vexpr = make_node (DEBUG_EXPR_DECL);
+	  stmt = gimple_build_debug_source_bind (vexpr, repl, NULL);
+	  DECL_ARTIFICIAL (vexpr) = 1;
+	  TREE_TYPE (vexpr) = TREE_TYPE (repl);
+	  DECL_MODE (vexpr) = TYPE_MODE (TREE_TYPE (repl));
+	  repl = vexpr;
+	}
+      else
+	{
+	  stmt = gimple_build_assign (make_ssa_name (TREE_TYPE (repl),
+						     NULL), repl);
+	  repl = gimple_assign_lhs (stmt);
+	}
       gimple_stmt_iterator gsi = gsi_for_stmt (info->stmt);
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
       *orig_tp = repl;
@@ -11900,6 +11913,7 @@ simd_clone_adjust (struct cgraph_node *node)
      iteration increment and the condition/branch.  */
   basic_block orig_exit = EDGE_PRED (EXIT_BLOCK_PTR_FOR_FN (cfun), 0)->src;
   basic_block incr_bb = create_empty_bb (orig_exit);
+  add_bb_to_loop (incr_bb, body_bb->loop_father);
   /* The succ of orig_exit was EXIT_BLOCK_PTR_FOR_FN (cfun), with an empty
      flag.  Set it now to be a FALLTHRU_EDGE.  */
   gcc_assert (EDGE_COUNT (orig_exit->succs) == 1);
@@ -11924,7 +11938,6 @@ simd_clone_adjust (struct cgraph_node *node)
   loop->safelen = node->simdclone->simdlen;
   loop->force_vectorize = true;
   loop->header = body_bb;
-  add_bb_to_loop (incr_bb, loop);
 
   /* Branch around the body if the mask applies.  */
   if (node->simdclone->inbranch)
@@ -11965,7 +11978,7 @@ simd_clone_adjust (struct cgraph_node *node)
   gsi_insert_after (&gsi, g, GSI_CONTINUE_LINKING);
   e = split_block (incr_bb, gsi_stmt (gsi));
   basic_block latch_bb = e->dest;
-  basic_block new_exit_bb = e->dest;
+  basic_block new_exit_bb;
   new_exit_bb = split_block (latch_bb, NULL)->dest;
   loop->latch = latch_bb;
 

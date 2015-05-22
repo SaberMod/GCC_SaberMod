@@ -236,8 +236,7 @@ md_file=
 
 # Obsolete configurations.
 case ${target} in
-   picochip-*				\
- | score-*				\
+ score-*				\
  )
     if test "x$enable_obsolete" != xyes; then
       echo "*** Configuration ${target} is obsolete." >&2
@@ -420,9 +419,6 @@ nios2-*-*)
 	cpu_type=nios2
 	extra_options="${extra_options} g.opt"
 	;;
-picochip-*-*)
-        cpu_type=picochip
-        ;;
 powerpc*-*-*)
 	cpu_type=rs6000
 	extra_headers="ppc-asm.h altivec.h spe.h ppu_intrinsics.h paired.h spu2vmx.h vec_types.h si2vmx.h htmintrin.h htmxlintrin.h"
@@ -789,7 +785,13 @@ case ${target} in
   ;;
 *-*-rtems*)
   case ${enable_threads} in
-    yes) thread_file='rtems' ;;
+    "" | yes | rtems) thread_file='rtems' ;;
+    posix) thread_file='posix' ;;
+    no) ;;
+    *)
+      echo 'Unknown thread configuration for RTEMS'
+      exit 1
+      ;;
   esac
   tmake_file="${tmake_file} t-rtems"
   extra_options="${extra_options} rtems.opt"
@@ -1587,11 +1589,11 @@ i[4567]86-wrs-vxworks|i[4567]86-wrs-vxworksae)
 	tm_file="${tm_file} i386/unix.h i386/att.h elfos.h vx-common.h"
 	case ${target} in
 	  *-vxworksae*)
-	    tm_file="${tm_file} vxworksae.h i386/vx-common.h i386/vxworksae.h"
+	    tm_file="${tm_file} vxworksae.h i386/vxworks.h i386/vxworksae.h"
 	    tmake_file="${tmake_file} i386/t-vxworks i386/t-vxworksae"
 	    ;;
 	  *)
-	    tm_file="${tm_file} vxworks.h i386/vx-common.h i386/vxworks.h"
+	    tm_file="${tm_file} vxworks.h i386/vxworks.h"
 	    tmake_file="${tmake_file} i386/t-vxworks"
 	    ;;
 	esac
@@ -2187,11 +2189,6 @@ pdp11-*-*)
 	tm_file="${tm_file} newlib-stdint.h"
 	use_gcc_stdint=wrap
 	;;
-picochip-*)
-	tm_file="${tm_file} newlib-stdint.h"
-	use_gcc_stdint=wrap
-	tmake_file="picochip/t-picochip t-pnt16-warn"
-        ;;
 # port not yet contributed
 #powerpc-*-openbsd*)
 #	tmake_file="${tmake_file} rs6000/t-fprules"
@@ -2357,12 +2354,16 @@ powerpc*-*-linux*)
 	    ;;
 	esac
 	;;
-powerpc-wrs-vxworks|powerpc-wrs-vxworksae)
+powerpc-wrs-vxworks|powerpc-wrs-vxworksae|powerpc-wrs-vxworksmils)
 	tm_file="${tm_file} elfos.h freebsd-spec.h rs6000/sysv4.h"
 	tmake_file="${tmake_file} rs6000/t-fprules rs6000/t-ppccomm rs6000/t-vxworks"
 	extra_options="${extra_options} rs6000/sysv4.opt"
 	extra_headers=ppc-asm.h
 	case ${target} in
+          *-vxworksmils*)
+            tm_file="${tm_file} vx-common.h vxworksae.h rs6000/vxworks.h rs6000/e500.h rs6000/vxworksmils.h"
+            tmake_file="${tmake_file} rs6000/t-vxworksmils"
+            ;;
 	  *-vxworksae*)
 	    tm_file="${tm_file} vx-common.h vxworksae.h rs6000/vxworks.h rs6000/e500.h rs6000/vxworksae.h"
 	    tmake_file="${tmake_file} rs6000/t-vxworksae"
