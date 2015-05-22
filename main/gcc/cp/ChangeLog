@@ -1,3 +1,17 @@
+2014-09-29  Richard Biener  <rguenther@suse.de>
+
+	* typeck.c (enum_cast_to_int): Use CONVERT_EXPR_P to check
+	for conversions.
+
+2014-09-26  Jason Merrill  <jason@redhat.com>
+
+	* mangle.c (find_substitution): Use write_abi_tags.
+
+2014-09-25  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/61945
+	* class.c (warn_hidden): Check for FUNCTION_DECL.
+
 2014-09-25  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/63249

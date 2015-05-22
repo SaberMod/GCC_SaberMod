@@ -701,7 +701,7 @@ Objective-C and Objective-C++ Dialects}.
 -momit-leaf-frame-pointer  -mno-red-zone -mno-tls-direct-seg-refs @gol
 -mcmodel=@var{code-model} -mabi=@var{name} -maddress-mode=@var{mode} @gol
 -m32 -m64 -mx32 -m16 -mlarge-data-threshold=@var{num} @gol
--msse2avx -mfentry -m8bit-idiv @gol
+-msse2avx -mfentry -mrecord-mcount -mnop-mcount -m8bit-idiv @gol
 -mavx256-split-unaligned-load -mavx256-split-unaligned-store @gol
 -mstack-protector-guard=@var{guard}}
 
@@ -6479,6 +6479,11 @@ When doing debugging dumps, suppress address output.  This makes it more
 feasible to use diff on debugging dumps for compiler invocations with
 different compiler binaries and/or different
 text / bss / data / heap / stack / dso start locations.
+
+@item -freport-bug
+@opindex freport-bug
+Collect and dump debug information into temporary file if ICE in C/C++
+compiler occured.
 
 @item -fdump-unnumbered
 @opindex fdump-unnumbered
@@ -12893,7 +12898,8 @@ Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{cortex-a5}, @samp{cortex-a7}, @samp{cortex-a8}, @samp{cortex-a9},
 @samp{cortex-a12}, @samp{cortex-a15}, @samp{cortex-a53}, @samp{cortex-a57},
 @samp{cortex-r4},
-@samp{cortex-r4f}, @samp{cortex-r5}, @samp{cortex-r7}, @samp{cortex-m4},
+@samp{cortex-r4f}, @samp{cortex-r5}, @samp{cortex-r7}, @samp{cortex-m7},
+@samp{cortex-m4},
 @samp{cortex-m3},
 @samp{cortex-m1},
 @samp{cortex-m0},
@@ -12947,6 +12953,7 @@ available on the target.  Permissible names are: @samp{vfp}, @samp{vfpv3},
 @samp{vfpv3-fp16}, @samp{vfpv3-d16}, @samp{vfpv3-d16-fp16}, @samp{vfpv3xd},
 @samp{vfpv3xd-fp16}, @samp{neon}, @samp{neon-fp16}, @samp{vfpv4},
 @samp{vfpv4-d16}, @samp{fpv4-sp-d16}, @samp{neon-vfpv4},
+@samp{fpv5-d16}, @samp{fpv5-sp-d16},
 @samp{fp-armv8}, @samp{neon-fp-armv8}, and @samp{crypto-neon-fp-armv8}.
 
 If @option{-msoft-float} is specified this specifies the format of
@@ -16253,6 +16260,21 @@ If profiling is active (@option{-pg}), put the profiling
 counter call before the prologue.
 Note: On x86 architectures the attribute @code{ms_hook_prologue}
 isn't possible at the moment for @option{-mfentry} and @option{-pg}.
+
+@item -mrecord-mcount
+@itemx -mno-record-mcount
+@opindex mrecord-mcount
+If profiling is active (@option{-pg}), generate a __mcount_loc section
+that contains pointers to each profiling call. This is useful for
+automatically patching and out calls.
+
+@item -mnop-mcount
+@itemx -mno-nop-mcount
+@opindex mnop-mcount
+If profiling is active (@option{-pg}), generate the calls to
+the profiling functions as nops. This is useful when they
+should be patched in later dynamically. This is likely only
+useful together with @option{-mrecord-mcount}.
 
 @item -m8bit-idiv
 @itemx -mno-8bit-idiv

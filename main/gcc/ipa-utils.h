@@ -66,7 +66,7 @@ possible_polymorphic_call_targets (tree, HOST_WIDE_INT,
 				   ipa_polymorphic_call_context,
 				   bool *copletep = NULL,
 				   void **cache_token = NULL,
-				   int *nonconstruction_targets = NULL);
+				   bool speuclative = false);
 odr_type get_odr_type (tree, bool insert = false);
 bool possible_polymorphic_call_target_p (tree ref, gimple stmt, struct cgraph_node *n);
 void dump_possible_polymorphic_call_targets (FILE *, tree, HOST_WIDE_INT,
@@ -78,9 +78,14 @@ tree method_class_type (const_tree);
 bool decl_maybe_in_construction_p (tree, tree, gimple, tree);
 tree vtable_pointer_value_to_binfo (const_tree);
 bool vtable_pointer_value_to_vtable (const_tree, tree *, unsigned HOST_WIDE_INT *);
+tree subbinfo_with_vtable_at_offset (tree, unsigned HOST_WIDE_INT, tree);
 void compare_virtual_tables (varpool_node *, varpool_node *);
+bool type_all_derivations_known_p (const_tree);
+bool type_known_to_have_no_deriavations_p (tree);
 bool contains_polymorphic_type_p (const_tree);
 void register_odr_type (tree);
+bool types_must_be_same_for_odr (tree, tree);
+bool types_odr_comparable (tree, tree);
 
 /* Return vector containing possible targets of polymorphic call E.
    If COMPLETEP is non-NULL, store true if the list is complette. 
@@ -96,7 +101,7 @@ inline vec <cgraph_node *>
 possible_polymorphic_call_targets (struct cgraph_edge *e,
 				   bool *completep = NULL,
 				   void **cache_token = NULL,
-				   int *nonconstruction_targets = NULL)
+				   bool speculative = false)
 {
   ipa_polymorphic_call_context context(e);
 
@@ -104,7 +109,7 @@ possible_polymorphic_call_targets (struct cgraph_edge *e,
 					    e->indirect_info->otr_token,
 					    context,
 					    completep, cache_token,
-					    nonconstruction_targets);
+					    speculative);
 }
 
 /* Same as above but taking OBJ_TYPE_REF as an parameter.  */
@@ -165,5 +170,22 @@ odr_type_p (const_tree t)
 
   return (TYPE_NAME (t)
           && (DECL_ASSEMBLER_NAME_SET_P (TYPE_NAME (t))));
+}
+
+/* Return true if BINFO corresponds to a type with virtual methods. 
+
+   Every type has several BINFOs.  One is the BINFO associated by the type
+   while other represents bases of derived types.  The BINFOs representing
+   bases do not have BINFO_VTABLE pointer set when this is the single
+   inheritance (because vtables are shared).  Look up the BINFO of type
+   and check presence of its vtable.  */
+
+inline bool
+polymorphic_type_binfo_p (const_tree binfo)
+{
+  /* See if BINFO's type has an virtual table associtated with it.
+     Check is defensive because of Java FE produces BINFOs
+     without BINFO_TYPE set.   */
+  return BINFO_TYPE (binfo) && BINFO_VTABLE (TYPE_BINFO (BINFO_TYPE (binfo)));
 }
 #endif  /* GCC_IPA_UTILS_H  */

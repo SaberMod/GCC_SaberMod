@@ -1,3 +1,70 @@
+2014-09-30  Siva Chandra Reddy  <sivachandra@google.com>
+
+	* python/hook.in: Only import libstdcxx.v6.
+	* python/libstdcxx/v6/__init__.py: Load printers and xmethods.
+
+2014-09-30  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/status_cxx2011.xml: Update.
+	* doc/html/manual/status.html: Regenerate.
+
+2014-09-30  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* config/abi/post/aarch64-linux-gnu/baseline_symbols.txt: New
+	file.
+
+	* configure.host (abi_baseline_pair): If try_cpu is generic use
+	host_cpu for the default.
+
+2014-09-29  François Dumont  <fdumont@gcc.gnu.org>
+
+	PR libstdc++/62313
+	* include/debug/safe_base.h
+	(_Safe_iterator_base(const _Safe_iterator_base&)): Delete declaration.
+	(_Safe_iterator_base& operator=(const _Safe_iterator_base&)): Likewise.
+	* include/debug/safe_iterator.h (_Safe_iterator<>): Move normal iterator
+	before _Safe_iterator_base in memory. Lock before modifying the iterator
+	in numerous places.
+	* include/debug/safe_local_iterator.h
+	(_Safe_local_iterator_base(const _Safe_local_iterator_base&)): Delete
+	declaration.
+	(_Safe_local_iterator_base& operator=(const _Safe_local_iterator_base&)):
+	Likewise.
+	* include/debug/safe_unordered_base.h (_Safe_local_iterator<>):  Move
+	normal iterator before _Safe_iterator_base in memory. Lock before
+	modifying the iterator in numerous places.
+	* include/debug/forward_list (_Safe_forward_list<>::_M_swap_aux): Adapt.
+	* include/debug/safe_sequence.tcc
+	(_Safe_sequence<>::_M_transfer_from_if): Adapt.
+
+2014-09-25  Jonathan Wakely  <jwakely@redhat.com>
+
+	DR 1339
+	* doc/xml/manual/status_cxx2011.xml: Update.
+	* include/bits/stl_uninitialized.h (uninitialized_fill_n): Return
+	an iterator.
+	(__uninitialized_fill_n_a, __uninitialized_default_n_a): Likewise.
+	* include/bits/stl_vector.h (vector::_M_fill_initialize,
+	vector::_M_default_initialize): Use returned iterator.
+	* include/bits/vector.tcc (vector::_M_fill_assign,
+	vector::_M_fill_insert, vector::_M_default_append): Likewise.
+	* testsuite/20_util/specialized_algorithms/uninitialized_fill_n/
+	16505.cc: Adjust return type.
+	* testsuite/20_util/specialized_algorithms/uninitialized_fill_n/
+	dr1339.cc: New.
+
+2014-09-25  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/vector.tcc (vector::_M_fill_assign): Use _M_swap_data.
+
+2014-09-25  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/27_io/basic_ios/conv/bool_neg.cc: New.
+	* testsuite/27_io/basic_ios/conv/bool.cc: New.
+	* testsuite/27_io/basic_ios/conv/voidptr.cc: New.
+
+	* testsuite/27_io/basic_ios/conv/bool_neg.cc: Add dg-do compile.
+
 2014-09-25  Tim Shen  <timshen@google.com>
 
 	PR libstdc++/63199

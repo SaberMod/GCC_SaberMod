@@ -1,3 +1,297 @@
+2014-09-30  Ilya Tocar  <ilya.tocar@intel.com>
+
+	PR middle-end/62120
+	* varasm.c (decode_reg_name_and_count): Check availability for
+	registers from ADDITIONAL_REGISTER_NAMES.
+
+2014-09-30  David Malcolm  <dmalcolm@redhat.com>
+
+	PR plugins/63410
+	* Makefile.in (PRETTY_PRINT_H): Add wide-int-print.h.
+	(PLUGIN_HEADERS): Add pass-instances.def.
+
+2014-09-30  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64-simd-builtins.def (sqdmull_laneq): Expand
+	iterator.
+	* config/aarch64/aarch64-simd.md
+	(aarch64_sqdmull_laneq<mode>): Expand iterator.
+	* config/aarch64/arm_neon.h (vqdmullh_laneq_s16): New.
+	(vqdmulls_lane_s32): Fix return type.
+	(vqdmulls_laneq_s32): New.
+
+2014-09-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR inline-asm/63282
+	* ifcvt.c (dead_or_predicable): Don't call redirect_jump_1
+	or invert_jump_1 if jump isn't any_condjump_p.
+
+2014-09-30  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/arm-cores.def (cortex-m7): New core name.
+	* config/arm/arm-fpus.def (fpv5-sp-d16): New fpu name.
+	(fpv5-d16): Ditto.
+	* config/arm/arm-tables.opt: Regenerated.
+	* config/arm/arm-tune.md: Regenerated.
+	* config/arm/arm.h (TARGET_VFP5): New macro.
+	* config/arm/bpabi.h (BE8_LINK_SPEC): Include cortex-m7.
+	* config/arm/vfp.md (<vrint_pattern><SDF:mode>2,
+	smax<mode>3, smin<mode>3): Enabled for FPU FPv5.
+	* doc/invoke.texi: Document new cpu and fpu names.
+
+2014-09-30  Jiong Wang  <jiong.wang@arm.com>
+
+	* shrink-wrap.c (move_insn_for_shrink_wrap): Check "can_throw_internal"
+	before sinking insn.
+
+2014-09-30  David Sherwood  <david.sherwood@arm.com>
+
+	* ira-int.h (ira_allocno): Add "wmode" field.
+	* ira-build.c (create_insn_allocnos): Add new "parent" function
+	parameter.
+	* ira-conflicts.c (ira_build_conflicts): Add conflicts for registers
+	that cannot be accessed in wmode.
+
+2014-09-30  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	* data-streamer.c (bp_unpack_var_len_int): Avoid signed
+	integer overflow.
+
+2014-09-29  Andi Kleen  <ak@linux.intel.com>
+
+	* opts.c (print_filtered_help): Print --param min/max/default
+	with -Q.
+
+2014-09-29  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.md: Use define_c_enum for "unspec" and "unspecv".
+
+2014-09-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-vrp.c (get_single_symbol): New function.
+	(build_symbolic_expr): Likewise.
+	(symbolic_range_based_on_p): New predicate.
+	(extract_range_from_binary_expr_1): Deal with single-symbolic ranges
+	for PLUS and MINUS.  Do not drop symbolic ranges at the end.
+	(extract_range_from_binary_expr): Try harder for PLUS and MINUS if
+	operand is symbolic and based on the other operand.
+
+2014-09-29  Chen Gang  <gang.chen.5i5j@gmail.com>
+
+	* config/microblaze/microblaze.md (call_internal1): Use VOID
+	instead of SI to fix "((void (*)(void)) 0)()" issue
+
+2014-09-29  Nick Clifton  <nickc@redhat.com>
+
+	* config/msp430/msp430.c (msp430_expand_prologue): Return a
+	CLOBBER rtx for naked functions.
+	(msp430_expand_epilogue): Likewise.
+	(msp430_use_f5_series_hwmult): Cache result.
+	(use_32bit_hwmult): Cache result.
+	(msp430_no_hwmult): New function.
+	(msp430_output_labelref): Use it.
+
+2014-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/63247
+	* omp-low.c (lower_omp_target): For OMP_CLAUSE_MAP_POINTER
+	of ARRAY_TYPE, if not OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION
+	use the alignment of avar rather than ovar.
+
+2014-09-28  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_output_function_epilogue): Only update
+	last_address when a nonnote insn is found.
+
+2014-09-26  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/60665
+	* ipa-devirt.c (possible_polymorphic_call_targets): Silence clang warning.
+
+2014-09-26  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/62121
+	* ipa-polymorphic-call.c (ipa_polymorphic_call_context::restrict_to_inner_class):
+	fix pasto in checking array size.
+
+2014-09-26  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR middle-end/35545
+	* passes.def (pass_tracer): Move before last dominator pass.
+
+2014-09-26  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gcc.c (try_generate_repro): Remove argument "prog".  Change all
+	users.
+	(run_attempt): Handle errors of "pex_run" invocation.
+
+2014-09-26  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* config/aarch64/aarch64-linux.h (ASAN_CC1_SPEC): Define.
+        (CC1_SPEC): Define.
+        * config/aarch64/aarch64.c (aarch64_asan_shadow_offset): New function.
+        (TARGET_ASAN_SHADOW_OFFSET): Define.
+
+2014-09-26  Martin Liska  <mliska@suse.cz>
+
+	* cgraph.c (cgraph_node::release_body): New argument keep_arguments
+	introduced.
+	* cgraph.h: Likewise.
+	* cgraphunit.c (cgraph_node::create_wrapper): Usage of new argument introduced.
+	* ipa-utils.h (polymorphic_type_binfo_p): Safe check for binfos created by Java.
+	* tree-ssa-alias.c (ao_ref_base_alias_set): Static function transformed to global.
+	* tree-ssa-alias.h: Likewise.
+
+2014-09-26  Jakub Jelinek  <jakub@redhat.com>
+	    Max Ostapenko  <m.ostapenko@partner.samsung.com>
+
+	* common.opt: New option.
+	* doc/invoke.texi: Describe new option.
+	* gcc.c (execute): Don't free first string early, but at the end
+	of the function.  Call retry_ice if compiler exited with
+	ICE_EXIT_CODE.
+	(main): Factor out common code.
+	(print_configuration): New function.
+	(files_equal_p): Likewise.
+	(check_repro): Likewise.
+	(run_attempt): Likewise.
+	(do_report_bug): Likewise.
+	(append_text): Likewise.
+	(try_generate_repro): Likewise
+
+2014-09-25  Andi Kleen  <ak@linux.intel.com>
+
+	* config/i386/i386.c (x86_print_call_or_nop): New function.
+	(x86_function_profiler): Support -mnop-mcount and
+	-mrecord-mcount.
+	* config/i386/i386.opt (-mnop-mcount, -mrecord-mcount): Add
+	* doc/invoke.texi: Document -mnop-mcount, -mrecord-mcount.
+
+2014-09-25  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-prop.c (ipa_intraprocedural_devirtualization): Remove.
+	* ipa-prop.h (ipa_intraprocedural_devirtualization): Remove.
+	* tree-ssa-prop.c (eliminate_dom_walker::before_dom_children):
+	Remove.
+
+2014-09-25  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-utils.h (subbinfo_with_vtable_at_offset, type_all_derivations_known_p,
+	type_known_to_have_no_deriavations_p, types_must_be_same_for_odr,
+	types_odr_comparable): Declare.
+	(polymorphic_type_binfo_p): Move here from ipa-devirt.c
+	* ipa-polymorphic-call.c: New file.
+	(contains_polymorphic_type_p, possible_placement_new,
+	ipa_polymorphic_call_context::restrict_to_inner_class,
+	contains_type_p, decl_maybe_in_construction_p,
+	ipa_polymorphic_call_context::stream_out,
+	ipa_polymorphic_call_context::debug,
+	ipa_polymorphic_call_context::stream_in,
+	ipa_polymorphic_call_context::set_by_decl,
+	ipa_polymorphic_call_context::set_by_invariant,
+	walk_ssa_copies,
+	ipa_polymorphic_call_context::ipa_polymorphic_call_context,
+	type_change_info, noncall_stmt_may_be_vtbl_ptr_store,
+	extr_type_from_vtbl_ptr_store, record_known_type
+	check_stmt_for_type_change,
+	ipa_polymorphic_call_context::get_dynamic_type): Move here from
+	ipa-devirt.c
+	* ipa-devirt.c: No longer include data-streamer.h, lto-streamer.h
+	and streamer-hooks.h
+	(contains_polymorphic_type_p, possible_placement_new,
+	ipa_polymorphic_call_context::restrict_to_inner_class,
+	contains_type_p, decl_maybe_in_construction_p,
+	ipa_polymorphic_call_context::stream_out,
+	ipa_polymorphic_call_context::debug,
+	ipa_polymorphic_call_context::stream_in,
+	ipa_polymorphic_call_context::set_by_decl,
+	ipa_polymorphic_call_context::set_by_invariant,
+	walk_ssa_copies,
+	ipa_polymorphic_call_context::ipa_polymorphic_call_context,
+	type_change_info, noncall_stmt_may_be_vtbl_ptr_store,
+	extr_type_from_vtbl_ptr_store, record_known_type
+	check_stmt_for_type_change,
+	ipa_polymorphic_call_context::get_dynamic_type): Move to
+	ipa-polymorphic-call.c
+	(type_all_derivations_known_p, types_odr_comparable,
+	types_must_be_same_for_odr): Export.
+	(type_known_to_have_no_deriavations_p): New function.
+	* Makefile.in: Add ipa-polymorphic-call.c
+
+2014-09-25  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-devirt.c (polymorphic_call_target_d): Add SPECULATIVE; reorder
+	for better storage.
+	(polymorphic_call_target_hasher::hash): Hash SPECULATIVE.
+	(possible_polymorphic_call_targets): Instead of computing both
+	speculative and non-speculative answers, do just one at a time.
+	Replace NONSPECULATIVE_TARGETSP parameter with SPECULATIVE flag.
+	(dump_targets): Break out from ...
+	(dump_possible_polymorphic_call_targets): ... here; dump both speculative
+	and non-speculative lists.
+	(ipa_devirt): Update for new possible_polymorphic_call_targets API.
+	* ipa-utils.h (possible_polymorphic_call_targets): Update.
+
+2014-09-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/63348
+	* emit-rtl.c (try_split): Do not emit extra barrier.
+
+2014-09-25  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_simd_const_bounds): Delete.
+	* config/aarch64/aarch64-simd.md (aarch64_<sur>q<r>shl<mode>): Use
+	new predicates.
+	(aarch64_<sur>shll2_n<mode>): Likewise.
+	(aarch64_<sur>shr_n<mode>): Likewise.
+	(aarch64_<sur>sra_n<mode>: Likewise.
+	(aarch64_<sur>s<lr>i_n<mode>): Likewise.
+	(aarch64_<sur>qshl<u>_n<mode>): Likewise.
+	* config/aarch64/aarch64.c (aarch64_simd_const_bounds): Delete.
+	* config/aarch64/iterators.md (ve_mode): New.
+	(offsetlr): Remap to infix text for use in new predicates.
+	* config/aarch64/predicates.md (aarch64_simd_shift_imm_qi): New.
+	(aarch64_simd_shift_imm_hi): Likewise.
+	(aarch64_simd_shift_imm_si): Likewise.
+	(aarch64_simd_shift_imm_di): Likewise.
+	(aarch64_simd_shift_imm_offset_qi): Likewise.
+	(aarch64_simd_shift_imm_offset_hi): Likewise.
+	(aarch64_simd_shift_imm_offset_si): Likewise.
+	(aarch64_simd_shift_imm_offset_di): Likewise.
+	(aarch64_simd_shift_imm_bitsize_qi): Likewise.
+	(aarch64_simd_shift_imm_bitsize_hi): Likewise.
+	(aarch64_simd_shift_imm_bitsize_si): Likewise.
+	(aarch64_simd_shift_imm_bitsize_di): Likewise.
+
+2014-09-25  Jiong Wang  <jiong.wang@arm.com>
+
+	* shrink-wrap.c (move_insn_for_shrink_wrap): Initialize the live-in of
+	new created BB as the intersection of live-in from "old_dest" and
+	live-out from "bb".
+
+2014-09-25  Felix Yang  <felix.yang@huawei.com>
+
+	* lra.c (lra_set_insn_recog_data): Fix typo in comment.
+	* genautomata.c (merge_states): Ditto.
+
+2014-09-25  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/62218
+	* config/sh/sync.md (atomic_test_and_set_soft_imask): Fix typo
+	in instruction sequence.
+
+2014-09-25  Nick Clifton  <nickc@redhat.com>
+
+	PR target/62218
+	* config/sh/sync.md (atomic_fetch_nand<mode>_soft_imask): Fix typo
+	in instruction sequence.
+
+2014-09-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/63335
+	* config/rs6000/rs6000-c.c (altivec_build_resolved_builtin):
+	Exclude VSX_BUILTIN_XVCMPGEDP_P from special handling.
+
 2014-09-25  Alexander Ivchenko  <alexander.ivchenko@intel.com>
 	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
 	    Anna Tikhonova  <anna.tikhonova@intel.com>

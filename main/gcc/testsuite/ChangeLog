@@ -1,3 +1,133 @@
+2014-09-30  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR preprocessor/58893
+	* gcc.dg/pr58893.c: New test case.
+	* gcc.dg/pr58893-0.h: New include.
+
+2014-09-30  Ilya Tocar  <ilya.tocar@intel.com>
+
+	PR middle-end/62120
+	* gcc.target/i386/avx512f-additional-reg-names.c: Use register valid
+	in 32-bit mode.
+	* gcc.target/i386/pr62120.c: New. 
+
+2014-09-30  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/simd/vqdmullh_laneq_s16.c: New.
+	* gcc.target/aarch64/simd/vqdmulls_laneq_s32.c: Likewise.
+	* gcc.target/aarch64/simd/vqdmulls_lane_s32.c: Fix return type.
+	* gcc.target/aarch64/scalar_intrinsics.c (test_vqdmulls_s32):  Fix
+	return type.
+
+2014-09-30  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	* gfortran.dg/coarray_collectives_9.f90: Fix some dg-error.
+
+2014-09-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR inline-asm/63282
+	* gcc.c-torture/compile/pr63282.c: New test.
+
+2014-09-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/tree-ssa/vrp94.c: New test.
+	* gnat.dg/opt40.adb: Likewise.
+
+2014-09-29  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
+
+	* gcc.dg/vmx/ops.c: Remove calls to vec_splat, vec_vsplth,
+	vec_vspltw, and vec_vspltb for which the second argument is out of
+	range.
+
+2014-09-29  Chen Gang  <gang.chen.5i5j@gmail.com>
+
+	* gcc.c-torture/compile/calls-void.c: New test.
+
+2014-09-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51385
+	* g++.dg/template/pr51385.C: New.
+
+2014-09-28  Robert Suchanek  <robert.suchanek@imgtec.com>
+
+	* gcc.target/mips/20140928.c: New test.
+
+2014-09-27  Andi Kleen  <ak@linux.intel.com>
+
+	* gcc.target/i386/nop-mcount.c: Only run on Linux.
+	* gcc.target/i386/record-mcount.c: dito.
+
+2014-09-26  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/62121
+	* g++.dg/torture/pr62121.C: New testcase.
+
+2014-09-26  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR middle-end/35545
+	* g++.dg/tree-prof/pr35545.C: New testcase.
+
+2014-09-26  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/pr63335.c: Change effective target to
+	vsx_hw.
+
+2014-09-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/shrink_wrap_1.c: Skip ia32.
+
+2014-09-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/compat/struct-layout-1_generate.c: Add -Wno-abi
+	to default options.
+
+2014-09-25  Andi Kleen  <ak@linux.intel.com>
+
+	* gcc.target/i386/nop-mcount.c: New file.
+	* gcc.target/i386/record-mcount.c: New file.
+
+2014-09-25  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc.dg/vect/pr56933.c: Don't specify "dg-do run" explicitly.
+	* gcc.dg/vect/pr57705.c: Likewise.
+	* gcc.dg/vect/pr57741-2.c: Likewise.
+	* gcc.dg/vect/pr57741-3.c: Likewise.
+	* gcc.dg/vect/pr59591-1.c: Likewise.
+	* gcc.dg/vect/pr59591-2.c: Likewise.
+	* gcc.dg/vect/pr60196-1.c: Likewise.
+	* gcc.dg/vect/pr60196-2.c: Likewise.
+	* gcc.dg/vect/pr60276.c: Likewise.
+	* gcc.dg/vect/pr61680.c: Likewise.
+	* gcc.dg/vect/pr63148.c: Likewise.
+	* gcc.dg/vect/pr63189.c: Likewise.
+	* gcc.dg/vect/vect-mask-load-1.c: Likewise.
+	* gcc.dg/vect/vect-mask-loadstore-1.c: Likewise.
+	* gcc.dg/vect/vect-nop-move.c: Likewise.
+	* gcc.dg/vect/vect-simd-clone-10.c: Likewise.
+	* gcc.dg/vect/vect-simd-clone-12.c: Likewise.
+
+2014-09-25  Jan Hubicka  <hubicka@ucw.cz>
+
+	* testsuite/g++.dg/ipa/devirt-34.C: Update template.
+
+2014-09-25  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/simd/vqshlb_1.c: New.
+
+2014-09-25  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/i386/shrink_wrap_1.c: New test.
+
+2014-09-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/63335
+	* gcc.target/powerpc/pr63335.c: New test.
+
+2014-09-25  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/61945
+	* g++.dg/warn/pr61945.C: New test.
+
 2014-09-25  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/63341
