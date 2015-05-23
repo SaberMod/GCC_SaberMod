@@ -4,6 +4,7 @@
 AC_PREREQ([2.69])
 AC_INIT(package-unused, version-unused, libsanitizer)
 AC_CONFIG_SRCDIR([include/sanitizer/common_interface_defs.h])
+ACLOCAL_AMFLAGS = -I m4
 
 AC_MSG_CHECKING([for --enable-version-specific-runtime-libs])
 AC_ARG_ENABLE(version-specific-runtime-libs,
