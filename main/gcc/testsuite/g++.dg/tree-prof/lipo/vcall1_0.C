@@ -33,6 +33,7 @@ main (void)
       s += p->AA();
    }
    printf ("result = %d\n",s);
+	 return 0;
 }
 
 /* { dg-final-use { scan-ipa-dump-times "Indirect call -> direct call" 2 "profile" } } */

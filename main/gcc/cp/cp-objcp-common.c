@@ -202,6 +202,17 @@ cp_is_compiler_generated_type (tree t)
 
 /* Clear symbol binding for name ID. */
 
+/* Return true if DECL is deleted special member function.  */
+
+bool
+cp_function_decl_deleted_p (tree decl)
+{
+  return (decl
+	  && DECL_LANG_SPECIFIC (STRIP_TEMPLATE (decl))
+	  && DECL_DELETED_FN (decl));
+}
+
+/* Stubs to keep c-opts.c happy.  */
 void
 cp_clear_global_name_bindings (tree id)
 {

@@ -915,6 +915,10 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
                        loc);
     }
 
+	/* Devrtualize does not work with LIPO yet. */
+	if (opts->x_flag_dyn_ipa)
+		opts->x_flag_devirtualize = 0;
+
   /* Userspace and kernel ASan conflict with each other and with TSan.  */
 
   if ((flag_sanitize & SANITIZE_USER_ADDRESS)
