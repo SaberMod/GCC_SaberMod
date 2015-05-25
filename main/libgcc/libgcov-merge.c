@@ -291,4 +291,5 @@ __gcov_merge_delta (gcov_type *counters, unsigned n_counters)
     }
 }
 #endif /* L_gcov_merge_delta */
+
 #endif /* inhibit_libc */

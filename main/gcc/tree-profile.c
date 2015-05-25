@@ -63,6 +63,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "tree-cfgcleanup.h"
 #include "tree-nested.h"
+#include "params.h"
 
 /* Default name for coverage callback function.  */
 #define COVERAGE_CALLBACK_FUNC_NAME "__coverage_callback"
@@ -155,7 +156,10 @@ init_ic_make_global_vars (void)
     {
       ic_void_ptr_var
 	= build_decl (UNKNOWN_LOCATION, VAR_DECL,
-		      get_identifier ("__gcov_indirect_call_callee"),
+		      get_identifier (
+			      (PARAM_VALUE (PARAM_INDIR_CALL_TOPN_PROFILE) ?
+			       "__gcov_indirect_call_topn_callee" :
+			       "__gcov_indirect_call_callee")),
 		      ptr_void);
       TREE_PUBLIC (ic_void_ptr_var) = 1;
       DECL_EXTERNAL (ic_void_ptr_var) = 1;
@@ -185,7 +189,10 @@ init_ic_make_global_vars (void)
     {
       ic_gcov_type_ptr_var
 	= build_decl (UNKNOWN_LOCATION, VAR_DECL,
-		      get_identifier ("__gcov_indirect_call_counters"),
+		      get_identifier (
+			      (PARAM_VALUE (PARAM_INDIR_CALL_TOPN_PROFILE) ?
+			       "__gcov_indirect_call_topn_counters" :
+		               "__gcov_indirect_call_counters")),
 		      gcov_type_ptr);
       TREE_PUBLIC (ic_gcov_type_ptr_var) = 1;
       DECL_EXTERNAL (ic_gcov_type_ptr_var) = 1;
@@ -719,9 +726,11 @@ gimple_init_edge_profiler (void)
               = build_fn_decl ("__gcov_indirect_call_profiler_atomic_v2",
                                ic_profiler_fn_type);
           else
-            tree_indirect_call_profiler_fn
-	      = build_fn_decl ("__gcov_indirect_call_profiler_v2",
-                               ic_profiler_fn_type);
+	    tree_indirect_call_profiler_fn
+		  = build_fn_decl ( (PARAM_VALUE (PARAM_INDIR_CALL_TOPN_PROFILE) ?
+				     "__gcov_indirect_call_topn_profiler":
+				     "__gcov_indirect_call_profiler_v2"),
+				   ic_profiler_fn_type);
         }
       TREE_NOTHROW (tree_indirect_call_profiler_fn) = 1;
       DECL_ATTRIBUTES (tree_indirect_call_profiler_fn)
@@ -1015,8 +1024,7 @@ gimple_gen_ic_func_profiler (void)
     stmt1: __gcov_indirect_call_profiler_v2 (profile_id,
 					     &current_function_decl)
    */
-  gsi =
-					     gsi_after_labels (split_edge (single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun))));
+  gsi = gsi_after_labels (split_edge (single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun))));
 
   cur_func = force_gimple_operand_gsi (&gsi,
 				       build_addr (current_function_decl,

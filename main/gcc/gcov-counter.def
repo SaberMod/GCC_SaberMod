@@ -50,11 +50,12 @@ DEF_GCOV_COUNTER(GCOV_COUNTER_AVERAGE, "average", _add)
 /* IOR of the all values passed to counter.  */
 DEF_GCOV_COUNTER(GCOV_COUNTER_IOR, "ior", _ior)
 
-/* TOPN */
-DEF_GCOV_COUNTER(GCOV_COUNTER_ICALL_TOPNV, "topn", _icall_topn)
+/* Top N value tracking for indirect calls.  */
+DEF_GCOV_COUNTER(GCOV_COUNTER_ICALL_TOPNV, "indirect_call_topn", _icall_topn)
 
 /* Time profile collecting first run of a function */
 DEF_GCOV_COUNTER(GCOV_TIME_PROFILER, "time_profiler", _time_profile)
 
 /* Direct call */
 DEF_GCOV_COUNTER(GCOV_COUNTER_DIRECT_CALL, "direct_call", _dc)
+

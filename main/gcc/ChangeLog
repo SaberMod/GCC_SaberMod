@@ -1,3 +1,233 @@
+2014-10-09  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/avr/avr.opt (mmcu=): Change to have a string value.
+	(mn-flash=, mskip-bug, march=, mrmw): New options.
+	(HeaderInclude): New.
+	(mmcu=): Remove Var / Init clauses.
+	* config/avr/avr.h (DRIVER_SELF_SPECS): Translate -mmcu into a
+	-specs option.
+	(SYMBOL_FLAG_IO, SYMBOL_FLAG_ADDRESS): Define.
+	(ASM_OUTPUT_ALIGNED_BSS): Use avr_asm_asm_output_aligned_bss.
+	(SYMBOL_FLAG_IO_LOW): Define.
+	(avr_device_to_as, avr_device_to_ld): Don't declare.
+	(avr_device_to_data_start, avr_device_to_startfiles): Likewise.
+	(avr_device_to_devicelib, avr_device_to_sp8): Likewise.
+	(EXTRA_SPEC_FUNCTIONS): Don't define.
+	(ASM_SPEC): Translate -arch= option to -mmcu= option.
+	(LINK_SPEC): Translate -arch= option to -m= option.
+	Don't use device_to_ld / device_to_data_start.
+	(STARTFILE_SPEC): Now empty.
+	(ASM_SPEC): Add -%{mrelax: --mlink-relax}.
+	* config/avr/gen-avr-mmcu-specs.c: New file.
+	* config/avr/t-avr (gen-avr-mmcu-specs$(build_exeext)): New rule.
+	(s-device-specs): Likewise.
+	(GCC_PASSES): Add s-device-specs.
+	(install-driver): Depend on install-device-specs.
+	(install-device-specs): New rule.
+	* config/avr/avr.c (avr_option_override): Look up mcu arch by
+	avr_arch_index and provide fallback initialization for avr_n_flash.
+	(varasm.h): #include.
+	(avr_print_operand) <i>: Allow SYMBOL_REF with SYMBOL_FLAG_IO;
+	(avr_handle_addr_attribute, avr_eval_addr_attrib): New functions.
+	(avr_attribute_table): Add "io", "address" and "io_low".
+	(avr_asm_output_aligned_decl_common): Change type of decl to tree.
+	Add special handling for symbols with "io" and/or "address" attributes.
+	(avr_asm_asm_output_aligned_bss): New function.
+	(avr_encode_section_info): Set SYMBOL_FLAG_IO and SYMBOL_FLAG_ADDRESS
+	as appropriate.  Handle io_low attribute.
+	(avr_out_sbxx_branch): Handle symbolic io addresses.
+	(avr_xload_libgcc_p, avr_nonconst_pointer_addrspace): Use
+	avr_n_flash instead of avr_current_device->n_flash.
+	(avr_pgm_check_var_decl, avr_insert_attributes): Likewise.
+	(avr_emit_movmemhi): Likewise.
+	* config/avr/avr-c.c (avr_cpu_cpp_builtins): Likewise.
+	Use TARGET_RMW instead of avr_current_device->dev_attributes.
+	Don't define avr_current_device->macro (that's the specfile's job).
+	Use TARGET_SKIP_BUG instead of avr_current_device->errata_skip.
+	* config/avr/avr.c (avr_2word_insn_p): Likewise.
+	* config/avr/avr.md (*cpse.ne): Likewise.
+	(mov<mode>): Use avr_eval_addr_attrib.
+	(cbi): Change constraint for low_io_address_operand operand to "i".
+	(sbi, sbix_branch, sbix_branch_bit7, insv.io, insv.not.io): Likewise.
+	* config/avr/predicates.md (io_address_operand):
+	Allow SYMBOL_REF with SYMBOL_FLAG_IO.
+	(low_io_address_operand): Allow SYMBOL_REF with SYMBOL_FLAG_IO_LOW.
+	* config/avr/avr-protos.h (avr_asm_output_aligned_decl_common):
+	Update prototype.
+	(avr_eval_addr_attrib, avr_asm_asm_output_aligned_bss): Prototype.
+	* config/avr/genmultilib.awk: Use -march=.
+	Remove Multilib matches processing.
+	* config/avr/t-multilib, config/avr/avr-tables.opt: Regenerate.
+	* config/avr/avr-arch.h: Add double include guard.
+	(avr_mcu_t) <library_name>: Update comment.
+	* config/avr/driver-avr.c (avr_device_to_as): Delete.
+	(avr_device_to_ld, avr_device_to_data_start): Likewise.
+	(avr_device_to_startfiles, avr_device_to_devicelib): Likewise.
+	(avr_device_to_sp8): Likewise.
+	* config/avr/genopt.sh:  Instead avr_mcu, emit an Enum for avr_arch.
+
+	* doc/extend.texi (io, address): Document new AVR variable attributes.
+	(io_low): Likewise.
+
+2014-10-09  Marek Polacek  <polacek@redhat.com>
+
+	* doc/invoke.texi: Document -fsanitize=bool and -fsanitize=enum.
+
+2014-10-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61969
+	* tree-nrv.c (pass_nrv::execute): Properly test for automatic
+	variables.
+
+2014-10-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/63445
+	* tree-vrp.c (simplify_cond_using_ranges): Only warn about
+	overflow for non-equality compares.
+
+2014-10-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/57003
+	* regcprop.c (copyprop_hardreg_forward_1): If ksvd.ignore_set_reg,
+	also check CALL_INSN_FUNCTION_USAGE for clobbers again after
+	killing regs_invalidated_by_call.
+
+2014-10-08  Teresa Johnson  <tejohnson@google.com>
+
+	PR bootstrap/63432.
+	* tree-ssa-threadupdate.c (estimated_freqs_path): New function.
+	(ssa_fix_duplicate_block_edges): Invoke it.
+	(mark_threaded_blocks): Make two passes to avoid ordering dependences.
+
+2014-10-08  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/52941
+	* config/sh/sync.md (atomic_exchangesi_hard, atomic_exchange<mode>_hard,
+	atomic_fetch_<fetchop_name>si_hard,
+	atomic_fetch_<fetchop_name><mode>_hard, atomic_fetch_nandsi_hard,
+	atomic_fetch_nand<mode>_hard, atomic_<fetchop_name>_fetchsi_hard,
+	atomic_<fetchop_name>_fetch<mode>_hard, atomic_nand_fetchsi_hard,
+	atomic_nand_fetch<mode>_hard): Add missing set of T_REG.
+
+2014-10-08  Rong Xu  <xur@google.com>
+
+	* gcov-tool.c (profile_overlap): New driver function
+	to compute profile overlap. 
+	(print_overlap_usage_message): New.
+	(overlap_usage): New.
+	(do_overlap): New.
+	(print_usage): Add calls to overlap function.
+	(main): Ditto.
+	* doc/gcov-tool.texi: Add documentation.
+
+2014-10-08  Steve Ellcey  <sellcey@mips.com>
+
+	* config/mips/mti-linux.h (DRIVER_SELF_SPECS): Change
+	LINUX64_DRIVER_SELF_SPECS to LINUX_DRIVER_SELF_SPECS
+
+2014-10-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-polymorphic-call.c (extr_type_from_vtbl_store): Do better
+	pattern matching of MEM_REF.
+	(check_stmt_for_type_change): Update.
+
+2014-10-08  Steve Ellcey  <sellcey@mips.com>
+
+	* config/mips/linux64.h: Remove.
+	* config/mips/gnu-user64.h: Remove.
+	* gcc.config (mips*-*-*): Remove references to linux64.h and
+	gnu-user64.h
+	* config/mips/gnu-user.h (GNU_USER_TARGET_LINK_SPEC): Replace
+	with modified version from gnu-user64.h.
+	(LINUX_DRIVER_SELF_SPECS): Update parts from gnu-user64.h.
+	(LOCAL_LABEL_PREFIX): Copy from gnu-user64.h.
+	* config/mips/linux.h (GNU_USER_LINK_EMULATION32): Copy from
+	linux64.h.
+	(GNU_USER_LINK_EMULATION64): Ditto.
+	(GNU_USER_LINK_EMULATIONN32): Ditto.
+	(GLIBC_DYNAMIC_LINKER32): Ditto.
+	(GLIBC_DYNAMIC_LINKER64): Ditto.
+	(GLIBC_DYNAMIC_LINKERN32): Ditto.
+	(UCLIBC_DYNAMIC_LINKER32): Ditto.
+	(UCLIBC_DYNAMIC_LINKER64): Ditto.
+	(UCLIBC_DYNAMIC_LINKERN32): Ditto.
+	(BIONIC_DYNAMIC_LINKERN32): Ditto.
+	(GNU_USER_DYNAMIC_LINKERN32): Ditto.
+	(GLIBC_DYNAMIC_LINKER): Delete.
+	(UCLIBC_DYNAMIC_LINKER): Delete.
+
+2014-10-08  Joern Rennecke  <joern.rennecke@embecosm.com>
+	    Richard Biener  <rguenther@suse.de>
+
+	* cfgexpand.c (expand_debug_expr) <TARGET_MEM_REF>:
+	Get address space from operand 0 (BASE).
+
+2014-10-07  Iain Sandoe  <iain@codesourcery.com>
+
+	PR target/61387
+	* config/i386/i386.c (x86_output_mi_thunk): Fix darwin fallout.
+
+2014-10-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* dwarf2out.c: Remove current_function_has_inlines.
+	(gen_subprogram_die): Same.
+	(gen_inlined_subroutine_die): Same.
+
+2014-10-07  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* config/i386/adxintrin.h (_subborrow_u64): Use long long for param
+	type.
+	(_addcarry_u64): Ditto.
+	(_addcarryx_u64): Ditto.
+
+2014-10-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* cgraph.h (cgraph_node::get_fun): Declare.
+	* cgraph.c (cgraph_node::get_fun): New method.
+	* ipa-inline.c (can_inline_edge_p): Use it.
+
+2014-10-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* lto-opts.c (lto_write_options): Handle -fmath-errno, -fsigned-zeros
+	and -ftrapping-math.
+	* lto-wrapper.c (merge_and_complain): Likewise.
+	(run_gcc): Likewise.
+
+2014-10-06  Rong Xu  <xur@google.com>
+
+	* params.def (PARAM_INDIR_CALL_TOPN_PROFILE): New param.
+	* tree-profile.c: (params.h): New include.
+	(init_ic_make_global_vars): Make __gcov_indirect_call_topn_callee
+	and __gcov_indirect_call_topn_counters for
+	indirect_call_topn_profile.
+	(gimple_init_edge_profiler): New decls for
+	__gcov_indirect_call_topn_profiler.
+	(gimple_gen_ic_profiler): Generate the correct profiler call.
+	(gimple_gen_ic_func_profiler): Fix format.
+	* value-prof.c (params.h): New include.
+	(dump_histogram_value): Hanlde indirect_call_topn counters.
+	(stream_in_histogram_value): Ditto.
+	(gimple_indirect_call_to_profile): Use indirect_call_topn
+	profile when PARAM_INDIR_CALL_TOPN_PROFILE is set.
+	(gimple_find_values_to_profile): Hanlde indirect_call_topn
+	counters.
+	* value-prof.h (enum hist_type): Histrogram type for
+	indirect_call_topn counters.
+	* profile.c (instrument_values): Instrument
+	indirect_call_topn counters.
+
+2014-10-06  Rong Xu  <xur@google.com>
+
+	* Makefile.in: Fix dependence.
+	* gcov-counter.def (GCOV_COUNTER_ICALL_TOPNV): Add
+	indirect call topn profiler.
+	* gcov-io.h: Ditto.
+
+2014-10-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* calls.c (expand_call): Do not use the target as the return slot if
+	it is not sufficiently aligned.
+
 2014-10-06  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (analyze_swaps commentary): Add
@@ -96,7 +326,7 @@
 	* doc/md.texi: Don't document score-*.
 
 2014-10-04  Trevor Saunders  <tsaunders@mozilla.com>
-    
+
 	PR pch/63429
 	* genconditions.c: Directly include ggc.h before rtl.h.
 
@@ -162,7 +392,7 @@
 	* cgraph.c (symbol_table::create_edge): Compute in_polymorphic_cdtor.
 	(cgraph_edge::make_speculative): Copy in_polymorphic_cdtor.
 	* cgraphclones.c (cgraph_edge::clone): Likewise.
-	* ipa-prop.c (update_jump_functions_after_inlining, 
+	* ipa-prop.c (update_jump_functions_after_inlining,
 	try_make_edge_direct_virtual_call): Pass in_polymorphic_cdtor
 	to possible_dynamic_type_change.
 	(decl_maybe_in_construction_p): Allow empty OUTER_TYPE and BASE.
@@ -314,7 +544,7 @@
 2014-10-01  Jan Hubicka  <hubicka@ucw.cz>
 
 	* cgraphclones.c (build_function_type_skip_args): Do not make new
-	type variant of old. 
+	type variant of old.
 
 2014-10-01  Jan Hubicka  <hubicka@ucw.cz>
 
@@ -369,7 +599,7 @@
 	(ipa_polymorphic_call_context::make_speculative): Move here; use
 	combine speculation.
 	* cgraph.h (ipa_polymorphic_call_context): Update
-	restrict_to_inner_class prototype; add offset_by, make_speculative, 
+	restrict_to_inner_class prototype; add offset_by, make_speculative,
 	combine_with, useless_p, combine_speculation_with and
 	speculation_consistent_p methods.
 	(ipa_polymorphic_call_context::offset_by): New method.
@@ -1449,7 +1679,7 @@
 2014-09-21  Patrick Oppenlander  <pattyo.lists@gmail.com>
 
 	* config/rs6000/t-spe (MULTILIB_EXCEPTIONS): Allow isel without SPE.
-	
+
 2014-09-21  Segher Boessenkool  <segher@kernel.crashing.org>
 
 	* config/rs6000/rs6000.md (div<mode>3): Fix comment.  Use a different
@@ -1901,7 +2131,7 @@
 	profiling is disabled.
 
 2014-09-15  Trevor Saunders  <tsaunders@mozilla.com>
-    
+
     	* cfgrtl.c, combine.c, config/arc/arc.c, config/mcore/mcore.c,
     	config/rs6000/rs6000.c, config/sh/sh.c, cprop.c, dwarf2out.c,
     	emit-rtl.c, final.c, function.c, gcse.c, jump.c, reg-stack.c,
@@ -2228,7 +2458,7 @@
 
 2014-09-15  Markus Trippelsdorf  <markus@trippelsdorf.de>
 
-	* doc/install.texi (Options specification): add 
+	* doc/install.texi (Options specification): add
 	--disable-libsanitizer item.
 
 2014-09-14  James Clarke  <jrtc27@jrtc27.com>
@@ -9277,11 +9507,11 @@
 	(void call_edge_removal_hooks (cgraph_edge *e)):
 	  created from cgraph_call_edge_removal_hooks
 	(void call_cgraph_insertion_hooks (cgraph_node *node)):
-	  created from call_function_insertion_hooks 
+	  created from call_function_insertion_hooks
 	(void call_cgraph_removal_hooks (cgraph_node *node)):
-	  created from cgraph_call_node_removal_hooks 
+	  created from cgraph_call_node_removal_hooks
 	(void call_cgraph_duplication_hooks (cgraph_node *node, cgraph_node *node2)):
-	  created from cgraph_node::call_duplication_hooks 
+	  created from cgraph_node::call_duplication_hooks
 	(void call_edge_duplication_hooks (cgraph_edge *cs1, cgraph_edge *cs2)):
 	  created from cgraph_call_edge_duplication_hooks
 	(void call_varpool_removal_hooks (varpool_node *node)):
@@ -13169,7 +13399,7 @@
 
 2014-08-12  Steve Ellcey  <sellcey@mips.com>
 
-	* config/mips/mips.h (ASM_SPEC): Pass float options to assembler. 
+	* config/mips/mips.h (ASM_SPEC): Pass float options to assembler.
 
 2014-08-12  Steve Ellcey  <sellcey@mips.com>
 
@@ -14941,7 +15171,7 @@
 	(void DEBUG_FUNCTION debug (void)): created from debug_symtab_node
 	(void DEBUG_FUNCTION verify (void)): created from verify_symtab_node
 	(struct ipa_ref *add_reference (symtab_node *referred_node,
-	enum ipa_ref_use use_type)): created from add_reference 
+	enum ipa_ref_use use_type)): created from add_reference
 	(struct ipa_ref *add_reference (symtab_node *referred_node,
 	enum ipa_ref_use use_type, gimple stmt)): created from add_reference
 	(struct ipa_ref *maybe_add_reference (tree val, enum ipa_ref_use use_type,
@@ -14965,7 +15195,7 @@
 	void *data, bool include_overwrite)): created from symtab_for_node_and_aliases
 	(symtab_node *noninterposable_alias (void)): created from symtab_nonoverwritable_alias
 	(inline symtab_node *get_alias_target (void)): created from symtab_alias_target
-	(void set_section (const char *section)): created from set_section_1 
+	(void set_section (const char *section)): created from set_section_1
 	(enum availability get_availability (void)): created from symtab_node_availability
 	(void make_decl_local (void)): created from symtab_make_decl_local
 	(bool real_symbol_p (void)): created from symtab_read_node
@@ -14980,7 +15210,7 @@
 	(static inline DEBUG_FUNCTION void debug_symtab (void)): created from debug_symtab
 	(static DEBUG_FUNCTION void verify_symtab_nodes (void)): created from verify_symtab
 	(static bool used_from_object_file_p_worker (symtab_node *node)): created from
-	symtab_used_from_object_file_p 
+	symtab_used_from_object_file_p
 	(void dump_base (FILE *)): created from dump_symtab_base
 	(bool DEBUG_FUNCTION verify_base (void)): created from verify_symtab_base
 	(void unregister (void)): created from symtab_unregister_node
@@ -14999,7 +15229,7 @@
 	(cgraph_node *create_clone (tree decl, gcov_type count, int freq, bool update_original,
 	vec<cgraph_edge *> redirect_callers, bool call_duplication_hook,
 	struct cgraph_node *new_inlined_to, bitmap args_to_skip)):
-	created from cgraph_create_clone 
+	created from cgraph_create_clone
 	(cgraph_node *create_virtual_clone (vec<cgraph_edge *> redirect_callers,
 	vec<ipa_replace_map *, va_gc> *tree_map, bitmap args_to_skip, const char * suffix)):
 	created from cgraph_create_virtual_clone
@@ -15088,7 +15318,7 @@
 	(static cgraph_node *get_for_asmname (tree asmname)):
 	created from cgraph_node_for_asm
 	(static cgraph_node * create_same_body_alias (tree alias, tree decl)):
-	created from cgraph_same_body_alias 
+	created from cgraph_same_body_alias
 	(static bool used_from_object_file_p_worker (cgraph_node *node,
 	void *): new function
 	(static bool non_local_p (cgraph_node *node, void *)):

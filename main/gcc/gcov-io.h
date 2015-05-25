@@ -292,9 +292,11 @@ GCOV_COUNTERS
 #define GCOV_N_VALUE_COUNTERS \
   (GCOV_LAST_VALUE_COUNTER - GCOV_FIRST_VALUE_COUNTER + 1)
 
-#define GCOV_ICALL_TOPN_VAL  2   /* Track two hottest callees */
-#define GCOV_ICALL_TOPN_NCOUNTS  9 /* The number of counter entries per icall callsite */
+/* The number of hottest callees to be tracked.  */
+#define GCOV_ICALL_TOPN_VAL  2
 
+/* The number of counter entries per icall callsite.  */
+#define GCOV_ICALL_TOPN_NCOUNTS (1 + GCOV_ICALL_TOPN_VAL * 4)
 
 /* Convert a counter index to a tag.  */
 #define GCOV_TAG_FOR_COUNTER(COUNT)				\
