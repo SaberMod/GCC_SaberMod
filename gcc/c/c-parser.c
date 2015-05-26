@@ -2516,6 +2516,13 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
    enumerator:
      enumeration-constant
      enumeration-constant = constant-expression
+
+   GNU Extensions:
+
+   enumerator:
+     enumeration-constant attributes[opt]
+     enumeration-constant attributes[opt] = constant-expression
+
 */
 
 static struct c_typespec
@@ -2575,6 +2582,8 @@ c_parser_enum_specifier (c_parser *parser)
 	  c_parser_set_source_position_from_token (token);
 	  decl_loc = value_loc = token->location;
 	  c_parser_consume_token (parser);
+	  /* Parse any specified attributes.  */
+	  tree enum_attrs = c_parser_attributes (parser);
 	  if (c_parser_next_token_is (parser, CPP_EQ))
 	    {
 	      c_parser_consume_token (parser);
@@ -2584,7 +2593,9 @@ c_parser_enum_specifier (c_parser *parser)
 	  else
 	    enum_value = NULL_TREE;
 	  enum_decl = build_enumerator (decl_loc, value_loc,
-	      				&the_enum, enum_id, enum_value);
+					&the_enum, enum_id, enum_value);
+	  if (enum_attrs)
+	    decl_attributes (&TREE_PURPOSE (enum_decl), enum_attrs, 0);
 	  TREE_CHAIN (enum_decl) = values;
 	  values = enum_decl;
 	  seen_comma = false;
@@ -13100,12 +13111,9 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 		      }
 		    else
 		      {
-			/* Copy lastprivate (decl) clause to OMP_FOR_CLAUSES,
-			   change it to shared (decl) in
-			   OMP_PARALLEL_CLAUSES.  */
-			tree l = build_omp_clause (OMP_CLAUSE_LOCATION (*c),
-						   OMP_CLAUSE_LASTPRIVATE);
-			OMP_CLAUSE_DECL (l) = OMP_CLAUSE_DECL (*c);
+			/* Move lastprivate (decl) clause to OMP_FOR_CLAUSES.  */
+			tree l = *c;
+			*c = OMP_CLAUSE_CHAIN (*c);
 			if (code == OMP_SIMD)
 			  {
 			    OMP_CLAUSE_CHAIN (l)
@@ -13117,7 +13125,6 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 			    OMP_CLAUSE_CHAIN (l) = clauses;
 			    clauses = l;
 			  }
-			OMP_CLAUSE_SET_CODE (*c, OMP_CLAUSE_SHARED);
 		      }
 		  }
 	    }
@@ -13802,6 +13809,7 @@ c_parser_omp_teams (location_t loc, c_parser *parser,
 	  TREE_TYPE (ret) = void_type_node;
 	  OMP_TEAMS_CLAUSES (ret) = clauses;
 	  OMP_TEAMS_BODY (ret) = block;
+	  OMP_TEAMS_COMBINED (ret) = 1;
 	  return add_stmt (ret);
 	}
     }

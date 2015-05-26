@@ -1024,7 +1024,9 @@ const struct cpu_cost_table cortexa9_extra_costs =
     2,			/* stm_regs_per_insn_subsequent.  */
     COSTS_N_INSNS (1),	/* storef.  */
     COSTS_N_INSNS (1),	/* stored.  */
-    COSTS_N_INSNS (1)	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* loadv.  */
+    COSTS_N_INSNS (1)	/* storev.  */
   },
   {
     /* FP SFmode */
@@ -1125,7 +1127,9 @@ const struct cpu_cost_table cortexa8_extra_costs =
     2,			/* stm_regs_per_insn_subsequent.  */
     COSTS_N_INSNS (1),	/* storef.  */
     COSTS_N_INSNS (1),	/* stored.  */
-    COSTS_N_INSNS (1)	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* loadv.  */
+    COSTS_N_INSNS (1)	/* storev.  */
   },
   {
     /* FP SFmode */
@@ -1227,7 +1231,9 @@ const struct cpu_cost_table cortexa5_extra_costs =
     2,			/* stm_regs_per_insn_subsequent.  */
     COSTS_N_INSNS (2),	/* storef.  */
     COSTS_N_INSNS (2),	/* stored.  */
-    COSTS_N_INSNS (1)	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* loadv.  */
+    COSTS_N_INSNS (1)	/* storev.  */
   },
   {
     /* FP SFmode */
@@ -1330,7 +1336,9 @@ const struct cpu_cost_table cortexa7_extra_costs =
     2,			/* stm_regs_per_insn_subsequent.  */
     COSTS_N_INSNS (2),	/* storef.  */
     COSTS_N_INSNS (2),	/* stored.  */
-    COSTS_N_INSNS (1)	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* loadv.  */
+    COSTS_N_INSNS (1)	/* storev.  */
   },
   {
     /* FP SFmode */
@@ -1431,7 +1439,9 @@ const struct cpu_cost_table cortexa12_extra_costs =
     2,			/* stm_regs_per_insn_subsequent.  */
     COSTS_N_INSNS (2),	/* storef.  */
     COSTS_N_INSNS (2),	/* stored.  */
-    0			/* store_unaligned.  */
+    0,			/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* loadv.  */
+    COSTS_N_INSNS (1)	/* storev.  */
   },
   {
     /* FP SFmode */
@@ -1532,7 +1542,9 @@ const struct cpu_cost_table cortexa15_extra_costs =
     2,			/* stm_regs_per_insn_subsequent.  */
     0,			/* storef.  */
     0,			/* stored.  */
-    0			/* store_unaligned.  */
+    0,			/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* loadv.  */
+    COSTS_N_INSNS (1)	/* storev.  */
   },
   {
     /* FP SFmode */
@@ -1633,7 +1645,9 @@ const struct cpu_cost_table v7m_extra_costs =
     1,			/* stm_regs_per_insn_subsequent.  */
     COSTS_N_INSNS (2),	/* storef.  */
     COSTS_N_INSNS (3),	/* stored.  */
-    COSTS_N_INSNS (1)  /* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* store_unaligned.  */
+    COSTS_N_INSNS (1),	/* loadv.  */
+    COSTS_N_INSNS (1)	/* storev.  */
   },
   {
     /* FP SFmode */
@@ -9250,7 +9264,8 @@ static bool
 arm_unspec_cost (rtx x, enum rtx_code /* outer_code */, bool speed_p, int *cost)
 {
   const struct cpu_cost_table *extra_cost = current_tune->insn_extra_cost;
-  gcc_assert (GET_CODE (x) == UNSPEC);
+  rtx_code code = GET_CODE (x);
+  gcc_assert (code == UNSPEC || code == UNSPEC_VOLATILE);
 
   switch (XINT (x, 1))
     {
@@ -9296,7 +9311,7 @@ arm_unspec_cost (rtx x, enum rtx_code /* outer_code */, bool speed_p, int *cost)
       *cost = COSTS_N_INSNS (2);
       break;
     }
-  return false;
+  return true;
 }
 
 /* Cost of a libcall.  We assume one insn per argument, an amount for the
@@ -10852,6 +10867,7 @@ arm_new_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
       *cost = LIBCALL_COST (1);
       return false;
 
+    case UNSPEC_VOLATILE:
     case UNSPEC:
       return arm_unspec_cost (x, outer_code, speed_p, cost);
 

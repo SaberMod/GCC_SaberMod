@@ -2215,6 +2215,7 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
       switch (NOTE_KIND (insn))
 	{
 	case NOTE_INSN_DELETED:
+	case NOTE_INSN_UPDATE_SJLJ_CONTEXT:
 	  break;
 
 	case NOTE_INSN_SWITCH_TEXT_SECTIONS:
@@ -2904,10 +2905,9 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 
 #endif
 
-#ifdef HAVE_peephole
 	/* Do machine-specific peephole optimizations if desired.  */
 
-	if (optimize_p && !flag_no_peephole && !nopeepholes)
+	if (HAVE_peephole && optimize_p && !flag_no_peephole && !nopeepholes)
 	  {
 	    rtx_insn *next = peephole (insn);
 	    /* When peepholing, if there were notes within the peephole,
@@ -2936,7 +2936,6 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	    /* PEEPHOLE might have changed this.  */
 	    body = PATTERN (insn);
 	  }
-#endif
 
 	/* Try to recognize the instruction.
 	   If successful, verify that the operands satisfy the
@@ -4131,25 +4130,10 @@ fprint_ul (FILE *f, unsigned long value)
 int
 sprint_ul (char *s, unsigned long value)
 {
-  int len;
-  char tmp_c;
-  int i;
-  int j;
-
-  len = sprint_ul_rev (s, value);
+  int len = sprint_ul_rev (s, value);
   s[len] = '\0';
 
-  /* Reverse the string. */
-  i = 0;
-  j = len - 1;
-  while (i < j)
-    {
-      tmp_c = s[i];
-      s[i] = s[j];
-      s[j] = tmp_c;
-      i++; j--;
-    }
-
+  std::reverse (s, s + len);
   return len;
 }
 
@@ -4438,6 +4422,7 @@ leaf_renumber_regs_insn (rtx in_rtx)
       df_set_regs_ever_live (newreg, true);
       SET_REGNO (in_rtx, newreg);
       in_rtx->used = 1;
+      return;
     }
 
   if (INSN_P (in_rtx))

@@ -16083,7 +16083,13 @@ cp_parser_enumerator_list (cp_parser* parser, tree type)
      enumerator = constant-expression
 
    enumerator:
-     identifier  */
+     identifier
+
+   GNU Extensions:
+
+   enumerator-definition:
+     enumerator attributes [opt]
+     enumerator attributes [opt] = constant-expression  */
 
 static void
 cp_parser_enumerator_definition (cp_parser* parser, tree type)
@@ -16100,6 +16106,9 @@ cp_parser_enumerator_definition (cp_parser* parser, tree type)
   identifier = cp_parser_identifier (parser);
   if (identifier == error_mark_node)
     return;
+
+  /* Parse any specified attributes.  */
+  tree attrs = cp_parser_attributes_opt (parser);
 
   /* If the next token is an '=', then there is an explicit value.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_EQ))
@@ -16118,7 +16127,7 @@ cp_parser_enumerator_definition (cp_parser* parser, tree type)
     value = error_mark_node;
 
   /* Create the enumerator.  */
-  build_enumerator (identifier, value, type, loc);
+  build_enumerator (identifier, value, type, attrs, loc);
 }
 
 /* Parse a namespace-name.
@@ -30493,11 +30502,9 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
 	    else if (OMP_CLAUSE_CODE (*c) == OMP_CLAUSE_LASTPRIVATE
 		     && OMP_CLAUSE_DECL (*c) == real_decl)
 	      {
-		/* Add lastprivate (decl) clause to OMP_FOR_CLAUSES,
-		   change it to shared (decl) in OMP_PARALLEL_CLAUSES.  */
-		tree l = build_omp_clause (loc, OMP_CLAUSE_LASTPRIVATE);
-		OMP_CLAUSE_DECL (l) = real_decl;
-		CP_OMP_CLAUSE_INFO (l) = CP_OMP_CLAUSE_INFO (*c);
+		/* Move lastprivate (decl) clause to OMP_FOR_CLAUSES.  */
+		tree l = *c;
+		*c = OMP_CLAUSE_CHAIN (*c);
 		if (code == OMP_SIMD)
 		  {
 		    OMP_CLAUSE_CHAIN (l) = cclauses[C_OMP_CLAUSE_SPLIT_FOR];
@@ -30508,8 +30515,6 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
 		    OMP_CLAUSE_CHAIN (l) = clauses;
 		    clauses = l;
 		  }
-		OMP_CLAUSE_SET_CODE (*c, OMP_CLAUSE_SHARED);
-		CP_OMP_CLAUSE_INFO (*c) = NULL;
 		add_private_clause = false;
 	      }
 	    else
@@ -31343,6 +31348,7 @@ cp_parser_omp_teams (cp_parser *parser, cp_token *pragma_tok,
 	  TREE_TYPE (ret) = void_type_node;
 	  OMP_TEAMS_CLAUSES (ret) = clauses;
 	  OMP_TEAMS_BODY (ret) = body;
+	  OMP_TEAMS_COMBINED (ret) = 1;
 	  return add_stmt (ret);
 	}
     }

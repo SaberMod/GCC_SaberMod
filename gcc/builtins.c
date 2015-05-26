@@ -120,7 +120,6 @@ static int apply_result_size (void);
 #if defined (HAVE_untyped_call) || defined (HAVE_untyped_return)
 static rtx result_vector (int, rtx);
 #endif
-static void expand_builtin_update_setjmp_buf (rtx);
 static void expand_builtin_prefetch (tree);
 static rtx expand_builtin_apply_args (void);
 static rtx expand_builtin_apply_args_1 (void);
@@ -1213,10 +1212,10 @@ expand_builtin_nonlocal_goto (tree exp)
 
 /* __builtin_update_setjmp_buf is passed a pointer to an array of five words
    (not all will be used on all machines) that was passed to __builtin_setjmp.
-   It updates the stack pointer in that block to correspond to the current
-   stack pointer.  */
+   It updates the stack pointer in that block to the current value.  This is
+   also called directly by the SJLJ exception handling code.  */
 
-static void
+void
 expand_builtin_update_setjmp_buf (rtx buf_addr)
 {
   machine_mode sa_mode = STACK_SAVEAREA_MODE (SAVE_NONLOCAL);
@@ -1522,14 +1521,14 @@ expand_builtin_apply_args_1 (void)
 
   /* Save the arg pointer to the block.  */
   tem = copy_to_reg (crtl->args.internal_arg_pointer);
-#ifdef STACK_GROWS_DOWNWARD
   /* We need the pointer as the caller actually passed them to us, not
      as we might have pretended they were passed.  Make sure it's a valid
      operand, as emit_move_insn isn't expected to handle a PLUS.  */
-  tem
-    = force_operand (plus_constant (Pmode, tem, crtl->args.pretend_args_size),
-		     NULL_RTX);
-#endif
+  if (STACK_GROWS_DOWNWARD)
+    tem
+      = force_operand (plus_constant (Pmode, tem,
+				      crtl->args.pretend_args_size),
+		       NULL_RTX);
   emit_move_insn (adjust_address (registers, Pmode, 0), tem);
 
   size = GET_MODE_SIZE (Pmode);
@@ -1614,10 +1613,9 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
   /* Fetch the arg pointer from the ARGUMENTS block.  */
   incoming_args = gen_reg_rtx (Pmode);
   emit_move_insn (incoming_args, gen_rtx_MEM (Pmode, arguments));
-#ifndef STACK_GROWS_DOWNWARD
-  incoming_args = expand_simple_binop (Pmode, MINUS, incoming_args, argsize,
-				       incoming_args, 0, OPTAB_LIB_WIDEN);
-#endif
+  if (!STACK_GROWS_DOWNWARD)
+    incoming_args = expand_simple_binop (Pmode, MINUS, incoming_args, argsize,
+					 incoming_args, 0, OPTAB_LIB_WIDEN);
 
   /* Push a new argument block and copy the arguments.  Do not allow
      the (potential) memcpy call below to interfere with our stack
@@ -1647,12 +1645,13 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
     crtl->need_drap = true;
 
   dest = virtual_outgoing_args_rtx;
-#ifndef STACK_GROWS_DOWNWARD
-  if (CONST_INT_P (argsize))
-    dest = plus_constant (Pmode, dest, -INTVAL (argsize));
-  else
-    dest = gen_rtx_PLUS (Pmode, dest, negate_rtx (Pmode, argsize));
-#endif
+  if (!STACK_GROWS_DOWNWARD)
+    {
+      if (CONST_INT_P (argsize))
+	dest = plus_constant (Pmode, dest, -INTVAL (argsize));
+      else
+	dest = gen_rtx_PLUS (Pmode, dest, negate_rtx (Pmode, argsize));
+    }
   dest = gen_rtx_MEM (BLKmode, dest);
   set_mem_align (dest, PARM_BOUNDARY);
   src = gen_rtx_MEM (BLKmode, incoming_args);
@@ -2001,7 +2000,7 @@ expand_errno_check (tree exp, rtx target)
   /* Test the result; if it is NaN, set errno=EDOM because
      the argument was not in the domain.  */
   do_compare_rtx_and_jump (target, target, EQ, 0, GET_MODE (target),
-			   NULL_RTX, NULL_RTX, lab,
+			   NULL_RTX, NULL, lab,
 			   /* The jump is very likely.  */
 			   REG_BR_PROB_BASE - (REG_BR_PROB_BASE / 2000 - 1));
 
@@ -5887,9 +5886,11 @@ expand_stack_restore (tree var)
 
   prev = get_last_insn ();
   emit_stack_restore (SAVE_BLOCK, sa);
+
+  record_new_stack_level ();
+
   fixup_args_size_notes (prev, get_last_insn (), 0);
 }
-
 
 /* Emit code to save the current value of stack.  */
 
@@ -5898,7 +5899,6 @@ expand_stack_save (void)
 {
   rtx ret = NULL_RTX;
 
-  do_pending_stack_adjust ();
   emit_stack_save (SAVE_BLOCK, &ret);
   return ret;
 }
@@ -5934,9 +5934,9 @@ expand_builtin_acc_on_device (tree exp, rtx target)
   emit_move_insn (target, const1_rtx);
   rtx_code_label *done_label = gen_label_rtx ();
   do_compare_rtx_and_jump (v, v1, EQ, false, v_mode, NULL_RTX,
-			   NULL_RTX, done_label, PROB_EVEN);
+			   NULL, done_label, PROB_EVEN);
   do_compare_rtx_and_jump (v, v2, EQ, false, v_mode, NULL_RTX,
-			   NULL_RTX, done_label, PROB_EVEN);
+			   NULL, done_label, PROB_EVEN);
   emit_move_insn (target, const0_rtx);
   emit_label (done_label);
 

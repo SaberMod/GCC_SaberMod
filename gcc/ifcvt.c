@@ -72,9 +72,6 @@
 #include "shrink-wrap.h"
 #include "ifcvt.h"
 
-#ifndef HAVE_conditional_move
-#define HAVE_conditional_move 0
-#endif
 #ifndef HAVE_incscc
 #define HAVE_incscc 0
 #endif
@@ -1505,7 +1502,6 @@ noce_emit_cmove (struct noce_if_info *if_info, rtx x, enum rtx_code code,
 	return NULL_RTX;
     }
 
-#if HAVE_conditional_move
   unsignedp = (code == LTU || code == GEU
 	       || code == LEU || code == GTU);
 
@@ -1562,13 +1558,6 @@ noce_emit_cmove (struct noce_if_info *if_info, rtx x, enum rtx_code code,
     }
   else
     return NULL_RTX;
-#else
-  /* We'll never get here, as noce_process_if_block doesn't call the
-     functions involved.  Ifdef code, however, should be discouraged
-     because it leads to typos in the code not selected.  However,
-     emit_conditional_move won't exist either.  */
-  return NULL_RTX;
-#endif
 }
 
 /* Try only simple constants and registers here.  More complex cases
@@ -4444,9 +4433,10 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
       else
 	new_dest_label = block_label (new_dest);
 
+      rtx_jump_insn *jump_insn = as_a <rtx_jump_insn *> (jump);
       if (reversep
-	  ? ! invert_jump_1 (jump, new_dest_label)
-	  : ! redirect_jump_1 (jump, new_dest_label))
+	  ? ! invert_jump_1 (jump_insn, new_dest_label)
+	  : ! redirect_jump_1 (jump_insn, new_dest_label))
 	goto cancel;
     }
 
@@ -4457,19 +4447,16 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 
   if (other_bb != new_dest)
     {
-      redirect_jump_2 (jump, old_dest, new_dest_label, 0, reversep);
+      redirect_jump_2 (as_a <rtx_jump_insn *> (jump), old_dest, new_dest_label,
+		       0, reversep);
 
       redirect_edge_succ (BRANCH_EDGE (test_bb), new_dest);
       if (reversep)
 	{
-	  gcov_type count, probability;
-	  count = BRANCH_EDGE (test_bb)->count;
-	  BRANCH_EDGE (test_bb)->count = FALLTHRU_EDGE (test_bb)->count;
-	  FALLTHRU_EDGE (test_bb)->count = count;
-	  probability = BRANCH_EDGE (test_bb)->probability;
-	  BRANCH_EDGE (test_bb)->probability
-	    = FALLTHRU_EDGE (test_bb)->probability;
-	  FALLTHRU_EDGE (test_bb)->probability = probability;
+	  std::swap (BRANCH_EDGE (test_bb)->count,
+		     FALLTHRU_EDGE (test_bb)->count);
+	  std::swap (BRANCH_EDGE (test_bb)->probability,
+		     FALLTHRU_EDGE (test_bb)->probability);
 	  update_br_prob_note (test_bb);
 	}
     }

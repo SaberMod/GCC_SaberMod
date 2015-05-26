@@ -663,9 +663,9 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   /* Initialize misalignment to unknown.  */
   SET_DR_MISALIGNMENT (dr, -1);
 
-  /* Strided loads perform only component accesses, misalignment information
+  /* Strided accesses perform only component accesses, misalignment information
      is irrelevant for them.  */
-  if (STMT_VINFO_STRIDE_LOAD_P (stmt_info)
+  if (STMT_VINFO_STRIDED_P (stmt_info)
       && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
     return true;
 
@@ -942,9 +942,9 @@ vect_verify_datarefs_alignment (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
           || !STMT_VINFO_VECTORIZABLE (stmt_info))
         continue;
 
-      /* Strided loads perform only component accesses, alignment is
+      /* Strided accesses perform only component accesses, alignment is
 	 irrelevant for them.  */
-      if (STMT_VINFO_STRIDE_LOAD_P (stmt_info)
+      if (STMT_VINFO_STRIDED_P (stmt_info)
 	  && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
 	continue;
 
@@ -1410,9 +1410,9 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
       if (integer_zerop (DR_STEP (dr)))
 	continue;
 
-      /* Strided loads perform only component accesses, alignment is
+      /* Strided accesses perform only component accesses, alignment is
 	 irrelevant for them.  */
-      if (STMT_VINFO_STRIDE_LOAD_P (stmt_info)
+      if (STMT_VINFO_STRIDED_P (stmt_info)
 	  && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
 	continue;
 
@@ -1541,16 +1541,6 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
       || !slpeel_can_duplicate_loop_p (loop, single_exit (loop)))
     do_peeling = false;
 
-  /* If we don't know how many times the peeling loop will run
-     assume it will run VF-1 times and disable peeling if the remaining
-     iters are less than the vectorization factor.  */
-  if (do_peeling
-      && all_misalignments_unknown
-      && LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-      && (LOOP_VINFO_INT_NITERS (loop_vinfo)
-	  < 2 * (unsigned) LOOP_VINFO_VECT_FACTOR (loop_vinfo) - 1))
-    do_peeling = false;
-
   if (do_peeling
       && all_misalignments_unknown
       && vect_supportable_dr_alignment (dr0, false))
@@ -1619,12 +1609,17 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
         }
 
       /* In case there are only loads with different unknown misalignments, use
-         peeling only if it may help to align other accesses in the loop.  */
+         peeling only if it may help to align other accesses in the loop or
+	 if it may help improving load bandwith when we'd end up using
+	 unaligned loads.  */
+      tree dr0_vt = STMT_VINFO_VECTYPE (vinfo_for_stmt (DR_STMT (dr0)));
       if (!first_store
 	  && !STMT_VINFO_SAME_ALIGN_REFS (
 		  vinfo_for_stmt (DR_STMT (dr0))).length ()
-          && vect_supportable_dr_alignment (dr0, false)
-              != dr_unaligned_supported)
+	  && (vect_supportable_dr_alignment (dr0, false)
+	      != dr_unaligned_supported
+	      || (builtin_vectorization_cost (vector_load, dr0_vt, 0)
+		  == builtin_vectorization_cost (unaligned_load, dr0_vt, -1))))
         do_peeling = false;
     }
 
@@ -1641,14 +1636,6 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 						   &body_cost_vec);
       if (!dr0 || !npeel)
         do_peeling = false;
-
-      /* If peeling by npeel will result in a remaining loop not iterating
-         enough to be vectorized then do not peel.  */
-      if (do_peeling
-	  && LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-	  && (LOOP_VINFO_INT_NITERS (loop_vinfo)
-	      < LOOP_VINFO_VECT_FACTOR (loop_vinfo) + npeel))
-	do_peeling = false;
     }
 
   if (do_peeling)
@@ -1703,9 +1690,9 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 	      && GROUP_FIRST_ELEMENT (stmt_info) != stmt)
 	    continue;
 
-	  /* Strided loads perform only component accesses, alignment is
+	  /* Strided accesses perform only component accesses, alignment is
 	     irrelevant for them.  */
-	  if (STMT_VINFO_STRIDE_LOAD_P (stmt_info)
+	  if (STMT_VINFO_STRIDED_P (stmt_info)
 	      && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
 	    continue;
 
@@ -1733,6 +1720,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 	    }
         }
 
+      /* Cost model #1 - honor --param vect-max-peeling-for-alignment.  */
       if (do_peeling)
         {
           unsigned max_allowed_peel
@@ -1756,6 +1744,18 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
                 }
             }
         }
+
+      /* Cost model #2 - if peeling may result in a remaining loop not
+	 iterating enough to be vectorized then do not peel.  */
+      if (do_peeling
+	  && LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo))
+	{
+	  unsigned max_peel
+	    = npeel == 0 ? LOOP_VINFO_VECT_FACTOR (loop_vinfo) - 1 : npeel;
+	  if (LOOP_VINFO_INT_NITERS (loop_vinfo)
+	      < LOOP_VINFO_VECT_FACTOR (loop_vinfo) + max_peel)
+	    do_peeling = false;
+	}
 
       if (do_peeling)
         {
@@ -1824,7 +1824,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 		  && GROUP_FIRST_ELEMENT (stmt_info) != stmt))
 	    continue;
 
-	  if (STMT_VINFO_STRIDE_LOAD_P (stmt_info))
+	  if (STMT_VINFO_STRIDED_P (stmt_info))
 	    {
 	      /* Strided loads perform only component accesses, alignment is
 		 irrelevant for them.  */
@@ -2346,7 +2346,7 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 
   /* Assume this is a DR handled by non-constant strided load case.  */
   if (TREE_CODE (step) != INTEGER_CST)
-    return (STMT_VINFO_STRIDE_LOAD_P (stmt_info)
+    return (STMT_VINFO_STRIDED_P (stmt_info)
 	    && (!STMT_VINFO_GROUPED_ACCESS (stmt_info)
 		|| vect_analyze_group_access (dr)));
 
@@ -3758,8 +3758,7 @@ again:
       else if (loop_vinfo
 	       && TREE_CODE (DR_STEP (dr)) != INTEGER_CST)
 	{
-	  if (nested_in_vect_loop_p (loop, stmt)
-	      || !DR_IS_READ (dr))
+	  if (nested_in_vect_loop_p (loop, stmt))
 	    {
 	      if (dump_enabled_p ())
 		{
@@ -3771,7 +3770,7 @@ again:
 		}
 	      return false;
 	    }
-	  STMT_VINFO_STRIDE_LOAD_P (stmt_info) = true;
+	  STMT_VINFO_STRIDED_P (stmt_info) = true;
 	}
     }
 

@@ -276,6 +276,12 @@ match_rtx (rtx x, struct link *path, int fail_label)
 	  printf ("  if (XINT (x, %d) != %d) goto L%d;\n",
 		  i, XINT (x, i), fail_label);
 	}
+      else if (fmt[i] == 'r')
+	{
+	  gcc_assert (i == 0);
+	  printf ("  if (REGNO (x) != %d) goto L%d;\n",
+		  REGNO (x), fail_label);
+	}
       else if (fmt[i] == 'w')
 	{
 	  /* Make sure that at run time `x' is the RTX we want to test.  */
@@ -383,7 +389,6 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"flags.h\"\n");
   printf ("#include \"tm-constrs.h\"\n\n");
 
-  printf ("#ifdef HAVE_peephole\n");
   printf ("extern rtx peep_operand[];\n\n");
   printf ("#define operands peep_operand\n\n");
 
@@ -417,7 +422,6 @@ from the machine description file `md'.  */\n\n");
     max_opno = 1;
 
   printf ("rtx peep_operand[%d];\n", max_opno + 1);
-  printf ("#endif\n");
 
   fflush (stdout);
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);

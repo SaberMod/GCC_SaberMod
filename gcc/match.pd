@@ -280,10 +280,18 @@ along with GCC; see the file COPYING3.  If not see
 /* x & ~(x & y) -> x & ~y */
 /* x | ~(x | y) -> x | ~y  */
 (for bitop (bit_and bit_ior)
-  (simplify
-    (bitop:c @0 (bit_not (bitop:c@2 @0 @1)))
-      (if (TREE_CODE (@2) != SSA_NAME || has_single_use (@2))
-	(bitop @0 (bit_not @1)))))
+ (simplify
+  (bitop:c @0 (bit_not (bitop:c@2 @0 @1)))
+   (if (TREE_CODE (@2) != SSA_NAME || has_single_use (@2))
+    (bitop @0 (bit_not @1)))))
+
+/* (x | y) & ~x -> y & ~x */
+/* (x & y) | ~x -> y | ~x */
+(for bitop (bit_and bit_ior)
+     rbitop (bit_ior bit_and)
+ (simplify
+  (bitop:c (rbitop:c @0 @1) (bit_not@2 @0))
+  (bitop @1 @2)))
 
 (simplify
  (abs (negate @0))
@@ -730,16 +738,12 @@ along with GCC; see the file COPYING3.  If not see
       (for integers).  Avoid this if the final type is a pointer since
       then we sometimes need the middle conversion.  Likewise if the
       final type has a precision not equal to the size of its mode.  */
-   (if (((inter_int && inside_int)
-	 || (inter_float && inside_float)
-	 || (inter_vec && inside_vec))
+   (if (((inter_int && inside_int) || (inter_float && inside_float))
+	&& (final_int || final_float)
 	&& inter_prec >= inside_prec
-	&& (inter_float || inter_vec
-	    || inter_unsignedp == inside_unsignedp)
-	&& ! (final_prec != GET_MODE_PRECISION (element_mode (type))
-	      && element_mode (type) == element_mode (inter_type))
-	&& ! final_ptr
-	&& (! final_vec || inter_prec == inside_prec))
+	&& (inter_float || inter_unsignedp == inside_unsignedp)
+	&& ! (final_prec != GET_MODE_PRECISION (TYPE_MODE (type))
+	      && TYPE_MODE (type) == TYPE_MODE (inter_type)))
     (ocvt @0))
 
    /* If we have a sign-extension of a zero-extended value, we can
@@ -791,7 +795,8 @@ along with GCC; see the file COPYING3.  If not see
    /* If we are converting an integer to a floating-point that can
       represent it exactly and back to an integer, we can skip the
       floating-point conversion.  */
-   (if (inside_int && inter_float && final_int &&
+   (if (GIMPLE /* PR66211 */
+	&& inside_int && inter_float && final_int &&
 	(unsigned) significand_size (TYPE_MODE (inter_type))
 	>= inside_prec - !inside_unsignedp)
     (convert @0))))))
@@ -813,8 +818,7 @@ along with GCC; see the file COPYING3.  If not see
 (simplify
   (mult (convert? (exact_div @0 @1)) @1)
   /* Look through a sign-changing conversion.  */
-  (if (TYPE_PRECISION (TREE_TYPE (@0)) == TYPE_PRECISION (type))
-   (convert @0)))
+  (convert @0))
 
 /* Canonicalization of binary operations.  */
 
@@ -966,7 +970,14 @@ along with GCC; see the file COPYING3.  If not see
  (if (types_match (@0, @1))
   (unordered @0 @1)))
 (simplify
+ (bit_and (ordered @0 @0) (ordered @1 @1))
+ (if (types_match (@0, @1))
+  (ordered @0 @1)))
+(simplify
  (bit_ior:c (unordered @0 @0) (unordered:c@2 @0 @1))
+ @2)
+(simplify
+ (bit_and:c (ordered @0 @0) (ordered:c@2 @0 @1))
  @2)
 
 /* Simplification of math builtins.  */
@@ -1115,8 +1126,10 @@ along with GCC; see the file COPYING3.  If not see
 	 /* The inner conversion must be a widening conversion.  */
 	 && TYPE_PRECISION (TREE_TYPE (@2)) > TYPE_PRECISION (TREE_TYPE (@0))
 	 && types_match (@0, @1)
-	 && (tree_int_cst_min_precision (@4, UNSIGNED)
+	 && (tree_int_cst_min_precision (@4, TYPE_SIGN (TREE_TYPE (@0)))
 	     <= TYPE_PRECISION (TREE_TYPE (@0)))
+	 && (TYPE_OVERFLOW_WRAPS (TREE_TYPE (@0))
+	     || tree_int_cst_sgn (@4) >= 0)
 	 && single_use (@5))
       (if (TYPE_OVERFLOW_WRAPS (TREE_TYPE (@0)))
 	(with { tree ntype = TREE_TYPE (@0); }

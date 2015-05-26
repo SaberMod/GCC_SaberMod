@@ -1726,6 +1726,11 @@ package body Sem_Ch5 is
       --  indicator, verify that the container type has an Iterate aspect that
       --  implements the reversible iterator interface.
 
+      function Get_Cursor_Type (Typ : Entity_Id) return Entity_Id;
+      --  For containers with Iterator and related aspects, the cursor is
+      --  obtained by locating an entity with the proper name in the scope
+      --  of the type.
+
       -----------------------------
       -- Check_Reverse_Iteration --
       -----------------------------
@@ -1740,6 +1745,34 @@ package body Sem_Ch5 is
               ("container type does not support reverse iteration", N, Typ);
          end if;
       end Check_Reverse_Iteration;
+
+      ---------------------
+      -- Get_Cursor_Type --
+      ---------------------
+
+      function Get_Cursor_Type (Typ : Entity_Id) return Entity_Id is
+         Ent : Entity_Id;
+
+      begin
+         Ent := First_Entity (Scope (Typ));
+         while Present (Ent) loop
+            exit when Chars (Ent) = Name_Cursor;
+            Next_Entity (Ent);
+         end loop;
+
+         if No (Ent) then
+            return Any_Type;
+         end if;
+
+         --  The cursor is the target of generated assignments in the
+         --  loop, and cannot have a limited type.
+
+         if Is_Limited_Type (Etype (Ent)) then
+            Error_Msg_N ("cursor type cannot be limited", N);
+         end if;
+
+         return Etype (Ent);
+      end Get_Cursor_Type;
 
    --   Start of processing for  Analyze_iterator_Specification
 
@@ -1982,10 +2015,11 @@ package body Sem_Ch5 is
             --  mutable, to prevent a modification of the container in the
             --  course of an iteration.
 
-            if Is_Entity_Name (Iter_Name)
-              and then Nkind (Original_Node (Iter_Name)) = N_Selected_Component
+            --  Should comment on need to go to Original_Node ???
+
+            if Nkind (Original_Node (Iter_Name)) = N_Selected_Component
               and then Is_Dependent_Component_Of_Mutable_Object
-                         (Renamed_Object (Entity (Iter_Name)))
+                         (Original_Node (Iter_Name))
             then
                Error_Msg_N
                  ("container cannot be a discriminant-dependent "
@@ -2054,8 +2088,11 @@ package body Sem_Ch5 is
 
             else
                declare
-                  Element : constant Entity_Id :=
+                  Element     : constant Entity_Id :=
                     Find_Value_Of_Aspect (Typ, Aspect_Iterator_Element);
+                  Iterator    : constant Entity_Id :=
+                    Find_Value_Of_Aspect (Typ, Aspect_Default_Iterator);
+                  Cursor_Type : Entity_Id;
 
                begin
                   if No (Element) then
@@ -2064,6 +2101,8 @@ package body Sem_Ch5 is
 
                   else
                      Set_Etype (Def_Id, Entity (Element));
+                     Cursor_Type := Get_Cursor_Type (Typ);
+                     pragma Assert (Present (Cursor_Type));
 
                      --  If subtype indication was given, verify that it covers
                      --  the element type of the container.
@@ -2083,6 +2122,39 @@ package body Sem_Ch5 is
 
                      if Has_Aspect (Typ, Aspect_Variable_Indexing) then
                         Set_Ekind (Def_Id, E_Variable);
+                     end if;
+
+                     --  If the container is a constant, iterating over it
+                     --  requires a Constant_Indexing operation.
+
+                     if not Is_Variable (Iter_Name)
+                       and then not Has_Aspect (Typ, Aspect_Constant_Indexing)
+                     then
+                        Error_Msg_N ("iteration over constant container "
+                          & "require constant_indexing aspect", N);
+
+                     --  The Iterate function may have an in_out parameter,
+                     --  and a constant container is thus illegal.
+
+                     elsif Present (Iterator)
+                       and then Ekind (Entity (Iterator)) = E_Function
+                       and then Ekind (First_Formal (Entity (Iterator))) /=
+                                  E_In_Parameter
+                       and then not Is_Variable (Iter_Name)
+                     then
+                        Error_Msg_N
+                          ("variable container expected", N);
+                     end if;
+
+                     if Nkind (Original_Node (Iter_Name))
+                        = N_Selected_Component
+                       and then
+                         Is_Dependent_Component_Of_Mutable_Object
+                           (Original_Node (Iter_Name))
+                     then
+                        Error_Msg_N
+                          ("container cannot be a discriminant-dependent "
+                           & "component of a mutable object", N);
                      end if;
                   end if;
                end;
@@ -2132,24 +2204,29 @@ package body Sem_Ch5 is
 
             if Nkind (Iter_Name) = N_Identifier then
                declare
-                  Iter_Kind : constant Node_Kind :=
-                                Nkind (Original_Node (Iter_Name));
+                  Orig_Node : constant Node_Id := Original_Node (Iter_Name);
+                  Iter_Kind : constant Node_Kind := Nkind (Orig_Node);
                   Obj       : Node_Id;
 
                begin
                   if Iter_Kind = N_Selected_Component then
-                     Obj := Prefix (Original_Node (Iter_Name));
+                     Obj  := Prefix (Orig_Node);
 
                   elsif Iter_Kind = N_Function_Call then
-                     Obj := First_Actual (Original_Node (Iter_Name));
+                     Obj  := First_Actual (Orig_Node);
+
+                  --  If neither, the name comes from source
+
+                  else
+                     Obj := Iter_Name;
                   end if;
 
                   if Nkind (Obj) = N_Selected_Component
                     and then Is_Dependent_Component_Of_Mutable_Object (Obj)
                   then
                      Error_Msg_N
-                       ("container cannot be a discriminant-dependent " &
-                          "component of a mutable object", N);
+                       ("container cannot be a discriminant-dependent "
+                        & "component of a mutable object", N);
                   end if;
                end;
             end if;
@@ -2167,23 +2244,9 @@ package body Sem_Ch5 is
                Ent := Etype (Def_Id);
 
             else
-               Ent := First_Entity (Scope (Typ));
-               while Present (Ent) loop
-                  if Chars (Ent) = Name_Cursor then
-                     Set_Etype (Def_Id, Etype (Ent));
-                     exit;
-                  end if;
-
-                  Next_Entity (Ent);
-               end loop;
+               Set_Etype (Def_Id, Get_Cursor_Type (Typ));
             end if;
 
-            --  The cursor is the target of generated assignments in the
-            --  loop, and cannot have a limited type.
-
-            if Is_Limited_Type (Etype (Def_Id)) then
-               Error_Msg_N ("cursor type cannot be limited", N);
-            end if;
          end if;
       end if;
 

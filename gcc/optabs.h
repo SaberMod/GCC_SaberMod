@@ -364,7 +364,6 @@ extern void emit_indirect_jump (rtx);
 #error "insn-config.h must be included before optabs.h"
 #endif
 
-#ifdef HAVE_conditional_move
 /* Emit a conditional move operation.  */
 rtx emit_conditional_move (rtx, enum rtx_code, rtx, rtx, machine_mode,
 			   rtx, rtx, machine_mode, int);
@@ -372,7 +371,6 @@ rtx emit_conditional_move (rtx, enum rtx_code, rtx, rtx, machine_mode,
 /* Return nonzero if the conditional move is supported.  */
 int can_conditionally_move_p (machine_mode mode);
 
-#endif
 rtx emit_conditional_add (rtx, enum rtx_code, rtx, rtx, machine_mode,
 			  rtx, rtx, machine_mode, int);
 
@@ -541,8 +539,8 @@ extern void create_convert_operand_from_type (struct expand_operand *op,
 extern bool maybe_legitimize_operands (enum insn_code icode,
 				       unsigned int opno, unsigned int nops,
 				       struct expand_operand *ops);
-extern rtx maybe_gen_insn (enum insn_code icode, unsigned int nops,
-			   struct expand_operand *ops);
+extern rtx_insn *maybe_gen_insn (enum insn_code icode, unsigned int nops,
+				 struct expand_operand *ops);
 extern bool maybe_expand_insn (enum insn_code icode, unsigned int nops,
 			       struct expand_operand *ops);
 extern bool maybe_expand_jump_insn (enum insn_code icode, unsigned int nops,

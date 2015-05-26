@@ -3205,6 +3205,8 @@ package body Sem_Ch3 is
          return;
       end if;
 
+      --  Constant related checks
+
       if Ekind (Obj_Id) = E_Constant then
 
          --  A constant cannot be effectively volatile. This check is only
@@ -3223,6 +3225,8 @@ package body Sem_Ch3 is
          then
             Error_Msg_N ("constant cannot be volatile", Obj_Id);
          end if;
+
+      --  Variable related checks
 
       else pragma Assert (Ekind (Obj_Id) = E_Variable);
 
@@ -3323,15 +3327,15 @@ package body Sem_Ch3 is
          if Seen then
             Check_External_Properties (Obj_Id, AR_Val, AW_Val, ER_Val, EW_Val);
          end if;
+      end if;
 
-         --  Check whether the lack of indicator Part_Of agrees with the
-         --  placement of the variable with respect to the state space.
+      --  Check whether the lack of indicator Part_Of agrees with the placement
+      --  of the object with respect to the state space.
 
-         Prag := Get_Pragma (Obj_Id, Pragma_Part_Of);
+      Prag := Get_Pragma (Obj_Id, Pragma_Part_Of);
 
-         if No (Prag) then
-            Check_Missing_Part_Of (Obj_Id);
-         end if;
+      if No (Prag) then
+         Check_Missing_Part_Of (Obj_Id);
       end if;
 
       --  A ghost object cannot be imported or exported (SPARK RM 6.9(8))
@@ -4051,7 +4055,7 @@ package body Sem_Ch3 is
 
                   --  The Ghost policy in effect at the point of declaration
                   --  and at the point of completion must match
-                  --  (SPARK RM 6.9(15)).
+                  --  (SPARK RM 6.9(14)).
 
                   if Present (Prev_Entity)
                     and then Is_Ghost_Entity (Prev_Entity)
@@ -4233,7 +4237,7 @@ package body Sem_Ch3 is
          Set_Is_Ghost_Entity (Id);
 
          --  The Ghost policy in effect at the point of declaration and at the
-         --  point of completion must match (SPARK RM 6.9(16)).
+         --  point of completion must match (SPARK RM 6.9(14)).
 
          if Present (Prev_Entity) and then Is_Ghost_Entity (Prev_Entity) then
             Check_Ghost_Completion (Prev_Entity, Id);
@@ -5834,7 +5838,11 @@ package body Sem_Ch3 is
             Set_Scope  (Typ, Current_Scope);
             Push_Scope (Typ);
 
-            Process_Formals (Parameter_Specifications (Spec), Spec);
+            --  Nothing to do if procedure is parameterless
+
+            if Present (Parameter_Specifications (Spec)) then
+               Process_Formals (Parameter_Specifications (Spec), Spec);
+            end if;
 
             if Nkind (Spec) = N_Access_Function_Definition then
                declare
@@ -8945,7 +8953,9 @@ package body Sem_Ch3 is
            (Class_Wide_Type (Derived_Type), Last_Entity (Derived_Type));
       end if;
 
-      Check_Function_Writable_Actuals (N);
+      if Check_Actuals (N) then
+         Check_Function_Writable_Actuals (N);
+      end if;
    end Build_Derived_Record_Type;
 
    ------------------------
@@ -10929,12 +10939,6 @@ package body Sem_Ch3 is
          if Is_Intrinsic_Subprogram (E) then
             null;
 
-         --  A Ghost entity declared in a non-Ghost package does not force the
-         --  need for a body (SPARK RM 6.9(11)).
-
-         elsif not Is_Ghost_Entity (Pack_Id) and then Is_Ghost_Entity (E) then
-            null;
-
          --  The following situation requires special handling: a child unit
          --  that appears in the context clause of the body of its parent:
 
@@ -12899,6 +12903,13 @@ package body Sem_Ch3 is
 
          if No (Def_Id) then
             Def_Id := Create_Itype (E_Void, Related_Nod, Related_Id, Suffix);
+
+            --  Elaborate itype now, as it may be used in a subsequent
+            --  synchronized operation in another scope.
+
+            if Nkind (Related_Nod) = N_Full_Type_Declaration then
+               Build_Itype_Reference (Def_Id, Related_Nod);
+            end if;
          end if;
 
          Constrain_Discriminated_Type (Def_Id, SI, Related_Nod);
@@ -18488,7 +18499,7 @@ package body Sem_Ch3 is
             Set_Modular_Size (Bits);
             return;
 
-         --  Non-binary case
+         --  Nonbinary case
 
          elsif M_Val < 2 ** Bits then
             Check_SPARK_05_Restriction ("modulus should be a power of 2", T);
@@ -18503,7 +18514,7 @@ package body Sem_Ch3 is
                return;
 
             else
-               --  In the non-binary case, set size as per RM 13.3(55)
+               --  In the nonbinary case, set size as per RM 13.3(55)
 
                Set_Modular_Size (Bits);
                return;
@@ -19956,7 +19967,7 @@ package body Sem_Ch3 is
          Set_Is_Ghost_Entity (Full_T);
 
          --  The Ghost policy in effect at the point of declaration and at the
-         --  point of completion must match (SPARK RM 6.9(15)).
+         --  point of completion must match (SPARK RM 6.9(14)).
 
          Check_Ghost_Completion (Priv_T, Full_T);
 
@@ -21107,7 +21118,9 @@ package body Sem_Ch3 is
          Derive_Progenitor_Subprograms (T, T);
       end if;
 
-      Check_Function_Writable_Actuals (N);
+      if Check_Actuals (N) then
+         Check_Function_Writable_Actuals (N);
+      end if;
    end Record_Type_Declaration;
 
    ----------------------------

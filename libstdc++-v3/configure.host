@@ -143,6 +143,9 @@ cpu_include_dir=cpu/${try_cpu}
 # Set specific CPU overrides for cpu_defines_dir. Most can just use generic.
 # THIS TABLE IS SORTED.  KEEP IT THAT WAY.
 case "${host_cpu}" in
+  arm*)
+    cpu_defines_dir=cpu/arm
+    ;;
   powerpc* | rs6000)
     cpu_defines_dir=cpu/powerpc
     ;;
@@ -216,7 +219,6 @@ case "${host_os}" in
     # Newer versions of AIX only support PowerPC architecture, so use
     # atomic instructions directly.
     os_include_dir="os/aix"
-    atomic_word_dir="os/aix"
     ;;
   aix4.[3456789]*)
     # We set os_include_dir to os/aix only on AIX 4.3 and newer, but

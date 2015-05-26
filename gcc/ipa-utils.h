@@ -72,7 +72,6 @@ void dump_possible_polymorphic_call_targets (FILE *, tree, HOST_WIDE_INT,
 bool possible_polymorphic_call_target_p (tree, HOST_WIDE_INT,
 				         const ipa_polymorphic_call_context &,
 					 struct cgraph_node *);
-tree method_class_type (const_tree);
 tree inlined_polymorphic_ctor_dtor_block_p (tree, bool);
 bool decl_maybe_in_construction_p (tree, tree, gimple, tree);
 tree vtable_pointer_value_to_binfo (const_tree);
@@ -80,7 +79,7 @@ bool vtable_pointer_value_to_vtable (const_tree, tree *, unsigned HOST_WIDE_INT 
 tree subbinfo_with_vtable_at_offset (tree, unsigned HOST_WIDE_INT, tree);
 void compare_virtual_tables (varpool_node *, varpool_node *);
 bool type_all_derivations_known_p (const_tree);
-bool type_known_to_have_no_deriavations_p (tree);
+bool type_known_to_have_no_derivations_p (tree);
 bool contains_polymorphic_type_p (const_tree);
 void register_odr_type (tree);
 bool types_must_be_same_for_odr (tree, tree);

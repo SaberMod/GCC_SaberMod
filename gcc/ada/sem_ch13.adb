@@ -965,6 +965,13 @@ package body Sem_Ch13 is
                            Set_Is_Volatile (E);
                         end if;
 
+                     --  Volatile_Full_Access
+
+                     when Aspect_Volatile_Full_Access =>
+                        if Is_Volatile_Full_Access (P) then
+                           Set_Is_Volatile_Full_Access (E);
+                        end if;
+
                      --  Volatile_Components
 
                      when Aspect_Volatile_Components =>
@@ -1057,6 +1064,11 @@ package body Sem_Ch13 is
                      return;
                   end if;
 
+               when Aspect_Volatile_Full_Access =>
+                  if not Is_Volatile_Full_Access (Par) then
+                     return;
+                  end if;
+
                when others =>
                   return;
             end case;
@@ -1066,7 +1078,6 @@ package body Sem_Ch13 is
             Error_Msg_Name_1 := A_Name;
             Error_Msg_NE
               ("derived type& inherits aspect%, cannot cancel", Expr, E);
-
          end Check_False_Aspect_For_Derived_Type;
 
       --  Start of processing for Make_Pragma_From_Boolean_Aspect
@@ -3115,6 +3126,7 @@ package body Sem_Ch13 is
                      then
                         if A_Id = Aspect_Import then
                            Set_Is_Imported (E);
+                           Set_Has_Completion (E);
 
                            --  An imported entity cannot have an explicit
                            --  initialization.
@@ -3890,28 +3902,43 @@ package body Sem_Ch13 is
 
             elsif No (Next_Formal (First_Formal (Subp))) then
                Illegal_Indexing
-                  ("indexing function must have at least two parameters");
+                 ("indexing function must have at least two parameters");
                return;
 
-            elsif Is_Derived_Type (Ent) then
-               if (Attr = Name_Constant_Indexing
-                    and then Present
-                      (Find_Aspect (Etype (Ent), Aspect_Constant_Indexing)))
-                 or else
-                   (Attr = Name_Variable_Indexing
-                     and then Present
-                       (Find_Aspect (Etype (Ent), Aspect_Variable_Indexing)))
-               then
-                  if Debug_Flag_Dot_XX then
-                     null;
+            --  For a derived type, check that no indexing aspect is specified
+            --  for the type if it is also inherited
 
-                  else
-                     Illegal_Indexing
-                        ("indexing function already inherited "
-                          & "from parent type");
-                     return;
+            elsif Is_Derived_Type (Ent) then
+               declare
+                  Inherited : Node_Id;
+
+               begin
+                  if Attr = Name_Constant_Indexing then
+                     Inherited :=
+                       Find_Aspect (Etype (Ent), Aspect_Constant_Indexing);
+                  else pragma Assert (Attr = Name_Variable_Indexing);
+                     Inherited :=
+                        Find_Aspect (Etype (Ent), Aspect_Variable_Indexing);
                   end if;
-               end if;
+
+                  if Present (Inherited) then
+                     if Debug_Flag_Dot_XX then
+                        null;
+
+                     --  Indicate the operation that must be overridden, rather
+                     --  than redefining the indexing aspect
+
+                     else
+                        Illegal_Indexing
+                          ("indexing function already inherited "
+                           & "from parent type");
+                        Error_Msg_NE
+                          ("!override & instead",
+                           N, Entity (Expression (Inherited)));
+                        return;
+                     end if;
+                  end if;
+               end;
             end if;
 
             if not Check_Primitive_Function (Subp) then
@@ -4124,8 +4151,10 @@ package body Sem_Ch13 is
                    Entity (Expr), Ent);
             end if;
 
+            --  Flag the default_iterator as well as the denoted function.
+
             if not Valid_Default_Iterator (Entity (Expr)) then
-               Error_Msg_N ("improper function for default iterator", Expr);
+               Error_Msg_N ("improper function for default iterator!", Expr);
             end if;
 
          else
@@ -4176,6 +4205,12 @@ package body Sem_Ch13 is
             return False;
          else
             Ctrl := Etype (First_Formal (Subp));
+         end if;
+
+         --  To be a primitive operation subprogram has to be in same scope.
+
+         if Scope (Ctrl) /= Scope (Subp) then
+            return False;
          end if;
 
          --  Type of formal may be the class-wide type, an access to such,
@@ -4972,9 +5007,12 @@ package body Sem_Ch13 is
             Typ  : Entity_Id;
 
          begin
+            --  If target type is untagged, further checks are irrelevant
+
             if not Is_Tagged_Type (U_Ent) then
                Error_Msg_N
-                 ("aspect Default_Iterator applies to  tagged type", Nam);
+                 ("aspect Default_Iterator applies to tagged type", Nam);
+               return;
             end if;
 
             Check_Iterator_Functions;
@@ -4985,15 +5023,17 @@ package body Sem_Ch13 is
               or else Ekind (Entity (Expr)) /= E_Function
             then
                Error_Msg_N ("aspect Iterator must be a function", Expr);
+               return;
             else
                Func := Entity (Expr);
             end if;
 
             --  The type of the first parameter must be T, T'class, or a
-            --  corresponding access type (5.5.1 (8/3)
+            --  corresponding access type (5.5.1 (8/3). If function is
+            --  parameterless label type accordingly.
 
             if No (First_Formal (Func)) then
-               Typ := Empty;
+               Typ := Any_Type;
             else
                Typ := Etype (First_Formal (Func));
             end if;
@@ -11050,8 +11090,8 @@ package body Sem_Ch13 is
                    (Get_Rep_Item (Typ, Name_Atomic, Name_Shared))
       then
          Set_Is_Atomic (Typ);
-         Set_Treat_As_Volatile (Typ);
          Set_Is_Volatile (Typ);
+         Set_Treat_As_Volatile (Typ);
       end if;
 
       --  Convention
@@ -11131,8 +11171,20 @@ package body Sem_Ch13 is
         and then Is_Pragma_Or_Corr_Pragma_Present_In_Rep_Item
                    (Get_Rep_Item (Typ, Name_Volatile))
       then
-         Set_Treat_As_Volatile (Typ);
          Set_Is_Volatile (Typ);
+         Set_Treat_As_Volatile (Typ);
+      end if;
+
+      --  Volatile_Full_Access
+
+      if not Has_Rep_Item (Typ, Name_Volatile_Full_Access, False)
+        and then Has_Rep_Pragma (Typ, Name_Volatile_Full_Access)
+        and then Is_Pragma_Or_Corr_Pragma_Present_In_Rep_Item
+                   (Get_Rep_Item (Typ, Name_Volatile_Full_Access))
+      then
+         Set_Is_Volatile_Full_Access (Typ);
+         Set_Is_Volatile (Typ);
+         Set_Treat_As_Volatile (Typ);
       end if;
 
       --  Inheritance for derived types only
@@ -11689,11 +11741,20 @@ package body Sem_Ch13 is
          Lo := Uint_0;
       end if;
 
+      --  Null range case, size is always zero. We only do this in the discrete
+      --  type case, since that's the odd case that came up. Probably we should
+      --  also do this in the fixed-point case, but doing so causes peculiar
+      --  gigi failures, and it is not worth worrying about this incredibly
+      --  marginal case (explicit null-range fixed-point type declarations)???
+
+      if Lo > Hi and then Is_Discrete_Type (T) then
+         S := 0;
+
       --  Signed case. Note that we consider types like range 1 .. -1 to be
       --  signed for the purpose of computing the size, since the bounds have
       --  to be accommodated in the base type.
 
-      if Lo < 0 or else Hi < 0 then
+      elsif Lo < 0 or else Hi < 0 then
          S := 1;
          B := Uint_1;
 
@@ -13454,9 +13515,22 @@ package body Sem_Ch13 is
                         end if;
 
                      else pragma Assert (Source_Siz > Target_Siz);
-                        Error_Msg
-                          ("\?z?^ trailing bits of source will be ignored!",
-                           Eloc);
+                        if Is_Discrete_Type (Source) then
+                           if Bytes_Big_Endian then
+                              Error_Msg
+                                ("\?z?^ low order bits of source will be "
+                                 & "ignored!", Eloc);
+                           else
+                              Error_Msg
+                                ("\?z?^ high order bits of source will be "
+                                 & "ignored!", Eloc);
+                           end if;
+
+                        else
+                           Error_Msg
+                             ("\?z?^ trailing bits of source will be "
+                              & "ignored!", Eloc);
+                        end if;
                      end if;
                   end if;
                end if;

@@ -855,7 +855,6 @@ note_add_store (rtx loc, const_rtx expr ATTRIBUTE_UNUSED, void *data)
 {
   rtx_insn *insn;
   note_add_store_info *info = (note_add_store_info *) data;
-  int r, n;
 
   if (!REG_P (loc))
     return;
@@ -874,15 +873,14 @@ note_add_store (rtx loc, const_rtx expr ATTRIBUTE_UNUSED, void *data)
      available, fail now.  */
   if (!info->fixed_regs_live)
     {
-      info->failure =  true;
+      info->failure = true;
       return;
     }
   /* Now check if this is a live fixed register.  */
-  r = REGNO (loc);
-  n = hard_regno_nregs[r][GET_MODE (loc)];
-  while (--n >=  0)
-    if (REGNO_REG_SET_P (info->fixed_regs_live, r+n))
-      info->failure =  true;
+  unsigned int end_regno = END_REGNO (loc);
+  for (unsigned int regno = REGNO (loc); regno < end_regno; ++regno)
+    if (REGNO_REG_SET_P (info->fixed_regs_live, regno))
+      info->failure = true;
 }
 
 /* Callback for for_each_inc_dec that emits an INSN that sets DEST to
@@ -907,7 +905,7 @@ emit_inc_dec_insn_before (rtx mem ATTRIBUTE_UNUSED,
       end_sequence ();
     }
   else
-    new_insn = as_a <rtx_insn *> (gen_move_insn (dest, src));
+    new_insn = gen_move_insn (dest, src);
   info.first = new_insn;
   info.fixed_regs_live = insn_info->fixed_regs_live;
   info.failure = false;
@@ -1878,11 +1876,7 @@ look_for_hardregs (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 
   if (REG_P (x)
       && HARD_REGISTER_P (x))
-    {
-      unsigned int regno = REGNO (x);
-      bitmap_set_range (regs_set, regno,
-			hard_regno_nregs[regno][GET_MODE (x)]);
-    }
+    bitmap_set_range (regs_set, REGNO (x), REG_NREGS (x));
 }
 
 /* Helper function for replace_read and record_store.

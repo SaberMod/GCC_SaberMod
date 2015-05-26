@@ -1445,9 +1445,8 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 	 clobber a virtual register.  In fact, we could be more precise,
 	 but it isn't worth it.  */
       if ((x_regno == STACK_POINTER_REGNUM
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-	   || x_regno == ARG_POINTER_REGNUM
-#endif
+	   || (FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+	       && x_regno == ARG_POINTER_REGNUM)
 	   || x_regno == FRAME_POINTER_REGNUM)
 	  && regno >= FIRST_VIRTUAL_REGISTER && regno <= LAST_VIRTUAL_REGISTER)
 	return true;
@@ -2018,7 +2017,7 @@ find_reg_fusage (const_rtx insn, enum rtx_code code, const_rtx datum)
 
       if (regno < FIRST_PSEUDO_REGISTER)
 	{
-	  unsigned int end_regno = END_HARD_REGNO (datum);
+	  unsigned int end_regno = END_REGNO (datum);
 	  unsigned int i;
 
 	  for (i = regno; i < end_regno; i++)
@@ -2052,7 +2051,7 @@ find_regno_fusage (const_rtx insn, enum rtx_code code, unsigned int regno)
       if (GET_CODE (op = XEXP (link, 0)) == code
 	  && REG_P (reg = XEXP (op, 0))
 	  && REGNO (reg) <= regno
-	  && END_HARD_REGNO (reg) > regno)
+	  && END_REGNO (reg) > regno)
 	return 1;
     }
 
@@ -2917,7 +2916,8 @@ rtx_referenced_p (const_rtx x, const_rtx body)
 bool
 tablejump_p (const rtx_insn *insn, rtx *labelp, rtx_jump_table_data **tablep)
 {
-  rtx label, table;
+  rtx label;
+  rtx_insn *table;
 
   if (!JUMP_P (insn))
     return false;

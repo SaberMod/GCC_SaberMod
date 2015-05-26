@@ -2234,7 +2234,7 @@ enum reg_class
 
 /* Stack layout; function entry, exit and calling.  */
 
-#define STACK_GROWS_DOWNWARD
+#define STACK_GROWS_DOWNWARD 1
 
 #define FRAME_GROWS_DOWNWARD flag_stack_protect
 
@@ -3108,6 +3108,7 @@ extern const struct mips_cpu_info *mips_arch_info;
 extern const struct mips_cpu_info *mips_tune_info;
 extern unsigned int mips_base_compression_flags;
 extern GTY(()) struct target_globals *mips16_globals;
+extern GTY(()) struct target_globals *micromips_globals;
 #endif
 
 /* Enable querying of DFA units.  */
@@ -3162,3 +3163,10 @@ extern GTY(()) struct target_globals *mips16_globals;
 #define STANDARD_STARTFILE_PREFIX_1 "/lib64/"
 #define STANDARD_STARTFILE_PREFIX_2 "/usr/lib64/"
 #endif
+
+/* Load store bonding is not supported by micromips and fix_24k.  The
+   performance can be degraded for those targets.  Hence, do not bond for
+   micromips or fix_24k.  */
+#define ENABLE_LD_ST_PAIRS \
+  (TARGET_LOAD_STORE_PAIRS && TUNE_P5600 \
+   && !TARGET_MICROMIPS && !TARGET_FIX_24K)

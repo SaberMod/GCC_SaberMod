@@ -1,3 +1,29 @@
+2015-05-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config.host (i[34567]-*-*, x86_64-*-*): Add t-crtfm instead of
+	i386/t-crtfm to tmake_file.
+	* config/i386/crtfastmath.c (set_fast_math_sse): New function.
+	(set_fast_math): Use set_fast_math_sse for SSE targets.
+	* config/i386/t-crtfm: Remove.
+
+2015-05-21  Alan Modra  <amodra@gmail.com>
+
+	PR libgcc/66225
+	* config/rs6000/morestack.S: Remove ".abiversion 1".
+
+2015-05-20  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/morestack.S: New.
+	* config/rs6000/t-stack-rs6000: New.
+	* config.host (powerpc*-*-linux*): Add t-stack and t-stack-rs6000
+	to tmake_file.
+	* generic-morestack.c: Don't build for powerpc 32-bit.
+
+2015-05-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* Makefile.in (LIBUNWIND): Move dependency for shared libgcc.
+	Remove useless endif/ifneq ($(enable_shared),yes) pair.
+
 2015-05-15  Martin Galvan  <martin.galvan@tallertechnologies.com>
 
         * config/arm/lib1funcs.S (CFI_START_FUNCTION, CFI_END_FUNCTION):

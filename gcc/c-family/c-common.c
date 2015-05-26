@@ -4372,20 +4372,12 @@ shorten_compare (location_t loc, tree *op0_ptr, tree *op1_ptr,
       && !integer_zerop (primop1) && !real_zerop (primop1)
       && !fixed_zerop (primop1))
     {
-      tree tem = primop0;
-      int temi = unsignedp0;
-      primop0 = primop1;
-      primop1 = tem;
-      tem = op0;
-      op0 = op1;
-      op1 = tem;
+      std::swap (primop0, primop1);
+      std::swap (op0, op1);
       *op0_ptr = op0;
       *op1_ptr = op1;
-      unsignedp0 = unsignedp1;
-      unsignedp1 = temi;
-      temi = real1;
-      real1 = real2;
-      real2 = temi;
+      std::swap (unsignedp0, unsignedp1);
+      std::swap (real1, real2);
 
       switch (code)
 	{
@@ -7414,7 +7406,7 @@ handle_externally_visible_attribute (tree *pnode, tree name,
 {
   tree node = *pnode;
 
-  if (TREE_CODE (node) == FUNCTION_DECL || TREE_CODE (node) == VAR_DECL)
+  if (VAR_OR_FUNCTION_DECL_P (node))
     {
       if ((!TREE_STATIC (node) && TREE_CODE (node) != FUNCTION_DECL
 	   && !DECL_EXTERNAL (node)) || !TREE_PUBLIC (node))
@@ -7445,7 +7437,7 @@ handle_no_reorder_attribute (tree *pnode,
 {
   tree node = *pnode;
 
-  if ((TREE_CODE (node) != FUNCTION_DECL && TREE_CODE (node) != VAR_DECL)
+  if (!VAR_OR_FUNCTION_DECL_P (node)
 	&& !(TREE_STATIC (node) || DECL_EXTERNAL (node)))
     {
       warning (OPT_Wattributes,
@@ -7901,7 +7893,7 @@ handle_section_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 
   user_defined_section_attribute = true;
 
-  if (TREE_CODE (decl) != FUNCTION_DECL && TREE_CODE (decl) != VAR_DECL)
+  if (!VAR_OR_FUNCTION_DECL_P (decl))
     {
       error ("section attribute not allowed for %q+D", *node);
       goto fail;
@@ -8180,8 +8172,7 @@ handle_weak_attribute (tree *node, tree name,
       *no_add_attrs = true;
       return NULL_TREE;
     }
-  else if (TREE_CODE (*node) == FUNCTION_DECL
-	   || TREE_CODE (*node) == VAR_DECL)
+  else if (VAR_OR_FUNCTION_DECL_P (*node))
     {
       struct symtab_node *n = symtab_node::get (*node);
       if (n && n->refuse_visibility_changes)
@@ -8317,7 +8308,7 @@ handle_weakref_attribute (tree *node, tree ARG_UNUSED (name), tree args,
      such symbols do not even have a DECL_WEAK field.  */
   if (decl_function_context (*node)
       || current_function_decl
-      || (TREE_CODE (*node) != VAR_DECL && TREE_CODE (*node) != FUNCTION_DECL))
+      || !VAR_OR_FUNCTION_DECL_P (*node))
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
@@ -8474,8 +8465,7 @@ handle_visibility_attribute (tree *node, tree name, tree args,
 bool
 c_determine_visibility (tree decl)
 {
-  gcc_assert (TREE_CODE (decl) == VAR_DECL
-	      || TREE_CODE (decl) == FUNCTION_DECL);
+  gcc_assert (VAR_OR_FUNCTION_DECL_P (decl));
 
   /* If the user explicitly specified the visibility with an
      attribute, honor that.  DECL_VISIBILITY will have been set during
@@ -9022,8 +9012,7 @@ handle_tm_wrap_attribute (tree *node, tree name, tree args,
       if (error_operand_p (wrap_decl))
         ;
       else if (TREE_CODE (wrap_decl) != IDENTIFIER_NODE
-	       && TREE_CODE (wrap_decl) != VAR_DECL
-	       && TREE_CODE (wrap_decl) != FUNCTION_DECL)
+	       && !VAR_OR_FUNCTION_DECL_P (wrap_decl))
 	error ("%qE argument not an identifier", name);
       else
 	{
@@ -9097,9 +9086,9 @@ handle_deprecated_attribute (tree *node, tree name,
 
       if (TREE_CODE (decl) == TYPE_DECL
 	  || TREE_CODE (decl) == PARM_DECL
-	  || TREE_CODE (decl) == VAR_DECL
-	  || TREE_CODE (decl) == FUNCTION_DECL
+	  || VAR_OR_FUNCTION_DECL_P (decl)
 	  || TREE_CODE (decl) == FIELD_DECL
+	  || TREE_CODE (decl) == CONST_DECL
 	  || objc_method_decl (TREE_CODE (decl)))
 	TREE_DEPRECATED (decl) = 1;
       else

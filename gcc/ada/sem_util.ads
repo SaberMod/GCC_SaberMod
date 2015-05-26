@@ -50,7 +50,7 @@ package Sem_Util is
    --  block already has an identifier, Id returns the entity of its label.
 
    procedure Add_Contract_Item (Prag : Node_Id; Id : Entity_Id);
-   --  Add pragma Prag to the contract of an entry, a package [body], a
+   --  Add pragma Prag to the contract of a constant, entry, package [body],
    --  subprogram [body] or variable denoted by Id. The following are valid
    --  pragmas:
    --    Abstract_State
@@ -733,10 +733,10 @@ package Sem_Util is
       Placement : out State_Space_Kind;
       Pack_Id   : out Entity_Id);
    --  Determine the state space placement of an item. Item_Id denotes the
-   --  entity of an abstract state, variable or package instantiation.
-   --  Placement captures the precise placement of the item in the enclosing
-   --  state space. If the state space is that of a package, Pack_Id denotes
-   --  its entity, otherwise Pack_Id is Empty.
+   --  entity of an abstract state, object or package instantiation. Placement
+   --  captures the precise placement of the item in the enclosing state space.
+   --  If the state space is that of a package, Pack_Id denotes its entity,
+   --  otherwise Pack_Id is Empty.
 
    function Find_Static_Alternative (N : Node_Id) return Node_Id;
    --  N is a case statement whose expression is a compile-time value.
@@ -1167,6 +1167,10 @@ package Sem_Util is
    function Is_Atomic_Object (N : Node_Id) return Boolean;
    --  Determines if the given node denotes an atomic object in the sense of
    --  the legality checks described in RM C.6(12).
+
+   function Is_Atomic_Or_VFA_Object (N : Node_Id) return Boolean;
+   --  Determines if the given node is an atomic object (Is_Atomic_Object true)
+   --  or else is an object for which VFA is present.
 
    function Is_Attribute_Result (N : Node_Id) return Boolean;
    --  Determine whether node N denotes attribute 'Result

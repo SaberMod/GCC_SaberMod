@@ -1267,7 +1267,7 @@ package body Sem_Ch6 is
             Set_Is_Ghost_Entity (Body_Id);
 
             --  The Ghost policy in effect at the point of declaration and at
-            --  the point of completion must match (SPARK RM 6.9(15)).
+            --  the point of completion must match (SPARK RM 6.9(14)).
 
             Check_Ghost_Completion (Gen_Id, Body_Id);
          end if;
@@ -2822,7 +2822,7 @@ package body Sem_Ch6 is
          procedure Detect_And_Exchange (Id : Entity_Id);
          --  Determine whether Id's type denotes an incomplete type associated
          --  with a limited with clause and exchange the limited view with the
-         --  non-limited one.
+         --  non-limited one when available.
 
          -------------------------
          -- Detect_And_Exchange --
@@ -3265,7 +3265,7 @@ package body Sem_Ch6 is
                Set_Is_Ghost_Entity (Body_Id);
 
                --  The Ghost policy in effect at the point of declaration and
-               --  at the point of completion must match (SPARK RM 6.9(15)).
+               --  at the point of completion must match (SPARK RM 6.9(14)).
 
                Check_Ghost_Completion (Spec_Id, Body_Id);
             end if;
@@ -6520,6 +6520,16 @@ package body Sem_Ch6 is
       then
          return Ctype <= Mode_Conformant
            or else Subtypes_Statically_Match (Type_1, Full_View (Type_2));
+
+      --  In Ada 2012, incomplete types (including limited views) can appear
+      --  as actuals in instantiations.
+
+      elsif Is_Incomplete_Type (Type_1)
+        and then Is_Incomplete_Type (Type_2)
+        and then (Used_As_Generic_Actual (Type_1)
+                   or else Used_As_Generic_Actual (Type_2))
+      then
+         return True;
       end if;
 
       --  Ada 2005 (AI-254): Anonymous access-to-subprogram types must be
@@ -6609,6 +6619,15 @@ package body Sem_Ch6 is
                      return Conformant;
                   end;
                end if;
+
+            --  A limited view of an actual matches the corresponding
+            --  incomplete formal.
+
+            elsif Ekind (Desig_2) = E_Incomplete_Subtype
+              and then From_Limited_With (Desig_2)
+              and then Used_As_Generic_Actual (Etype (Desig_2))
+            then
+               return True;
 
             else
                return Base_Type (Desig_1) = Base_Type (Desig_2)
@@ -10520,6 +10539,7 @@ package body Sem_Ch6 is
 
    procedure Set_Formal_Mode (Formal_Id : Entity_Id) is
       Spec : constant Node_Id := Parent (Formal_Id);
+      Id   : constant Entity_Id := Scope (Formal_Id);
 
    begin
       --  Note: we set Is_Known_Valid for IN parameters and IN OUT parameters
@@ -10527,7 +10547,13 @@ package body Sem_Ch6 is
       --  point of the call.
 
       if Out_Present (Spec) then
-         if Ekind_In (Scope (Formal_Id), E_Function, E_Generic_Function) then
+         if Ekind_In (Id, E_Entry, E_Entry_Family)
+           or else Is_Subprogram_Or_Generic_Subprogram (Id)
+         then
+            Set_Has_Out_Or_In_Out_Parameter (Id, True);
+         end if;
+
+         if Ekind_In (Id, E_Function, E_Generic_Function) then
 
             --  [IN] OUT parameters allowed for functions in Ada 2012
 
@@ -10544,8 +10570,6 @@ package body Sem_Ch6 is
                else
                   Set_Ekind (Formal_Id, E_Out_Parameter);
                end if;
-
-               Set_Has_Out_Or_In_Out_Parameter (Scope (Formal_Id), True);
 
             --  But not in earlier versions of Ada
 

@@ -497,7 +497,7 @@ package body Sem_Prag is
       --  A flag used to track the legality of a null output
 
       Result_Seen : Boolean := False;
-      --  A flag set when Subp_Id'Result is processed
+      --  A flag set when Spec_Id'Result is processed
 
       States_Seen : Elist_Id := No_Elist;
       --  A list containing the entities of all states processed so far. It
@@ -1048,6 +1048,11 @@ package body Sem_Prag is
                   Item_Is_Output := True;
                end if;
 
+            --  Constant case
+
+            elsif Ekind (Item_Id) = E_Constant then
+               Item_Is_Input := True;
+
             --  Generic parameter cases
 
             elsif Ekind (Item_Id) = E_Generic_In_Parameter then
@@ -1087,16 +1092,16 @@ package body Sem_Prag is
                   Item_Is_Output := True;
                end if;
 
-            --  Object cases
+            --  Variable case
 
-            else pragma Assert (Ekind_In (Item_Id, E_Constant, E_Variable));
+            else pragma Assert (Ekind (Item_Id) = E_Variable);
 
-               --  When pragma Global is present, the mode of the object may
+               --  When pragma Global is present, the mode of the variable may
                --  be further constrained by setting a more restrictive mode.
 
                if Global_Seen then
 
-                  --  An object has mode IN when its type is unconstrained or
+                  --  A variable has mode IN when its type is unconstrained or
                   --  tagged because array bounds, discriminants or tags can be
                   --  read.
 
@@ -1110,7 +1115,7 @@ package body Sem_Prag is
                      Item_Is_Output := True;
                   end if;
 
-               --  Otherwise the object has a default IN OUT mode
+               --  Otherwise the variable has a default IN OUT mode
 
                else
                   Item_Is_Input  := True;
@@ -1920,6 +1925,19 @@ package body Sem_Prag is
                         Ref      => Item);
                   end if;
 
+               --  Constant related checks
+
+               elsif Ekind (Item_Id) = E_Constant then
+
+                  --  A constant is read-only item, therefore it cannot act as
+                  --  an output.
+
+                  if Nam_In (Global_Mode, Name_In_Out, Name_Output) then
+                     SPARK_Msg_NE
+                       ("constant & cannot act as output", Item, Item_Id);
+                     return;
+                  end if;
+
                --  Variable related checks. These are only relevant when
                --  SPARK_Mode is on as they are not standard Ada legality
                --  rules.
@@ -2275,8 +2293,8 @@ package body Sem_Prag is
       Null_Seen     : Boolean := False;
       --  Flags used to check the legality of a null initialization list
 
-      States_And_Vars : Elist_Id := No_Elist;
-      --  A list of all abstract states and variables declared in the visible
+      States_And_Objs : Elist_Id := No_Elist;
+      --  A list of all abstract states and objects declared in the visible
       --  declarations of the related package. This list is used to detect the
       --  legality of initialization items.
 
@@ -2292,9 +2310,9 @@ package body Sem_Prag is
       --  Verify the legality of a single initialization item followed by a
       --  list of input items.
 
-      procedure Collect_States_And_Variables;
+      procedure Collect_States_And_Objects;
       --  Inspect the visible declarations of the related package and gather
-      --  the entities of all abstract states and variables in States_And_Vars.
+      --  the entities of all abstract states and objects in States_And_Objs.
 
       ---------------------------------
       -- Analyze_Initialization_Item --
@@ -2333,12 +2351,14 @@ package body Sem_Prag is
             if Is_Entity_Name (Item) then
                Item_Id := Entity_Of (Item);
 
-               if Ekind_In (Item_Id, E_Abstract_State, E_Variable) then
-
+               if Ekind_In (Item_Id, E_Abstract_State,
+                                     E_Constant,
+                                     E_Variable)
+               then
                   --  The state or variable must be declared in the visible
                   --  declarations of the package (SPARK RM 7.1.5(7)).
 
-                  if not Contains (States_And_Vars, Item_Id) then
+                  if not Contains (States_And_Objs, Item_Id) then
                      Error_Msg_Name_1 := Chars (Pack_Id);
                      SPARK_Msg_NE
                        ("initialization item & must appear in the visible "
@@ -2365,13 +2385,12 @@ package body Sem_Prag is
                      end if;
                   end if;
 
-               --  The item references something that is not a state or a
-               --  variable (SPARK RM 7.1.5(3)).
+               --  The item references something that is not a state or object
+               --  (SPARK RM 7.1.5(3)).
 
                else
                   SPARK_Msg_N
-                    ("initialization item must denote variable or state",
-                     Item);
+                    ("initialization item must denote object or state", Item);
                end if;
 
             --  Some form of illegal construct masquerading as a name
@@ -2379,7 +2398,7 @@ package body Sem_Prag is
 
             else
                Error_Msg_N
-                 ("initialization item must denote variable or state", Item);
+                 ("initialization item must denote object or state", Item);
             end if;
          end if;
       end Analyze_Initialization_Item;
@@ -2439,20 +2458,20 @@ package body Sem_Prag is
                   Input_Id := Entity_Of (Input);
 
                   if Ekind_In (Input_Id, E_Abstract_State,
+                                         E_Constant,
                                          E_In_Parameter,
                                          E_In_Out_Parameter,
                                          E_Out_Parameter,
                                          E_Variable)
                   then
-                     --  The input cannot denote states or variables declared
-                     --  within the related package.
+                     --  The input cannot denote states or objects declared
+                     --  within the related package (SPARK RM 7.1.5(4)).
 
                      if Within_Scope (Input_Id, Current_Scope) then
                         Error_Msg_Name_1 := Chars (Pack_Id);
                         SPARK_Msg_NE
-                          ("input item & cannot denote a visible variable or "
-                           & "state of package % (SPARK RM 7.1.5(4))",
-                           Input, Input_Id);
+                          ("input item & cannot denote a visible object or "
+                           & "state of package %", Input, Input_Id);
 
                      --  Detect a duplicate use of the same input item
                      --  (SPARK RM 7.1.5(5)).
@@ -2469,27 +2488,29 @@ package body Sem_Prag is
                            Add_Item (Input_Id, States_Seen);
                         end if;
 
-                        if Ekind_In (Input_Id, E_Abstract_State, E_Variable)
+                        if Ekind_In (Input_Id, E_Abstract_State,
+                                               E_Constant,
+                                               E_Variable)
                           and then Present (Encapsulating_State (Input_Id))
                         then
                            Add_Item (Input_Id, Constits_Seen);
                         end if;
                      end if;
 
-                  --  The input references something that is not a state or a
-                  --  variable (SPARK RM 7.1.5(3)).
+                  --  The input references something that is not a state or an
+                  --  object (SPARK RM 7.1.5(3)).
 
                   else
                      SPARK_Msg_N
-                       ("input item must denote variable or state", Input);
+                       ("input item must denote object or state", Input);
                   end if;
 
                --  Some form of illegal construct masquerading as a name
-               --  (SPARK RM 7.1.5(3)).
+               --  (SPARK RM 7.1.5(3)). This is a syntax error, always report.
 
                else
-                  SPARK_Msg_N
-                    ("input item must denote variable or state", Input);
+                  Error_Msg_N
+                    ("input item must denote object or state", Input);
                end if;
             end if;
          end Analyze_Input_Item;
@@ -2543,11 +2564,11 @@ package body Sem_Prag is
          end if;
       end Analyze_Initialization_Item_With_Inputs;
 
-      ----------------------------------
-      -- Collect_States_And_Variables --
-      ----------------------------------
+      --------------------------------
+      -- Collect_States_And_Objects --
+      --------------------------------
 
-      procedure Collect_States_And_Variables is
+      procedure Collect_States_And_Objects is
          Pack_Spec : constant Node_Id := Specification (Pack_Decl);
          Decl      : Node_Id;
 
@@ -2555,26 +2576,25 @@ package body Sem_Prag is
          --  Collect the abstract states defined in the package (if any)
 
          if Present (Abstract_States (Pack_Id)) then
-            States_And_Vars := New_Copy_Elist (Abstract_States (Pack_Id));
+            States_And_Objs := New_Copy_Elist (Abstract_States (Pack_Id));
          end if;
 
-         --  Collect all variables the appear in the visible declarations of
-         --  the related package.
+         --  Collect all objects the appear in the visible declarations of the
+         --  related package.
 
          if Present (Visible_Declarations (Pack_Spec)) then
             Decl := First (Visible_Declarations (Pack_Spec));
             while Present (Decl) loop
-               if Nkind (Decl) = N_Object_Declaration
-                 and then Ekind (Defining_Entity (Decl)) = E_Variable
-                 and then Comes_From_Source (Decl)
+               if Comes_From_Source (Decl)
+                 and then Nkind (Decl) = N_Object_Declaration
                then
-                  Add_Item (Defining_Entity (Decl), States_And_Vars);
+                  Add_Item (Defining_Entity (Decl), States_And_Objs);
                end if;
 
                Next (Decl);
             end loop;
          end if;
-      end Collect_States_And_Variables;
+      end Collect_States_And_Objects;
 
       --  Local variables
 
@@ -2600,7 +2620,7 @@ package body Sem_Prag is
 
       --  Initialize the various lists used during analysis
 
-      Collect_States_And_Variables;
+      Collect_States_And_Objects;
 
       if Present (Expressions (Inits)) then
          Init := First (Expressions (Inits));
@@ -2690,7 +2710,7 @@ package body Sem_Prag is
          Legal   : out Boolean);
       --  Subsidiary to the analysis of pragmas Abstract_State and Part_Of.
       --  Perform full analysis of indicator Part_Of. Item_Id is the entity of
-      --  an abstract state, variable or package instantiation. State is the
+      --  an abstract state, object, or package instantiation. State is the
       --  encapsulating state. Indic is the Part_Of indicator. Flag Legal is
       --  set when the indicator is legal.
 
@@ -3360,7 +3380,7 @@ package body Sem_Prag is
             return;
          end if;
 
-         --  Determine where the state, variable or the package instantiation
+         --  Determine where the state, object or the package instantiation
          --  lives with respect to the enclosing packages or package bodies (if
          --  any). This placement dictates the legality of the encapsulating
          --  state.
@@ -5822,20 +5842,20 @@ package body Sem_Prag is
          K    : Node_Kind;
          Utyp : Entity_Id;
 
-         procedure Set_Atomic_Full (E : Entity_Id);
-         --  Set given type as Is_Atomic or Has_Volatile_Full_Access. Also, if
+         procedure Set_Atomic_VFA (E : Entity_Id);
+         --  Set given type as Is_Atomic or Is_Volatile_Full_Access. Also, if
          --  no explicit alignment was given, set alignment to unknown, since
          --  back end knows what the alignment requirements are for atomic and
          --  full access arrays. Note: this is necessary for derived types.
 
-         ---------------------
-         -- Set_Atomic_Full --
-         ---------------------
+         --------------------
+         -- Set_Atomic_VFA --
+         --------------------
 
-         procedure Set_Atomic_Full (E : Entity_Id) is
+         procedure Set_Atomic_VFA (E : Entity_Id) is
          begin
             if Prag_Id = Pragma_Volatile_Full_Access then
-               Set_Has_Volatile_Full_Access (E);
+               Set_Is_Volatile_Full_Access (E);
             else
                Set_Is_Atomic (E);
             end if;
@@ -5843,7 +5863,7 @@ package body Sem_Prag is
             if not Has_Alignment_Clause (E) then
                Set_Alignment (E, Uint_0);
             end if;
-         end Set_Atomic_Full;
+         end Set_Atomic_VFA;
 
       --  Start of processing for Process_Atomic_Independent_Shared_Volatile
 
@@ -5869,13 +5889,50 @@ package body Sem_Prag is
          --  Check Atomic and VFA used together
 
          if (Is_Atomic (E) and then Prag_Id = Pragma_Volatile_Full_Access)
-           or else (Has_Volatile_Full_Access (E)
+           or else (Is_Volatile_Full_Access (E)
                      and then (Prag_Id = Pragma_Atomic
                                  or else
                                Prag_Id = Pragma_Shared))
          then
             Error_Pragma
               ("cannot have Volatile_Full_Access and Atomic for same entity");
+         end if;
+
+         --  Check for applying VFA to an entity which has aliased component
+
+         if Prag_Id = Pragma_Volatile_Full_Access then
+            declare
+               Comp         : Entity_Id;
+               Aliased_Comp : Boolean := False;
+               --  Set True if aliased component present
+
+            begin
+               if Is_Array_Type (Etype (E)) then
+                  Aliased_Comp := Has_Aliased_Components (Etype (E));
+
+               --  Record case, too bad Has_Aliased_Components is not also
+               --  set for records, should it be ???
+
+               elsif Is_Record_Type (Etype (E)) then
+                  Comp := First_Component_Or_Discriminant (Etype (E));
+                  while Present (Comp) loop
+                     if Is_Aliased (Comp)
+                       or else Is_Aliased (Etype (Comp))
+                     then
+                        Aliased_Comp := True;
+                        exit;
+                     end if;
+
+                     Next_Component_Or_Discriminant (Comp);
+                  end loop;
+               end if;
+
+               if Aliased_Comp then
+                  Error_Pragma
+                    ("cannot apply Volatile_Full_Access (aliased component "
+                     & "present)");
+               end if;
+            end;
          end if;
 
          --  Now check appropriateness of the entity
@@ -5890,38 +5947,36 @@ package body Sem_Prag is
                Check_First_Subtype (Arg1);
             end if;
 
+            --  Attribute belongs on the base type. If the view of the type is
+            --  currently private, it also belongs on the underlying type.
+
             if Prag_Id = Pragma_Atomic
                  or else
                Prag_Id = Pragma_Shared
                  or else
                Prag_Id = Pragma_Volatile_Full_Access
             then
-               Set_Atomic_Full (E);
-               Set_Atomic_Full (Underlying_Type (E));
-               Set_Atomic_Full (Base_Type (E));
+               Set_Atomic_VFA (E);
+               Set_Atomic_VFA (Base_Type (E));
+               Set_Atomic_VFA (Underlying_Type (E));
             end if;
 
             --  Atomic/Shared/Volatile_Full_Access imply Independent
 
             if Prag_Id /= Pragma_Volatile then
                Set_Is_Independent (E);
-               Set_Is_Independent (Underlying_Type (E));
                Set_Is_Independent (Base_Type (E));
+               Set_Is_Independent (Underlying_Type (E));
 
                if Prag_Id = Pragma_Independent then
                   Record_Independence_Check (N, Base_Type (E));
                end if;
             end if;
 
-            --  Attribute belongs on the base type. If the view of the type is
-            --  currently private, it also belongs on the underlying type.
+            --  Atomic/Shared/Volatile_Full_Access imply Volatile
 
             if Prag_Id /= Pragma_Independent then
-               if Prag_Id = Pragma_Volatile_Full_Access then
-                  Set_Has_Volatile_Full_Access (Base_Type (E));
-                  Set_Has_Volatile_Full_Access (Underlying_Type (E));
-               end if;
-
+               Set_Is_Volatile (E);
                Set_Is_Volatile (Base_Type (E));
                Set_Is_Volatile (Underlying_Type (E));
 
@@ -5944,7 +5999,7 @@ package body Sem_Prag is
                Prag_Id = Pragma_Volatile_Full_Access
             then
                if Prag_Id = Pragma_Volatile_Full_Access then
-                  Set_Has_Volatile_Full_Access (E);
+                  Set_Is_Volatile_Full_Access (E);
                else
                   Set_Is_Atomic (E);
                end if;
@@ -5974,8 +6029,8 @@ package body Sem_Prag is
                --  treated as atomic, thus incurring a potentially costly
                --  synchronization operation for every access.
 
-               --  For Volatile_Full_Access we can do this for elementary
-               --  types too, since there is no issue of atomic sync.
+               --  For Volatile_Full_Access we can do this for elementary types
+               --  too, since there is no issue of atomic synchronization.
 
                --  Of course it would be best if the back end could just adjust
                --  the alignment etc for the specific object, but that's not
@@ -5990,19 +6045,17 @@ package body Sem_Prag is
                  and then Sloc (Utyp) > No_Location
                  and then
                    Get_Source_File_Index (Sloc (E)) =
-                   Get_Source_File_Index (Sloc (Underlying_Type (Etype (E))))
+                                            Get_Source_File_Index (Sloc (Utyp))
                then
                   if Prag_Id = Pragma_Volatile_Full_Access then
-                     Set_Has_Volatile_Full_Access
-                       (Underlying_Type (Etype (E)));
+                     Set_Is_Volatile_Full_Access (Utyp);
                   else
-                     Set_Is_Atomic
-                       (Underlying_Type (Etype (E)));
+                     Set_Is_Atomic (Utyp);
                   end if;
                end if;
             end if;
 
-            --  Atomic/Shared imply both Independent and Volatile
+            --  Atomic/Shared/Volatile_Full_Access imply Independent
 
             if Prag_Id /= Pragma_Volatile then
                Set_Is_Independent (E);
@@ -6011,6 +6064,8 @@ package body Sem_Prag is
                   Record_Independence_Check (N, E);
                end if;
             end if;
+
+            --  Atomic/Shared/Volatile_Full_Access imply Volatile
 
             if Prag_Id /= Pragma_Independent then
                Set_Is_Volatile (E);
@@ -17380,7 +17435,7 @@ package body Sem_Prag is
                State_Id : Entity_Id;
                Instance : Node_Id);
             --  Propagate the Part_Of indicator to all abstract states and
-            --  variables declared in the visible state space of a package
+            --  objects declared in the visible state space of a package
             --  denoted by Pack_Id. State_Id is the encapsulating state.
             --  Instance is the package instantiation node.
 
@@ -17399,7 +17454,7 @@ package body Sem_Prag is
 
                procedure Propagate_Part_Of (Pack_Id : Entity_Id);
                --  Propagate the Part_Of indicator to all abstract states and
-               --  variables declared in the visible state space of a package
+               --  objects declared in the visible state space of a package
                --  denoted by Pack_Id.
 
                -----------------------
@@ -17411,8 +17466,8 @@ package body Sem_Prag is
 
                begin
                   --  Traverse the entity chain of the package and set relevant
-                  --  attributes of abstract states and variables declared in
-                  --  the visible state space of the package.
+                  --  attributes of abstract states and objects declared in the
+                  --  visible state space of the package.
 
                   Item_Id := First_Entity (Pack_Id);
                   while Present (Item_Id)
@@ -17423,11 +17478,11 @@ package body Sem_Prag is
                      if not Comes_From_Source (Item_Id) then
                         null;
 
-                     --  The Part_Of indicator turns an abstract state or a
-                     --  variable into a constituent of the encapsulating
-                     --  state.
+                     --  The Part_Of indicator turns an abstract state or an
+                     --  object into a constituent of the encapsulating state.
 
                      elsif Ekind_In (Item_Id, E_Abstract_State,
+                                              E_Constant,
                                               E_Variable)
                      then
                         Has_Item := True;
@@ -17476,7 +17531,7 @@ package body Sem_Prag is
             Check_Arg_Count (1);
 
             --  Ensure the proper placement of the pragma. Part_Of must appear
-            --  on a variable declaration or a package instantiation.
+            --  on an object declaration or a package instantiation.
 
             Stmt := Prev (N);
             while Present (Stmt) loop
@@ -17515,16 +17570,6 @@ package body Sem_Prag is
                Stmt := Prev (Stmt);
             end loop;
 
-            --  When the context is an object declaration, ensure that it is a
-            --  variable.
-
-            if Nkind (Stmt) = N_Object_Declaration
-              and then Ekind (Defining_Entity (Stmt)) /= E_Variable
-            then
-               SPARK_Msg_N ("indicator Part_Of must apply to a variable", N);
-               return;
-            end if;
-
             --  Extract the entity of the related object declaration or package
             --  instantiation. In the case of the instantiation, use the entity
             --  of the instance spec.
@@ -17549,10 +17594,10 @@ package body Sem_Prag is
             if Legal then
                State_Id := Entity (State);
 
-               --  The Part_Of indicator turns a variable into a constituent
-               --  of the encapsulating state.
+               --  The Part_Of indicator turns an object into a constituent of
+               --  the encapsulating state.
 
-               if Ekind (Item_Id) = E_Variable then
+               if Ekind_In (Item_Id, E_Constant, E_Variable) then
                   Append_Elmt (Item_Id, Part_Of_Constituents (State_Id));
                   Set_Encapsulating_State (Item_Id, State_Id);
 
@@ -21983,7 +22028,7 @@ package body Sem_Prag is
          --    2) Dep_Item denotes null and Ref_Item is Empty (special case)
          --    3) Both items denote attribute 'Result
          --    4) Both items denote the same formal parameter
-         --    5) Both items denote the same variable
+         --    5) Both items denote the same object
          --    6) Dep_Item is an abstract state with visible null refinement
          --       and Ref_Item denotes null.
          --    7) Dep_Item is an abstract state with visible null refinement
@@ -22079,7 +22124,7 @@ package body Sem_Prag is
             then
                Matched := True;
 
-            --  Abstract states, formal parameters and variables
+            --  Abstract states, formal parameters and objects
 
             elsif Is_Entity_Name (Dep_Item) then
 
@@ -22127,7 +22172,7 @@ package body Sem_Prag is
                      Matched := True;
                   end if;
 
-               --  A formal parameter or a variable matches itself
+               --  A formal parameter or an object matches itself
 
                elsif Is_Entity_Name (Ref_Item)
                  and then Entity_Of (Ref_Item) = Dep_Item_Id
@@ -23392,7 +23437,6 @@ package body Sem_Prag is
                Item := First (Expressions (List));
                while Present (Item) loop
                   Check_Refined_Global_Item (Item, Global_Mode);
-
                   Next (Item);
                end loop;
 
@@ -23770,7 +23814,7 @@ package body Sem_Prag is
       --  Perform full analysis of a single refinement clause
 
       function Collect_Body_States (Pack_Id : Entity_Id) return Elist_Id;
-      --  Gather the entities of all abstract states and variables declared in
+      --  Gather the entities of all abstract states and objects declared in
       --  the body state space of package Pack_Id.
 
       procedure Report_Unrefined_States (States : Elist_Id);
@@ -23953,7 +23997,6 @@ package body Sem_Prag is
 
                         if Node (State_Elmt) = Constit_Id then
                            Check_Ghost_Constituent (Constit_Id);
-
                            Remove_Elmt (Body_States, State_Elmt);
                            Collect_Constituent;
                            return;
@@ -23963,14 +24006,25 @@ package body Sem_Prag is
                      end loop;
                   end if;
 
+                  --  Constants are part of the hidden state of a package, but
+                  --  the compiler cannot determine whether they have variable
+                  --  input (SPARK RM 7.1.1(2)) and cannot classify them as a
+                  --  hidden state. Accept the constant quietly even if it is
+                  --  a visible state or lacks a Part_Of indicator.
+
+                  if Ekind (Constit_Id) = E_Constant then
+                     null;
+
                   --  If we get here, then the constituent is not a hidden
                   --  state of the related package and may not be used in a
                   --  refinement (SPARK RM 7.2.2(9)).
 
-                  Error_Msg_Name_1 := Chars (Spec_Id);
-                  SPARK_Msg_NE
-                    ("cannot use & in refinement, constituent is not a hidden "
-                     & "state of package %", Constit, Constit_Id);
+                  else
+                     Error_Msg_Name_1 := Chars (Spec_Id);
+                     SPARK_Msg_NE
+                       ("cannot use & in refinement, constituent is not a "
+                        & "hidden state of package %", Constit, Constit_Id);
+                  end if;
                end if;
             end Check_Matching_Constituent;
 
@@ -24079,7 +24133,10 @@ package body Sem_Prag is
                if Is_Entity_Name (Constit) then
                   Constit_Id := Entity_Of (Constit);
 
-                  if Ekind_In (Constit_Id, E_Abstract_State, E_Variable) then
+                  if Ekind_In (Constit_Id, E_Abstract_State,
+                                           E_Constant,
+                                           E_Variable)
+                  then
                      Check_Matching_Constituent (Constit_Id);
 
                   else
@@ -24210,7 +24267,13 @@ package body Sem_Prag is
                   if Ekind (Constit_Id) = E_Abstract_State then
                      SPARK_Msg_NE
                        ("\abstract state & defined #", State, Constit_Id);
+
+                  elsif Ekind (Constit_Id) = E_Constant then
+                     SPARK_Msg_NE
+                       ("\constant & defined #", State, Constit_Id);
+
                   else
+                     pragma Assert (Ekind (Constit_Id) = E_Variable);
                      SPARK_Msg_NE ("\variable & defined #", State, Constit_Id);
                   end if;
 
@@ -24420,7 +24483,17 @@ package body Sem_Prag is
                if not Comes_From_Source (Item_Id) then
                   null;
 
-               elsif Ekind_In (Item_Id, E_Abstract_State, E_Variable) then
+               elsif Ekind (Item_Id) = E_Abstract_State then
+                  Add_Item (Item_Id, Result);
+
+               --  Do not consider constants or variables that map generic
+               --  formals to their actuals, as the formals cannot be named
+               --  from the outside and participate in refinement.
+
+               elsif Ekind_In (Item_Id, E_Constant, E_Variable)
+                 and then No (Corresponding_Generic_Association
+                                (Declaration_Node (Item_Id)))
+               then
                   Add_Item (Item_Id, Result);
 
                --  Recursively gather the visible states of a nested package
@@ -24448,23 +24521,22 @@ package body Sem_Prag is
 
          Decl := First (Declarations (Pack_Body));
          while Present (Decl) loop
+
+            --  Capture source objects as internally generated temporaries
+            --  cannot be named and participate in refinement.
+
             if Nkind (Decl) = N_Object_Declaration then
                Item_Id := Defining_Entity (Decl);
 
-               --  Capture source variables as internally generated temporaries
-               --  cannot be named and participate in refinement.
-
-               if Ekind (Item_Id) = E_Variable
-                 and then Comes_From_Source (Item_Id)
-               then
+               if Comes_From_Source (Item_Id) then
                   Add_Item (Item_Id, Result);
                end if;
 
+            --  Capture the visible abstract states and objects of a source
+            --  package [instantiation].
+
             elsif Nkind (Decl) = N_Package_Declaration then
                Item_Id := Defining_Entity (Decl);
-
-               --  Capture the visible abstract states and objects of a
-               --  source package [instantiation].
 
                if Comes_From_Source (Item_Id) then
                   Collect_Visible_States (Item_Id);
@@ -24511,26 +24583,39 @@ package body Sem_Prag is
             while Present (State_Elmt) loop
                State_Id := Node (State_Elmt);
 
+               --  Constants are part of the hidden state of a package, but the
+               --  compiler cannot determine whether they have variable input
+               --  (SPARK RM 7.1.1(2)) and cannot classify them properly as a
+               --  hidden state. Do not emit an error when a constant does not
+               --  participate in a state refinement, even though it acts as a
+               --  hidden state.
+
+               if Ekind (State_Id) = E_Constant then
+                  null;
+
                --  Generate an error message of the form:
 
                --    body of package ... has unused hidden states
                --      abstract state ... defined at ...
-               --      constant ... defined at ...
                --      variable ... defined at ...
 
-               if not Posted then
-                  Posted := True;
-                  SPARK_Msg_N
-                    ("body of package & has unused hidden states", Body_Id);
-               end if;
-
-               Error_Msg_Sloc := Sloc (State_Id);
-
-               if Ekind (State_Id) = E_Abstract_State then
-                  SPARK_Msg_NE
-                    ("\abstract state & defined #", Body_Id, State_Id);
                else
-                  SPARK_Msg_NE ("\variable & defined #", Body_Id, State_Id);
+                  if not Posted then
+                     Posted := True;
+                     SPARK_Msg_N
+                       ("body of package & has unused hidden states", Body_Id);
+                  end if;
+
+                  Error_Msg_Sloc := Sloc (State_Id);
+
+                  if Ekind (State_Id) = E_Abstract_State then
+                     SPARK_Msg_NE
+                       ("\abstract state & defined #", Body_Id, State_Id);
+
+                  else
+                     pragma Assert (Ekind (State_Id) = E_Variable);
+                     SPARK_Msg_NE ("\variable & defined #", Body_Id, State_Id);
+                  end if;
                end if;
 
                Next_Elmt (State_Elmt);
@@ -24553,7 +24638,7 @@ package body Sem_Prag is
 
       Available_States := New_Copy_Elist (Abstract_States (Spec_Id));
 
-      --  Gather all abstract states and variables declared in the visible
+      --  Gather all abstract states and objects declared in the visible
       --  state space of the package body. These items must be utilized as
       --  constituents in a state refinement.
 
@@ -24571,7 +24656,6 @@ package body Sem_Prag is
             Clause := First (Component_Associations (Clauses));
             while Present (Clause) loop
                Analyze_Refinement_Clause (Clause);
-
                Next (Clause);
             end loop;
          end if;
@@ -24587,7 +24671,7 @@ package body Sem_Prag is
 
       Report_Unrefined_States (Available_States);
 
-      --  Ensure that all abstract states and variables declared in the body
+      --  Ensure that all abstract states and objects declared in the body
       --  state space of the related package are utilized as constituents.
 
       Report_Unused_States (Body_States);
@@ -24960,6 +25044,13 @@ package body Sem_Prag is
       --  interfere with standard Ada rules and produce false positives.
 
       elsif SPARK_Mode /= On then
+         return;
+
+      --  Do not consider constants, because the compiler cannot accurately
+      --  determine whether they have variable input (SPARK RM 7.1.1(2)) and
+      --  act as a hidden state of a package.
+
+      elsif Ekind (Item_Id) = E_Constant then
          return;
       end if;
 

@@ -7905,15 +7905,22 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
       if (OVERLOAD_TYPE_P (t)
 	  && !DECL_ALIAS_TEMPLATE_P (gen_tmpl))
 	{
-	  if (tree attributes
-	      = lookup_attribute ("abi_tag", TYPE_ATTRIBUTES (template_type)))
+	  static const char *tags[] = {"abi_tag", "may_alias"};
+
+	  for (unsigned ix = 0; ix != 2; ix++)
 	    {
-	      if (!TREE_CHAIN (attributes))
+	      tree attributes
+		= lookup_attribute (tags[ix], TYPE_ATTRIBUTES (template_type));
+
+	      if (!attributes)
+		;
+	      else if (!TREE_CHAIN (attributes) && !TYPE_ATTRIBUTES (t))
 		TYPE_ATTRIBUTES (t) = attributes;
 	      else
 		TYPE_ATTRIBUTES (t)
-		  = build_tree_list (TREE_PURPOSE (attributes),
-				     TREE_VALUE (attributes));
+		  = tree_cons (TREE_PURPOSE (attributes),
+			       TREE_VALUE (attributes),
+			       TYPE_ATTRIBUTES (t));
 	    }
 	}
 
@@ -11407,9 +11414,9 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	       processing here.  */
 	    DECL_EXTERNAL (r) = 1;
 
-	    register_specialization (r, gen_tmpl, argvec, false, hash);
 	    DECL_TEMPLATE_INFO (r) = build_template_info (tmpl, argvec);
 	    SET_DECL_IMPLICIT_INSTANTIATION (r);
+	    register_specialization (r, gen_tmpl, argvec, false, hash);
 	  }
 	else if (!cp_unevaluated_operand)
 	  register_local_specialization (r, t);
@@ -20771,9 +20778,10 @@ tsubst_enum (tree tag, tree newtag, tree args)
       /* Give this enumeration constant the correct access.  */
       set_current_access_from_decl (decl);
 
-      /* Actually build the enumerator itself.  */
-      build_enumerator
-	(DECL_NAME (decl), value, newtag, DECL_SOURCE_LOCATION (decl));
+      /* Actually build the enumerator itself.  Here we're assuming that
+	 enumerators can't have dependent attributes.  */
+      build_enumerator (DECL_NAME (decl), value, newtag,
+			DECL_ATTRIBUTES (decl), DECL_SOURCE_LOCATION (decl));
     }
 
   if (SCOPED_ENUM_P (newtag))

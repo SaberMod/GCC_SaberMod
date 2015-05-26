@@ -4350,7 +4350,8 @@ proc check_effective_target_vect_natural_alignment { } {
     } else {
         set et_vect_natural_alignment_saved 1
         if { [check_effective_target_arm_eabi]
-	     || [istarget nvptx-*-*] } {
+	     || [istarget nvptx-*-*]
+	     || [istarget s390*-*-*] } {
             set et_vect_natural_alignment_saved 0
         }
     }
@@ -4667,6 +4668,27 @@ proc check_effective_target_vect_call_copysignf { } {
 
     verbose "check_effective_target_vect_call_copysignf: returning $et_vect_call_copysignf_saved" 2
     return $et_vect_call_copysignf_saved
+}
+
+# Return 1 if the target supports hardware square root instructions.
+
+proc check_effective_target_sqrt_insn { } {
+    global et_sqrt_insn_saved
+
+    if [info exists et_sqrt_insn_saved] {
+	verbose "check_effective_target_hw_sqrt: using cached result" 2
+    } else {
+	set et_sqrt_insn_saved 0
+	if { [istarget x86_64-*-*]
+	     || [istarget powerpc*-*-*]
+	     || [istarget aarch64*-*-*]
+	     || ([istarget arm*-*-*] && [check_effective_target_arm_vfp_ok]) } {
+	   set et_sqrt_insn_saved 1
+	}
+    }
+
+    verbose "check_effective_target_hw_sqrt: returning et_sqrt_insn_saved" 2
+    return $et_sqrt_insn_saved
 }
 
 # Return 1 if the target supports vector sqrtf calls.
