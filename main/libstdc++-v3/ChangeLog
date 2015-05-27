@@ -1,3 +1,23 @@
+2014-10-19  Maxim Kuvyrkov  <maxim.kuvyrkov@linaro.org>
+
+	* testsuite/lib/libstdc++.exp (v3-copy-file): New proc split from ...
+	(v3-copy-files): ... this.  Update.
+	(check_v3_target_fileio): Fix race on cin_unget-1.txt file.
+
+2014-10-17  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/hexfloat.cc:
+	Add dg-require-string-conversions.
+	* testsuite/27_io/headers/cstdio/types_std.cc: Test for fpos_t.
+
+2014-10-17  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement the Library Fundamentals v1 variable templates.
+	* include/Makefile.am: Add the new header.
+	* include/Makefile.in: Regenerate.
+	* include/experimental/type_traits: New.
+	* testsuite/experimental/type_traits/value.cc: Likewise.
+
 2014-10-16  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* testsuite/lib/libstdc++.exp: Prefer -std=gnu++11.

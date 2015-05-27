@@ -1253,6 +1253,8 @@ Parse::method_spec(Typed_identifier_list* methods)
   if (this->advance_token()->is_op(OPERATOR_LPAREN))
     {
       // This is a MethodName.
+      if (name == "_")
+	error_at(this->location(), "methods must have a unique non-blank name");
       name = this->gogo_->pack_hidden_name(name, is_exported);
       Type* type = this->signature(NULL, location);
       if (type == NULL)
@@ -2086,6 +2088,9 @@ Parse::simple_var_decl_or_assignment(const std::string& name,
   Typed_identifier_list til;
   til.push_back(Typed_identifier(name, NULL, location));
 
+  std::set<std::string> uniq_idents;
+  uniq_idents.insert(name);
+
   // We've seen one identifier.  If we see a comma now, this could be
   // "a, *p = 1, 2".
   if (this->peek_token()->is_op(OPERATOR_COMMA))
@@ -2100,6 +2105,7 @@ Parse::simple_var_decl_or_assignment(const std::string& name,
 	  std::string id = token->identifier();
 	  bool is_id_exported = token->is_identifier_exported();
 	  Location id_location = token->location();
+	  std::pair<std::set<std::string>::iterator, bool> ins;
 
 	  token = this->advance_token();
 	  if (!token->is_op(OPERATOR_COMMA))
@@ -2107,6 +2113,10 @@ Parse::simple_var_decl_or_assignment(const std::string& name,
 	      if (token->is_op(OPERATOR_COLONEQ))
 		{
 		  id = this->gogo_->pack_hidden_name(id, is_id_exported);
+		  ins = uniq_idents.insert(id);
+		  if (!ins.second && !Gogo::is_sink_name(id))
+		    error_at(id_location, "multiple assignments to %s",
+			     Gogo::message_name(id).c_str());
 		  til.push_back(Typed_identifier(id, NULL, location));
 		}
 	      else
@@ -2117,6 +2127,10 @@ Parse::simple_var_decl_or_assignment(const std::string& name,
 	    }
 
 	  id = this->gogo_->pack_hidden_name(id, is_id_exported);
+	  ins = uniq_idents.insert(id);
+	  if (!ins.second && !Gogo::is_sink_name(id))
+	    error_at(id_location, "multiple assignments to %s",
+		     Gogo::message_name(id).c_str());
 	  til.push_back(Typed_identifier(id, NULL, location));
 	}
 
