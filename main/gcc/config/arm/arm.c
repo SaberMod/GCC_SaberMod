@@ -47,6 +47,7 @@
 #include "input.h"
 #include "function.h"
 #include "expr.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "diagnostic-core.h"
 #include "recog.h"
@@ -81,6 +82,7 @@
 #include "gimple-expr.h"
 #include "builtins.h"
 #include "tm-constrs.h"
+#include "rtl-iter.h"
 
 /* Forward definitions of types.  */
 typedef struct minipool_node    Mnode;
@@ -769,6 +771,8 @@ static int thumb_call_reg_needed;
 #define FL_ARCH8      (1 << 24)       /* Architecture 8.  */
 #define FL_CRC32      (1 << 25)	      /* ARMv8 CRC32 instructions.  */
 
+#define FL_SMALLMUL   (1 << 26)       /* Small multiply supported.  */
+
 #define FL_IWMMXT     (1 << 29)	      /* XScale v2 or "Intel Wireless MMX technology".  */
 #define FL_IWMMXT2    (1 << 30)       /* "Intel Wireless MMX2 technology".  */
 
@@ -931,6 +935,9 @@ int arm_condexec_masklen = 0;
 
 /* Nonzero if chip supports the ARMv8 CRC instructions.  */
 int arm_arch_crc = 0;
+
+/* Nonzero if the core has a very small, high-latency, multiply unit.  */
+int arm_m_profile_small_mul = 0;
 
 /* The condition codes of the ARM, and the inverse function.  */
 static const char * const arm_condition_codes[] =
@@ -2021,6 +2028,27 @@ const struct tune_params arm_v7m_tune =
   8						/* Maximum insns to inline memset.  */
 };
 
+/* Cortex-M7 tuning.  */
+
+const struct tune_params arm_cortex_m7_tune =
+{
+  arm_9e_rtx_costs,
+  &v7m_extra_costs,
+  NULL,						/* Sched adj cost.  */
+  0,						/* Constant limit.  */
+  0,						/* Max cond insns.  */
+  ARM_PREFETCH_NOT_BENEFICIAL,
+  true,						/* Prefer constant pool.  */
+  arm_cortex_m_branch_cost,
+  false,					/* Prefer LDRD/STRD.  */
+  {true, true},					/* Prefer non short circuit.  */
+  &arm_default_vec_cost,                        /* Vectorizer costs.  */
+  false,                                        /* Prefer Neon for 64-bits bitops.  */
+  false, false,                                 /* Prefer 32-bit encodings.  */
+  false,					/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
+};
+
 /* The arm_v6m_tune is duplicated from arm_cortex_tune, rather than
    arm_v6t2_tune. It is used for cortex-m0, cortex-m1 and cortex-m0plus.  */
 const struct tune_params arm_v6m_tune =
@@ -2802,6 +2830,7 @@ arm_option_override (void)
   arm_arch_arm_hwdiv = (insn_flags & FL_ARM_DIV) != 0;
   arm_tune_cortex_a9 = (arm_tune == cortexa9) != 0;
   arm_arch_crc = (insn_flags & FL_CRC32) != 0;
+  arm_m_profile_small_mul = (insn_flags & FL_SMALLMUL) != 0;
   if (arm_restrict_it == 2)
     arm_restrict_it = arm_arch8 && TARGET_THUMB2;
 
@@ -3133,6 +3162,11 @@ arm_option_override (void)
   /* Currently, for slow flash data, we just disable literal pools.  */
   if (target_slow_flash_data)
     arm_disable_literal_pool = true;
+
+  /* Thumb2 inline assembly code should always use unified syntax.
+     This will apply to ARM and Thumb1 eventually.  */
+  if (TARGET_THUMB2)
+    inline_asm_unified = 1;
 
   /* Register global variables with the garbage collector.  */
   arm_add_gc_roots ();
@@ -8077,25 +8111,6 @@ thumb_legitimize_reload_address (rtx *x_p,
   return NULL;
 }
 
-/* Test for various thread-local symbols.  */
-
-/* Helper for arm_tls_referenced_p.  */
-
-static int
-arm_tls_operand_p_1 (rtx *x, void *data ATTRIBUTE_UNUSED)
-{
-  if (GET_CODE (*x) == SYMBOL_REF)
-    return SYMBOL_REF_TLS_MODEL (*x) != 0;
-
-  /* Don't recurse into UNSPEC_TLS looking for TLS symbols; these are
-     TLS offsets, not real symbol references.  */
-  if (GET_CODE (*x) == UNSPEC
-      && XINT (*x, 1) == UNSPEC_TLS)
-    return -1;
-
-  return 0;
-}
-
 /* Return TRUE if X contains any TLS symbol references.  */
 
 bool
@@ -8104,7 +8119,19 @@ arm_tls_referenced_p (rtx x)
   if (! TARGET_HAVE_TLS)
     return false;
 
-  return for_each_rtx (&x, arm_tls_operand_p_1, NULL);
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, x, ALL)
+    {
+      const_rtx x = *iter;
+      if (GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (x) != 0)
+	return true;
+
+      /* Don't recurse into UNSPEC_TLS looking for TLS symbols; these are
+	 TLS offsets, not real symbol references.  */
+      if (GET_CODE (x) == UNSPEC && XINT (x, 1) == UNSPEC_TLS)
+	iter.skip_subrtxes ();
+    }
+  return false;
 }
 
 /* Implement TARGET_LEGITIMATE_CONSTANT_P.
@@ -8938,7 +8965,13 @@ thumb1_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
           /* Thumb1 mul instruction can't operate on const. We must Load it
              into a register first.  */
           int const_size = thumb1_size_rtx_costs (XEXP (x, 1), CONST_INT, SET);
-          return COSTS_N_INSNS (1) + const_size;
+	  /* For the targets which have a very small and high-latency multiply
+	     unit, we prefer to synthesize the mult with up to 5 instructions,
+	     giving a good balance between size and performance.  */
+	  if (arm_arch6m && arm_m_profile_small_mul)
+	    return COSTS_N_INSNS (5);
+	  else
+	    return COSTS_N_INSNS (1) + const_size;
         }
       return COSTS_N_INSNS (1);
 
@@ -11356,7 +11389,11 @@ arm_9e_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
       switch (code)
 	{
 	case MULT:
-	  *total = COSTS_N_INSNS (3);
+	  /* Small multiply: 32 cycles for an integer multiply inst.  */
+	  if (arm_arch6m && arm_m_profile_small_mul)
+	    *total = COSTS_N_INSNS (32);
+	  else
+	    *total = COSTS_N_INSNS (3);
 	  return true;
 
 	default:
@@ -13162,16 +13199,6 @@ tls_mentioned_p (rtx x)
 
 /* Must not copy any rtx that uses a pc-relative address.  */
 
-static int
-arm_note_pic_base (rtx *x, void *date ATTRIBUTE_UNUSED)
-{
-  if (GET_CODE (*x) == UNSPEC
-      && (XINT (*x, 1) == UNSPEC_PIC_BASE
-	  || XINT (*x, 1) == UNSPEC_PIC_UNIFIED))
-    return 1;
-  return 0;
-}
-
 static bool
 arm_cannot_copy_insn_p (rtx_insn *insn)
 {
@@ -13180,7 +13207,16 @@ arm_cannot_copy_insn_p (rtx_insn *insn)
   if (recog_memoized (insn) == CODE_FOR_tlscall)
     return true;
 
-  return for_each_rtx (&PATTERN (insn), arm_note_pic_base, NULL);
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, PATTERN (insn), ALL)
+    {
+      const_rtx x = *iter;
+      if (GET_CODE (x) == UNSPEC
+	  && (XINT (x, 1) == UNSPEC_PIC_BASE
+	      || XINT (x, 1) == UNSPEC_PIC_UNIFIED))
+	return true;
+    }
+  return false;
 }
 
 enum rtx_code
@@ -28620,12 +28656,14 @@ arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 	  fputs ("\tldr\tr3, ", file);
 	  assemble_name (file, label);
 	  fputs ("+4\n", file);
-	  asm_fprintf (file, "\t%s\t%r, %r, r3\n",
+	  asm_fprintf (file, "\t%ss\t%r, %r, r3\n",
 		       mi_op, this_regno, this_regno);
 	}
       else if (mi_delta != 0)
 	{
-	  asm_fprintf (file, "\t%s\t%r, %r, #%d\n",
+	  /* Thumb1 unified syntax requires s suffix in instruction name when
+	     one of the operands is immediate.  */
+	  asm_fprintf (file, "\t%ss\t%r, %r, #%d\n",
 		       mi_op, this_regno, this_regno,
 		       mi_delta);
 	}
@@ -28967,7 +29005,11 @@ arm_set_return_address (rtx source, rtx scratch)
 
 	  addr = plus_constant (Pmode, addr, delta);
 	}
-      emit_move_insn (gen_frame_mem (Pmode, addr), source);
+      /* The store needs to be marked as frame related in order to prevent
+	 DSE from deleting it as dead if it is based on fp.  */
+      rtx insn = emit_move_insn (gen_frame_mem (Pmode, addr), source);
+      RTX_FRAME_RELATED_P (insn) = 1;
+      add_reg_note (insn, REG_CFA_RESTORE, gen_rtx_REG (Pmode, LR_REGNUM));
     }
 }
 
@@ -29019,7 +29061,11 @@ thumb_set_return_address (rtx source, rtx scratch)
       else
 	addr = plus_constant (Pmode, addr, delta);
 
-      emit_move_insn (gen_frame_mem (Pmode, addr), source);
+      /* The store needs to be marked as frame related in order to prevent
+	 DSE from deleting it as dead if it is based on fp.  */
+      rtx insn = emit_move_insn (gen_frame_mem (Pmode, addr), source);
+      RTX_FRAME_RELATED_P (insn) = 1;
+      add_reg_note (insn, REG_CFA_RESTORE, gen_rtx_REG (Pmode, LR_REGNUM));
     }
   else
     emit_move_insn (gen_rtx_REG (Pmode, LR_REGNUM), source);

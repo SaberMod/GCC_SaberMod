@@ -2326,6 +2326,10 @@ dbxout_type (tree type, int full)
       dbxout_type (TREE_TYPE (type), 0);
       break;
 
+    case POINTER_BOUNDS_TYPE:
+      /* No debug info for pointer bounds type supported yet.  */
+      break;
+
     default:
       gcc_unreachable ();
     }
@@ -2898,7 +2902,8 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
       if (!decl_rtl)
 	DBXOUT_DECR_NESTING_AND_RETURN (0);
 
-      decl_rtl = eliminate_regs (decl_rtl, VOIDmode, NULL_RTX);
+      if (!is_global_var (decl))
+	decl_rtl = eliminate_regs (decl_rtl, VOIDmode, NULL_RTX);
 #ifdef LEAF_REG_REMAP
       if (crtl->uses_only_leaf_regs)
 	leaf_renumber_regs_insn (decl_rtl);

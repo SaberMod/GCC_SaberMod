@@ -1,3 +1,57 @@
+2014-11-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins_optimize_pragma): Define and
+	undefine __NO_MATH_ERRNO__ based on changes to -fmath-errno state.
+
+2014-11-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/59708
+	* c-common.c (check_builtin_function_arguments): Handle
+	BUILT_IN_{ADD,SUB,MUL}_OVERFLOW.
+
+2014-11-10  Andi Kleen  <ak@linux.intel.com>
+
+	PR c/60804
+	* c-common.h (check_no_cilk): Declare.
+	* cilk.c (get_error_location): New function.
+	(check_no_cilk): Dito.
+
+2014-11-10  Andi Kleen  <ak@linux.intel.com>
+
+	* cilk.c (recognize_spawn): Use expression location
+	for error message.
+
+2014-11-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* c.opt ([Wshift-count-negative, Wshift-count-overflow]): Add.
+
+2014-11-10  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* c-cppbuiltin.c (__has_attribute, __has_cpp_attribute): New macros;
+	(__cpp_rtti, __cpp_exceptions): New macros for C++98;
+	(__cpp_range_based_for, __cpp_initializer_lists,
+	__cpp_delegating_constructors, __cpp_nsdmi,
+	__cpp_inheriting_constructors, __cpp_ref_qualifiers): New macros
+	for C++11; (__cpp_attribute_deprecated): Remove in favor of
+	__has_cpp_attribute.
+	* c-lex.c (cb_has_attribute): New callback CPP function;
+	(init_c_lex): Set has_attribute callback.
+
+2014-11-04  Richard Biener  <rguenther@suse.de>
+
+	* c-common.c (shorten_compare): Do not shorten mixed
+	DFP and non-DFP compares.
+
+2014-11-01  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* g++.dg/cpp1y/feat-cxx11.C: Commentary and rearrangement of tests.
+	* g++.dg/cpp1y/feat-cxx11-neg.C: Add aggregate NSDMI test.
+	Commentary and rearrangement of tests.
+	* g++.dg/cpp1y/feat-cxx14.C: Enable aggregate NSDMI test.
+	Commentary and rearrangement of tests.
+	* g++.dg/cpp1y/feat-cxx98-neg.C: Ditto
+	* g++.dg/cpp1y/feat-cxx98.C: Commentary.
+
 2014-10-29  Richard Sandiford  <richard.sandiford@arm.com>
 
 	* c-common.c, c-common.h, c-cppbuiltin.c, c-lex.c: Remove redundant

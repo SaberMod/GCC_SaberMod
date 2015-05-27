@@ -1220,7 +1220,7 @@ package body Sem_Ch6 is
             Set_Is_Ghost_Entity (Body_Id);
 
             --  The Ghost policy in effect at the point of declaration and at
-            --  the point of completion must match (SPARK RM 6.9(14)).
+            --  the point of completion must match (SPARK RM 6.9(15)).
 
             Check_Ghost_Completion (Gen_Id, Body_Id);
          end if;
@@ -1452,6 +1452,11 @@ package body Sem_Ch6 is
          --  this as a null body (even if expansion is not active), because
          --  there are various error checks that are applied on this body
          --  when it is analyzed (e.g. correct aspect placement).
+
+         if Has_Completion (Prev) then
+            Error_Msg_Sloc := Sloc (Prev);
+            Error_Msg_NE ("duplicate body for & declared#", N, Prev);
+         end if;
 
          Is_Completion := True;
          Rewrite (N, Null_Body);
@@ -3338,7 +3343,7 @@ package body Sem_Ch6 is
                Set_Is_Ghost_Entity (Body_Id);
 
                --  The Ghost policy in effect at the point of declaration and
-               --  at the point of completion must match (SPARK RM 6.9(14)).
+               --  at the point of completion must match (SPARK RM 6.9(15)).
 
                Check_Ghost_Completion (Spec_Id, Body_Id);
             end if;
@@ -4761,9 +4766,14 @@ package body Sem_Ch6 is
             return;
 
          --  Pragma Ghost behaves as a convention in the context of subtype
-         --  conformance (SPARK RM 6.9(5)).
+         --  conformance (SPARK RM 6.9(5)). Do not check internally generated
+         --  subprograms as their spec may reside in a Ghost region and their
+         --  body not, or vice versa.
 
-         elsif Is_Ghost_Entity (Old_Id) /= Is_Ghost_Entity (New_Id) then
+         elsif Comes_From_Source (Old_Id)
+           and then Comes_From_Source (New_Id)
+           and then Is_Ghost_Entity (Old_Id) /= Is_Ghost_Entity (New_Id)
+         then
             Conformance_Error ("\ghost modes do not match!");
             return;
          end if;

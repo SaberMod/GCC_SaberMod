@@ -5314,15 +5314,6 @@ Binary_expression::do_determine_type(const Type_context* context)
       subcontext.type = NULL;
     }
 
-  if (this->op_ == OPERATOR_ANDAND || this->op_ == OPERATOR_OROR)
-    {
-      // For a logical operation, the context does not determine the
-      // types of the operands.  The operands must be some boolean
-      // type but if the context has a boolean type they do not
-      // inherit it.  See http://golang.org/issue/3924.
-      subcontext.type = NULL;
-    }
-
   // Set the context for the left hand operand.
   if (is_shift_op)
     {
@@ -12800,6 +12791,16 @@ Composite_literal_expression::lower_struct(Gogo* gogo, Type* type)
 	{
 	case EXPRESSION_UNKNOWN_REFERENCE:
 	  name = name_expr->unknown_expression()->name();
+	  if (type->named_type() != NULL)
+	    {
+	      // If the named object found for this field name comes from a
+	      // different package than the struct it is a part of, do not count
+	      // this incorrect lookup as a usage of the object's package.
+	      no = name_expr->unknown_expression()->named_object();
+	      if (no->package() != NULL
+		  && no->package() != type->named_type()->named_object()->package())
+		no->package()->forget_usage(name_expr);
+	    }
 	  break;
 
 	case EXPRESSION_CONST_REFERENCE:

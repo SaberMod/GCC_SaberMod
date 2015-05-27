@@ -270,6 +270,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wredundant-decls  -Wno-return-local-addr -Wipa-opt-mismatch @gol
 -Wreturn-type -Wself-assign -Wself-assign-non-pod -Wsequence-point  -Wshadow @gol
 -Wno-shadow-ivar -Wshadow-compatible-local -Wshadow-local @gol
+-Wshift-count-negative -Wshift-count-overflow @gol
 -Wsign-compare  -Wsign-conversion -Wfloat-conversion @gol
 -Wsizeof-pointer-memaccess  -Wsizeof-array-argument @gol
 -Wstack-protector -Wstack-usage=@var{len} -Wstrict-aliasing @gol
@@ -397,7 +398,7 @@ Objective-C and Objective-C++ Dialects}.
 -fisolate-erroneous-paths-dereference -fisolate-erroneous-paths-attribute @gol
 -fivopts -fkeep-inline-functions -fkeep-static-consts -flive-range-shrinkage @gol
 -floop-block -floop-interchange -floop-strip-mine -floop-nest-optimize @gol
--floop-parallelize-all -flto -flto-compression-level @gol
+-floop-parallelize-all -flra-remat -flto -flto-compression-level @gol
 -flto-partition=@var{alg} -flto-report -flto-report-wpa -fmerge-all-constants @gol
 -fmerge-constants -fmodulo-sched -fmodulo-sched-allow-regmoves @gol
 -fmove-loop-invariants -fno-branch-count-reg @gol
@@ -556,6 +557,7 @@ Objective-C and Objective-C++ Dialects}.
 -munaligned-access @gol
 -mneon-for-64bits @gol
 -mslow-flash-data @gol
+-masm-syntax-unified @gol
 -mrestrict-it}
 
 @emph{AVR Options}
@@ -692,7 +694,7 @@ Objective-C and Objective-C++ Dialects}.
 -maes -mpclmul -mfsgsbase -mrdrnd -mf16c -mfma -mprefetchwt1 @gol
 -mclflushopt -mxsavec -mxsaves @gol
 -msse4a -m3dnow -mpopcnt -mabm -mbmi -mtbm -mfma4 -mxop -mlzcnt @gol
--mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mthreads @gol
+-mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mmpx -mthreads @gol
 -mno-align-stringops  -minline-all-stringops @gol
 -minline-stringops-dynamically -mstringop-strategy=@var{alg} @gol
 -mmemcpy-strategy=@var{strategy} -mmemset-strategy=@var{strategy}
@@ -796,8 +798,9 @@ Objective-C and Objective-C++ Dialects}.
 -minterlink-mips16  -mno-interlink-mips16 @gol
 -mabi=@var{abi}  -mabicalls  -mno-abicalls @gol
 -mshared  -mno-shared  -mplt  -mno-plt  -mxgot  -mno-xgot @gol
--mgp32  -mgp64  -mfp32  -mfp64  -mhard-float  -msoft-float @gol
+-mgp32  -mgp64  -mfp32  -mfpxx  -mfp64  -mhard-float  -msoft-float @gol
 -mno-float  -msingle-float  -mdouble-float @gol
+-modd-spreg -mno-odd-spreg @gol
 -mabs=@var{mode}  -mnan=@var{encoding} @gol
 -mdsp  -mno-dsp  -mdspr2  -mno-dspr2 @gol
 -mmcu -mmno-mcu @gol
@@ -1693,8 +1696,7 @@ ISO C90 as modified in amendment 1.
 @itemx iso9899:1999
 @itemx iso9899:199x
 ISO C99.  This standard is substantially completely supported, modulo
-bugs, extended identifiers (supported except for corner cases when
-@option{-fextended-identifiers} is used) and floating-point issues
+bugs and floating-point issues
 (mainly but not entirely relating to optional C99 features from
 Annexes F and G).  See
 @w{@uref{http://gcc.gnu.org/c99status.html}} for more information.  The
@@ -1704,9 +1706,7 @@ names @samp{c9x} and @samp{iso9899:199x} are deprecated.
 @itemx c1x
 @itemx iso9899:2011
 ISO C11, the 2011 revision of the ISO C standard.  This standard is
-substantially completely supported, modulo bugs, extended identifiers
-(supported except for corner cases when
-@option{-fextended-identifiers} is used), floating-point issues
+substantially completely supported, modulo bugs, floating-point issues
 (mainly but not entirely relating to optional C11 features from
 Annexes F and G) and the optional Annexes K (Bounds-checking
 interfaces) and L (Analyzability).  The name @samp{c1x} is deprecated.
@@ -3916,6 +3916,16 @@ GCC command line during the profile-generate phase than the primary
 module.
 
 This warning is enabled by @option{-Wall}.
+
+@item -Wshift-count-negative
+@opindex Wshift-count-negative
+@opindex Wno-shift-count-negative
+Warn if shift count is negative. This warning is enabled by default.
+
+@item -Wshift-count-overflow
+@opindex Wshift-count-overflow
+@opindex Wno-shift-count-overflow
+Warn if shift count >= width of type. This warning is enabled by default.
 
 @item -Wswitch
 @opindex Wswitch
@@ -7310,6 +7320,7 @@ also turns on the following optimization flags:
 -fipa-sra @gol
 -fipa-icf @gol
 -fisolate-erroneous-paths-dereference @gol
+-flra-remat @gol
 -foptimize-sibling-calls @gol
 -foptimize-strlen @gol
 -fpartial-inlining @gol
@@ -7937,6 +7948,14 @@ stack slot, and as a result function stack frames are larger.
 Control the verbosity of the dump file for the integrated register allocator.
 The default value is 5.  If the value @var{n} is greater or equal to 10,
 the dump output is sent to stderr using the same format as @var{n} minus 10.
+
+@item -flra-remat
+@opindex fcaller-saves
+Enable CFG-sensitive rematerialization in LRA.  Instead of loading
+values of spilled pseudos, LRA tries to rematerialize (recalculate)
+values if it is profitable.
+
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fdelayed-branch
 @opindex fdelayed-branch
@@ -10648,6 +10667,16 @@ parameters only when their cumulative size is less or equal to
 @option{ipa-sra-ptr-growth-factor} times the size of the original
 pointer parameter.
 
+@item sra-max-scalarization-size-Ospeed
+@item sra-max-scalarization-size-Osize
+The two Scalar Reduction of Aggregates passes (SRA and IPA-SRA) aim to
+replace scalar parts of aggregates with uses of independent scalar
+variables.  These parameters control the maximum size, in storage units,
+of aggregate which will be considered for replacement when compiling for
+speed
+(@option{sra-max-scalarization-size-Ospeed}) or size
+(@option{sra-max-scalarization-size-Osize}) respectively.
+
 @item tm-max-aggregate-size
 When making copies of thread-local variables in a transaction, this
 parameter specifies the size in bytes after which variables are
@@ -10813,6 +10842,12 @@ If number of memory accesses in function being instrumented
 is greater or equal to this number, use callbacks instead of inline checks.
 E.g. to disable inline code use
 @option{--param asan-instrumentation-with-call-threshold=0}.
+
+@item chkp-max-ctor-size
+Static constructors generated by Pointer Bounds Checker may become very
+large and significantly increase compile time at optimization level
+@option{-O1} and higher.  This parameter is a maximum nubmer of statements
+in a single generated constructor.  Default value is 5000.
 
 @end table
 @end table
@@ -13010,6 +13045,9 @@ Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{cortex-m1},
 @samp{cortex-m0},
 @samp{cortex-m0plus},
+@samp{cortex-m1.small-multiply},
+@samp{cortex-m0.small-multiply},
+@samp{cortex-m0plus.small-multiply},
 @samp{marvell-pj4},
 @samp{xscale}, @samp{iwmmxt}, @samp{iwmmxt2}, @samp{ep9312},
 @samp{fa526}, @samp{fa626},
@@ -13276,6 +13314,14 @@ Assume loading data from flash is slower than fetching instruction.
 Therefore literal load is minimized for better performance.
 This option is only supported when compiling for ARMv7 M-profile and
 off by default.
+
+@item -masm-syntax-unified
+@opindex masm-syntax-unified
+Assume inline assembler is using unified asm syntax.  The default is
+currently off which implies divided syntax.  Currently this option is
+available only for Thumb1 and has no effect on ARM state and Thumb2.
+However, this may change in future releases of GCC.  Divided syntax
+should be considered deprecated.
 
 @item -mrestrict-it
 @opindex mrestrict-it
@@ -16041,6 +16087,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -mno-xsavec
 @itemx -mxsaves
 @itemx -mno-xsaves
+@itemx -mmpx
+@itemx -mno-mpx
 @opindex mmmx
 @opindex mno-mmx
 @opindex msse
@@ -16050,7 +16098,7 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 These switches enable or disable the use of instructions in the MMX, SSE,
 SSE2, SSE3, SSSE3, SSE4.1, AVX, AVX2, AVX512F, AVX512PF, AVX512ER, AVX512CD,
 SHA, AES, PCLMUL, FSGSBASE, RDRND, F16C, FMA, SSE4A, FMA4, XOP, LWP, ABM,
-BMI, BMI2, FXSR, XSAVE, XSAVEOPT, LZCNT, RTM, or 3DNow!@:
+BMI, BMI2, FXSR, XSAVE, XSAVEOPT, LZCNT, RTM, MPX or 3DNow!@:
 extended instruction sets.
 These extensions are also available as built-in functions: see
 @ref{X86 Built-in Functions}, for details of the functions enabled and
@@ -17798,7 +17846,7 @@ The processor names are:
 @samp{loongson2e}, @samp{loongson2f}, @samp{loongson3a},
 @samp{m4k},
 @samp{m14k}, @samp{m14kc}, @samp{m14ke}, @samp{m14kec},
-@samp{octeon}, @samp{octeon+}, @samp{octeon2},
+@samp{octeon}, @samp{octeon+}, @samp{octeon2}, @samp{octeon3},
 @samp{orion},
 @samp{p5600},
 @samp{r2000}, @samp{r3000}, @samp{r3900}, @samp{r4000}, @samp{r4400},
@@ -17974,7 +18022,20 @@ same, but each scalar value is passed in a single 64-bit register
 rather than a pair of 32-bit registers.  For example, scalar
 floating-point values are returned in @samp{$f0} only, not a
 @samp{$f0}/@samp{$f1} pair.  The set of call-saved registers also
-remains the same, but all 64 bits are saved.
+remains the same in that the even-numbered double-precision registers
+are saved.
+
+Two additional variants of the o32 ABI are supported to enable
+a transition from 32-bit to 64-bit registers.  These are FPXX
+(@option{-mfpxx}) and FP64A (@option{-mfp64} @option{-mno-odd-spreg}).
+The FPXX extension mandates that all code must execute correctly
+when run using 32-bit or 64-bit registers.  The code can be interlinked
+with either FP32 or FP64, but not both.
+The FP64A extension is similar to the FP64 extension but forbids the
+use of odd-numbered single-precision registers.  This can be used
+in conjunction with the @code{FRE} mode of FPUs in MIPS32R5
+processors and allows both FP32 and FP64A code to interlink and
+run in the same process without changing FPU modes.
 
 @item -mabicalls
 @itemx -mno-abicalls
@@ -18063,6 +18124,10 @@ Assume that floating-point registers are 32 bits wide.
 @opindex mfp64
 Assume that floating-point registers are 64 bits wide.
 
+@item -mfpxx
+@opindex mfpxx
+Do not assume the width of floating-point registers.
+
 @item -mhard-float
 @opindex mhard-float
 Use floating-point coprocessor instructions.
@@ -18093,6 +18158,15 @@ operations.
 @opindex mdouble-float
 Assume that the floating-point coprocessor supports double-precision
 operations.  This is the default.
+
+@item -modd-spreg
+@itemx -mno-odd-spreg
+@opindex modd-spreg
+@opindex mno-odd-spreg
+Enable the use of odd-numbered single-precision floating-point registers
+for the o32 ABI.  This is the default for processors that are known to
+support these registers.  When using the o32 FPXX ABI, @code{-mno-odd-spreg}
+is set by default.
 
 @item -mabs=2008
 @itemx -mabs=legacy

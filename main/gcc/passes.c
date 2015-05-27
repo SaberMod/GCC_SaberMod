@@ -141,7 +141,9 @@ opt_pass::opt_pass (const pass_data &data, context *ctxt)
 void
 pass_manager::execute_early_local_passes ()
 {
-  execute_pass_list (cfun, pass_early_local_passes_1->sub);
+  execute_pass_list (cfun, pass_build_ssa_passes_1->sub);
+  execute_pass_list (cfun, pass_chkp_instrumentation_passes_1->sub);
+  execute_pass_list (cfun, pass_local_optimization_passes_1->sub);
 }
 
 unsigned int
@@ -340,7 +342,7 @@ finish_optimization_passes (void)
 }
 
 static unsigned int
-execute_all_early_local_passes (void)
+execute_build_ssa_passes (void)
 {
   /* Once this pass (and its sub-passes) are complete, all functions
      will be in SSA form.  Technically this state change is happening
@@ -355,10 +357,10 @@ execute_all_early_local_passes (void)
 
 namespace {
 
-const pass_data pass_data_early_local_passes =
+const pass_data pass_data_build_ssa_passes =
 {
   SIMPLE_IPA_PASS, /* type */
-  "early_local_cleanups", /* name */
+  "build_ssa_passes", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
   TV_EARLY_LOCAL, /* tv_id */
   0, /* properties_required */
@@ -370,11 +372,11 @@ const pass_data pass_data_early_local_passes =
   0, /* todo_flags_finish */
 };
 
-class pass_early_local_passes : public simple_ipa_opt_pass
+class pass_build_ssa_passes : public simple_ipa_opt_pass
 {
 public:
-  pass_early_local_passes (gcc::context *ctxt)
-    : simple_ipa_opt_pass (pass_data_early_local_passes, ctxt)
+  pass_build_ssa_passes (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_build_ssa_passes, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -386,22 +388,92 @@ public:
 
   virtual unsigned int execute (function *)
     {
-      return execute_all_early_local_passes ();
+      return execute_build_ssa_passes ();
     }
 
-}; // class pass_early_local_passes
+}; // class pass_build_ssa_passes
+
+const pass_data pass_data_chkp_instrumentation_passes =
+{
+  SIMPLE_IPA_PASS, /* type */
+  "chkp_passes", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_chkp_instrumentation_passes : public simple_ipa_opt_pass
+{
+public:
+  pass_chkp_instrumentation_passes (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_chkp_instrumentation_passes, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *)
+    {
+      /* Don't bother doing anything if the program has errors.  */
+      return (!seen_error () && !in_lto_p);
+    }
+
+}; // class pass_chkp_instrumentation_passes
+
+const pass_data pass_data_local_optimization_passes =
+{
+  SIMPLE_IPA_PASS, /* type */
+  "opt_local_passes", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_local_optimization_passes : public simple_ipa_opt_pass
+{
+public:
+  pass_local_optimization_passes (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_local_optimization_passes, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *)
+    {
+      /* Don't bother doing anything if the program has errors.  */
+      return (!seen_error () && !in_lto_p);
+    }
+
+}; // class pass_local_optimization_passes
 
 } // anon namespace
 
 simple_ipa_opt_pass *
-make_pass_early_local_passes (gcc::context *ctxt)
+make_pass_build_ssa_passes (gcc::context *ctxt)
 {
-  return new pass_early_local_passes (ctxt);
+  return new pass_build_ssa_passes (ctxt);
 }
 
 /* Decides if the cgraph callee edges are being cleaned up for the
    last time.  */
 bool cgraph_callee_edges_final_cleanup = false;
+
+simple_ipa_opt_pass *
+make_pass_chkp_instrumentation_passes (gcc::context *ctxt)
+{
+  return new pass_chkp_instrumentation_passes (ctxt);
+}
+
+simple_ipa_opt_pass *
+make_pass_local_optimization_passes (gcc::context *ctxt)
+{
+  return new pass_local_optimization_passes (ctxt);
+}
 
 namespace {
 
@@ -588,6 +660,44 @@ static rtl_opt_pass *
 make_pass_postreload (gcc::context *ctxt)
 {
   return new pass_postreload (ctxt);
+}
+
+namespace {
+
+const pass_data pass_data_late_compilation =
+{
+  RTL_PASS, /* type */
+  "*all-late_compilation", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_LATE_COMPILATION, /* tv_id */
+  PROP_rtl, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_late_compilation : public rtl_opt_pass
+{
+public:
+  pass_late_compilation (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_late_compilation, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *)
+  {
+    return reload_completed || targetm.no_register_allocation;
+  }
+
+}; // class pass_late_compilation
+
+} // anon namespace
+
+static rtl_opt_pass *
+make_pass_late_compilation (gcc::context *ctxt)
+{
+  return new pass_late_compilation (ctxt);
 }
 
 
@@ -2320,7 +2430,7 @@ ipa_write_summaries_1 (lto_symtab_encoder_t encoder)
 /* Write out summaries for all the nodes in the callgraph.  */
 
 void
-ipa_write_summaries (void)
+ipa_write_summaries (bool offload_lto_mode)
 {
   lto_symtab_encoder_t encoder;
   int i, order_pos;
@@ -2330,6 +2440,8 @@ ipa_write_summaries (void)
 
   if (!flag_generate_lto || seen_error ())
     return;
+
+  select_what_to_stream (offload_lto_mode);
 
   encoder = lto_symtab_encoder_new (false);
 
@@ -2357,15 +2469,16 @@ ipa_write_summaries (void)
 	  renumber_gimple_stmt_uids ();
 	  pop_cfun ();
 	}
-      if (node->definition)
+      if (node->definition && node->need_lto_streaming)
         lto_set_symtab_encoder_in_partition (encoder, node);
     }
 
   FOR_EACH_DEFINED_FUNCTION (node)
-    if (node->alias)
+    if (node->alias && node->need_lto_streaming)
       lto_set_symtab_encoder_in_partition (encoder, node);
   FOR_EACH_DEFINED_VARIABLE (vnode)
-    lto_set_symtab_encoder_in_partition (encoder, vnode);
+    if (vnode->need_lto_streaming)
+      lto_set_symtab_encoder_in_partition (encoder, vnode);
 
   ipa_write_summaries_1 (compute_ltrans_boundary (encoder));
 

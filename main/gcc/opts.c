@@ -500,6 +500,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS, OPT_fipa_icf, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fisolate_erroneous_paths_dereference, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fuse_caller_save, NULL, 1 },
+    { OPT_LEVELS_2_PLUS, OPT_flra_remat, NULL, 1 },
 
     /* -O3 optimizations.  */
     { OPT_LEVELS_3_PLUS, OPT_ftree_loop_distribute_patterns, NULL, 1 },
@@ -1863,6 +1864,17 @@ common_handle_option (struct gcc_options *opts,
       /* Deferred.  */
       break;
 
+    case OPT_foffload_:
+      /* Deferred.  */
+      break;
+
+#ifndef ACCEL_COMPILER
+    case OPT_foffload_abi_:
+      error_at (loc, "-foffload-abi option can be specified only for "
+		"offload compiler");
+      break;
+#endif
+
     case OPT_fpack_struct_:
       if (value <= 0 || (value & (value - 1)) || value > 16)
 	error_at (loc,
@@ -1984,7 +1996,7 @@ common_handle_option (struct gcc_options *opts,
 			     ? STATIC_BUILTIN_STACK_CHECK
 			     : GENERIC_STACK_CHECK;
       else
-	warning_at (loc, 0, "unknown stack check parameter \"%s\"", arg);
+	warning_at (loc, 0, "unknown stack check parameter %qs", arg);
       break;
 
     case OPT_fstack_limit:
@@ -2266,7 +2278,7 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg,
       if (opts_set->x_write_symbols != NO_DEBUG
 	  && opts->x_write_symbols != NO_DEBUG
 	  && type != opts->x_write_symbols)
-	error_at (loc, "debug format \"%s\" conflicts with prior selection",
+	error_at (loc, "debug format %qs conflicts with prior selection",
 		  debug_type_names[type]);
       opts->x_write_symbols = type;
       opts_set->x_write_symbols = type;
@@ -2284,9 +2296,9 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg,
     {
       int argval = integral_argument (arg);
       if (argval == -1)
-	error_at (loc, "unrecognised debug output level \"%s\"", arg);
+	error_at (loc, "unrecognised debug output level %qs", arg);
       else if (argval > 3)
-	error_at (loc, "debug output level %s is too high", arg);
+	error_at (loc, "debug output level %qs is too high", arg);
       else
 	opts->x_debug_info_level = (enum debug_info_levels) argval;
     }

@@ -604,8 +604,6 @@ PICFLAG
 enable_host_shared
 enable_plugin
 pluginlibs
-CLOOGINC
-CLOOGLIBS
 ISLINC
 ISLLIBS
 GMPINC
@@ -743,6 +741,7 @@ CXXDEPMODE
 DEPDIR
 am__leading_dot
 CXXCPP
+doc_build_sys
 AR
 NM
 BISON
@@ -761,6 +760,9 @@ LN
 LN_S
 AWK
 SET_MAKE
+accel_dir_suffix
+real_target_noncanonical
+enable_as_accelerator
 REPORT_BUGS_TEXI
 REPORT_BUGS_TO
 PKGVERSION
@@ -955,9 +957,7 @@ CXXCPP
 GMPLIBS
 GMPINC
 ISLLIBS
-ISLINC
-CLOOGLIBS
-CLOOGINC'
+ISLINC'
 
 
 # Initialize some variables set by options.
@@ -1737,8 +1737,6 @@ Some influential environment variables:
   GMPINC      How to find GMP include files
   ISLLIBS     How to link ISL
   ISLINC      How to find ISL include files
-  CLOOGLIBS   How to link CLOOG
-  CLOOGINC    How to find CLOOG include files
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -3214,6 +3212,10 @@ esac
 
 
 
+
+# Used for constructing correct paths for offload compilers.
+real_target_noncanonical=${target_noncanonical}
+accel_dir_suffix=
 
 # Determine the target- and build-specific subdirectories
 
@@ -7429,6 +7431,45 @@ else
 fi
 
 
+if test x"$enable_as_accelerator_for" != x; then
+
+$as_echo "#define ACCEL_COMPILER 1" >>confdefs.h
+
+  enable_as_accelerator=yes
+  case "${target}" in
+    *-intelmicemul-*)
+      # In this case we expect offload compiler to be built as native, so we
+      # need to rename the driver to avoid clashes with host's drivers.
+      program_transform_name="s&^&${target}-&" ;;
+  esac
+  sedscript="s#${target_noncanonical}#${enable_as_accelerator_for}-accel-${target_noncanonical}#"
+  program_transform_name=`echo $program_transform_name | sed $sedscript`
+  accel_dir_suffix=/accel/${target_noncanonical}
+  real_target_noncanonical=${enable_as_accelerator_for}
+fi
+
+
+
+
+for tgt in `echo $enable_offload_targets | sed 's/,/ /g'`; do
+  tgt=`echo $tgt | sed 's/=.*//'`
+  if test x"$offload_targets" = x; then
+    offload_targets=$tgt
+  else
+    offload_targets="$offload_targets:$tgt"
+  fi
+done
+
+cat >>confdefs.h <<_ACEOF
+#define OFFLOAD_TARGETS "$offload_targets"
+_ACEOF
+
+if test x"$offload_targets" != x; then
+
+$as_echo "#define ENABLE_OFFLOADING 1" >>confdefs.h
+
+fi
+
 
 # Check whether --with-multilib-list was given.
 if test "${with_multilib_list+set}" = set; then :
@@ -8097,6 +8138,47 @@ fi
 
 
 fi
+
+# The jit documentation looks better if built with sphinx, but can be
+# built with texinfo if sphinx is not available.
+# Set "doc_build_sys" to "sphinx" or "texinfo" accordingly.
+# Extract the first word of "sphinx-build", so it can be a program name with args.
+set dummy sphinx-build; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if test "${ac_cv_prog_doc_build_sys+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$doc_build_sys"; then
+  ac_cv_prog_doc_build_sys="$doc_build_sys" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_doc_build_sys="sphinx"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_prog_doc_build_sys" && ac_cv_prog_doc_build_sys="texinfo"
+fi
+fi
+doc_build_sys=$ac_cv_prog_doc_build_sys
+if test -n "$doc_build_sys"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $doc_build_sys" >&5
+$as_echo "$doc_build_sys" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
 
 
 # --------------------
@@ -14581,7 +14663,7 @@ $as_echo "$lt_cv_ld_force_load" >&6; }
       case ${MACOSX_DEPLOYMENT_TARGET-10.0},$host in
 	10.0,*86*-darwin8*|10.0,*-darwin[91]*)
 	  _lt_dar_allow_undefined='${wl}-undefined ${wl}dynamic_lookup' ;;
-	10.[012]*)
+	10.[012][,.]*)
 	  _lt_dar_allow_undefined='${wl}-flat_namespace ${wl}-undefined ${wl}suppress' ;;
 	10.*)
 	  _lt_dar_allow_undefined='${wl}-undefined ${wl}dynamic_lookup' ;;
@@ -18108,7 +18190,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18061 "configure"
+#line 18143 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18214,7 +18296,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18167 "configure"
+#line 18249 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -26166,6 +26248,41 @@ $as_echo "#define HAVE_AS_GNU_ATTRIBUTE 1" >>confdefs.h
 
 fi
 
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for .module support" >&5
+$as_echo_n "checking assembler for .module support... " >&6; }
+if test "${gcc_cv_as_mips_dot_module+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  gcc_cv_as_mips_dot_module=no
+  if test x$gcc_cv_as != x; then
+    $as_echo '.module fp=32' > conftest.s
+    if { ac_try='$gcc_cv_as $gcc_cv_as_flags  -o conftest.o conftest.s >&5'
+  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; }
+    then
+	gcc_cv_as_mips_dot_module=yes
+    else
+      echo "configure: failed program was" >&5
+      cat conftest.s >&5
+    fi
+    rm -f conftest.o conftest.s
+  fi
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_as_mips_dot_module" >&5
+$as_echo "$gcc_cv_as_mips_dot_module" >&6; }
+if test $gcc_cv_as_mips_dot_module = yes; then
+
+$as_echo "#define HAVE_AS_DOT_MODULE 1" >>confdefs.h
+
+fi
+    if test x$gcc_cv_as_mips_dot_module = xno \
+       && test x$with_fp_32 != x; then
+      as_fn_error "Requesting --with-fp-32= requires assembler support for .module." "$LINENO" 5
+    fi
+
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for .micromips support" >&5
 $as_echo_n "checking assembler for .micromips support... " >&6; }
 if test "${gcc_cv_as_micromips_support+set}" = set; then :
@@ -26749,6 +26866,16 @@ fi
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $glibc_version_major.$glibc_version_minor" >&5
 $as_echo "$glibc_version_major.$glibc_version_minor" >&6; }
+
+cat >>confdefs.h <<_ACEOF
+#define TARGET_GLIBC_MAJOR $glibc_version_major
+_ACEOF
+
+
+cat >>confdefs.h <<_ACEOF
+#define TARGET_GLIBC_MINOR $glibc_version_minor
+_ACEOF
+
 
 # Check whether --enable-gnu-unique-object was given.
 if test "${enable_gnu_unique_object+set}" = set; then :
@@ -27987,14 +28114,6 @@ $as_echo "#define HAVE_isl 1" >>confdefs.h
 
 fi
 
-
-
-if test "x${CLOOGLIBS}" != "x" ; then
-
-$as_echo "#define HAVE_cloog 1" >>confdefs.h
-
-fi
-
 # Check for plugin support
    # Check whether --enable-plugin was given.
 if test "${enable_plugin+set}" = set; then :
@@ -28257,6 +28376,12 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 fi
+
+# Generate gcc-driver-name.h containing GCC_DRIVER_NAME for the benefit
+# of jit/jit-playback.c.
+cat > gcc-driver-name.h <<EOF
+#define GCC_DRIVER_NAME "${target_noncanonical}-gcc-${gcc_BASEVER}${exeext}"
+EOF
 
 # Configure the subdirectories
 # AC_CONFIG_SUBDIRS($subdirs)

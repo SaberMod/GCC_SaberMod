@@ -1109,29 +1109,28 @@ edge_badness (struct cgraph_edge *edge, bool dump)
 
   else if (max_count)
     {
-      sreal tmp, relbenefit_real, growth_real;
       int relbenefit = relative_time_benefit (callee_info, edge, edge_time);
       /* Capping edge->count to max_count. edge->count can be larger than
 	 max_count if an inline adds new edges which increase max_count
 	 after max_count is computed.  */
       gcov_type edge_count = edge->count > max_count ? max_count : edge->count;
 
-      sreal_init (&relbenefit_real, relbenefit, 0);
-      sreal_init (&growth_real, growth, 0);
+      sreal relbenefit_real (relbenefit, 0);
+      sreal growth_real (growth, 0);
 
       /* relative_edge_count.  */
-      sreal_init (&tmp, edge_count, 0);
-      sreal_div (&tmp, &tmp, &max_count_real);
+      sreal tmp (edge_count, 0);
+      tmp /= max_count_real;
 
       /* relative_time_benefit.  */
-      sreal_mul (&tmp, &tmp, &relbenefit_real);
-      sreal_div (&tmp, &tmp, &max_relbenefit_real);
+      tmp *= relbenefit_real;
+      tmp /= max_relbenefit_real;
 
       /* growth_f_caller.  */
-      sreal_mul (&tmp, &tmp, &half_int_min_real);
-      sreal_div (&tmp, &tmp, &growth_real);
+      tmp *= half_int_min_real;
+      tmp /=  growth_real;
 
-      badness = -1 * sreal_to_int (&tmp);
+      badness = -1 * tmp.to_int ();
  
       if (dump)
 	{
@@ -1812,9 +1811,9 @@ inline_small_functions (void)
           if (max_count < edge->count)
             max_count = edge->count;
       }
-  sreal_init (&max_count_real, max_count, 0);
-  sreal_init (&max_relbenefit_real, RELATIVE_TIME_BENEFIT_RANGE, 0);
-  sreal_init (&half_int_min_real, INT_MAX / 2, 0);
+  max_count_real = sreal (max_count, 0);
+  max_relbenefit_real = sreal (RELATIVE_TIME_BENEFIT_RANGE, 0);
+  half_int_min_real = sreal (INT_MAX / 2, 0);
   ipa_free_postorder_info ();
   initialize_growth_caches ();
 
@@ -2651,14 +2650,17 @@ early_inliner (function *fun)
 	     info that might be cleared out for newly discovered edges.  */
 	  for (edge = node->callees; edge; edge = edge->next_callee)
 	    {
-	      struct inline_edge_summary *es = inline_edge_summary (edge);
-
 	      if (!edge->call_stmt)
 	        continue;
-	      es->call_stmt_size
-		= estimate_num_insns (edge->call_stmt, &eni_size_weights);
-	      es->call_stmt_time
-		= estimate_num_insns (edge->call_stmt, &eni_time_weights);
+	      /* We have no summary for new bound store calls yet.  */
+	      if (inline_edge_summary_vec.length () > (unsigned)edge->uid)
+		{
+		  struct inline_edge_summary *es = inline_edge_summary (edge);
+		  es->call_stmt_size
+		    = estimate_num_insns (edge->call_stmt, &eni_size_weights);
+		  es->call_stmt_time
+		    = estimate_num_insns (edge->call_stmt, &eni_time_weights);
+		}
 	      if (edge->callee->decl
 		  && !gimple_check_call_matching_types (
 		      edge->call_stmt, edge->callee->decl, false))

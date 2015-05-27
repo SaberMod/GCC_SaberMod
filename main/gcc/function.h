@@ -246,6 +246,9 @@ struct GTY(()) rtl_data {
      result in a register, current_function_return_rtx will always be
      the hard register containing the result.  */
   rtx return_rtx;
+  /* If nonxero, an RTL expression for the lcoation at which the current
+     function returns bounds for its result.  */
+  rtx return_bnd;
 
   /* Vector of initial-value pairs.  Each pair consists of a pseudo
      register of approprite mode that stores the initial value a hard
@@ -941,6 +944,8 @@ extern void init_function_start (tree);
 extern void stack_protect_epilogue (void);
 extern void expand_function_start (tree);
 extern void expand_dummy_function_end (void);
+
+extern void thread_prologue_and_epilogue_insns (void);
 
 #ifdef RTX_CODE
 extern void diddle_return_value (void (*)(rtx, void*), void*);

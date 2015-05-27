@@ -895,6 +895,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case VOID_TYPE:
+    case POINTER_BOUNDS_TYPE:
     case INTEGER_TYPE:
     case REAL_TYPE:
     case FIXED_POINT_TYPE:
@@ -1858,7 +1859,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case RSHIFT_EXPR:
     case LROTATE_EXPR:
     case RROTATE_EXPR:
-    case VEC_RSHIFT_EXPR:
     case WIDEN_LSHIFT_EXPR:
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
@@ -3038,7 +3038,6 @@ op_code_prio (enum tree_code code)
     case REDUC_MAX_EXPR:
     case REDUC_MIN_EXPR:
     case REDUC_PLUS_EXPR:
-    case VEC_RSHIFT_EXPR:
     case VEC_UNPACK_HI_EXPR:
     case VEC_UNPACK_LO_EXPR:
     case VEC_UNPACK_FLOAT_HI_EXPR:
@@ -3147,9 +3146,6 @@ op_symbol_code (enum tree_code code)
 
     case RROTATE_EXPR:
       return "r>>";
-
-    case VEC_RSHIFT_EXPR:
-      return "v>>";
 
     case WIDEN_LSHIFT_EXPR:
       return "w<<";

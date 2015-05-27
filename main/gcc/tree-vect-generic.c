@@ -55,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Need to include rtl.h, expr.h, etc. for optabs.  */
 #include "expr.h"
+#include "insn-codes.h"
 #include "optabs.h"
 
 
@@ -1603,7 +1604,6 @@ expand_vector_operations_1 (gimple_stmt_iterator *gsi)
   if (compute_type == type)
     return;
 
-  gcc_assert (code != VEC_RSHIFT_EXPR);
   new_rhs = expand_vector_operation (gsi, type, compute_type, stmt, code);
 
   /* Leave expression untouched for later expansion.  */

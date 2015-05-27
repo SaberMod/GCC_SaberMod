@@ -95,7 +95,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-reference.h"
 #include "ipa-prop.h"
 #include "gcse.h"
+#include "insn-codes.h"
 #include "optabs.h"
+#include "tree-chkp.h"
+#include "omp-low.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -612,6 +615,11 @@ compile_file (void)
       if (flag_sanitize & SANITIZE_THREAD)
 	tsan_finish_file ();
 
+      if (flag_check_pointer_bounds)
+	chkp_finish_file ();
+
+      omp_finish_file ();
+
       output_shared_constant_pool ();
       output_object_blocks ();
       finish_tm_clone_pairs ();
@@ -953,10 +961,17 @@ init_asm_output (const char *name)
 	}
       if (!strcmp (asm_file_name, "-"))
 	asm_out_file = stdout;
-      else
+      else if (!canonical_filename_eq (asm_file_name, name))
 	asm_out_file = fopen (asm_file_name, "w");
+      else
+	/* Use fatal_error (UNKOWN_LOCATION) instead of just fatal_error to
+	   prevent gcc from printing the first line in the current file. */
+	fatal_error (UNKNOWN_LOCATION,
+		     "input file %qs is the same as output file",
+		     asm_file_name);
       if (asm_out_file == 0)
-	fatal_error ("can%'t open %s for writing: %m", asm_file_name);
+	fatal_error (UNKNOWN_LOCATION,
+		     "can%'t open %qs for writing: %m", asm_file_name);
     }
 
   if (!flag_syntax_only)
@@ -1281,6 +1296,20 @@ process_options (void)
      so we can correctly initialize debug output.  */
   no_backend = lang_hooks.post_options (&main_input_filename);
 
+  /* Set default values for parameters relation to the Scalar Reduction
+     of Aggregates passes (SRA and IP-SRA).  We must do this here, rather
+     than in opts.c:default_options_optimization as historically these
+     tuning heuristics have been based on MOVE_RATIO, which on some
+     targets requires other symbols from the backend.  */
+  maybe_set_param_value
+    (PARAM_SRA_MAX_SCALARIZATION_SIZE_SPEED,
+     get_move_ratio (true) * UNITS_PER_WORD,
+     global_options.x_param_values, global_options_set.x_param_values);
+  maybe_set_param_value
+    (PARAM_SRA_MAX_SCALARIZATION_SIZE_SIZE,
+     get_move_ratio (false) * UNITS_PER_WORD,
+     global_options.x_param_values, global_options_set.x_param_values);
+
   /* Some machines may reject certain combinations of options.  */
   targetm.target_option.override ();
 
@@ -1323,6 +1352,12 @@ process_options (void)
 	   "-floop-interchange, -floop-strip-mine, -floop-parallelize-all, "
 	   "and -ftree-loop-linear)");
 #endif
+
+  if (flag_check_pointer_bounds)
+    {
+      if (targetm.chkp_bound_mode () == VOIDmode)
+	error ("-fcheck-pointer-bounds is not supported for this target");
+    }
 
   /* One region RA really helps to decrease the code size.  */
   if (flag_ira_region == IRA_REGION_AUTODETECT)
@@ -1454,7 +1489,7 @@ process_options (void)
     debug_hooks = &vmsdbg_debug_hooks;
 #endif
   else
-    error ("target system does not support the \"%s\" debug format",
+    error ("target system does not support the %qs debug format",
 	   debug_type_names[write_symbols]);
 
   /* We know which debug output will be used so we can set flag_var_tracking

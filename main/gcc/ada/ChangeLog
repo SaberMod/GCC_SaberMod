@@ -1,3 +1,170 @@
+2014-11-11  Simon Wright  <simon@pushface.org>
+
+	PR ada/42978
+	* mlib-utl.adb (ar): Output the options passed to ranlib.
+
+2014-11-07  Arnaud Charlet  <charlet@adacore.com>
+
+	* debug.adb, snames.adb-tmpl (Is_Keyword_Name): Consider 'overriding'
+	a keyword in Ada 95 mode when -gnatd.D is used.
+	* gnat_ugn.texi: Document -gnatd.D.
+
+2014-11-07  Vasiliy Fofanov  <fofanov@adacore.com>
+
+	* gnatls.adb: Lower severity of the program's return value in
+	some common cases.
+
+2014-11-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch10.adb (Decorate_Type): The limited view of a tagged
+	type has an empty list of primitive operations.
+
+2014-11-07  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch3.adb (Analyze_Object_Declaration): Update references to SPARK
+	RM.
+	(Process_Full_View): Update references to SPARK RM.
+	* sem_ch6.adb (Analyze_Generic_Subprogram_Body): Update references
+	to SPARK RM.
+	(Analyze_Subprogram_Body_Helper): Update references
+	to SPARK RM.
+	* sem_ch7.adb (Analyze_Package_Body_Helper): Update references
+	to SPARK RM.
+	* sem_prag.adb (Check_Ghost_Constituent): Update references to
+	SPARK RM.
+	* sem_res.adb (Check_Ghost_Policy): Update references to SPARK RM.
+	(Resolve_Actuals): Ensure that the actual parameter of a Ghost
+	subprogram whose formal is of mode IN OUT or OUT is Ghost.
+	* sem_util.adb (Check_Ghost_Completion): Update references to
+	SPARK RM.
+
+2014-11-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch7.adb (Make_Final_Call): If type of designated object is
+	derived from that of the formal of the Deep_Finalize procedure,
+	add an unchecked conversion to prevent spurious type error.
+
+2014-11-07  Robert Dewar  <dewar@adacore.com>
+
+	* table.adb, inline.adb, einfo.adb, gnat1drv.adb, exp_ch13.adb,
+	exp_fixd.adb, prj-conf.adb, exp_strm.adb, a-cofove.adb, exp_ch3.ads:
+	Minor reformatting.
+
+2014-11-07  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch12.adb, sem_ch13.adb, prj-tree.adb: Minor reformatting.
+
+2014-11-07  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* einfo.adb (Set_Is_Checked_Ghost_Entity,
+	Set_Is_Ignored_Ghost_Entity): Add exceptions to the assertion
+	check.
+	* sem_ch6.adb (Check_Conformance): Consider only
+	source subprograms when checking for Ghost conformance.
+	* sem_prag.adb (Analyze_Pragma): Handle the case
+	where pragma Ghost applies to a stand alone subprogram body that
+	acts as a compilation unit.
+	* sem_res.adb: Minor reformatting (merge if statements).
+
+2014-11-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_strm.adb (Build_Record_Or_Elementary_Input_Function):
+	Check whether underlying type is constrained before generating
+	the object declaration for the result object of the function.
+
+2014-11-07  Robert Dewar  <dewar@adacore.com>
+
+	* freeze.adb: Code clean up.
+
+2014-11-07  Yannick Moy  <moy@adacore.com>
+
+	* a-cfdlli.ads, a-cfhama.ads, a-cfhase.ads, a-cfinve.ads,
+	* a-cforma.ads, a-cforse.ads, a-cofove.ads: Mark First_To_Previous,
+	Current_To_Last and Strict_Equal as Ghost.
+
+2014-11-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb: Code clean up.
+
+2014-11-07  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* freeze.adb (Freeze_Entity): Issue an error regardless of the
+	SPARK_Mode when a ghost type is effectively volatile.
+	* sem_ch3.adb (Analyze_Object_Contract): Decouple the checks
+	related to Ghost from SPARK_Mode.
+	* sem_res.adb (Check_Ghost_Policy): Issue an error regardless
+	of the SPARK_Mode when the Ghost policies do not match.
+	* sem_util.adb (Check_Ghost_Completion): Issue an error regardless
+	of the SPARK_Mode when the Ghost policies do not match.
+
+2014-11-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch5.adb (Analyze_Iterator_Specification): return if name
+	in iterator does not have any usable aspect for iteration.
+
+2014-11-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch6.adb (Analyze_Null_Procedure): Reject a null procedure
+	that there is a previous null procedure in scope with a matching
+	profile.
+
+2014-11-07  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* atree.adb (Copy_Separate_Tree): Copy the aspect specifications.
+	* inline.adb (Has_Some_Contract): Do the check only when the
+	related entity has been analyzed.
+
+2014-11-07  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_fixd.adb (Expand_Multiply_Fixed_By_Fixed_Giving_Integer):
+	If the restriction No_Floating_Point is in effect, and the
+	operands have the same type, introduce a temporary to hold
+	the fixed point result, to prevent the use of floating-point
+	operations at run-time.
+
+2014-11-07  Robert Dewar  <dewar@adacore.com>
+
+	* freeze.adb (Check_Address_Clause): Minor reformatting
+	(Find_Constant): Minor reformatting.
+	(Freeze_Array_Type): Modify check for packed declarations.
+	(Freeze_Entity): Minor reformatting.
+
+2014-11-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnatvsn.ads (Library_Version): Bump to 5.0.
+
+2014-11-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (Subprogram_Body_to_gnu): For a function with
+	copy-in/copy-out parameters and which returns by invisible reference,
+	do not create the variable for the return value; instead, manually
+	generate the indirect copy out statements on exit.
+	(gnat_to_gnu) <N_Simple_Return_Statement>: Adjust accordingly and build
+	a simple indirect assignment for the return value.
+
+2014-11-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Record_Type>: For a
+	derived untagged type that renames discriminants, be prepared for
+	a type derived from a private discriminated type when changing the
+	type of the stored discriminants.
+
+2014-11-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (Handled_Sequence_Of_Statements_to_gnu): Set
+	the SLOC of the node on the call to set_jmpbuf_address_soft emitted
+	on block entry with SJLJ.
+
+2014-11-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils.c (create_subprog_decl): Move code dealing with
+	conflicting inlining status of nested subprograms to...
+	* gcc-interface/trans.c (check_inlining_for_nested_subprog): ...here.
+	(Attribute_to_gnu) <Attr_Access>: Call it.
+	(Call_to_gnu): Likewise.
+	(Subprogram_Body_to_gnu): Drop the body if it is an inlined external
+	function that has been marked uninlinable.
+
 2014-10-31  Hristian Kirtchev  <kirtchev@adacore.com>
 
 	* aspects.adb Add an entry for aspect Ghost in table

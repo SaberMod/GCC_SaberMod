@@ -4014,8 +4014,6 @@ c_init_decl_processing (void)
 
   input_location = save_loc;
 
-  pedantic_lvalues = true;
-
   make_fname_decl = c_make_fname_decl;
   start_fname_decls ();
 }

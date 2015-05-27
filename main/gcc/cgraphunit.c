@@ -225,6 +225,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-nested.h"
 #include "gimplify.h"
 #include "dbgcnt.h"
+#include "tree-chkp.h"
+#include "lto-section-names.h"
+#include "omp-low.h"
 
 /* Queue of cgraph nodes scheduled to be added into cgraph.  This is a
    secondary queue used during optimization to accommodate passes that
@@ -810,6 +813,9 @@ varpool_node::finalize_decl (tree decl)
       || (!flag_toplevel_reorder
 	&& symtab->state == EXPANSION))
     node->assemble_decl ();
+
+  if (DECL_INITIAL (decl))
+    chkp_register_var_initializer (decl);
 }
 
 /* EDGE is an polymorphic call.  Mark all possible targets as reachable
@@ -883,6 +889,11 @@ walk_polymorphic_call_targets (hash_set<void *> *reachable_call_targets,
 
 	  edge->make_direct (target);
 	  edge->redirect_call_stmt_to_callee ();
+
+	  /* Call to __builtin_unreachable shouldn't be instrumented.  */
+	  if (!targets.length ())
+	    gimple_call_set_with_bounds (edge->call_stmt, false);
+
 	  if (symtab->dump_file)
 	    {
 	      fprintf (symtab->dump_file,
@@ -1683,7 +1694,15 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       if (!VOID_TYPE_P (restype))
 	{
 	  if (DECL_BY_REFERENCE (resdecl))
-	    restmp = gimple_fold_indirect_ref (resdecl);
+	    {
+	      restmp = gimple_fold_indirect_ref (resdecl);
+	      if (!restmp)
+		restmp = build2 (MEM_REF,
+				 TREE_TYPE (TREE_TYPE (DECL_RESULT (alias))),
+				 resdecl,
+				 build_int_cst (TREE_TYPE
+				   (DECL_RESULT (alias)), 0));
+	    }
 	  else if (!is_gimple_reg_type (restype))
 	    {
 	      restmp = resdecl;
@@ -1721,6 +1740,7 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       call = gimple_build_call_vec (build_fold_addr_expr_loc (0, alias), vargs);
       callees->call_stmt = call;
       gimple_call_set_from_thunk (call, true);
+      gimple_call_set_with_bounds (call, instrumentation_clone);
       if (restmp)
 	{
           gimple_call_set_lhs (call, restmp);
@@ -1778,7 +1798,11 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
 	    gimple_call_set_tail (call, true);
 
 	  /* Build return value.  */
-	  ret = gimple_build_return (restmp);
+	  if (!DECL_BY_REFERENCE (resdecl))
+	    ret = gimple_build_return (restmp);
+	  else
+	    ret = gimple_build_return (resdecl);
+
 	  gsi_insert_after (&bsi, ret, GSI_NEW_STMT);
 	}
       else
@@ -1817,7 +1841,8 @@ cgraph_node::assemble_thunks_and_aliases (void)
   ipa_ref *ref;
 
   for (e = callers; e;)
-    if (e->caller->thunk.thunk_p)
+    if (e->caller->thunk.thunk_p
+	&& !e->caller->thunk.add_pointer_bounds_args)
       {
 	cgraph_node *thunk = e->caller;
 
@@ -2198,7 +2223,18 @@ ipa_passes (void)
     targetm.asm_out.lto_start ();
 
   if (!in_lto_p)
-    ipa_write_summaries ();
+    {
+      if (g->have_offload)
+	{
+	  section_name_prefix = OFFLOAD_SECTION_NAME_PREFIX;
+	  ipa_write_summaries (true);
+	}
+      if (flag_lto)
+	{
+	  section_name_prefix = LTO_SECTION_NAME_PREFIX;
+	  ipa_write_summaries (false);
+	}
+    }
 
   if (flag_generate_lto)
     targetm.asm_out.lto_end ();
@@ -2229,9 +2265,13 @@ void
 symbol_table::output_weakrefs (void)
 {
   symtab_node *node;
+  cgraph_node *cnode;
   FOR_EACH_SYMBOL (node)
     if (node->alias
         && !TREE_ASM_WRITTEN (node->decl)
+	&& (!(cnode = dyn_cast <cgraph_node *> (node))
+	    || !cnode->instrumented_version
+	    || !TREE_ASM_WRITTEN (cnode->instrumented_version->decl))
 	&& node->weakref)
       {
 	tree target;
@@ -2284,8 +2324,12 @@ symbol_table::compile (void)
       cgraph_add_fake_indirect_call_edges ();
     }
 
+  /* Offloading requires LTO infrastructure.  */
+  if (!in_lto_p && g->have_offload)
+    flag_generate_lto = 1;
+
   /* If LTO is enabled, initialize the streamer hooks needed by GIMPLE.  */
-  if (flag_lto)
+  if (flag_generate_lto)
     lto_streamer_hooks_init ();
 
   /* Don't run the IPA passes if there was any error or sorry messages.  */
@@ -2496,6 +2540,14 @@ cgraph_node::create_wrapper (cgraph_node *target)
     thunk.this_adjusting = false;
 
     cgraph_edge *e = create_edge (target, NULL, 0, CGRAPH_FREQ_BASE);
+
+    tree arguments = DECL_ARGUMENTS (decl);
+
+    while (arguments)
+      {
+	TREE_ADDRESSABLE (arguments) = false;
+	arguments = TREE_CHAIN (arguments);
+      }
 
     expand_thunk (false, true);
     e->call_stmt_cannot_inline_p = true;

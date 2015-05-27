@@ -3843,6 +3843,12 @@ The return value is usually either a @code{reg} RTX for the hard
 register in which to pass the argument, or zero to pass the argument
 on the stack.
 
+The return value can be a @code{const_int} which means argument is
+passed in a target specific slot with specified number.  Target hooks
+should be used to store or load argument in such case.  See
+@code{TARGET_STORE_BOUNDS_FOR_ARG} and @code{TARGET_LOAD_BOUNDS_FOR_ARG}
+for more information.
+
 The value of the expression can also be a @code{parallel} RTX@.  This is
 used when an argument is passed in multiple locations.  The mode of the
 @code{parallel} should be the mode of the entire argument.  The
@@ -4370,6 +4376,14 @@ Define this macro if @samp{untyped_call} and @samp{untyped_return}
 need more space than is implied by @code{FUNCTION_VALUE_REGNO_P} for
 saving and restoring an arbitrary return value.
 @end defmac
+
+@deftypevr {Target Hook} bool TARGET_OMIT_STRUCT_RETURN_REG
+Normally, when a function returns a structure by memory, the address
+is passed as an invisible pointer argument, but the compiler also
+arranges to return the address from the function like it would a normal
+pointer return value.  Define this to true if that behaviour is
+undesirable on your target.
+@end deftypevr
 
 @deftypefn {Target Hook} bool TARGET_RETURN_IN_MSB (const_tree @var{type})
 This hook should return true if values of type @var{type} are returned
@@ -4962,6 +4976,29 @@ except the last are treated as named.
 You need not define this hook if it always returns @code{false}.
 @end deftypefn
 
+@deftypefn {Target Hook} void TARGET_CALL_ARGS (rtx, @var{tree})
+While generating RTL for a function call, this target hook is invoked once
+for each argument passed to the function, either a register returned by
+@code{TARGET_FUNCTION_ARG} or a memory location.  It is called just
+before the point where argument registers are stored.  The type of the
+function to be called is also passed as the second argument; it is
+@code{NULL_TREE} for libcalls.  The @code{TARGET_END_CALL_ARGS} hook is
+invoked just after the code to copy the return reg has been emitted.
+This functionality can be used to perform special setup of call argument
+registers if a target needs it.
+For functions without arguments, the hook is called once with @code{pc_rtx}
+passed instead of an argument register.
+Most ports do not need to implement anything for this hook.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_END_CALL_ARGS (void)
+This target hook is invoked while generating RTL for a function call,
+just after the point where the return reg is copied into a pseudo.  It
+signals that all the call argument and return registers for the just
+emitted call are now no longer in use.
+Most ports do not need to implement anything for this hook.
+@end deftypefn
+
 @deftypefn {Target Hook} bool TARGET_PRETEND_OUTGOING_VARARGS_NAMED (cumulative_args_t @var{ca})
 If you need to conditionally change ABIs so that one works with
 @code{TARGET_SETUP_INCOMING_VARARGS}, but the other works like neither
@@ -4969,6 +5006,49 @@ If you need to conditionally change ABIs so that one works with
 defined, then define this hook to return @code{true} if
 @code{TARGET_SETUP_INCOMING_VARARGS} is used, @code{false} otherwise.
 Otherwise, you should not define this hook.
+@end deftypefn
+
+@deftypefn {Target Hook} rtx TARGET_LOAD_BOUNDS_FOR_ARG (rtx @var{slot}, rtx @var{arg}, rtx @var{slot_no})
+This hook is used by expand pass to emit insn to load bounds of
+@var{arg} passed in @var{slot}.  Expand pass uses this hook in case
+bounds of @var{arg} are not passed in register.  If @var{slot} is a
+memory, then bounds are loaded as for regular pointer loaded from
+memory.  If @var{slot} is not a memory then @var{slot_no} is an integer
+constant holding number of the target dependent special slot which
+should be used to obtain bounds.  Hook returns RTX holding loaded bounds.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_STORE_BOUNDS_FOR_ARG (rtx @var{arg}, rtx @var{slot}, rtx @var{bounds}, rtx @var{slot_no})
+This hook is used by expand pass to emit insns to store @var{bounds} of
+@var{arg} passed in @var{slot}.  Expand pass uses this hook in case
+@var{bounds} of @var{arg} are not passed in register.  If @var{slot} is a
+memory, then @var{bounds} are stored as for regular pointer stored in
+memory.  If @var{slot} is not a memory then @var{slot_no} is an integer
+constant holding number of the target dependent special slot which
+should be used to store @var{bounds}.
+@end deftypefn
+
+@deftypefn {Target Hook} rtx TARGET_LOAD_RETURNED_BOUNDS (rtx @var{slot})
+This hook is used by expand pass to emit insn to load bounds
+returned by function call in @var{slot}.  Hook returns RTX holding
+loaded bounds.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_STORE_RETURNED_BOUNDS (rtx @var{slot}, rtx @var{bounds})
+This hook is used by expand pass to emit insn to store @var{bounds}
+returned by function call into @var{slot}.
+@end deftypefn
+
+@deftypefn {Target Hook} rtx TARGET_CHKP_FUNCTION_VALUE_BOUNDS (const_tree @var{ret_type}, const_tree @var{fn_decl_or_type}, bool @var{outgoing})
+Define this to return an RTX representing the place where a function
+returns bounds for returned pointers.  Arguments meaning is similar to
+@code{TARGET_FUNCTION_VALUE}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_SETUP_INCOMING_VARARG_BOUNDS (cumulative_args_t @var{args_so_far}, enum machine_mode @var{mode}, tree @var{type}, int *@var{pretend_args_size}, int @var{second_time})
+Use it to store bounds for anonymous register arguments stored
+into the stack.  Arguments meaning is similar to
+@code{TARGET_SETUP_INCOMING_VARARGS}.
 @end deftypefn
 
 @node Trampolines
@@ -5861,10 +5941,11 @@ for comparisons whose argument is a @code{plus}:
 
 @smallexample
 #define SELECT_CC_MODE(OP,X,Y) \
-  (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT          \
-   ? ((OP == EQ || OP == NE) ? CCFPmode : CCFPEmode)    \
-   : ((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS    \
-       || GET_CODE (X) == NEG) \
+  (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT           \
+   ? ((OP == LT || OP == LE || OP == GT || OP == GE)     \
+      ? CCFPEmode : CCFPmode)                            \
+   : ((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS     \
+       || GET_CODE (X) == NEG || GET_CODE (x) == ASHIFT) \
       ? CC_NOOVmode : CCmode))
 @end smallexample
 
@@ -5907,10 +5988,11 @@ then @code{REVERSIBLE_CC_MODE (@var{mode})} must be zero.
 You need not define this macro if it would always returns zero or if the
 floating-point format is anything other than @code{IEEE_FLOAT_FORMAT}.
 For example, here is the definition used on the SPARC, where floating-point
-inequality comparisons are always given @code{CCFPEmode}:
+inequality comparisons are given either @code{CCFPEmode} or @code{CCFPmode}:
 
 @smallexample
-#define REVERSIBLE_CC_MODE(MODE)  ((MODE) != CCFPEmode)
+#define REVERSIBLE_CC_MODE(MODE) \
+   ((MODE) != CCFPEmode && (MODE) != CCFPmode)
 @end smallexample
 @end defmac
 
@@ -5920,7 +6002,7 @@ comparison done in CC_MODE @var{mode}.  The macro is used only in case
 @code{REVERSIBLE_CC_MODE (@var{mode})} is nonzero.  Define this macro in case
 machine has some non-standard way how to reverse certain conditionals.  For
 instance in case all floating point conditions are non-trapping, compiler may
-freely convert unordered compares to ordered one.  Then definition may look
+freely convert unordered compares to ordered ones.  Then definition may look
 like:
 
 @smallexample
@@ -6123,16 +6205,6 @@ optimized for speed rather than size.
 If you don't define this, a reasonable default is used.
 @end defmac
 
-@defmac MOVE_BY_PIECES_P (@var{size}, @var{alignment})
-A C expression used to determine whether @code{move_by_pieces} will be used to
-copy a chunk of memory, or whether some other block move mechanism
-will be used.  Defaults to 1 if @code{move_by_pieces_ninsns} returns less
-than @code{MOVE_RATIO}.
-
-This macro is deprecated.  New ports should implement
-@code{TARGET_USE_BY_PIECES_INFRASTRUCTURE_P} instead.
-@end defmac
-
 @deftypefn {Target Hook} bool TARGET_USE_BY_PIECES_INFRASTRUCTURE_P (unsigned int @var{size}, unsigned int @var{alignment}, enum by_pieces_operation @var{op}, bool @var{speed_p})
 GCC will attempt several strategies when asked to copy between
 two areas of memory, or to set, clear or store to memory, for example
@@ -6184,16 +6256,6 @@ optimized for speed rather than size.
 If you don't define this, a reasonable default is used.
 @end defmac
 
-@defmac CLEAR_BY_PIECES_P (@var{size}, @var{alignment})
-A C expression used to determine whether @code{clear_by_pieces} will be used
-to clear a chunk of memory, or whether some other block clear mechanism
-will be used.  Defaults to 1 if @code{move_by_pieces_ninsns} returns less
-than @code{CLEAR_RATIO}.
-
-This macro is deprecated.  New ports should implement
-@code{TARGET_USE_BY_PIECES_INFRASTRUCTURE_P} instead.
-@end defmac
-
 @defmac SET_RATIO (@var{speed})
 The threshold of number of scalar move insns, @emph{below} which a sequence
 of insns should be generated to set memory to a constant value, instead of
@@ -6205,30 +6267,6 @@ The parameter @var{speed} is true if the code is currently being
 optimized for speed rather than size.
 
 If you don't define this, it defaults to the value of @code{MOVE_RATIO}.
-@end defmac
-
-@defmac SET_BY_PIECES_P (@var{size}, @var{alignment})
-A C expression used to determine whether @code{store_by_pieces} will be
-used to set a chunk of memory to a constant value, or whether some
-other mechanism will be used.  Used by @code{__builtin_memset} when
-storing values other than constant zero.
-Defaults to 1 if @code{move_by_pieces_ninsns} returns less
-than @code{SET_RATIO}.
-
-This macro is deprecated.  New ports should implement
-@code{TARGET_USE_BY_PIECES_INFRASTRUCTURE_P} instead.
-@end defmac
-
-@defmac STORE_BY_PIECES_P (@var{size}, @var{alignment})
-A C expression used to determine whether @code{store_by_pieces} will be
-used to set a chunk of memory to a constant string value, or whether some
-other mechanism will be used.  Used by @code{__builtin_strcpy} when
-called with a constant source string.
-Defaults to 1 if @code{move_by_pieces_ninsns} returns less
-than @code{MOVE_RATIO}.
-
-This macro is deprecated.  New ports should implement
-@code{TARGET_USE_BY_PIECES_INFRASTRUCTURE_P} instead.
 @end defmac
 
 @defmac USE_LOAD_POST_INCREMENT (@var{mode})
@@ -7408,6 +7446,11 @@ The default implementation of this hook will use the
 when the relevant string is @code{NULL}.
 @end deftypefn
 
+@deftypefn {Target Hook} void TARGET_ASM_DECL_END (void)
+Define this hook if the target assembler requires a special marker to
+terminate an initialized variable declaration.
+@end deftypefn
+
 @deftypefn {Target Hook} bool TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA (FILE *@var{file}, rtx @var{x})
 A target hook to recognize @var{rtx} patterns that @code{output_addr_const}
 can't deal with, and output assembly code to @var{file} corresponding to
@@ -7853,6 +7896,13 @@ This target hook is a function to output to the stdio stream
 global; that is, available for reference from other files.
 
 The default implementation uses the TARGET_ASM_GLOBALIZE_LABEL target hook.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_ASM_ASSEMBLE_UNDEFINED_DECL (FILE *@var{stream}, const char *@var{name}, const_tree @var{decl})
+This target hook is a function to output to the stdio stream
+@var{stream} some commands that will declare the name associated with
+@var{decl} which is not defined in the current translation unit.  Most
+assemblers do not require anything to be output in this case.
 @end deftypefn
 
 @defmac ASM_WEAKEN_LABEL (@var{stream}, @var{name})
@@ -9367,11 +9417,19 @@ True if the @code{DW_AT_comp_dir} attribute should be emitted for each  compilat
 @end deftypevr
 
 @deftypevr {Target Hook} bool TARGET_DELAY_SCHED2
-True if sched2 is not to be run at its normal place.  This usually means it will be run as part of machine-specific reorg.
+True if sched2 is not to be run at its normal place.
+This usually means it will be run as part of machine-specific reorg.
 @end deftypevr
 
 @deftypevr {Target Hook} bool TARGET_DELAY_VARTRACK
-True if vartrack is not to be run at its normal place.  This usually means it will be run as part of machine-specific reorg.
+True if vartrack is not to be run at its normal place.
+This usually means it will be run as part of machine-specific reorg.
+@end deftypevr
+
+@deftypevr {Target Hook} bool TARGET_NO_REGISTER_ALLOCATION
+True if register allocation and the passes
+following it should not be run.  Usually true only for virtual assembler
+targets.
 @end deftypevr
 
 @defmac ASM_OUTPUT_DWARF_DELTA (@var{stream}, @var{size}, @var{label1}, @var{label2})
@@ -10782,6 +10840,93 @@ ignored.  This function should return the result of the call to the
 built-in function.
 @end deftypefn
 
+@deftypefn {Target Hook} tree TARGET_BUILTIN_CHKP_FUNCTION (unsigned @var{fcode})
+This hook allows target to redefine built-in functions used by
+Pointer Bounds Checker for code instrumentation.  Hook should return
+fndecl of function implementing generic builtin whose code is
+passed in @var{fcode}.  Currently following built-in functions are
+obtained using this hook:
+@deftypefn {Built-in Function} __bounds_type __chkp_bndmk (const void *@var{lb}, size_t @var{size})
+Function code - BUILT_IN_CHKP_BNDMK.  This built-in function is used
+by Pointer Bounds Checker to create bound values.  @var{lb} holds low
+bound of the resulting bounds.  @var{size} holds size of created bounds.
+@end deftypefn
+
+@deftypefn {Built-in Function} void __chkp_bndstx (const void *@var{ptr}, __bounds_type @var{b}, const void **@var{loc})
+Function code - @code{BUILT_IN_CHKP_BNDSTX}.  This built-in function is used
+by Pointer Bounds Checker to store bounds @var{b} for pointer @var{ptr}
+when @var{ptr} is stored by address @var{loc}.
+@end deftypefn
+
+@deftypefn {Built-in Function} __bounds_type __chkp_bndldx (const void **@var{loc}, const void *@var{ptr})
+Function code - @code{BUILT_IN_CHKP_BNDLDX}.  This built-in function is used
+by Pointer Bounds Checker to get bounds of pointer @var{ptr} loaded by
+address @var{loc}.
+@end deftypefn
+
+@deftypefn {Built-in Function} void __chkp_bndcl (const void *@var{ptr}, __bounds_type @var{b})
+Function code - @code{BUILT_IN_CHKP_BNDCL}.  This built-in function is used
+by Pointer Bounds Checker to perform check for pointer @var{ptr} against
+lower bound of bounds @var{b}.
+@end deftypefn
+
+@deftypefn {Built-in Function} void __chkp_bndcu (const void *@var{ptr}, __bounds_type @var{b})
+Function code - @code{BUILT_IN_CHKP_BNDCU}.  This built-in function is used
+by Pointer Bounds Checker to perform check for pointer @var{ptr} against
+upper bound of bounds @var{b}.
+@end deftypefn
+
+@deftypefn {Built-in Function} __bounds_type __chkp_bndret (void *@var{ptr})
+Function code - @code{BUILT_IN_CHKP_BNDRET}.  This built-in function is used
+by Pointer Bounds Checker to obtain bounds returned by a call statement.
+@var{ptr} passed to built-in is @code{SSA_NAME} returned by the call.
+@end deftypefn
+
+@deftypefn {Built-in Function} __bounds_type __chkp_intersect (__bounds_type @var{b1}, __bounds_type @var{b2})
+Function code - @code{BUILT_IN_CHKP_INTERSECT}.  This built-in function
+returns intersection of bounds @var{b1} and @var{b2}.
+@end deftypefn
+
+@deftypefn {Built-in Function} __bounds_type __chkp_narrow (const void *@var{ptr}, __bounds_type @var{b}, size_t @var{s})
+Function code - @code{BUILT_IN_CHKP_NARROW}.  This built-in function
+returns intersection of bounds @var{b} and
+[@var{ptr}, @var{ptr} + @var{s} - @code{1}].
+@end deftypefn
+
+@deftypefn {Built-in Function} size_t __chkp_sizeof (const void *@var{ptr})
+Function code - @code{BUILT_IN_CHKP_SIZEOF}.  This built-in function
+returns size of object referenced by @var{ptr}. @var{ptr} is always
+@code{ADDR_EXPR} of @code{VAR_DECL}.  This built-in is used by
+Pointer Bounds Checker when bounds of object cannot be computed statically
+(e.g. object has incomplete type).
+@end deftypefn
+
+@deftypefn {Built-in Function} const void *__chkp_extract_lower (__bounds_type @var{b})
+Function code - @code{BUILT_IN_CHKP_EXTRACT_LOWER}.  This built-in function
+returns lower bound of bounds @var{b}.
+@end deftypefn
+
+@deftypefn {Built-in Function} const void *__chkp_extract_upper (__bounds_type @var{b})
+Function code - @code{BUILT_IN_CHKP_EXTRACT_UPPER}.  This built-in function
+returns upper bound of bounds @var{b}.
+@end deftypefn
+@end deftypefn
+@deftypefn {Target Hook} tree TARGET_CHKP_BOUND_TYPE (void)
+Return type to be used for bounds
+@end deftypefn
+@deftypefn {Target Hook} {enum machine_mode} TARGET_CHKP_BOUND_MODE (void)
+Return mode to be used for bounds.
+@end deftypefn
+@deftypefn {Target Hook} tree TARGET_CHKP_MAKE_BOUNDS_CONSTANT (HOST_WIDE_INT @var{lb}, HOST_WIDE_INT @var{ub})
+Return constant used to statically initialize constant bounds
+with specified lower bound @var{lb} and upper bounds @var{ub}.
+@end deftypefn
+@deftypefn {Target Hook} int TARGET_CHKP_INITIALIZE_BOUNDS (tree @var{var}, tree @var{lb}, tree @var{ub}, tree *@var{stmts})
+Generate a list of statements @var{stmts} to initialize pointer
+bounds variable @var{var} with bounds @var{lb} and @var{ub}.  Return
+the number of generated statements.
+@end deftypefn
+
 @deftypefn {Target Hook} tree TARGET_RESOLVE_OVERLOADED_BUILTIN (unsigned int @var{loc}, tree @var{fndecl}, void *@var{arglist})
 Select a replacement for a machine specific built-in function that
 was set up by @samp{TARGET_INIT_BUILTINS}.  This is done
@@ -11249,6 +11394,21 @@ If defined, this function returns an appropriate alignment in bits for an atomic
 
 @deftypefn {Target Hook} void TARGET_ATOMIC_ASSIGN_EXPAND_FENV (tree *@var{hold}, tree *@var{clear}, tree *@var{update})
 ISO C11 requires atomic compound assignments that may raise floating-point exceptions to raise exceptions corresponding to the arithmetic operation whose result was successfully stored in a compare-and-exchange sequence.  This requires code equivalent to calls to @code{feholdexcept}, @code{feclearexcept} and @code{feupdateenv} to be generated at appropriate points in the compare-and-exchange sequence.  This hook should set @code{*@var{hold}} to an expression equivalent to the call to @code{feholdexcept}, @code{*@var{clear}} to an expression equivalent to the call to @code{feclearexcept} and @code{*@var{update}} to an expression equivalent to the call to @code{feupdateenv}.  The three expressions are @code{NULL_TREE} on entry to the hook and may be left as @code{NULL_TREE} if no code is required in a particular place.  The default implementation leaves all three expressions as @code{NULL_TREE}.  The @code{__atomic_feraiseexcept} function from @code{libatomic} may be of use as part of the code generated in @code{*@var{update}}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_RECORD_OFFLOAD_SYMBOL (tree)
+Used when offloaded functions are seen in the compilation unit and no named
+sections are available.  It is called once for each symbol that must be
+recorded in the offload function and variable table.
+@end deftypefn
+
+@deftypefn {Target Hook} {char *} TARGET_OFFLOAD_OPTIONS (void)
+Used when writing out the list of options into an LTO file.  It should
+translate any relevant target-specific options (such as the ABI in use)
+into one of the @option{-foffload} options that exist as a common interface
+to express such options.  It should return a string containing these options,
+separated by spaces, which the caller will free.
+
 @end deftypefn
 
 @defmac TARGET_SUPPORTS_WIDE_INT

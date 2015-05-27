@@ -9622,12 +9622,8 @@ c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
 {
   tree entry = NULL, exit = NULL, t;
 
-  if (flag_cilkplus && contains_array_notation_expr (cond))
-    {
-      error_at (start_locus, "array notation expression cannot be used in a "
-		"loop%'s condition");
-      return;
-    }
+  /* In theory could forbid cilk spawn for loop increment expression,
+     but it should work just fine.  */
   
   /* If the condition is zero don't generate a loop construct.  */
   if (cond && integer_zerop (cond))
@@ -10491,7 +10487,8 @@ build_binary_op (location_t location, enum tree_code code,
 		{
 		  int_const = false;
 		  if (c_inhibit_evaluation_warnings == 0)
-		    warning_at (location, 0, "right shift count is negative");
+		    warning_at (location, OPT_Wshift_count_negative,
+				"right shift count is negative");
 		}
 	      else
 		{
@@ -10502,8 +10499,8 @@ build_binary_op (location_t location, enum tree_code code,
 		    {
 		      int_const = false;
 		      if (c_inhibit_evaluation_warnings == 0)
-			warning_at (location, 0, "right shift count >= width "
-				    "of type");
+			warning_at (location, OPT_Wshift_count_overflow,
+				    "right shift count >= width of type");
 		    }
 		}
 	    }
@@ -10545,15 +10542,16 @@ build_binary_op (location_t location, enum tree_code code,
 		{
 		  int_const = false;
 		  if (c_inhibit_evaluation_warnings == 0)
-		    warning_at (location, 0, "left shift count is negative");
+		    warning_at (location, OPT_Wshift_count_negative,
+				"left shift count is negative");
 		}
 
 	      else if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0)
 		{
 		  int_const = false;
 		  if (c_inhibit_evaluation_warnings == 0)
-		    warning_at (location, 0, "left shift count >= width of "
-				"type");
+		    warning_at (location, OPT_Wshift_count_overflow,
+				"left shift count >= width of type");
 		}
 	    }
 

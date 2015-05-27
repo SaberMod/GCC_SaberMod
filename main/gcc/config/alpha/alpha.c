@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "recog.h"
 #include "expr.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "reload.h"
 #include "obstack.h"
@@ -2544,7 +2545,7 @@ alpha_emit_conditional_branch (rtx operands[], machine_mode cmp_mode)
 	{
 	  cmp_code = swap_condition (code);
 	  branch_code = NE;
-	  tem = op0, op0 = op1, op1 = tem;
+	  std::swap (op0, op1);
 	}
       else
 	{
@@ -2568,7 +2569,7 @@ alpha_emit_conditional_branch (rtx operands[], machine_mode cmp_mode)
 	  else if (op0 == CONST0_RTX (DFmode))
 	    {
 	      /* Undo the swap we probably did just above.  */
-	      tem = op0, op0 = op1, op1 = tem;
+	      std::swap (op0, op1);
 	      branch_code = swap_condition (cmp_code);
 	      cmp_code = UNKNOWN;
 	    }
@@ -2688,7 +2689,7 @@ alpha_emit_setcc (rtx operands[], machine_mode cmp_mode)
       code = swap_condition (code);
       if (cmp_mode == DFmode)
 	cmp_code = code, code = NE;
-      tmp = op0, op0 = op1, op1 = tmp;
+      std::swap (op0, op1);
       break;
 
     default:
@@ -2785,7 +2786,7 @@ alpha_emit_conditional_move (rtx cmp, machine_mode mode)
 	    {
 	      cmp_code = swap_condition (code);
 	      code = NE;
-	      tem = op0, op0 = op1, op1 = tem;
+	      std::swap (op0, op1);
 	    }
 	  break;
 
@@ -2856,7 +2857,7 @@ alpha_emit_conditional_move (rtx cmp, machine_mode mode)
       if (cmp_mode == DImode && op1 == const0_rtx)
 	break;
       code = swap_condition (code);
-      tem = op0, op0 = op1, op1 = tem;
+      std::swap (op0, op1);
       break;
 
     default:
@@ -3317,9 +3318,8 @@ alpha_split_tmode_pair (rtx operands[4], machine_mode mode,
 
   if (fixup_overlap && reg_overlap_mentioned_p (operands[0], operands[3]))
     {
-      rtx tmp;
-      tmp = operands[0], operands[0] = operands[1], operands[1] = tmp;
-      tmp = operands[2], operands[2] = operands[3], operands[3] = tmp;
+      std::swap (operands[0], operands[1]);
+      std::swap (operands[2], operands[3]);
     }
 }
 

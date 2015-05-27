@@ -69,6 +69,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target-def.h"
 #include "regs.h"
 #include "reload.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "recog.h"
 #include "intl.h"
@@ -78,7 +79,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
-#include "insn-codes.h"
 
 
 bool
@@ -1409,7 +1409,7 @@ default_register_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
 /* For hooks which use the MOVE_RATIO macro, this gives the legacy default
    behaviour.  SPEED_P is true if we are compiling for speed.  */
 
-static unsigned int
+unsigned int
 get_move_ratio (bool speed_p ATTRIBUTE_UNUSED)
 {
   unsigned int move_ratio;
@@ -1700,6 +1700,36 @@ default_member_type_forces_blk (const_tree, machine_mode)
   return false;
 }
 
+rtx
+default_load_bounds_for_arg (rtx addr ATTRIBUTE_UNUSED,
+			     rtx ptr ATTRIBUTE_UNUSED,
+			     rtx bnd ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+void
+default_store_bounds_for_arg (rtx val ATTRIBUTE_UNUSED,
+			      rtx addr ATTRIBUTE_UNUSED,
+			      rtx bounds ATTRIBUTE_UNUSED,
+			      rtx to ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+rtx
+default_load_returned_bounds (rtx slot ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+void
+default_store_returned_bounds (rtx slot ATTRIBUTE_UNUSED,
+			       rtx bounds ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
 /* Default version of canonicalize_comparison.  */
 
 void
@@ -1822,6 +1852,62 @@ std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
     addr = build_va_arg_indirect_ref (addr);
 
   return build_va_arg_indirect_ref (addr);
+}
+
+tree
+default_chkp_bound_type (void)
+{
+  tree res = make_node (POINTER_BOUNDS_TYPE);
+  TYPE_PRECISION (res) = TYPE_PRECISION (size_type_node) * 2;
+  TYPE_NAME (res) = get_identifier ("__bounds_type");
+  SET_TYPE_MODE (res, targetm.chkp_bound_mode ());
+  layout_type (res);
+  return res;
+}
+
+enum machine_mode
+default_chkp_bound_mode (void)
+{
+  return VOIDmode;
+}
+
+tree
+default_builtin_chkp_function (unsigned int fcode ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+rtx
+default_chkp_function_value_bounds (const_tree ret_type ATTRIBUTE_UNUSED,
+				    const_tree fn_decl_or_type ATTRIBUTE_UNUSED,
+				    bool outgoing ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+tree
+default_chkp_make_bounds_constant (HOST_WIDE_INT lb ATTRIBUTE_UNUSED,
+				   HOST_WIDE_INT ub ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+int
+default_chkp_initialize_bounds (tree var ATTRIBUTE_UNUSED,
+				tree lb ATTRIBUTE_UNUSED,
+				tree ub ATTRIBUTE_UNUSED,
+				tree *stmts ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+
+void
+default_setup_incoming_vararg_bounds (cumulative_args_t ca ATTRIBUTE_UNUSED,
+				      enum machine_mode mode ATTRIBUTE_UNUSED,
+				      tree type ATTRIBUTE_UNUSED,
+				      int *pretend_arg_size ATTRIBUTE_UNUSED,
+				      int second_time ATTRIBUTE_UNUSED)
+{
 }
 
 /* An implementation of TARGET_CAN_USE_DOLOOP_P for targets that do

@@ -38,6 +38,10 @@ AC_CANONICAL_TARGET
 # Determine the noncanonical target name, for directory use.
 ACX_NONCANONICAL_TARGET
 
+# Used for constructing correct paths for offload compilers.
+real_target_noncanonical=${target_noncanonical}
+accel_dir_suffix=
+
 # Determine the target- and build-specific subdirectories
 GCC_TOPLEV_SUBDIRS
 
@@ -898,6 +902,40 @@ AC_ARG_ENABLE(languages,
 esac],
 [enable_languages=c])
 
+if test x"$enable_as_accelerator_for" != x; then
+  AC_DEFINE(ACCEL_COMPILER, 1,
+    [Define if this compiler should be built as the offload target compiler.])
+  enable_as_accelerator=yes
+  case "${target}" in
+    *-intelmicemul-*)
+      # In this case we expect offload compiler to be built as native, so we
+      # need to rename the driver to avoid clashes with host's drivers.
+      program_transform_name="s&^&${target}-&" ;;
+  esac
+  sedscript="s#${target_noncanonical}#${enable_as_accelerator_for}-accel-${target_noncanonical}#"
+  program_transform_name=`echo $program_transform_name | sed $sedscript`
+  accel_dir_suffix=/accel/${target_noncanonical}
+  real_target_noncanonical=${enable_as_accelerator_for}
+fi
+AC_SUBST(enable_as_accelerator)
+AC_SUBST(real_target_noncanonical)
+AC_SUBST(accel_dir_suffix)
+
+for tgt in `echo $enable_offload_targets | sed 's/,/ /g'`; do
+  tgt=`echo $tgt | sed 's/=.*//'`
+  if test x"$offload_targets" = x; then
+    offload_targets=$tgt
+  else
+    offload_targets="$offload_targets:$tgt"
+  fi
+done
+AC_DEFINE_UNQUOTED(OFFLOAD_TARGETS, "$offload_targets",
+  [Define to hold the list of target names suitable for offloading.])
+if test x"$offload_targets" != x; then
+  AC_DEFINE(ENABLE_OFFLOADING, 1,
+    [Define this to enable support for offloading.])
+fi
+
 AC_ARG_WITH(multilib-list,
 [AS_HELP_STRING([--with-multilib-list], [select multilibs (AArch64, SH and x86-64 only)])],
 :,
@@ -986,6 +1024,10 @@ else
   AC_CHECK_PROG(AR, ar, ar, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing ar)
 fi
 
+# The jit documentation looks better if built with sphinx, but can be
+# built with texinfo if sphinx is not available.
+# Set "doc_build_sys" to "sphinx" or "texinfo" accordingly.
+AC_CHECK_PROG(doc_build_sys, sphinx-build, sphinx, texinfo)
 
 # --------------------
 # Checks for C headers
@@ -4256,6 +4298,17 @@ LCF0:
       [AC_DEFINE(HAVE_AS_GNU_ATTRIBUTE, 1,
 	  [Define if your assembler supports .gnu_attribute.])])
 
+    gcc_GAS_CHECK_FEATURE([.module support],
+      gcc_cv_as_mips_dot_module,,,
+      [.module fp=32],,
+      [AC_DEFINE(HAVE_AS_DOT_MODULE, 1,
+	  [Define if your assembler supports .module.])])
+    if test x$gcc_cv_as_mips_dot_module = xno \
+       && test x$with_fp_32 != x; then
+      AC_MSG_ERROR(
+	[Requesting --with-fp-32= requires assembler support for .module.])
+    fi
+
     gcc_GAS_CHECK_FEATURE([.micromips support],
       gcc_cv_as_micromips_support,,[--fatal-warnings],
       [.set micromips],,
@@ -4522,6 +4575,10 @@ glibc_version_minor=0
   glibc_version_minor=`echo "$glibc_version_minor_define" | sed -e 's/.*__GLIBC_MINOR__[ 	]*//'`
 fi]])
 AC_MSG_RESULT([$glibc_version_major.$glibc_version_minor])
+AC_DEFINE_UNQUOTED([TARGET_GLIBC_MAJOR], [$glibc_version_major],
+[GNU C Library major version number used on the target, or 0.])
+AC_DEFINE_UNQUOTED([TARGET_GLIBC_MINOR], [$glibc_version_minor],
+[GNU C Library minor version number used on the target, or 0.])
 
 AC_ARG_ENABLE(gnu-unique-object,
  [AS_HELP_STRING([--enable-gnu-unique-object],
@@ -5573,12 +5630,6 @@ if test "x${ISLLIBS}" != "x" ; then
    AC_DEFINE(HAVE_isl, 1, [Define if isl is in use.])
 fi
 
-AC_ARG_VAR(CLOOGLIBS,[How to link CLOOG])
-AC_ARG_VAR(CLOOGINC,[How to find CLOOG include files])
-if test "x${CLOOGLIBS}" != "x" ; then 
-   AC_DEFINE(HAVE_cloog, 1, [Define if cloog is in use.])
-fi
-
 GCC_ENABLE_PLUGINS
 AC_SUBST(pluginlibs)
 AC_SUBST(enable_plugin)
@@ -5644,6 +5695,12 @@ if test x"${LINKER_HASH_STYLE}" != x; then
   AC_DEFINE_UNQUOTED(LINKER_HASH_STYLE, "$LINKER_HASH_STYLE",
                                          [The linker hash style])
 fi
+
+# Generate gcc-driver-name.h containing GCC_DRIVER_NAME for the benefit
+# of jit/jit-playback.c.
+cat > gcc-driver-name.h <<EOF
+#define GCC_DRIVER_NAME "${target_noncanonical}-gcc-${gcc_BASEVER}${exeext}"
+EOF
 
 # Configure the subdirectories
 # AC_CONFIG_SUBDIRS($subdirs)

@@ -238,7 +238,13 @@ walk_polymorphic_call_targets (hash_set<void *> *reachable_call_targets,
 	  if (inline_summary_vec)
 	    inline_update_overall_summary (node);
 	  else if (edge->call_stmt)
-	    edge->redirect_call_stmt_to_callee ();
+	    {
+	      edge->redirect_call_stmt_to_callee ();
+
+	      /* Call to __builtin_unreachable shouldn't be instrumented.  */
+	      if (!targets.length ())
+		gimple_call_set_with_bounds (edge->call_stmt, false);
+	    }
 	}
     }
 }
@@ -533,6 +539,12 @@ error " Check the following code "
 	      node->remove_all_references ();
               }
 	      changed = true;
+	      if (node->thunk.thunk_p
+		  && node->thunk.add_pointer_bounds_args)
+		{
+		  node->thunk.thunk_p = false;
+		  node->thunk.add_pointer_bounds_args = false;
+		}
 	    }
 	}
       else
@@ -599,7 +611,8 @@ error " Check the following code "
 	      changed = true;
 	    }
 	  /* Keep body if it may be useful for constant folding.  */
-	  if ((init = ctor_for_folding (vnode->decl)) == error_mark_node)
+	  if ((init = ctor_for_folding (vnode->decl)) == error_mark_node
+	      && !POINTER_BOUNDS_P (vnode->decl))
 	    vnode->remove_initializer ();
 	  else
 	    DECL_INITIAL (vnode->decl) = init;
@@ -624,7 +637,10 @@ error " Check the following code "
 	&& !node->used_from_other_partition)
       {
 	if (!node->call_for_symbol_thunks_and_aliases
-	  (has_addr_references_p, NULL, true))
+	    (has_addr_references_p, NULL, true)
+	    && (!node->instrumentation_clone
+		|| !node->instrumented_version
+		|| !node->instrumented_version->address_taken))
 	  {
 	    if (file)
 	      fprintf (file, " %s", node->name ());
@@ -687,6 +703,8 @@ process_references (varpool_node *vnode,
 	process_references (dyn_cast<varpool_node *> (ref->referring), written,
 			    address_taken, read, explicit_refs);
 	break;
+      case IPA_REF_CHKP:
+	gcc_unreachable ();
       }
 }
 
@@ -825,9 +843,11 @@ make_pass_ipa_free_inline_summary (gcc::context *ctxt)
 }
 
 /* Generate and emit a static constructor or destructor.  WHICH must
-   be one of 'I' (for a constructor) or 'D' (for a destructor).  BODY
-   is a STATEMENT_LIST containing GENERIC statements.  PRIORITY is the
-   initialization priority for this constructor or destructor. 
+   be one of 'I' (for a constructor), 'D' (for a destructor), 'P'
+   (for chp static vars constructor) or 'B' (for chkp static bounds
+   constructor).  BODY is a STATEMENT_LIST containing GENERIC
+   statements.  PRIORITY is the initialization priority for this
+   constructor or destructor.
 
    FINAL specify whether the externally visible name for collect2 should
    be produced. */
@@ -886,6 +906,20 @@ cgraph_build_static_cdtor_1 (char which, tree body, int priority, bool final)
       DECL_STATIC_CONSTRUCTOR (decl) = 1;
       decl_init_priority_insert (decl, priority);
       break;
+    case 'P':
+      DECL_STATIC_CONSTRUCTOR (decl) = 1;
+      DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("chkp ctor"),
+					  NULL,
+					  NULL_TREE);
+      decl_init_priority_insert (decl, priority);
+      break;
+    case 'B':
+      DECL_STATIC_CONSTRUCTOR (decl) = 1;
+      DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("bnd_legacy"),
+					  NULL,
+					  NULL_TREE);
+      decl_init_priority_insert (decl, priority);
+      break;
     case 'D':
       DECL_STATIC_DESTRUCTOR (decl) = 1;
       decl_fini_priority_insert (decl, priority);
@@ -903,9 +937,11 @@ cgraph_build_static_cdtor_1 (char which, tree body, int priority, bool final)
 }
 
 /* Generate and emit a static constructor or destructor.  WHICH must
-   be one of 'I' (for a constructor) or 'D' (for a destructor).  BODY
-   is a STATEMENT_LIST containing GENERIC statements.  PRIORITY is the
-   initialization priority for this constructor or destructor.  */
+   be one of 'I' (for a constructor), 'D' (for a destructor), 'P'
+   (for chkp static vars constructor) or 'B' (for chkp static bounds
+   constructor).  BODY is a STATEMENT_LIST containing GENERIC
+   statements.  PRIORITY is the initialization priority for this
+   constructor or destructor.  */
 
 void
 cgraph_build_static_cdtor (char which, tree body, int priority)

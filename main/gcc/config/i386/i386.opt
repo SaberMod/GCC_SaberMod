@@ -826,6 +826,10 @@ mno-patch-functions-main-always
 Target Report RejectNegative Var(patch_functions_dont_always_patch_main) Save
 Treat 'main' as any other function and only patch it if it meets the criteria for loops and minimum number of instructions (for use with -mpatch-functions-for-instrumentation).
 
+mmpx
+Target Report Mask(ISA_MPX) Var(ix86_isa_flags) Save
+Support MPX code generation
+
 mstack-protector-guard=
 Target RejectNegative Joined Enum(stack_protector_guard) Var(ix86_stack_protector_guard) Init(SSP_TLS)
 Use given stack-protector guard

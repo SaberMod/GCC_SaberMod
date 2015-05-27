@@ -464,6 +464,8 @@ enum tree_index {
   TI_FILEPTR_TYPE,
   TI_POINTER_SIZED_TYPE,
 
+  TI_POINTER_BOUNDS_TYPE,
+
   TI_DFLOAT32_TYPE,
   TI_DFLOAT64_TYPE,
   TI_DFLOAT128_TYPE,
@@ -1885,10 +1887,6 @@ extern GTY(()) builtin_info_type builtin_info;
 
 /* If nonzero, an upper limit on alignment of structure fields, in bits,  */
 extern unsigned int maximum_field_alignment;
-
-/* Nonzero means lvalues are limited to those valid in pedantic ANSI C.
-   Zero means allow extended lvalues.  */
-extern int pedantic_lvalues;
 
 /* Points to the FUNCTION_DECL of the function whose body we are reading.  */
 extern GTY(()) tree current_function_decl;

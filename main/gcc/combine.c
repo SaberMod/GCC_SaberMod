@@ -105,8 +105,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "diagnostic-core.h"
 #include "target.h"
-#include "optabs.h"
 #include "insn-codes.h"
+#include "optabs.h"
 #include "rtlhooks-def.h"
 #include "params.h"
 #include "tree-pass.h"
@@ -2553,7 +2553,10 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 
   /* Exit early if one of the insns involved can't be used for
      combinations.  */
-  if (cant_combine_insn_p (i3)
+  if (CALL_P (i2)
+      || (i1 && CALL_P (i1))
+      || (i0 && CALL_P (i0))
+      || cant_combine_insn_p (i3)
       || cant_combine_insn_p (i2)
       || (i1 && cant_combine_insn_p (i1))
       || (i0 && cant_combine_insn_p (i0))
@@ -5811,10 +5814,11 @@ combine_simplify_rtx (rtx x, machine_mode op0_mode, int in_dest,
 	    ;
 
 	  else if (STORE_FLAG_VALUE == -1
-	      && new_code == NE && GET_MODE_CLASS (mode) == MODE_INT
-	      && op1 == const0_rtx
-	      && (num_sign_bit_copies (op0, mode)
-		  == GET_MODE_PRECISION (mode)))
+		   && new_code == NE && GET_MODE_CLASS (mode) == MODE_INT
+		   && op1 == const0_rtx
+		   && mode == GET_MODE (op0)
+		   && (num_sign_bit_copies (op0, mode)
+		       == GET_MODE_PRECISION (mode)))
 	    return gen_lowpart (mode,
 				expand_compound_operation (op0));
 

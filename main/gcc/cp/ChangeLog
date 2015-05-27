@@ -1,3 +1,75 @@
+2014-11-13  Bernd Schmidt  <bernds@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+
+	* Make-lang.in (c++.install-common): Do not install for the offload
+	compiler.
+
+2014-11-13  Kai Tietz  <ktietz@redhat.com>
+
+	* cp-tree.h (cp_build_function_call): Remove prototype.
+	(cp_build_addr_expr_strict): Likewise.
+	(build_typed_address): Likewise.
+	* typeck.c (build_typed_address): Removed.
+	(cp_build_addr_expr_strict): Make static.
+	(cp_build_function_call): Likewise.
+
+2014-11-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	DR 1510
+	PR c++/60420
+	* cp-tree.h (struct cp_decl_specifier_seq): Add decltype_p bool field.
+	* decl.c (grokdeclarator): Use it.
+	* parser.c (cp_parser_simple_type_specifier): Likewise.
+	* pt.c (tsubst, case DECLTYPE_TYPE): Use tf_ignore_bad_quals.
+
+2014-11-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/63265
+	* pt.c (tsubst_copy_and_build, case COND_EXPR): Maybe fold to
+	constant the condition.
+
+2014-11-10  Andi Kleen  <ak@linux.intel.com>
+
+	* semantics.c (finish_goto_stmt): Call check_no_cilk.
+	(finish_while_stmt_cond): Dito.
+	(finish_do_stmt): Dito.
+	(finish_for_cond): Dito.
+	(finish_switch_cond): Dito.
+
+2014-11-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* typeck.c (cp_build_binary_op): Use OPT_Wshift_count_negative and
+	OPT_Wshift_count_overflow in the warnings.
+
+2014-11-09  Jason Merrill  <jason@redhat.com>
+
+	DR 799
+	* typeck.c (build_reinterpret_cast_1): reinterpret_cast to the
+	same scalar type is an rvalue.
+
+	DR 2007
+	* call.c (build_new_op_1): Don't do non-class lookup for =, -> or [].
+
+2014-11-07  Jason Merrill  <jason@redhat.com>
+
+	DR 1558
+	* pt.c (dependent_alias_template_spec_p): New.
+	(dependent_type_p_r): Handle dependent alias template specialization.
+	(template_args_equal): A dependent alias template specializations
+	is not equal to its underlying type as a template argument.
+	* tree.c (strip_typedefs): Don't strip a dependent alias
+	template-id.
+
+	* parser.c (cp_parser_unqualified_id): Handle __func__ here.
+	(cp_parser_primary_expression): Not here.
+
+2014-11-07  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR c++/63366
+	* decl.c (grokdeclarator): Fix __complex meaning __complex double.
+
 2014-10-29  Richard Sandiford  <richard.sandiford@arm.com>
 
 	* constexpr.c: Remove redundant enum from machine_mode.

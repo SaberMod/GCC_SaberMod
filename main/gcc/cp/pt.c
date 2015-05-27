@@ -5280,7 +5280,7 @@ alias_type_or_template_p (tree t)
 	  || DECL_ALIAS_TEMPLATE_P (t));
 }
 
-/* Return TRUE iff is a specialization of an alias template.  */
+/* Return TRUE iff T is a specialization of an alias template.  */
 
 bool
 alias_template_specialization_p (const_tree t)
@@ -5292,6 +5292,16 @@ alias_template_specialization_p (const_tree t)
 	  && TYPE_TEMPLATE_INFO (t)
 	  && PRIMARY_TEMPLATE_P (TYPE_TI_TEMPLATE (t))
 	  && DECL_ALIAS_TEMPLATE_P (TYPE_TI_TEMPLATE (t)));
+}
+
+/* Return TRUE iff T is a specialization of an alias template with
+   dependent template-arguments.  */
+
+bool
+dependent_alias_template_spec_p (const_tree t)
+{
+  return (alias_template_specialization_p (t)
+	  && any_dependent_template_arguments_p (TYPE_TI_ARGS (t)));
 }
 
 /* Return the number of innermost template parameters in TMPL.  */
@@ -7229,7 +7239,24 @@ template_args_equal (tree ot, tree nt)
       return template_args_equal (ot, nt);
     }
   else if (TYPE_P (nt))
-    return TYPE_P (ot) && same_type_p (ot, nt);
+    {
+      if (!TYPE_P (ot))
+	return false;
+      /* Don't treat an alias template specialization with dependent
+	 arguments as equivalent to its underlying type when used as a
+	 template argument; we need them to hash differently.  */
+      bool ndep = dependent_alias_template_spec_p (nt);
+      ++processing_template_decl;
+      bool odep = dependent_alias_template_spec_p (ot);
+      --processing_template_decl;
+      if (ndep != odep)
+	return false;
+      else if (ndep)
+	return (TYPE_TI_TEMPLATE (nt) == TYPE_TI_TEMPLATE (ot)
+		&& template_args_equal (TYPE_TI_ARGS (nt), TYPE_TI_ARGS (ot)));
+      else
+	return same_type_p (ot, nt);
+    }
   else if (TREE_CODE (ot) == TREE_VEC || TYPE_P (ot))
     return 0;
   else
@@ -12447,7 +12474,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	return cp_build_qualified_type_real (type,
 					     cp_type_quals (t)
 					     | cp_type_quals (type),
-					     complain);
+					     complain | tf_ignore_bad_quals);
       }
 
     case UNDERLYING_TYPE:
@@ -15119,11 +15146,13 @@ tsubst_copy_and_build (tree t,
     case COND_EXPR:
       {
 	tree cond = RECUR (TREE_OPERAND (t, 0));
+	tree folded_cond = (maybe_constant_value
+			    (fold_non_dependent_expr_sfinae (cond, tf_none)));
 	tree exp1, exp2;
 
-	if (TREE_CODE (cond) == INTEGER_CST)
+	if (TREE_CODE (folded_cond) == INTEGER_CST)
 	  {
-	    if (integer_zerop (cond))
+	    if (integer_zerop (folded_cond))
 	      {
 		++c_inhibit_evaluation_warnings;
 		exp1 = RECUR (TREE_OPERAND (t, 1));
@@ -15137,6 +15166,7 @@ tsubst_copy_and_build (tree t,
 		exp2 = RECUR (TREE_OPERAND (t, 2));
 		--c_inhibit_evaluation_warnings;
 	      }
+	    cond = folded_cond;
 	  }
 	else
 	  {
@@ -20733,8 +20763,10 @@ dependent_type_p_r (tree type)
   if (TREE_CODE (type) == TYPENAME_TYPE)
     return true;
   /* -- a cv-qualified type where the cv-unqualified type is
-	dependent.  */
-  type = TYPE_MAIN_VARIANT (type);
+	dependent.
+     No code is necessary for this bullet; the code below handles
+     cv-qualified types, and we don't want to strip aliases with
+     TYPE_MAIN_VARIANT because of DR 1558.  */
   /* -- a compound type constructed from any dependent type.  */
   if (TYPE_PTRMEM_P (type))
     return (dependent_type_p (TYPE_PTRMEM_CLASS_TYPE (type))
@@ -20777,9 +20809,9 @@ dependent_type_p_r (tree type)
     return true;
   /* ... or any of the template arguments is a dependent type or
 	an expression that is type-dependent or value-dependent.  */
-  else if (CLASS_TYPE_P (type) && CLASSTYPE_TEMPLATE_INFO (type)
+  else if (TYPE_TEMPLATE_INFO (type)
 	   && (any_dependent_template_arguments_p
-	       (INNERMOST_TEMPLATE_ARGS (CLASSTYPE_TI_ARGS (type)))))
+	       (INNERMOST_TEMPLATE_ARGS (TYPE_TI_ARGS (type)))))
     return true;
 
   /* All TYPEOF_TYPEs, DECLTYPE_TYPEs, and UNDERLYING_TYPEs are

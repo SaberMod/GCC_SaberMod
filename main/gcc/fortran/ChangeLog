@@ -1,3 +1,49 @@
+2014-11-13  Bernd Schmidt  <bernds@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+
+	* Make-lang.in (fortran.install-common): Do not install for the offload
+	compiler.
+
+2014-11-11  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* gfortran.h (warn_use_without_only): Remove.
+	(gfc_diagnostics_finish): Declare.
+	* error.c: Include tree-diagnostics.h
+	(gfc_format_decoder): New.
+	(gfc_diagnostics_init): Use gfc_format_decoder. Set default caret
+	char.
+	(gfc_diagnostics_finish): Restore tree diagnostics defaults, but
+	keep gfc_diagnostics_starter and finalizer. Restore default caret.
+	* options.c: Remove all uses of warn_use_without_only.
+	* lang.opt (Wuse-without-only): Add Var.
+	* f95-lang.c (gfc_be_parse_file): Call gfc_diagnostics_finish.
+	* module.c (gfc_use_module): Use gfc_warning_now_2.
+	* parse.c (decode_statement): Likewise.
+	(decode_gcc_attribute): Likewise.
+	(next_free): Likewise.
+	(next_fixed): Likewise.
+
+2014-11-11  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR fortran/63701
+	* trans-expr.c (gfc_get_tree_for_caf_expr): Initialise found to false.
+
+2014-11-10  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/47007
+	PR libfortran/61847
+	* gfortran.texi: Add note about locale issues to thread-safety
+	section.
+
+2014-11-04  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* f95-lang.c (gfc_init_builtin_functions): Use type index 2 for
+	scalbn, scalbnl and scalbnf.
+	* mathbuiltins.def (JN, YN): Use type index 5.
+
 2014-10-29  Richard Sandiford  <richard.sandiford@arm.com>
 
 	* trans-types.c, trans-types.h: Remove redundant enum from

@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 /* Include expr.h after insn-config.h so we get HAVE_conditional_move.  */
 #include "expr.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "libfuncs.h"
 #include "recog.h"
@@ -78,6 +79,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-address.h"
 #include "cfgexpand.h"
 #include "builtins.h"
+#include "tree-chkp.h"
+#include "rtl-chkp.h"
 
 #ifndef STACK_PUSH_CODE
 #ifdef STACK_GROWS_DOWNWARD
@@ -165,39 +168,7 @@ static void emit_single_push_insn (machine_mode, rtx, tree);
 #endif
 static void do_tablejump (rtx, machine_mode, rtx, rtx, rtx, int);
 static rtx const_vector_from_tree (tree);
-static void write_complex_part (rtx, rtx, bool);
 
-/* This macro is used to determine whether move_by_pieces should be called
-   to perform a structure copy.  */
-#ifndef MOVE_BY_PIECES_P
-#define MOVE_BY_PIECES_P(SIZE, ALIGN) \
-  (targetm.use_by_pieces_infrastructure_p (SIZE, ALIGN, MOVE_BY_PIECES, \
-					   optimize_insn_for_speed_p ()))
-#endif
-
-/* This macro is used to determine whether clear_by_pieces should be
-   called to clear storage.  */
-#ifndef CLEAR_BY_PIECES_P
-#define CLEAR_BY_PIECES_P(SIZE, ALIGN) \
-  (targetm.use_by_pieces_infrastructure_p (SIZE, ALIGN, CLEAR_BY_PIECES, \
-					   optimize_insn_for_speed_p ()))
-#endif
-
-/* This macro is used to determine whether store_by_pieces should be
-   called to "memset" storage with byte values other than zero.  */
-#ifndef SET_BY_PIECES_P
-#define SET_BY_PIECES_P(SIZE, ALIGN) \
-  (targetm.use_by_pieces_infrastructure_p (SIZE, ALIGN, SET_BY_PIECES, \
-					   optimize_insn_for_speed_p ()))
-#endif
-
-/* This macro is used to determine whether store_by_pieces should be
-   called to "memcpy" storage when the source is a constant string.  */
-#ifndef STORE_BY_PIECES_P
-#define STORE_BY_PIECES_P(SIZE, ALIGN) \
-  (targetm.use_by_pieces_infrastructure_p (SIZE, ALIGN, STORE_BY_PIECES, \
-					   optimize_insn_for_speed_p ()))
-#endif
 
 /* This is run to set up which modes can be used
    directly in memory and to initialize the block move optab.  It is run
@@ -832,10 +803,11 @@ widest_int_mode_for_size (unsigned int size)
    succeed.  */
 
 int
-can_move_by_pieces (unsigned HOST_WIDE_INT len ATTRIBUTE_UNUSED,
-		    unsigned int align ATTRIBUTE_UNUSED)
+can_move_by_pieces (unsigned HOST_WIDE_INT len,
+		    unsigned int align)
 {
-  return MOVE_BY_PIECES_P (len, align);
+  return targetm.use_by_pieces_infrastructure_p (len, align, MOVE_BY_PIECES,
+						 optimize_insn_for_speed_p ());
 }
 
 /* Generate several move instructions to copy LEN bytes from block FROM to
@@ -1172,7 +1144,7 @@ emit_block_move_hints (rtx x, rtx y, rtx size, enum block_op_methods method,
       set_mem_size (y, INTVAL (size));
     }
 
-  if (CONST_INT_P (size) && MOVE_BY_PIECES_P (INTVAL (size), align))
+  if (CONST_INT_P (size) && can_move_by_pieces (INTVAL (size), align))
     move_by_pieces (x, y, INTVAL (size), align, 0);
   else if (emit_block_move_via_movmem (x, y, size, align,
 				       expected_align, expected_size,
@@ -2369,7 +2341,10 @@ copy_blkmode_to_reg (machine_mode mode, tree src)
 void
 use_reg_mode (rtx *call_fusage, rtx reg, machine_mode mode)
 {
-  gcc_assert (REG_P (reg) && REGNO (reg) < FIRST_PSEUDO_REGISTER);
+  gcc_assert (REG_P (reg));
+
+  if (!HARD_REGISTER_P (reg))
+    return;
 
   *call_fusage
     = gen_rtx_EXPR_LIST (mode, gen_rtx_USE (VOIDmode, reg), *call_fusage);
@@ -2489,9 +2464,11 @@ can_store_by_pieces (unsigned HOST_WIDE_INT len,
   if (len == 0)
     return 1;
 
-  if (! (memsetp
-	 ? SET_BY_PIECES_P (len, align)
-	 : STORE_BY_PIECES_P (len, align)))
+  if (!targetm.use_by_pieces_infrastructure_p (len, align,
+					       memsetp
+						 ? SET_BY_PIECES
+						 : STORE_BY_PIECES,
+					       optimize_insn_for_speed_p ()))
     return 0;
 
   align = alignment_for_piecewise_move (STORE_MAX_PIECES, align);
@@ -2567,9 +2544,13 @@ store_by_pieces (rtx to, unsigned HOST_WIDE_INT len,
       return to;
     }
 
-  gcc_assert (memsetp
-	      ? SET_BY_PIECES_P (len, align)
-	      : STORE_BY_PIECES_P (len, align));
+  gcc_assert (targetm.use_by_pieces_infrastructure_p
+		(len, align,
+		 memsetp
+		   ? SET_BY_PIECES
+		   : STORE_BY_PIECES,
+		 optimize_insn_for_speed_p ()));
+
   data.constfun = constfun;
   data.constfundata = constfundata;
   data.len = len;
@@ -2806,7 +2787,9 @@ clear_storage_hints (rtx object, rtx size, enum block_op_methods method,
   align = MEM_ALIGN (object);
 
   if (CONST_INT_P (size)
-      && CLEAR_BY_PIECES_P (INTVAL (size), align))
+      && targetm.use_by_pieces_infrastructure_p (INTVAL (size), align,
+						 CLEAR_BY_PIECES,
+						 optimize_insn_for_speed_p ()))
     clear_by_pieces (object, INTVAL (size), align);
   else if (set_storage_via_setmem (object, size, const0_rtx, align,
 				   expected_align, expected_size,
@@ -3011,7 +2994,7 @@ set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align,
 /* Write to one of the components of the complex value CPLX.  Write VAL to
    the real part if IMAG_P is false, and the imaginary part if its true.  */
 
-static void
+void
 write_complex_part (rtx cplx, rtx val, bool imag_p)
 {
   machine_mode cmode;
@@ -3650,6 +3633,21 @@ emit_move_insn (rtx x, rtx y)
   return last_insn;
 }
 
+/* Generate the body of an instruction to copy Y into X.
+   It may be a list of insns, if one insn isn't enough.  */
+
+rtx
+gen_move_insn (rtx x, rtx y)
+{
+  rtx_insn *seq;
+
+  start_sequence ();
+  emit_move_insn_1 (x, y);
+  seq = get_insns ();
+  end_sequence ();
+  return seq;
+}
+
 /* If Y is representable exactly in a narrower mode, and the target can
    perform the extension directly from constant or memory, then emit the
    move as an extension.  */
@@ -4215,7 +4213,7 @@ emit_push_insn (rtx x, machine_mode mode, tree type, rtx size,
 	  && CONST_INT_P (size)
 	  && skip == 0
 	  && MEM_ALIGN (xinner) >= align
-	  && (MOVE_BY_PIECES_P ((unsigned) INTVAL (size) - used, align))
+	  && can_move_by_pieces ((unsigned) INTVAL (size) - used, align)
 	  /* Here we avoid the case of a structure whose weak alignment
 	     forces many pushes of a small amount of data,
 	     and such small pushes do rounding that causes trouble.  */
@@ -5012,9 +5010,14 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	    || TREE_CODE (to) == SSA_NAME))
     {
       rtx value;
+      rtx bounds;
 
       push_temp_slots ();
       value = expand_normal (from);
+
+      /* Split value and bounds to store them separately.  */
+      chkp_split_slot (value, &value, &bounds);
+
       if (to_rtx == 0)
 	to_rtx = expand_expr (to, NULL_RTX, VOIDmode, EXPAND_WRITE);
 
@@ -5048,6 +5051,15 @@ expand_assignment (tree to, tree from, bool nontemporal)
 
 	  emit_move_insn (to_rtx, value);
 	}
+
+      /* Store bounds if required.  */
+      if (bounds
+	  && (BOUNDED_P (to) || chkp_type_has_pointer (TREE_TYPE (to))))
+	{
+	  gcc_assert (MEM_P (to_rtx));
+	  chkp_emit_bounds_store (bounds, value, to_rtx);
+	}
+
       preserve_temp_slots (to_rtx);
       pop_temp_slots ();
       return;
@@ -5123,7 +5135,7 @@ expand_assignment (tree to, tree from, bool nontemporal)
   /* Compute FROM and store the value in the rtx we got.  */
 
   push_temp_slots ();
-  result = store_expr (from, to_rtx, 0, nontemporal);
+  result = store_expr_with_bounds (from, to_rtx, 0, nontemporal, to);
   preserve_temp_slots (result);
   pop_temp_slots ();
   return;
@@ -5160,10 +5172,14 @@ emit_storent_insn (rtx to, rtx from)
    If CALL_PARAM_P is nonzero, this is a store into a call param on the
    stack, and block moves may need to be treated specially.
 
-   If NONTEMPORAL is true, try using a nontemporal store instruction.  */
+   If NONTEMPORAL is true, try using a nontemporal store instruction.
+
+   If BTARGET is not NULL then computed bounds of EXP are
+   associated with BTARGET.  */
 
 rtx
-store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
+store_expr_with_bounds (tree exp, rtx target, int call_param_p,
+			bool nontemporal, tree btarget)
 {
   rtx temp;
   rtx alt_rtl = NULL_RTX;
@@ -5184,8 +5200,8 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 	 part.  */
       expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode,
 		   call_param_p ? EXPAND_STACK_PARM : EXPAND_NORMAL);
-      return store_expr (TREE_OPERAND (exp, 1), target, call_param_p,
-			 nontemporal);
+      return store_expr_with_bounds (TREE_OPERAND (exp, 1), target,
+				     call_param_p, nontemporal, btarget);
     }
   else if (TREE_CODE (exp) == COND_EXPR && GET_MODE (target) == BLKmode)
     {
@@ -5199,13 +5215,13 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
       do_pending_stack_adjust ();
       NO_DEFER_POP;
       jumpifnot (TREE_OPERAND (exp, 0), lab1, -1);
-      store_expr (TREE_OPERAND (exp, 1), target, call_param_p,
-		  nontemporal);
+      store_expr_with_bounds (TREE_OPERAND (exp, 1), target, call_param_p,
+			      nontemporal, btarget);
       emit_jump_insn (gen_jump (lab2));
       emit_barrier ();
       emit_label (lab1);
-      store_expr (TREE_OPERAND (exp, 2), target, call_param_p,
-		  nontemporal);
+      store_expr_with_bounds (TREE_OPERAND (exp, 2), target, call_param_p,
+			      nontemporal, btarget);
       emit_label (lab2);
       OK_DEFER_POP;
 
@@ -5256,6 +5272,19 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 
       temp = expand_expr (exp, inner_target, VOIDmode,
 			  call_param_p ? EXPAND_STACK_PARM : EXPAND_NORMAL);
+
+      /* Handle bounds returned by call.  */
+      if (TREE_CODE (exp) == CALL_EXPR)
+	{
+	  rtx bounds;
+	  chkp_split_slot (temp, &temp, &bounds);
+	  if (bounds && btarget)
+	    {
+	      gcc_assert (TREE_CODE (btarget) == SSA_NAME);
+	      rtx tmp = targetm.calls.load_returned_bounds (bounds);
+	      chkp_set_rtl_bounds (btarget, tmp);
+	    }
+	}
 
       /* If TEMP is a VOIDmode constant, use convert_modes to make
 	 sure that we properly convert it.  */
@@ -5338,6 +5367,19 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 			       (call_param_p
 				? EXPAND_STACK_PARM : EXPAND_NORMAL),
 			       &alt_rtl, false);
+
+      /* Handle bounds returned by call.  */
+      if (TREE_CODE (exp) == CALL_EXPR)
+	{
+	  rtx bounds;
+	  chkp_split_slot (temp, &temp, &bounds);
+	  if (bounds && btarget)
+	    {
+	      gcc_assert (TREE_CODE (btarget) == SSA_NAME);
+	      rtx tmp = targetm.calls.load_returned_bounds (bounds);
+	      chkp_set_rtl_bounds (btarget, tmp);
+	    }
+	}
     }
 
   /* If TEMP is a VOIDmode constant and the mode of the type of EXP is not
@@ -5501,6 +5543,13 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
     }
 
   return NULL_RTX;
+}
+
+/* Same as store_expr_with_bounds but ignoring bounds of EXP.  */
+rtx
+store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
+{
+  return store_expr_with_bounds (exp, target, call_param_p, nontemporal, NULL);
 }
 
 /* Return true if field F of structure TYPE is a flexible array.  */
@@ -7836,7 +7885,7 @@ expand_constructor (tree exp, rtx target, enum expand_modifier modifier,
 	    && ! (target != 0 && safe_from_p (target, exp, 1)))
 		  || TREE_ADDRESSABLE (exp)
 		  || (tree_fits_uhwi_p (TYPE_SIZE_UNIT (type))
-		      && (! MOVE_BY_PIECES_P
+		      && (! can_move_by_pieces
 				     (tree_to_uhwi (TYPE_SIZE_UNIT (type)),
 				      TYPE_ALIGN (type)))
 		      && ! mostly_zeros_p (exp))))
@@ -8571,6 +8620,19 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	  }
 
 	def0 = get_def_for_expr (treeop0, NEGATE_EXPR);
+	/* The multiplication is commutative - look at its 2nd operand
+	   if the first isn't fed by a negate.  */
+	if (!def0)
+	  {
+	    def0 = get_def_for_expr (treeop1, NEGATE_EXPR);
+	    /* Swap operands if the 2nd operand is fed by a negate.  */
+	    if (def0)
+	      {
+		tree tem = treeop0;
+		treeop0 = treeop1;
+		treeop1 = tem;
+	      }
+	  }
 	def2 = get_def_for_expr (treeop2, NEGATE_EXPR);
 
 	op0 = op2 = NULL;
@@ -9078,12 +9140,6 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 				  target, mode, mode);
         gcc_assert (temp);
         return temp;
-      }
-
-    case VEC_RSHIFT_EXPR:
-      {
-	target = expand_vec_shift_expr (ops, target);
-	return target;
       }
 
     case VEC_UNPACK_HI_EXPR:

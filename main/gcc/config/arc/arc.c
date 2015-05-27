@@ -81,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pass_manager.h"
 #include "wide-int.h"
 #include "builtins.h"
+#include "rtl-iter.h"
 
 /* Which cpu we're compiling for (A5, ARC600, ARC601, ARC700).  */
 static const char *arc_cpu_string = "";
@@ -6354,7 +6355,7 @@ arc_in_small_data_p (const_tree decl)
    as a gp+symref.  */
 
 static bool
-arc_rewrite_small_data_p (rtx x)
+arc_rewrite_small_data_p (const_rtx x)
 {
   if (GET_CODE (x) == CONST)
     x = XEXP (x, 0);
@@ -6369,38 +6370,6 @@ arc_rewrite_small_data_p (rtx x)
 	  && SYMBOL_REF_SMALL_P(x));
 }
 
-/* A for_each_rtx callback, used by arc_rewrite_small_data.  */
-
-static int
-arc_rewrite_small_data_1 (rtx *loc, void *data)
-{
-  if (arc_rewrite_small_data_p (*loc))
-    {
-      rtx top;
-
-      gcc_assert (SDATA_BASE_REGNUM == PIC_OFFSET_TABLE_REGNUM);
-      *loc = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, *loc);
-      if (loc == data)
-	return -1;
-      top = *(rtx*) data;
-      if (GET_CODE (top) == MEM && &XEXP (top, 0) == loc)
-	; /* OK.  */
-      else if (GET_CODE (top) == MEM
-	  && GET_CODE (XEXP (top, 0)) == PLUS
-	  && GET_CODE (XEXP (XEXP (top, 0), 0)) == MULT)
-	*loc = force_reg (Pmode, *loc);
-      else
-	gcc_unreachable ();
-      return -1;
-    }
-
-  if (GET_CODE (*loc) == PLUS
-      && rtx_equal_p (XEXP (*loc, 0), pic_offset_table_rtx))
-    return -1;
-
-  return 0;
-}
-
 /* If possible, rewrite OP so that it refers to small data using
    explicit relocations.  */
 
@@ -6408,20 +6377,32 @@ rtx
 arc_rewrite_small_data (rtx op)
 {
   op = copy_insn (op);
-  for_each_rtx (&op, arc_rewrite_small_data_1, &op);
+  subrtx_ptr_iterator::array_type array;
+  FOR_EACH_SUBRTX_PTR (iter, array, &op, ALL)
+    {
+      rtx *loc = *iter;
+      if (arc_rewrite_small_data_p (*loc))
+	{
+	  gcc_assert (SDATA_BASE_REGNUM == PIC_OFFSET_TABLE_REGNUM);
+	  *loc = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, *loc);
+	  if (loc != &op)
+	    {
+	      if (GET_CODE (op) == MEM && &XEXP (op, 0) == loc)
+		; /* OK.  */
+	      else if (GET_CODE (op) == MEM
+		       && GET_CODE (XEXP (op, 0)) == PLUS
+		       && GET_CODE (XEXP (XEXP (op, 0), 0)) == MULT)
+		*loc = force_reg (Pmode, *loc);
+	      else
+		gcc_unreachable ();
+	    }
+	  iter.skip_subrtxes ();
+	}
+      else if (GET_CODE (*loc) == PLUS
+	       && rtx_equal_p (XEXP (*loc, 0), pic_offset_table_rtx))
+	iter.skip_subrtxes ();
+    }
   return op;
-}
-
-/* A for_each_rtx callback for small_data_pattern.  */
-
-static int
-small_data_pattern_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
-{
-  if (GET_CODE (*loc) == PLUS
-      && rtx_equal_p (XEXP (*loc, 0), pic_offset_table_rtx))
-    return  -1;
-
-  return arc_rewrite_small_data_p (*loc);
 }
 
 /* Return true if OP refers to small data symbols directly, not through
@@ -6430,8 +6411,19 @@ small_data_pattern_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
 bool
 small_data_pattern (rtx op, machine_mode)
 {
-  return (GET_CODE (op) != SEQUENCE
-	  && for_each_rtx (&op, small_data_pattern_1, 0));
+  if (GET_CODE (op) == SEQUENCE)
+    return false;
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, op, ALL)
+    {
+      const_rtx x = *iter;
+      if (GET_CODE (x) == PLUS
+	  && rtx_equal_p (XEXP (x, 0), pic_offset_table_rtx))
+	iter.skip_subrtxes ();
+      else if (arc_rewrite_small_data_p (x))
+	return true;
+    }
+  return false;
 }
 
 /* Return true if OP is an acceptable memory operand for ARCompact
@@ -7724,38 +7716,6 @@ disi_highpart (rtx in)
   return simplify_gen_subreg (SImode, in, DImode, TARGET_BIG_ENDIAN ? 0 : 4);
 }
 
-/* Called by arc600_corereg_hazard via for_each_rtx.
-   If a hazard is found, return a conservative estimate of the required
-   length adjustment to accomodate a nop.  */
-
-static int
-arc600_corereg_hazard_1 (rtx *xp, void *data)
-{
-  rtx x = *xp;
-  rtx dest;
-  rtx pat = (rtx) data;
-
-  switch (GET_CODE (x))
-    {
-    case SET: case POST_INC: case POST_DEC: case PRE_INC: case PRE_DEC:
-      break;
-    default:
-    /* This is also fine for PRE/POST_MODIFY, because they contain a SET.  */
-      return 0;
-    }
-  dest = XEXP (x, 0);
-  /* Check if this sets a an extension register.  N.B. we use 61 for the
-     condition codes, which is definitely not an extension register.  */
-  if (REG_P (dest) && REGNO (dest) >= 32 && REGNO (dest) < 61
-      /* Check if the same register is used by the PAT.  */
-      && (refers_to_regno_p
-	   (REGNO (dest),
-	   REGNO (dest) + (GET_MODE_SIZE (GET_MODE (dest)) + 3) / 4U, pat, 0)))
-    return 4;
-
-  return 0;
-}
-
 /* Return length adjustment for INSN.
    For ARC600:
    A write to a core reg greater or equal to 32 must not be immediately
@@ -7787,8 +7747,31 @@ arc600_corereg_hazard (rtx_insn *pred, rtx_insn *succ)
       || recog_memoized (pred) == CODE_FOR_umul64_600
       || recog_memoized (pred) == CODE_FOR_umac64_600)
     return 0;
-  return for_each_rtx (&PATTERN (pred), arc600_corereg_hazard_1,
-		       PATTERN (succ));
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, PATTERN (pred), NONCONST)
+    {
+      const_rtx x = *iter;
+      switch (GET_CODE (x))
+	{
+	case SET: case POST_INC: case POST_DEC: case PRE_INC: case PRE_DEC:
+	  break;
+	default:
+	  /* This is also fine for PRE/POST_MODIFY, because they
+	     contain a SET.  */
+	  continue;
+	}
+      rtx dest = XEXP (x, 0);
+      /* Check if this sets a an extension register.  N.B. we use 61 for the
+	 condition codes, which is definitely not an extension register.  */
+      if (REG_P (dest) && REGNO (dest) >= 32 && REGNO (dest) < 61
+	  /* Check if the same register is used by the PAT.  */
+	  && (refers_to_regno_p
+	      (REGNO (dest),
+	       REGNO (dest) + (GET_MODE_SIZE (GET_MODE (dest)) + 3) / 4U,
+	       PATTERN (succ), 0)))
+	return 4;
+    }
+  return 0;
 }
 
 /* For ARC600:
@@ -8458,34 +8441,30 @@ arc_predicate_delay_insns (void)
   be hoisted out into a delay slot, a basic block can also be emptied this
   way, and branch and/or fall through targets be redirected.  Hence we don't
   want such writes in a delay slot.  */
-/* Called by arc_write_ext_corereg via for_each_rtx.  */
-
-static int
-write_ext_corereg_1 (rtx *xp, void *data ATTRIBUTE_UNUSED)
-{
-  rtx x = *xp;
-  rtx dest;
-
-  switch (GET_CODE (x))
-    {
-    case SET: case POST_INC: case POST_DEC: case PRE_INC: case PRE_DEC:
-      break;
-    default:
-    /* This is also fine for PRE/POST_MODIFY, because they contain a SET.  */
-      return 0;
-    }
-  dest = XEXP (x, 0);
-  if (REG_P (dest) && REGNO (dest) >= 32 && REGNO (dest) < 61)
-    return 1;
-  return 0;
-}
 
 /* Return nonzreo iff INSN writes to an extension core register.  */
 
 int
 arc_write_ext_corereg (rtx insn)
 {
-  return for_each_rtx (&PATTERN (insn), write_ext_corereg_1, 0);
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, PATTERN (insn), NONCONST)
+    {
+      const_rtx x = *iter;
+      switch (GET_CODE (x))
+	{
+	case SET: case POST_INC: case POST_DEC: case PRE_INC: case PRE_DEC:
+	  break;
+	default:
+	  /* This is also fine for PRE/POST_MODIFY, because they
+	     contain a SET.  */
+	  continue;
+	}
+      const_rtx dest = XEXP (x, 0);
+      if (REG_P (dest) && REGNO (dest) >= 32 && REGNO (dest) < 61)
+	return 1;
+    }
+  return 0;
 }
 
 /* This is like the hook, but returns NULL when it can't / won't generate

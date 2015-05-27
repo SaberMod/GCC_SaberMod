@@ -142,7 +142,7 @@ if test "x$GCC" = "xyes"; then
   ## We like to use C11 and C99 routines when available.  This makes
   ## sure that
   ## __STDC_VERSION__ is set such that libc includes make them available.
-  AM_CFLAGS="-std=gnu11 -Wall -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wextra -Wwrite-strings -Werror=implicit-function-declaration"
+  AM_CFLAGS="-std=gnu11 -Wall -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wextra -Wwrite-strings -Werror=implicit-function-declaration -Werror=vla"
   ## Compile the following tests with the same system header contents
   ## that we'll encounter when compiling our own source files.
   CFLAGS="-std=gnu11 $CFLAGS"
@@ -255,7 +255,7 @@ AC_CHECK_TYPES([ptrdiff_t])
 # check header files (we assume C89 is available, so don't check for that)
 AC_CHECK_HEADERS_ONCE(unistd.h sys/time.h sys/times.h sys/resource.h \
 sys/types.h sys/stat.h sys/wait.h floatingpoint.h ieeefp.h fenv.h fptrap.h \
-fpxcp.h pwd.h complex.h) 
+fpxcp.h pwd.h complex.h xlocale.h)
 
 GCC_HEADER_STDINT(gstdint.h)
 
@@ -290,7 +290,8 @@ else
    strcasestr getrlimit gettimeofday stat fstat lstat getpwuid vsnprintf dup \
    getcwd localtime_r gmtime_r getpwuid_r ttyname_r clock_gettime \
    readlink getgid getpid getppid getuid geteuid umask getegid \
-   secure_getenv __secure_getenv mkostemp strnlen strndup strtok_r)
+   secure_getenv __secure_getenv mkostemp strnlen strndup strtok_r newlocale \
+   freelocale uselocale strerror_l)
 fi
 
 # Check strerror_r, cannot be above as versions with two and three arguments exist

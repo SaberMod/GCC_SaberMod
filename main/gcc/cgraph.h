@@ -451,6 +451,13 @@ public:
   /* Set when init priority is set.  */
   unsigned in_init_priority_hash : 1;
 
+  /* Set when symbol needs to be streamed into LTO bytecode for LTO, or in case
+     of offloading, for separate compilation for a different target.  */
+  unsigned need_lto_streaming : 1;
+
+  /* Set when symbol can be streamed into bytecode for offloading.  */
+  unsigned offloadable : 1;
+
 
   /* Ordering of all symtab entries.  */
   int order;
@@ -544,6 +551,7 @@ struct GTY(()) cgraph_thunk_info {
   tree alias;
   bool this_adjusting;
   bool virtual_offset_p;
+  bool add_pointer_bounds_args;
   /* Set to true when alias node is thunk.  */
   bool thunk_p;
 };
@@ -1191,6 +1199,13 @@ public:
   cgraph_node *prev_sibling_clone;
   cgraph_node *clones;
   cgraph_node *clone_of;
+  /* If instrumentation_clone is 1 then instrumented_version points
+     to the original function used to make instrumented version.
+     Otherwise points to instrumented version of the function.  */
+  cgraph_node *instrumented_version;
+  /* If instrumentation_clone is 1 then orig_decl is the original
+     function declaration.  */
+  tree orig_decl;
   /* For functions with many calls sites it holds map from call expression
      to the edge to speed up cgraph_edge function.  */
   hash_table<cgraph_edge_hasher> *GTY(()) call_site_hash;
@@ -1257,6 +1272,9 @@ public:
   unsigned calls_comdat_local : 1;
   /* True if node has been created by merge operation in IPA-ICF.  */
   unsigned icf_merged: 1;
+  /* True when function is clone created for Pointer Bounds Checker
+     instrumentation.  */
+  unsigned instrumentation_clone : 1;
 };
 
 /* A cgraph node set is a collection of cgraph nodes.  A cgraph node
@@ -1342,6 +1360,10 @@ public:
   /* Make context non-speculative.  */
   void clear_speculation ();
 
+  /* Produce context specifying all derrived types of OTR_TYPE.  If OTR_TYPE is
+     NULL, the context is set to dummy "I know nothing" setting.  */
+  void clear_outer_type (tree otr_type = NULL);
+
   /* Walk container types and modify context to point to actual class
      containing OTR_TYPE (if non-NULL) as base class.
      Return true if resulting context is valid.
@@ -1382,7 +1404,6 @@ private:
   bool combine_speculation_with (tree, HOST_WIDE_INT, bool, tree);
   void set_by_decl (tree, HOST_WIDE_INT);
   bool set_by_invariant (tree, tree, HOST_WIDE_INT);
-  void clear_outer_type (tree otr_type = NULL);
   bool speculation_consistent_p (tree, HOST_WIDE_INT, bool, tree);
   void make_speculative (tree otr_type = NULL);
 };
@@ -1665,6 +1686,10 @@ public:
 
   /* Set when variable is scheduled to be assembled.  */
   unsigned output : 1;
+
+  /* Set when variable has statically initialized pointer
+     or is a static bounds variable and needs initalization.  */
+  unsigned need_bounds_init : 1;
 
   /* Set if the variable is dynamically initialized, except for
      function local statics.   */
@@ -2308,6 +2333,8 @@ symtab_node::get_alias_target (void)
 {
   ipa_ref *ref = NULL;
   iterate_reference (0, ref);
+  if (ref->use == IPA_REF_CHKP)
+    iterate_reference (1, ref);
   gcc_checking_assert (ref->use == IPA_REF_ALIAS);
   return ref->referred;
 }
@@ -2857,9 +2884,8 @@ ipa_polymorphic_call_context::clear_speculation ()
   speculative_maybe_derived_type = false;
 }
 
-/* Produce context specifying all derrived types of OTR_TYPE.
-   If OTR_TYPE is NULL or type of the OBJ_TYPE_REF, the context is set
-   to dummy "I know nothing" setting.  */
+/* Produce context specifying all derrived types of OTR_TYPE.  If OTR_TYPE is
+   NULL, the context is set to dummy "I know nothing" setting.  */
 
 inline void
 ipa_polymorphic_call_context::clear_outer_type (tree otr_type)
@@ -2889,4 +2915,17 @@ ipa_polymorphic_call_context::useless_p () const
 {
   return (!outer_type && !speculative_outer_type);
 }
+
+/* Return true if NODE is local.  Instrumentation clones are counted as local
+   only when original function is local.  */
+
+static inline bool
+cgraph_local_p (cgraph_node *node)
+{
+  if (!node->instrumentation_clone || !node->instrumented_version)
+    return node->local.local;
+
+  return node->local.local && node->instrumented_version->local.local;
+}
+
 #endif  /* GCC_CGRAPH_H  */

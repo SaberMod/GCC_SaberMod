@@ -1340,7 +1340,8 @@ wide_int_to_tree (tree type, const wide_int_ref &pcst)
 
 	case POINTER_TYPE:
 	case REFERENCE_TYPE:
-	  /* Cache NULL pointer.  */
+	case POINTER_BOUNDS_TYPE:
+	  /* Cache NULL pointer and zero bounds.  */
 	  if (hwi == 0)
 	    {
 	      limit = 1;
@@ -3414,6 +3415,7 @@ type_contains_placeholder_1 (const_tree type)
   switch (TREE_CODE (type))
     {
     case VOID_TYPE:
+    case POINTER_BOUNDS_TYPE:
     case COMPLEX_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
@@ -9730,6 +9732,8 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   void_type_node = make_node (VOID_TYPE);
   layout_type (void_type_node);
 
+  pointer_bounds_type_node = targetm.chkp_bound_type ();
+
   /* We are not going to have real types in C with less than byte alignment,
      so we might as well not have any types that claim to have it.  */
   TYPE_ALIGN (void_type_node) = BITS_PER_UNIT;
@@ -10327,6 +10331,8 @@ initializer_zerop (const_tree init)
       {
 	unsigned HOST_WIDE_INT idx;
 
+	if (TREE_CLOBBER_P (init))
+	  return false;
 	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (init), idx, elt)
 	  if (!initializer_zerop (elt))
 	    return false;
@@ -11656,6 +11662,27 @@ block_ultimate_origin (const_tree block)
     }
 }
 
+/* Return true iff conversion from INNER_TYPE to OUTER_TYPE generates
+   no instruction.  */
+
+bool
+tree_nop_conversion_p (const_tree outer_type, const_tree inner_type)
+{
+  /* Use precision rather then machine mode when we can, which gives
+     the correct answer even for submode (bit-field) types.  */
+  if ((INTEGRAL_TYPE_P (outer_type)
+       || POINTER_TYPE_P (outer_type)
+       || TREE_CODE (outer_type) == OFFSET_TYPE)
+      && (INTEGRAL_TYPE_P (inner_type)
+	  || POINTER_TYPE_P (inner_type)
+	  || TREE_CODE (inner_type) == OFFSET_TYPE))
+    return TYPE_PRECISION (outer_type) == TYPE_PRECISION (inner_type);
+
+  /* Otherwise fall back on comparing machine modes (e.g. for
+     aggregate types, floats).  */
+  return TYPE_MODE (outer_type) == TYPE_MODE (inner_type);
+}
+
 /* Return true iff conversion in EXP generates no instruction.  Mark
    it inline so that we fully inline into the stripping functions even
    though we have two uses of this function.  */
@@ -11677,19 +11704,7 @@ tree_nop_conversion (const_tree exp)
   if (!inner_type)
     return false;
 
-  /* Use precision rather then machine mode when we can, which gives
-     the correct answer even for submode (bit-field) types.  */
-  if ((INTEGRAL_TYPE_P (outer_type)
-       || POINTER_TYPE_P (outer_type)
-       || TREE_CODE (outer_type) == OFFSET_TYPE)
-      && (INTEGRAL_TYPE_P (inner_type)
-	  || POINTER_TYPE_P (inner_type)
-	  || TREE_CODE (inner_type) == OFFSET_TYPE))
-    return TYPE_PRECISION (outer_type) == TYPE_PRECISION (inner_type);
-
-  /* Otherwise fall back on comparing machine modes (e.g. for
-     aggregate types, floats).  */
-  return TYPE_MODE (outer_type) == TYPE_MODE (inner_type);
+  return tree_nop_conversion_p (outer_type, inner_type);
 }
 
 /* Return true iff conversion in EXP generates no instruction.  Don't

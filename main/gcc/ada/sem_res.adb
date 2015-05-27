@@ -841,21 +841,21 @@ package body Sem_Res is
 
       begin
          --  The Ghost policy in effect a the point of declaration and at the
-         --  point of use must match (SPARK RM 6.9(13)).
+         --  point of use must match (SPARK RM 6.9(14)).
 
          if Is_Checked_Ghost_Entity (Id) and then Policy = Name_Ignore then
             Error_Msg_Sloc := Sloc (Err_N);
 
-            SPARK_Msg_N  ("incompatible ghost policies in effect", Err_N);
-            SPARK_Msg_NE ("\& declared with ghost policy Check", Err_N, Id);
-            SPARK_Msg_NE ("\& used # with ghost policy Ignore", Err_N, Id);
+            Error_Msg_N  ("incompatible ghost policies in effect", Err_N);
+            Error_Msg_NE ("\& declared with ghost policy Check", Err_N, Id);
+            Error_Msg_NE ("\& used # with ghost policy Ignore", Err_N, Id);
 
          elsif Is_Ignored_Ghost_Entity (Id) and then Policy = Name_Check then
             Error_Msg_Sloc := Sloc (Err_N);
 
-            SPARK_Msg_N  ("incompatible ghost policies in effect", Err_N);
-            SPARK_Msg_NE ("\& declared with ghost policy Ignore", Err_N, Id);
-            SPARK_Msg_NE ("\& used # with ghost policy Check", Err_N, Id);
+            Error_Msg_N  ("incompatible ghost policies in effect", Err_N);
+            Error_Msg_NE ("\& declared with ghost policy Ignore", Err_N, Id);
+            Error_Msg_NE ("\& used # with ghost policy Check", Err_N, Id);
          end if;
       end Check_Ghost_Policy;
 
@@ -873,7 +873,7 @@ package body Sem_Res is
       --  its behavior or value.
 
       else
-         SPARK_Msg_N
+         Error_Msg_N
            ("ghost entity cannot appear in this context (SPARK RM 6.9(12))",
             Ghost_Ref);
       end if;
@@ -4625,6 +4625,26 @@ package body Sem_Res is
                  ("\subprogram & has Extensions_Visible True", A, Nam);
             end if;
 
+            --  The actual parameter of a Ghost subprogram whose formal is of
+            --  mode IN OUT or OUT must be a Ghost variable (SPARK RM 6.9(13)).
+
+            if Is_Ghost_Entity (Nam)
+              and then Ekind_In (F, E_In_Out_Parameter, E_Out_Parameter)
+              and then Is_Entity_Name (A)
+              and then Present (Entity (A))
+              and then not Is_Ghost_Entity (Entity (A))
+            then
+               Error_Msg_NE
+                 ("non-ghost variable & cannot appear as actual in call to "
+                  & "ghost procedure", A, Entity (A));
+
+               if Ekind (F) = E_In_Out_Parameter then
+                  Error_Msg_N ("\corresponding formal has mode `IN OUT`", A);
+               else
+                  Error_Msg_N ("\corresponding formal has mode OUT", A);
+               end if;
+            end if;
+
             Next_Actual (A);
 
          --  Case where actual is not present
@@ -7053,48 +7073,44 @@ package body Sem_Res is
       end if;
 
       --  The following checks are only relevant when SPARK_Mode is on as they
-      --  are not standard Ada legality rules.
+      --  are not standard Ada legality rules. An effectively volatile object
+      --  subject to enabled properties Async_Writers or Effective_Reads must
+      --  appear in a specific context.
 
-      if SPARK_Mode = On then
+      if SPARK_Mode = On
+        and then Is_Object (E)
+        and then Is_Effectively_Volatile (E)
+        and then
+          (Async_Writers_Enabled (E) or else Effective_Reads_Enabled (E))
+        and then Comes_From_Source (N)
+      then
+         --  The effectively volatile objects appears in a "non-interfering
+         --  context" as defined in SPARK RM 7.1.3(13).
 
-         --  An effectively volatile object subject to enabled properties
-         --  Async_Writers or Effective_Reads must appear in a specific
-         --  context.
+         if Is_OK_Volatile_Context (Par, N) then
+            null;
 
-         if Is_Object (E)
-           and then Is_Effectively_Volatile (E)
-           and then
-             (Async_Writers_Enabled (E) or else Effective_Reads_Enabled (E))
-           and then Comes_From_Source (N)
-         then
-            --  The effectively volatile objects appears in a "non-interfering
-            --  context" as defined in SPARK RM 7.1.3(13).
+         --  Assume that references to effectively volatile objects that appear
+         --  as actual parameters in a procedure call are always legal. A full
+         --  legality check is done when the actuals are resolved.
 
-            if Is_OK_Volatile_Context (Par, N) then
-               null;
+         elsif Nkind (Par) = N_Procedure_Call_Statement then
+            null;
 
-            --  Assume that references to effectively volatile objects that
-            --  appear as actual parameters in a procedure call are always
-            --  legal. A full legality check is done when the actuals are
-            --  resolved.
+         --  Otherwise the context causes a side effect with respect to the
+         --  effectively volatile object.
 
-            elsif Nkind (Par) = N_Procedure_Call_Statement then
-               null;
-
-            --  Otherwise the context causes a side effect with respect to the
-            --  effectively volatile object.
-
-            else
-               SPARK_Msg_N
-                 ("volatile object cannot appear in this context "
-                  & "(SPARK RM 7.1.3(13))", N);
-            end if;
-
-         --  A Ghost entity must appear in a specific context
-
-         elsif Is_Ghost_Entity (E) and then Comes_From_Source (N) then
-            Check_Ghost_Context (E, N);
+         else
+            SPARK_Msg_N
+              ("volatile object cannot appear in this context "
+               & "(SPARK RM 7.1.3(13))", N);
          end if;
+      end if;
+
+      --  A Ghost entity must appear in a specific context
+
+      if Is_Ghost_Entity (E) and then Comes_From_Source (N) then
+         Check_Ghost_Context (E, N);
       end if;
    end Resolve_Entity_Name;
 

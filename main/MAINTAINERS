@@ -260,6 +260,7 @@ testsuite		Janis Johnson		<janisjo@codesourcery.com>
 register allocation	Vladimir Makarov	<vmakarov@redhat.com>
 gdbhooks.py		David Malcolm		<dmalcolm@redhat.com>
 SLSR			Bill Schmidt		<wschmidt@linux.vnet.ibm.com>
+jit			David Malcolm		<dmalcolm@redhat.com>
 
 Note that individuals who maintain parts of the compiler need approval to
 check in changes outside of the parts of the compiler they maintain.
@@ -395,6 +396,7 @@ Matthew Gingell					<gingell@gnat.com>
 Tristan Gingold					<gingold@adacore.com>
 Jan-Benedict Glaw				<jbglaw@lug-owl.de>
 Marc Glisse					<marc.glisse@inria.fr>
+Prachi Godbole					<prachi.godbole@imgtec.com>
 Anthony Green					<green@redhat.com>
 James Greenhalgh				<james.greenhalgh@arm.com>
 Doug Gregor					<doug.gregor@gmail.com>

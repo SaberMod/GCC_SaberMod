@@ -1326,6 +1326,7 @@ propagate_pure_const (void)
 		    fprintf (dump_file, "    global var write\n");
 		  break;
 		case IPA_REF_ADDR:
+		case IPA_REF_CHKP:
 		  break;
 		default:
 		  gcc_unreachable ();
@@ -1447,7 +1448,7 @@ propagate_nothrow (void)
 
       /* Find the worst state for any node in the cycle.  */
       w = node;
-      while (w)
+      while (w && !can_throw)
 	{
 	  struct cgraph_edge *e, *ie;
 	  funct_state w_l = get_function_state (w);
@@ -1456,10 +1457,7 @@ propagate_nothrow (void)
 	      || w->get_availability () == AVAIL_INTERPOSABLE)
 	    can_throw = true;
 
-	  if (can_throw)
-	    break;
-
-	  for (e = w->callees; e; e = e->next_callee)
+	  for (e = w->callees; e && !can_throw; e = e->next_callee)
 	    {
 	      enum availability avail;
 	      struct cgraph_node *y = e->callee->function_symbol (&avail);
@@ -1468,8 +1466,6 @@ propagate_nothrow (void)
 		{
 		  funct_state y_l = get_function_state (y);
 
-		  if (can_throw)
-		    break;
 		  if (y_l->can_throw && !TREE_NOTHROW (w->decl)
 		      && e->can_throw_external)
 		    can_throw = true;
@@ -1477,12 +1473,9 @@ propagate_nothrow (void)
 	      else if (e->can_throw_external && !TREE_NOTHROW (y->decl))
 	        can_throw = true;
 	    }
-          for (ie = node->indirect_calls; ie; ie = ie->next_callee)
+          for (ie = w->indirect_calls; ie && !can_throw; ie = ie->next_callee)
 	    if (ie->can_throw_external)
-	      {
-		can_throw = true;
-		break;
-	      }
+	      can_throw = true;
 	  w_info = (struct ipa_dfs_info *) w->aux;
 	  w = w_info->next_cycle;
 	}
@@ -1799,5 +1792,3 @@ make_pass_warn_function_noreturn (gcc::context *ctxt)
 {
   return new pass_warn_function_noreturn (ctxt);
 }
-
-
