@@ -1,3 +1,25 @@
+2015-05-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/atomic7_1.adb: New test.
+	* gnat.dg/atomic7_2.adb: Likewise.
+	* gnat.dg/atomic7_pkg1.ads: New helper.
+	* gnat.dg/atomic7_pkg2.ad[sb]: Likewise.
+
+2015-05-26  Michael Matz  <matz@suse.de>
+
+	PR middle-end/66251
+	* gcc.dg/vect/pr66251.c: New test.
+
+2015-05-26  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66142
+	* gcc.dg/tree-ssa/ssa-fre-44.c: New testcase.
+
+2015-05-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/66082
+	* gfortran.dg/allocatable_scalar_13.f90: New test
+
 2015-05-25  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gnat.dg/warn11.adb: New test.

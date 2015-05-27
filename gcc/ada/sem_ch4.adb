@@ -65,6 +65,50 @@ with Uintp;    use Uintp;
 
 package body Sem_Ch4 is
 
+   --  Tables which speed up the identification of dangerous calls to Ada 2012
+   --  functions with writable actuals (AI05-0144).
+
+   --  The following table enumerates the Ada constructs which may evaluate in
+   --  arbitrary order. It does not cover all the language constructs which can
+   --  be evaluated in arbitrary order but the subset needed for AI05-0144.
+
+   Has_Arbitrary_Evaluation_Order : constant array (Node_Kind) of Boolean :=
+     (N_Aggregate                      => True,
+      N_Assignment_Statement           => True,
+      N_Entry_Call_Statement           => True,
+      N_Extension_Aggregate            => True,
+      N_Full_Type_Declaration          => True,
+      N_Indexed_Component              => True,
+      N_Object_Declaration             => True,
+      N_Pragma                         => True,
+      N_Range                          => True,
+      N_Slice                          => True,
+      N_Array_Type_Definition          => True,
+      N_Membership_Test                => True,
+      N_Binary_Op                      => True,
+      N_Subprogram_Call                => True,
+      others                           => False);
+
+   --  The following table enumerates the nodes on which we stop climbing when
+   --  locating the outermost Ada construct that can be evaluated in arbitrary
+   --  order.
+
+   Stop_Subtree_Climbing : constant array (Node_Kind) of Boolean :=
+     (N_Aggregate                    => True,
+      N_Assignment_Statement         => True,
+      N_Entry_Call_Statement         => True,
+      N_Extended_Return_Statement    => True,
+      N_Extension_Aggregate          => True,
+      N_Full_Type_Declaration        => True,
+      N_Object_Declaration           => True,
+      N_Object_Renaming_Declaration  => True,
+      N_Package_Specification        => True,
+      N_Pragma                       => True,
+      N_Procedure_Call_Statement     => True,
+      N_Simple_Return_Statement      => True,
+      N_Has_Condition                => True,
+      others                         => False);
+
    -----------------------
    -- Local Subprograms --
    -----------------------
@@ -644,7 +688,7 @@ package body Sem_Ch4 is
             --  had errors on analyzing the allocator, since in that case these
             --  are probably cascaded errors.
 
-            if Is_Indefinite_Subtype (Type_Id)
+            if not Is_Definite_Subtype (Type_Id)
               and then Serious_Errors_Detected = Sav_Errs
             then
                --  The build-in-place machinery may produce an allocator when
@@ -654,7 +698,7 @@ package body Sem_Ch4 is
                --  because the allocator is marked as coming from source.
 
                if Present (Underlying_Type (Type_Id))
-                 and then not Is_Indefinite_Subtype (Underlying_Type (Type_Id))
+                 and then Is_Definite_Subtype (Underlying_Type (Type_Id))
                  and then not Comes_From_Source (Parent (N))
                then
                   null;
@@ -830,10 +874,7 @@ package body Sem_Ch4 is
       end if;
 
       Operator_Check (N);
-
-      if Check_Actuals (N) then
-         Check_Function_Writable_Actuals (N);
-      end if;
+      Check_Function_Writable_Actuals (N);
    end Analyze_Arithmetic_Op;
 
    ------------------
@@ -916,69 +957,35 @@ package body Sem_Ch4 is
       ----------------------------
 
       --  The identification of conflicts in calls to functions with writable
-      --  actuals is performed in the analysis phase of the frontend to ensure
+      --  actuals is performed in the analysis phase of the front end to ensure
       --  that it reports exactly the same errors compiling with and without
       --  expansion enabled. It is performed in two stages:
 
-      --    1) When a call to a function with out-mode parameters is found
-      --       we climb to the outermost enclosing construct which can be
+      --    1) When a call to a function with out-mode parameters is found,
+      --       we climb to the outermost enclosing construct that can be
       --       evaluated in arbitrary order and we mark it with the flag
       --       Check_Actuals.
 
-      --    2) When the analysis of the marked node is complete then we
-      --       traverse its decorated subtree searching for conflicts
-      --       (see function Sem_Util.Check_Function_Writable_Actuals).
+      --    2) When the analysis of the marked node is complete, we traverse
+      --       its decorated subtree searching for conflicts (see function
+      --       Sem_Util.Check_Function_Writable_Actuals).
 
-      --  The unique exception to this general rule are aggregates, since
-      --  their analysis is performed by the frontend in the resolution
-      --  phase. For aggregates we do not climb to its enclosing construct:
+      --  The unique exception to this general rule is for aggregates, since
+      --  their analysis is performed by the front end in the resolution
+      --  phase. For aggregates we do not climb to their enclosing construct:
       --  we restrict the analysis to the subexpressions initializing the
       --  aggregate components.
 
       --  This implies that the analysis of expressions containing aggregates
-      --  is not complete since there may be conflicts on writable actuals
+      --  is not complete, since there may be conflicts on writable actuals
       --  involving subexpressions of the enclosing logical or arithmetic
       --  expressions. However, we cannot wait and perform the analysis when
-      --  the whole subtree is resolved since the subtrees may be transformed
+      --  the whole subtree is resolved, since the subtrees may be transformed,
       --  thus adding extra complexity and computation cost to identify and
       --  report exactly the same errors compiling with and without expansion
       --  enabled.
 
       procedure Check_Writable_Actuals (N : Node_Id) is
-
-         function Is_Arbitrary_Evaluation_Order_Construct
-           (N : Node_Id) return Boolean;
-         --  Return True if N is an Ada construct which may evaluate in
-         --  arbitrary order. This function does not cover all the language
-         --  constructs which can be evaluated in arbitrary order but the
-         --  subset needed for AI05-0144.
-
-         ---------------------------------------------
-         -- Is_Arbitrary_Evaluation_Order_Construct --
-         ---------------------------------------------
-
-         function Is_Arbitrary_Evaluation_Order_Construct
-           (N : Node_Id) return Boolean is
-         begin
-            return Nkind (N) = N_Aggregate
-               or else Nkind (N) = N_Assignment_Statement
-               or else Nkind (N) = N_Full_Type_Declaration
-               or else Nkind (N) = N_Entry_Call_Statement
-               or else Nkind (N) = N_Extension_Aggregate
-               or else Nkind (N) = N_Indexed_Component
-               or else Nkind (N) = N_Object_Declaration
-               or else Nkind (N) = N_Pragma
-               or else Nkind (N) = N_Range
-               or else Nkind (N) = N_Slice
-
-               or else Nkind (N) in N_Array_Type_Definition
-               or else Nkind (N) in N_Membership_Test
-               or else Nkind (N) in N_Op
-               or else Nkind (N) in N_Subprogram_Call;
-         end Is_Arbitrary_Evaluation_Order_Construct;
-
-      --  Start of processing for Check_Writable_Actuals
-
       begin
          if Comes_From_Source (N)
            and then Present (Get_Subprogram_Entity (N))
@@ -1003,38 +1010,26 @@ package body Sem_Ch4 is
                begin
                   while Present (P) loop
 
-                     --  For object declarations we can climb to such node from
+                     --  For object declarations we can climb to the node from
                      --  its object definition branch or from its initializing
                      --  expression. We prefer to mark the child node as the
                      --  outermost construct to avoid adding further complexity
-                     --  to the routine which will take care later of
+                     --  to the routine that will later take care of
                      --  performing the writable actuals check.
 
-                     if Is_Arbitrary_Evaluation_Order_Construct (P)
-                       and then Nkind (P) /= N_Assignment_Statement
-                       and then Nkind (P) /= N_Object_Declaration
+                     if Has_Arbitrary_Evaluation_Order (Nkind (P))
+                       and then not Nkind_In (P, N_Assignment_Statement,
+                                                 N_Object_Declaration)
                      then
                         Outermost := P;
                      end if;
 
                      --  Avoid climbing more than needed!
 
-                     exit when Nkind (P) = N_Aggregate
-                       or else Nkind (P) = N_Assignment_Statement
-                       or else Nkind (P) = N_Entry_Call_Statement
-                       or else Nkind (P) = N_Extended_Return_Statement
-                       or else Nkind (P) = N_Extension_Aggregate
-                       or else Nkind (P) = N_Full_Type_Declaration
-                       or else Nkind (P) = N_Object_Declaration
-                       or else Nkind (P) = N_Object_Renaming_Declaration
-                       or else Nkind (P) = N_Package_Specification
-                       or else Nkind (P) = N_Pragma
-                       or else Nkind (P) = N_Procedure_Call_Statement
-                       or else Nkind (P) = N_Simple_Return_Statement
+                     exit when Stop_Subtree_Climbing (Nkind (P))
                        or else (Nkind (P) = N_Range
                                  and then not
-                                   Nkind_In (Parent (P), N_In, N_Not_In))
-                       or else Nkind (P) in N_Has_Condition;
+                                   Nkind_In (Parent (P), N_In, N_Not_In));
 
                      P := Parent (P);
                   end loop;
@@ -1407,13 +1402,11 @@ package body Sem_Ch4 is
 
          Check_Writable_Actuals (N);
 
-         --  If found and the outermost construct which can be evaluated in
-         --  arbitrary order is precisely this call then check all its
+         --  If found and the outermost construct that can be evaluated in
+         --  an arbitrary order is precisely this call, then check all its
          --  actuals.
 
-         if Check_Actuals (N) then
-            Check_Function_Writable_Actuals (N);
-         end if;
+         Check_Function_Writable_Actuals (N);
       end if;
    end Analyze_Call;
 
@@ -1632,10 +1625,7 @@ package body Sem_Ch4 is
       end if;
 
       Operator_Check (N);
-
-      if Check_Actuals (N) then
-         Check_Function_Writable_Actuals (N);
-      end if;
+      Check_Function_Writable_Actuals (N);
    end Analyze_Comparison_Op;
 
    ---------------------------
@@ -1883,10 +1873,7 @@ package body Sem_Ch4 is
       end if;
 
       Operator_Check (N);
-
-      if Check_Actuals (N) then
-         Check_Function_Writable_Actuals (N);
-      end if;
+      Check_Function_Writable_Actuals (N);
    end Analyze_Equality_Op;
 
    ----------------------------------
@@ -1982,7 +1969,9 @@ package body Sem_Ch4 is
 
                --  An explicit dereference is a legal occurrence of an
                --  incomplete type imported through a limited_with clause,
-               --  if the full view is visible.
+               --  if the full view is visible, or if we are within an
+               --  instance body, where the enclosing body has a regular
+               --  with_clause on the unit.
 
                if From_Limited_With (DT)
                  and then not From_Limited_With (Scope (DT))
@@ -1990,7 +1979,8 @@ package body Sem_Ch4 is
                    (Is_Immediately_Visible (Scope (DT))
                      or else
                        (Is_Child_Unit (Scope (DT))
-                         and then Is_Visible_Lib_Unit (Scope (DT))))
+                         and then Is_Visible_Lib_Unit (Scope (DT)))
+                     or else In_Instance_Body)
                then
                   Set_Etype (N, Available_View (DT));
 
@@ -2710,10 +2700,7 @@ package body Sem_Ch4 is
       end if;
 
       Operator_Check (N);
-
-      if Check_Actuals (N) then
-         Check_Function_Writable_Actuals (N);
-      end if;
+      Check_Function_Writable_Actuals (N);
    end Analyze_Logical_Op;
 
    ---------------------------
@@ -2869,10 +2856,7 @@ package body Sem_Ch4 is
 
       if No (R) and then Ada_Version >= Ada_2012 then
          Analyze_Set_Membership;
-
-         if Check_Actuals (N) then
-            Check_Function_Writable_Actuals (N);
-         end if;
+         Check_Function_Writable_Actuals (N);
 
          return;
       end if;
@@ -2946,9 +2930,7 @@ package body Sem_Ch4 is
          Error_Msg_N ("membership test not applicable to cpp-class types", N);
       end if;
 
-      if Check_Actuals (N) then
-         Check_Function_Writable_Actuals (N);
-      end if;
+      Check_Function_Writable_Actuals (N);
    end Analyze_Membership_Op;
 
    -----------------
@@ -4028,9 +4010,7 @@ package body Sem_Ch4 is
          Check_Universal_Expression (H);
       end if;
 
-      if Check_Actuals (N) then
-         Check_Function_Writable_Actuals (N);
-      end if;
+      Check_Function_Writable_Actuals (N);
    end Analyze_Range;
 
    -----------------------

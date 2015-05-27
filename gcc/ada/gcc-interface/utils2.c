@@ -738,27 +738,15 @@ build_atomic_store (tree dest, tree src, bool sync)
   return build_call_expr (t, 3, addr, src, mem_model);
 }
 
-/* Return true if EXP, a CALL_EXPR, is an atomic load.  */
-
-static bool
-call_is_atomic_load (tree exp)
-{
-  tree fndecl = get_callee_fndecl (exp);
-
-  if (!(fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL))
-    return false;
-
-  enum built_in_function code = DECL_FUNCTION_CODE (fndecl);
-  return BUILT_IN_ATOMIC_LOAD_N <= code && code <= BUILT_IN_ATOMIC_LOAD_16;
-}
-
 /* Build a load-modify-store sequence from SRC to DEST.  GNAT_NODE is used for
-   the location of the sequence.  Note that, even if the load and the store are
-   both atomic, the sequence itself is not atomic.  */
+   the location of the sequence.  Note that, even though the load and the store
+   are both atomic, the sequence itself is not atomic.  */
 
 tree
 build_load_modify_store (tree dest, tree src, Node_Id gnat_node)
 {
+  /* We will be modifying DEST below so we build a copy.  */
+  dest = copy_node (dest);
   tree ref = dest;
 
   while (handled_component_p (ref))
@@ -812,6 +800,7 @@ build_load_modify_store (tree dest, tree src, Node_Id gnat_node)
 	    }
 	}
 
+      TREE_OPERAND (ref, 0) = copy_node (TREE_OPERAND (ref, 0));
       ref = TREE_OPERAND (ref, 0);
     }
 
@@ -2563,6 +2552,17 @@ gnat_mark_addressable (tree t)
     }
 }
 
+/* Return true if EXP is a stable expression for the purpose of the functions
+   below and, therefore, can be returned unmodified by them.  We accept things
+   that are actual constants or that have already been handled.  */
+
+static bool
+gnat_stable_expr_p (tree exp)
+{
+  enum tree_code code = TREE_CODE (exp);
+  return TREE_CONSTANT (exp) || code == NULL_EXPR || code == SAVE_EXPR;
+}
+
 /* Save EXP for later use or reuse.  This is equivalent to save_expr in tree.c
    but we know how to handle our own nodes.  */
 
@@ -2572,7 +2572,7 @@ gnat_save_expr (tree exp)
   tree type = TREE_TYPE (exp);
   enum tree_code code = TREE_CODE (exp);
 
-  if (TREE_CONSTANT (exp) || code == SAVE_EXPR || code == NULL_EXPR)
+  if (gnat_stable_expr_p (exp))
     return exp;
 
   if (code == UNCONSTRAINED_ARRAY_REF)
@@ -2603,7 +2603,7 @@ gnat_protect_expr (tree exp)
   tree type = TREE_TYPE (exp);
   enum tree_code code = TREE_CODE (exp);
 
-  if (TREE_CONSTANT (exp) || code == SAVE_EXPR || code == NULL_EXPR)
+  if (gnat_stable_expr_p (exp))
     return exp;
 
   /* If EXP has no side effects, we theoretically don't need to do anything.
@@ -2663,17 +2663,14 @@ gnat_protect_expr (tree exp)
    argument to force evaluation of everything.  */
 
 static tree
-gnat_stabilize_reference_1 (tree e, bool force)
+gnat_stabilize_reference_1 (tree e, void *data, int n)
 {
+  const bool force = *(bool *)data;
   enum tree_code code = TREE_CODE (e);
   tree type = TREE_TYPE (e);
   tree result;
 
-  /* We cannot ignore const expressions because it might be a reference
-     to a const array but whose index contains side-effects.  But we can
-     ignore things that are actual constant or that already have been
-     handled by this function.  */
-  if (TREE_CONSTANT (e) || code == SAVE_EXPR)
+  if (gnat_stable_expr_p (e))
     return e;
 
   switch (TREE_CODE_CLASS (code))
@@ -2691,7 +2688,7 @@ gnat_stabilize_reference_1 (tree e, bool force)
 	  && TYPE_IS_FAT_POINTER_P (TREE_TYPE (TREE_OPERAND (e, 0))))
 	result
 	  = build3 (code, type,
-		    gnat_stabilize_reference_1 (TREE_OPERAND (e, 0), force),
+		    gnat_stabilize_reference_1 (TREE_OPERAND (e, 0), data, n),
 		    TREE_OPERAND (e, 1), TREE_OPERAND (e, 2));
       /* If the expression has side-effects, then encase it in a SAVE_EXPR
 	 so that it will only be evaluated once.  */
@@ -2707,50 +2704,49 @@ gnat_stabilize_reference_1 (tree e, bool force)
       /* Recursively stabilize each operand.  */
       result
 	= build2 (code, type,
-		  gnat_stabilize_reference_1 (TREE_OPERAND (e, 0), force),
-		  gnat_stabilize_reference_1 (TREE_OPERAND (e, 1), force));
+		  gnat_stabilize_reference_1 (TREE_OPERAND (e, 0), data, n),
+		  gnat_stabilize_reference_1 (TREE_OPERAND (e, 1), data, n));
       break;
 
     case tcc_unary:
       /* Recursively stabilize each operand.  */
       result
 	= build1 (code, type,
-		  gnat_stabilize_reference_1 (TREE_OPERAND (e, 0), force));
+		  gnat_stabilize_reference_1 (TREE_OPERAND (e, 0), data, n));
       break;
 
     default:
       gcc_unreachable ();
     }
 
-  /* See similar handling in gnat_stabilize_reference.  */
   TREE_READONLY (result) = TREE_READONLY (e);
   TREE_SIDE_EFFECTS (result) |= TREE_SIDE_EFFECTS (e);
   TREE_THIS_VOLATILE (result) = TREE_THIS_VOLATILE (e);
-
-  if (code == INDIRECT_REF
-      || code == UNCONSTRAINED_ARRAY_REF
-      || code == ARRAY_REF
-      || code == ARRAY_RANGE_REF)
-    TREE_THIS_NOTRAP (result) = TREE_THIS_NOTRAP (e);
 
   return result;
 }
 
 /* This is equivalent to stabilize_reference in tree.c but we know how to
    handle our own nodes and we take extra arguments.  FORCE says whether to
-   force evaluation of everything.  We set SUCCESS to true unless we walk
-   through something we don't know how to stabilize.  */
+   force evaluation of everything.  */
 
 tree
-gnat_stabilize_reference (tree ref, bool force, bool *success)
+gnat_stabilize_reference (tree ref, bool force)
+{
+  return gnat_rewrite_reference (ref, gnat_stabilize_reference_1, &force);
+}
+
+/* Rewrite reference REF and call FUNC on each expression within REF in the
+   process.  DATA is passed unmodified to FUNC and N is bumped each time it
+   is passed to FUNC, so FUNC is guaranteed to see a given N only once per
+   reference to be rewritten.  */
+
+tree
+gnat_rewrite_reference (tree ref, rewrite_fn func, void *data, int n)
 {
   tree type = TREE_TYPE (ref);
   enum tree_code code = TREE_CODE (ref);
   tree result;
-
-  /* Assume we'll success unless proven otherwise.  */
-  if (success)
-    *success = true;
 
   switch (code)
     {
@@ -2761,99 +2757,72 @@ gnat_stabilize_reference (tree ref, bool force, bool *success)
       /* No action is needed in this case.  */
       return ref;
 
-    case ADDR_EXPR:
     CASE_CONVERT:
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
     case VIEW_CONVERT_EXPR:
       result
 	= build1 (code, type,
-		  gnat_stabilize_reference (TREE_OPERAND (ref, 0), force,
-					    success));
+		  gnat_rewrite_reference (TREE_OPERAND (ref, 0), func, data,
+					  n));
       break;
 
     case INDIRECT_REF:
     case UNCONSTRAINED_ARRAY_REF:
-      result = build1 (code, type,
-		       gnat_stabilize_reference_1 (TREE_OPERAND (ref, 0),
-						   force));
+      result = build1 (code, type, func (TREE_OPERAND (ref, 0), data, n));
       break;
 
     case COMPONENT_REF:
       result = build3 (COMPONENT_REF, type,
-		       gnat_stabilize_reference (TREE_OPERAND (ref, 0), force,
-						 success),
+		       gnat_rewrite_reference (TREE_OPERAND (ref, 0), func,
+					       data, n),
 		       TREE_OPERAND (ref, 1), NULL_TREE);
       break;
 
     case BIT_FIELD_REF:
       result = build3 (BIT_FIELD_REF, type,
-		       gnat_stabilize_reference (TREE_OPERAND (ref, 0), force,
-						 success),
+		       gnat_rewrite_reference (TREE_OPERAND (ref, 0), func,
+					       data, n),
 		       TREE_OPERAND (ref, 1), TREE_OPERAND (ref, 2));
       break;
 
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
-      result = build4 (code, type,
-		       gnat_stabilize_reference (TREE_OPERAND (ref, 0), force,
-						 success),
-		       gnat_stabilize_reference_1 (TREE_OPERAND (ref, 1),
-						   force),
-		       NULL_TREE, NULL_TREE);
+      result
+	= build4 (code, type,
+		  gnat_rewrite_reference (TREE_OPERAND (ref, 0), func, data,
+					  n + 1),
+		  func (TREE_OPERAND (ref, 1), data, n),
+		  TREE_OPERAND (ref, 2), TREE_OPERAND (ref, 3));
       break;
 
     case CALL_EXPR:
-      if (call_is_atomic_load (ref))
-	result
-	  = build_call_expr (TREE_OPERAND (CALL_EXPR_FN (ref), 0), 2,
-			     gnat_stabilize_reference (CALL_EXPR_ARG (ref, 0),
-						       force, success),
-			     CALL_EXPR_ARG (ref, 1));
-      else
-	result = gnat_stabilize_reference_1 (ref, force);
-      break;
+      {
+	/* This can only be an atomic load.  */
+	gcc_assert (call_is_atomic_load (ref));
 
-    case COMPOUND_EXPR:
-      result = build2 (COMPOUND_EXPR, type,
-		       gnat_stabilize_reference (TREE_OPERAND (ref, 0), force,
-						 success),
-		       gnat_stabilize_reference (TREE_OPERAND (ref, 1), force,
-						 success));
-      break;
+	/* An atomic load is an INDIRECT_REF of its first argument.  */
+	tree t = CALL_EXPR_ARG (ref, 0);
+	if (TREE_CODE (t) == NOP_EXPR)
+	  t = TREE_OPERAND (t, 0);
+	if (TREE_CODE (t) == ADDR_EXPR)
+	  t = build1 (ADDR_EXPR, TREE_TYPE (t),
+		      gnat_rewrite_reference (TREE_OPERAND (t, 0), func, data,
+					      n));
+	else
+	  t = func (t, data, n);
+	t = fold_convert (TREE_TYPE (CALL_EXPR_ARG (ref, 0)), t);
 
-    case CONSTRUCTOR:
-      /* Constructors with 1 element are used extensively to formally
-	 convert objects to special wrapping types.  */
-      if (TREE_CODE (type) == RECORD_TYPE
-	  && vec_safe_length (CONSTRUCTOR_ELTS (ref)) == 1)
-	{
-	  tree index = (*CONSTRUCTOR_ELTS (ref))[0].index;
-	  tree value = (*CONSTRUCTOR_ELTS (ref))[0].value;
-	  result
-	    = build_constructor_single (type, index,
-					gnat_stabilize_reference_1 (value,
-								    force));
-	}
-      else
-	{
-	  if (success)
-	    *success = false;
-	  return ref;
-	}
+	result = build_call_expr (TREE_OPERAND (CALL_EXPR_FN (ref), 0), 2,
+				  t, CALL_EXPR_ARG (ref, 1));
+      }
       break;
 
     case ERROR_MARK:
-      ref = error_mark_node;
+      return error_mark_node;
 
-      /* ...  fall through to failure ... */
-
-      /* If arg isn't a kind of lvalue we recognize, make no change.
-	 Caller should recognize the error for an invalid lvalue.  */
     default:
-      if (success)
-	*success = false;
-      return ref;
+      gcc_unreachable ();
     }
 
   /* TREE_THIS_VOLATILE and TREE_SIDE_EFFECTS set on the initial expression
@@ -2928,22 +2897,6 @@ get_inner_constant_reference (tree exp)
 
 done:
   return exp;
-}
-
-/* Return true if REF is a constant reference, i.e. a reference (lvalue) that
-   doesn't depend on the context in which it is evaluated.  */
-
-bool
-gnat_constant_reference_p (tree ref)
-{
-  if (handled_component_p (ref))
-    {
-      ref = get_inner_constant_reference (ref);
-      if (!ref)
-	return false;
-    }
-
-  return DECL_P (ref);
 }
 
 /* If EXPR is an expression that is invariant in the current function, in the

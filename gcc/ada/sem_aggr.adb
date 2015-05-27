@@ -1161,9 +1161,7 @@ package body Sem_Aggr is
          Set_Analyzed (N);
       end if;
 
-      if Check_Actuals (N) then
-         Check_Function_Writable_Actuals (N);
-      end if;
+      Check_Function_Writable_Actuals (N);
    end Resolve_Aggregate;
 
    -----------------------------
@@ -2306,6 +2304,16 @@ package body Sem_Aggr is
             if Others_Present then
                Get_Index_Bounds (Index_Constr, Aggr_Low, Aggr_High);
 
+               --  Abandon processing if either bound is already signalled as
+               --  an error (prevents junk cascaded messages and blow ups).
+
+               if Nkind (Aggr_Low) = N_Error
+                    or else
+                  Nkind (Aggr_High) = N_Error
+               then
+                  return False;
+               end if;
+
             --  No others clause present
 
             else
@@ -2315,6 +2323,16 @@ package body Sem_Aggr is
 
                if Others_Allowed then
                   Get_Index_Bounds (Index_Constr, Aggr_Low, Aggr_High);
+
+                  --  Abandon processing if either bound is already signalled
+                  --  as an error (stop junk cascaded messages and blow ups).
+
+                  if Nkind (Aggr_Low) = N_Error
+                       or else
+                     Nkind (Aggr_High) = N_Error
+                  then
+                     return False;
+                  end if;
 
                   --  If others allowed, and no others present, then the array
                   --  should cover all index values. If it does not, we will
@@ -2906,9 +2924,7 @@ package body Sem_Aggr is
          Error_Msg_N ("no unique type for this aggregate",  A);
       end if;
 
-      if Check_Actuals (N) then
-         Check_Function_Writable_Actuals (N);
-      end if;
+      Check_Function_Writable_Actuals (N);
    end Resolve_Extension_Aggregate;
 
    ------------------------------

@@ -1,3 +1,157 @@
+2015-05-26  Jeff Law  <law@redhat.com>
+
+	* combine.c (find_split_point): Verify that the shift count is a
+	constant when choosing (plus (ashift ...)) as a split point.
+
+	* tree-ssa-threadupdate.c: Replace 8 space sequences with tabs.
+	No functional changes.
+
+2015-05-26  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-polymorphic-call.c
+	(ipa_polymorphic_call_context::get_dynamic_type): Short circuit the
+	case when call target is already known.
+
+2015-05-26  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/65979
+	* config/sh/sh.md (tstsi_t peephole2): Use gen_rtx_SET and
+	take into account the case that operands[1] and operands[2]
+	are the same register.
+
+2015-05-26  Michael Matz  <matz@suse.de>
+
+	PR middle-end/66251
+
+	* tree-vect-stmts.c (vect_model_store_cost): Handled strided group
+	stores.
+	(vect_create_vectorized_demotion_stmts): Always set
+	STMT_VINFO_VEC_STMT, also with SLP.
+	(vectorizable_store): Handle strided group stores.
+
+2015-05-26  Venkataramanan Kumar  <venkataramanan.kumar@amd.com>
+
+	PR target/66049
+	* config/aarch64/aarch64.md
+	(*adds_shift_imm_<mode>):  New pattern.
+	(*subs_shift_imm_<mode>):  Likewise.
+	(*adds_<optab><ALLX:mode>_shift_<GPI:mode>):  Likewise.
+	(*subs_<optab><ALLX:mode>_shift_<GPI:mode>): Likewise.
+	(*add_uxt<mode>_shift2): Likewise.
+	(*add_uxtsi_shift2_uxtw): Likewise.
+	(*sub_uxt<mode>_shift2): Likewise.
+	(*sub_uxtsi_shift2_uxtw): Likewise.
+
+2015-05-26  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/constraints.md (Y, U): Use match_test.
+
+2015-05-26  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/52144
+	* config/arm/arm.c (arm_option_check_internal)
+	(arm_option_params_internal): Check opts->target_flags to set macros.
+	(TREE_TARGET_ARM, TREE_TARGET_THUMB)
+	(TREE_TARGET_THUMB1, TREE_TARGET_THUMB2) Replace with...
+	(TARGET_ARM_P, TARGET_THUMB_P, TARGET_THUMB1_P, TARGET_THUMB2_P)
+	(builtin_define): Replaced with def_or_undef_macro.
+	* config/arm/arm.h (TREE_TARGET_ARM, TREE_TARGET_THUMB)
+	TREE_TARGET_THUMB1, TREE_TARGET_THUMB2) Redefine with...
+	(TARGET_ARM_P, TARGET_THUMB_P, TARGET_THUMB1_P, TARGET_THUMB2_P)
+	(TARGET_32BIT_P, TARGET_ARM_QBIT_P, TARGET_ARM_SAT_P, TARGET_IDIV_P)
+	(TARGET_HAVE_LDREX_P, TARGET_HAVE_LDREXBH_P, TARGET_HAVE_LDREXD_P)
+	(TARGET_ARM_FEATURE_LDREX_P)
+	(TARGET_DSP_MULTIPLY_P, TARGET_INT_SIMD_P): New macros.
+	* config/arm/arm-c.c (def_or_undef_macro): New function.
+	(arm_cpu_cpp_builtins): Use def_or_undef_macro for macros definition.
+
+2015-05-26  Christian Bruel  <christian.bruel@st.com>
+
+	* c-common.h (builtin_define_with_int_value)
+	(builtin_define_type_sizeof): Declare.
+	* c-cppbuiltin.c (builtin_define_with_int_value)
+	(builtin_define_type_sizeof): Externalize.
+	(builtin_define_std): Cleanup declaration.
+	* config/arm/arm-protos.h (arm_cpu_cpp_builtins): Declare.
+	* config/arm/arm.h (TARGET_CPU_CPP_BUILTINS): Move macro defines into...
+	* config/arm/arm-c.c (arm_cpu_cpp_builtins): New function.
+	(builtin_define, builtin_assert): New macros.
+
+2015-05-26  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66142
+	* tree-ssa-sccvn.c (vn_reference_lookup_3): Manually compare
+	MEM_REFs for the same base address.
+
+2015-05-26  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR ipa/66181
+	* tree.c (verify_type_variant): Do not check TYPE_NO_FORCE_BLK.
+
+2015-05-26  Jason Merrill  <jason@redhat.com>
+
+	* configure.ac: Set CXXFLAGS for ISL test.
+	* configure: Regenerate.
+
+	* configure.ac: Use C++ for all tests.  Use AC_CHECK_DECLS for
+	strstr and basename.
+	* configure: Regenerate.
+
+2015-05-26  Richard Biener  <rguenther@suse.de>
+
+	* fold-const.c (fold_binary_loc): Move X % -Y -> X % Y and
+	X % C -> X & (C - 1) for C being a power-of two to ...
+	* match.pd: ... patterns.
+
+2015-05-26  Marc Glisse  <marc.glisse@inria.fr>
+
+	* match.pd (swapped_tcc_comparison): New operator list.
+	(-A CMP -B): New simplification.
+	* fold-const.c (fold_comparison): Remove corresponding code.
+
+2015-05-26  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* caller-save.c (init_caller_save): Base temporary register numbers
+	on LAST_VIRTUAL_REGISTER + 1 rather than FIRST_PSEUDO_REGISTER.
+	* cfgloopanal.c (init_set_costs): Likewise.
+	* dojump.c (prefer_and_bit_test): Likewise.
+	* expr.c (init_expr_target): Likewise.
+	* ira.c (setup_prohibited_mode_move_regs): Likewise.
+	* lower-subreg.c (init_lower_subreg): Likewise.
+	* postreload.c (reload_cse_regs_1): Likewise.
+
+2015-05-26  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gensupport.h (compute_test_codes): Declare.
+	* gensupport.c (compute_predicate_codes): Rename to...
+	(compute_test_codes): ...this.  Generalize error message.
+	(process_define_predicate): Update accordingly.
+	* genpreds.c (compute_maybe_allows): Delete.
+	(add_constraint): Use compute_test_codes to determine whether
+	something can accept a SUBREG, REG or MEM.
+
+2015-05-26  Torvald Riegel  <triegel@redhat.com>
+
+	* doc/extend.texi (__atomic Builtins): Use 'memory order' instead of
+	'memory	model' to align with C++11; fix description of memory orders;
+	fix a few typos.
+
+2015-05-26  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-loop.c (vect_update_vf_for_slp): Split out from ...
+	(vect_analyze_loop_operations): ... here.  Remove slp parameter,
+	detect whether we apply SLP.  Remove call to
+	vect_update_slp_costs_according_to_vf.
+	(vect_analyze_loop_2): Call vect_update_vf_for_slp and
+	vect_update_slp_costs_according_to_vf from here.  Dispatch
+	to vect_slp_analyze_operations to analyze SLP stmts.
+	* tree-vect-slp.c (vect_slp_analyze_node_operations): Drop
+	unused bb_vec_info parameter, adjust assert.
+	(vect_slp_analyze_operations): Pass in the slp instance tree
+	instead of bb_vec_info.
+	(vect_slp_analyze_bb_1): Adjust call to vect_slp_analyze_operations.
+	* tree-vectorizer.h (vect_slp_analyze_operations): Declare.
+
 2015-05-25  Alexander Monakov  <amonakov@ispras.ru>
 
 	* config/i386/i386.h (enum reg_class): Move CLOBBERED_REGS prior to
