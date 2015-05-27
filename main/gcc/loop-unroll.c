@@ -1,4 +1,4 @@
-/* Loop unrolling and peeling.
+/* Loop unrolling.
    Copyright (C) 2002-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -35,8 +35,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "dumpfile.h"
 #include "gcov-io.h"
 
-/* This pass performs loop unrolling and peeling.  We only perform these
-   optimizations on innermost loops (with single exception) because
+/* This pass performs loop unrolling.  We only perform this
+   optimization on innermost loops (with single exception) because
    the impact on performance is greatest here, and we want to avoid
    unnecessary code size growth.  The gain is caused by greater sequentiality
    of code, better code to optimize for further passes and in some cases
@@ -45,12 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 
    What we do:
 
-   -- complete peeling of once-rolling loops; this is the above mentioned
-      exception, as this causes loop to be cancelled completely and
-      does not cause code growth
-   -- complete peeling of loops that roll (small) constant times.
-   -- simple peeling of first iterations of loops that do not roll much
-      (according to profile feedback)
    -- unrolling of loops that roll constant times; this is almost always
       win, as we get rid of exit condition tests.
    -- unrolling of loops that roll number of times that we can compute
@@ -63,7 +57,7 @@ along with GCC; see the file COPYING3.  If not see
    appropriate function below.
 
    There is a lot of parameters (defined and described in params.def) that
-   control how much we unroll/peel.
+   control how much we unroll.
 
    ??? A great problem is that we don't have a good way how to determine
    how many times we should unroll the loop; the experiments I have made
@@ -171,17 +165,11 @@ struct opt_info
   basic_block loop_preheader;      /* The loop preheader basic block.  */
 };
 
-static void decide_unrolling_and_peeling (int);
-static void peel_loops_completely (int);
-static void decide_peel_simple (struct loop *, int);
-static void decide_peel_once_rolling (struct loop *, int);
-static void decide_peel_completely (struct loop *, int);
 static void decide_unroll_stupid (struct loop *, int);
 static void decide_unroll_constant_iterations (struct loop *, int);
 static void decide_unroll_runtime_iterations (struct loop *, int);
-static void peel_loop_simple (struct loop *);
-static void peel_loop_completely (struct loop *);
 static void unroll_loop_stupid (struct loop *);
+static void decide_unrolling (int);
 static void unroll_loop_constant_iterations (struct loop *);
 static void unroll_loop_runtime_iterations (struct loop *);
 static struct opt_info *analyze_insns_in_loop (struct loop *);
@@ -291,15 +279,13 @@ max_unroll_with_branches(struct loop *loop, unsigned nunroll)
       / (desc->av_num_branches - 1) + 1;
 }
 
-/* Emit a message summarizing the unroll or peel that will be
+/* Emit a message summarizing the unroll that will be
    performed for LOOP, along with the loop's location LOCUS, if
    appropriate given the dump or -fopt-info settings.  */
 
 static void
-report_unroll_peel (struct loop *loop, location_t locus)
+report_unroll (struct loop *loop, location_t locus)
 {
-  struct niter_desc *desc;
-  int niters = 0;
   int report_flags = MSG_OPTIMIZED_LOCATIONS | TDF_RTL | TDF_DETAILS;
 
   if (loop->lpt_decision.decision == LPT_NONE)
@@ -308,46 +294,13 @@ report_unroll_peel (struct loop *loop, location_t locus)
   if (!dump_enabled_p ())
     return;
 
-  /* In the special case where the loop never iterated, emit
-     a different message so that we don't report an unroll by 0.
-     This matches the equivalent message emitted during tree unrolling.  */
-  if (loop->lpt_decision.decision == LPT_PEEL_COMPLETELY
-      && !loop->lpt_decision.times)
-    {
-      dump_printf_loc (report_flags, locus,
-                       "loop turned into non-loop; it never loops.\n");
-      return;
-    }
-
-  desc = get_simple_loop_desc (loop);
-
-  if (desc->const_iter)
-    niters = desc->niter;
-  else if (loop->header->count)
-    niters = expected_loop_iterations (loop);
-
-  if (loop->lpt_decision.decision == LPT_PEEL_COMPLETELY)
-    dump_printf_loc (report_flags, locus,
-                     "loop with %d iterations completely unrolled",
-		     loop->lpt_decision.times + 1);
-  else
-    dump_printf_loc (report_flags, locus,
-                     "loop %s %d times",
-                     (loop->lpt_decision.decision == LPT_PEEL_SIMPLE
-                       ? "peeled" : "unrolled"),
-                     loop->lpt_decision.times);
+  dump_printf_loc (report_flags, locus,
+                   "loop unrolled %d times",
+                   loop->lpt_decision.times);
   if (profile_info)
     dump_printf (report_flags,
-                 " (header execution count %d",
+                 " (header execution count %d)",
                  (int)loop->header->count);
-  if (loop->lpt_decision.decision == LPT_PEEL_COMPLETELY)
-    dump_printf (report_flags,
-                 "%s%s iterations %d)",
-                 profile_info ? ", " : " (",
-                 desc->const_iter ? "const" : "average",
-                 niters);
-  else if (profile_info)
-    dump_printf (report_flags, ")");
 
   dump_printf (report_flags, "\n");
 }
@@ -431,125 +384,11 @@ code_size_limit_factor(struct loop *loop)
   return limit_factor;
 }
 
-/* Unroll and/or peel (depending on FLAGS) LOOPS.  */
-void
-unroll_and_peel_loops (int flags)
-{
-  struct loop *loop;
-  bool changed = false;
-
-  /* First perform complete loop peeling (it is almost surely a win,
-     and affects parameters for further decision a lot).  */
-  peel_loops_completely (flags);
-
-  /* Now decide rest of unrolling and peeling.  */
-  decide_unrolling_and_peeling (flags);
-
-  /* Scan the loops, inner ones first.  */
-  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
-    {
-      /* And perform the appropriate transformations.  */
-      switch (loop->lpt_decision.decision)
-	{
-	case LPT_PEEL_COMPLETELY:
-	  /* Already done.  */
-	  gcc_unreachable ();
-	case LPT_PEEL_SIMPLE:
-	  peel_loop_simple (loop);
-	  changed = true;
-	  break;
-	case LPT_UNROLL_CONSTANT:
-	  unroll_loop_constant_iterations (loop);
-	  changed = true;
-	  break;
-	case LPT_UNROLL_RUNTIME:
-	  unroll_loop_runtime_iterations (loop);
-	  changed = true;
-	  break;
-	case LPT_UNROLL_STUPID:
-	  unroll_loop_stupid (loop);
-	  changed = true;
-	  break;
-	case LPT_NONE:
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-    }
-
-    if (changed)
-      {
-	calculate_dominance_info (CDI_DOMINATORS);
-	fix_loop_structure (NULL);
-      }
-
-  iv_analysis_done ();
-}
-
-/* Check whether exit of the LOOP is at the end of loop body.  */
-
-static bool
-loop_exit_at_end_p (struct loop *loop)
-{
-  struct niter_desc *desc = get_simple_loop_desc (loop);
-  rtx_insn *insn;
-
-  if (desc->in_edge->dest != loop->latch)
-    return false;
-
-  /* Check that the latch is empty.  */
-  FOR_BB_INSNS (loop->latch, insn)
-    {
-      if (NONDEBUG_INSN_P (insn))
-	return false;
-    }
-
-  return true;
-}
 
 /* Depending on FLAGS, check whether to peel loops completely and do so.  */
+/* Decide whether unroll loops and how much.  */
 static void
-peel_loops_completely (int flags)
-{
-  struct loop *loop;
-  bool changed = false;
-
-  /* Scan the loops, the inner ones first.  */
-  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
-    {
-      loop->lpt_decision.decision = LPT_NONE;
-      location_t locus = get_loop_location (loop);
-
-      if (dump_enabled_p ())
-	dump_printf_loc (TDF_RTL, locus,
-                         ";; *** Considering loop %d at BB %d for "
-                         "complete peeling ***\n",
-                         loop->num, loop->header->index);
-
-      loop->ninsns = num_loop_insns (loop);
-
-      decide_peel_once_rolling (loop, flags);
-      if (loop->lpt_decision.decision == LPT_NONE)
-	decide_peel_completely (loop, flags);
-
-      if (loop->lpt_decision.decision == LPT_PEEL_COMPLETELY)
-	{
-	  report_unroll_peel (loop, locus);
-	  peel_loop_completely (loop);
-	  changed = true;
-	}
-    }
-
-    if (changed)
-      {
-	calculate_dominance_info (CDI_DOMINATORS);
-	fix_loop_structure (NULL);
-      }
-}
-
-/* Decide whether unroll or peel loops (depending on FLAGS) and how much.  */
-static void
-decide_unrolling_and_peeling (int flags)
+decide_unrolling (int flags)
 {
   struct loop *loop;
 
@@ -562,7 +401,7 @@ decide_unrolling_and_peeling (int flags)
       if (dump_enabled_p ())
 	dump_printf_loc (TDF_RTL, locus,
                          ";; *** Considering loop %d at BB %d for "
-                         "unrolling and peeling ***\n",
+                         "unrolling ***\n",
                          loop->num, loop->header->index);
 
       /* Do not peel cold areas.  */
@@ -601,204 +440,77 @@ decide_unrolling_and_peeling (int flags)
 	decide_unroll_runtime_iterations (loop, flags);
       if (loop->lpt_decision.decision == LPT_NONE)
 	decide_unroll_stupid (loop, flags);
-      if (loop->lpt_decision.decision == LPT_NONE)
-	decide_peel_simple (loop, flags);
 
-      report_unroll_peel (loop, locus);
+      report_unroll (loop, locus);
     }
 }
 
-/* Decide whether the LOOP is once rolling and suitable for complete
-   peeling.  */
-static void
-decide_peel_once_rolling (struct loop *loop, int flags ATTRIBUTE_UNUSED)
+/* Unroll LOOPS.  */
+void
+unroll_loops (int flags)
 {
-  struct niter_desc *desc;
+  struct loop *loop;
+  bool changed = false;
 
-  if (dump_file)
-    fprintf (dump_file, "\n;; Considering peeling once rolling loop\n");
+  /* Now decide rest of unrolling.  */
+  decide_unrolling (flags);
 
-  /* Is the loop small enough?  */
-  if ((unsigned) PARAM_VALUE (PARAM_MAX_ONCE_PEELED_INSNS) < loop->ninsns)
+  /* Scan the loops, inner ones first.  */
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
-      if (dump_file)
-	fprintf (dump_file, ";; Not considering loop, is too big\n");
-      return;
-    }
-
-  /* Check for simple loops.  */
-  desc = get_simple_loop_desc (loop);
-
-  /* Check number of iterations.  */
-  if (!desc->simple_p
-      || desc->assumptions
-      || desc->infinite
-      || !desc->const_iter
-      || (desc->niter != 0
-	  && get_max_loop_iterations_int (loop) != 0))
-    {
-      if (dump_file)
-	fprintf (dump_file,
-		 ";; Unable to prove that the loop rolls exactly once\n");
-      return;
-    }
-
-  /* Success.  */
-  loop->lpt_decision.decision = LPT_PEEL_COMPLETELY;
-}
-
-/* Decide whether the LOOP is suitable for complete peeling.  */
-static void
-decide_peel_completely (struct loop *loop, int flags ATTRIBUTE_UNUSED)
-{
-  unsigned npeel;
-  struct niter_desc *desc;
-
-  if (dump_file)
-    fprintf (dump_file, "\n;; Considering peeling completely\n");
-
-  /* Skip non-innermost loops.  */
-  if (loop->inner)
-    {
-      if (dump_file)
-	fprintf (dump_file, ";; Not considering loop, is not innermost\n");
-      return;
-    }
-
-  /* Do not peel cold areas.  */
-  if (optimize_loop_for_size_p (loop))
-    {
-      if (dump_file)
-	fprintf (dump_file, ";; Not considering loop, cold area\n");
-      return;
-    }
-
-  /* Can the loop be manipulated?  */
-  if (!can_duplicate_loop_p (loop))
-    {
-      if (dump_file)
-	fprintf (dump_file,
-		 ";; Not considering loop, cannot duplicate\n");
-      return;
-    }
-
-  /* npeel = number of iterations to peel.  */
-  npeel = PARAM_VALUE (PARAM_MAX_COMPLETELY_PEELED_INSNS) / loop->ninsns;
-  if (npeel > (unsigned) PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES))
-    npeel = PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES);
-
-  /* Is the loop small enough?  */
-  if (!npeel)
-    {
-      if (dump_file)
-	fprintf (dump_file, ";; Not considering loop, is too big\n");
-      return;
-    }
-
-  /* Check for simple loops.  */
-  desc = get_simple_loop_desc (loop);
-
-  /* Check number of iterations.  */
-  if (!desc->simple_p
-      || desc->assumptions
-      || !desc->const_iter
-      || desc->infinite)
-    {
-      if (dump_file)
-	fprintf (dump_file,
-		 ";; Unable to prove that the loop iterates constant times\n");
-      return;
-    }
-
-  if (desc->niter > npeel - 1)
-    {
-      if (dump_file)
+      /* And perform the appropriate transformations.  */
+      switch (loop->lpt_decision.decision)
 	{
-	  fprintf (dump_file,
-		   ";; Not peeling loop completely, rolls too much (");
-	  fprintf (dump_file, "%"PRId64, desc->niter);
-	  fprintf (dump_file, " iterations > %d [maximum peelings])\n", npeel);
+	case LPT_UNROLL_CONSTANT:
+	  unroll_loop_constant_iterations (loop);
+	  changed = true;
+	  break;
+	case LPT_UNROLL_RUNTIME:
+	  unroll_loop_runtime_iterations (loop);
+	  changed = true;
+	  break;
+	case LPT_UNROLL_STUPID:
+	  unroll_loop_stupid (loop);
+	  changed = true;
+	  break;
+	case LPT_NONE:
+	  break;
+	default:
+	  gcc_unreachable ();
 	}
-      return;
     }
 
-  /* Success.  */
-  loop->lpt_decision.decision = LPT_PEEL_COMPLETELY;
+    if (changed)
+      {
+	calculate_dominance_info (CDI_DOMINATORS);
+	fix_loop_structure (NULL);
+      }
+
+  iv_analysis_done ();
 }
 
-/* Peel all iterations of LOOP, remove exit edges and cancel the loop
-   completely.  The transformation done:
+/* Check whether exit of the LOOP is at the end of loop body.  */
 
-   for (i = 0; i < 4; i++)
-     body;
-
-   ==>
-
-   i = 0;
-   body; i++;
-   body; i++;
-   body; i++;
-   body; i++;
-   */
-static void
-peel_loop_completely (struct loop *loop)
+static bool
+loop_exit_at_end_p (struct loop *loop)
 {
-  sbitmap wont_exit;
-  unsigned HOST_WIDE_INT npeel;
-  unsigned i;
-  edge ein;
   struct niter_desc *desc = get_simple_loop_desc (loop);
-  struct opt_info *opt_info = NULL;
+  rtx_insn *insn;
 
-  npeel = desc->niter;
+  /* We should never have conditional in latch block.  */
+  gcc_assert (desc->in_edge->dest != loop->header);
 
-  if (npeel)
+  if (desc->in_edge->dest != loop->latch)
+    return false;
+
+  /* Check that the latch is empty.  */
+  FOR_BB_INSNS (loop->latch, insn)
     {
-      bool ok;
-
-      wont_exit = sbitmap_alloc (npeel + 1);
-      bitmap_ones (wont_exit);
-      bitmap_clear_bit (wont_exit, 0);
-      if (desc->noloop_assumptions)
-	bitmap_clear_bit (wont_exit, 1);
-
-      auto_vec<edge> remove_edges;
-      if (flag_split_ivs_in_unroller)
-        opt_info = analyze_insns_in_loop (loop);
-
-      opt_info_start_duplication (opt_info);
-      ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-					  npeel,
-					  wont_exit, desc->out_edge,
-					  &remove_edges,
-					  DLTHE_FLAG_UPDATE_FREQ
-					  | DLTHE_FLAG_COMPLETTE_PEEL
-					  | (opt_info
-					     ? DLTHE_RECORD_COPY_NUMBER : 0));
-      gcc_assert (ok);
-
-      free (wont_exit);
-
-      if (opt_info)
- 	{
- 	  apply_opt_in_copies (opt_info, npeel, false, true);
- 	  free_opt_info (opt_info);
- 	}
-
-      /* Remove the exit edges.  */
-      FOR_EACH_VEC_ELT (remove_edges, i, ein)
-	remove_path (ein);
+      if (INSN_P (insn) && active_insn_p (insn))
+	return false;
     }
 
-  ein = desc->in_edge;
-  free_simple_loop_desc (loop);
-
-  /* Now remove the unreachable part of the last iteration and cancel
-     the loop.  */
-  remove_path (ein);
-
-  if (dump_file)
-    fprintf (dump_file, ";; Peeled loop completely, %d times\n", (int) npeel);
+  return true;
 }
 
 /* Decide whether to unroll LOOP iterating constant number of times
@@ -1591,115 +1303,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
 	     ";; Unrolled loop %d times, counting # of iterations "
 	     "in runtime, %i insns\n",
 	     max_unroll, num_loop_insns (loop));
-}
-
-/* Decide whether to simply peel LOOP and how much.  */
-static void
-decide_peel_simple (struct loop *loop, int flags)
-{
-  unsigned npeel;
-  widest_int iterations;
-  int limit_factor = 1;
-
-  if (!(flags & UAP_PEEL))
-    {
-      /* We were not asked to, just return back silently.  */
-      return;
-    }
-
-  if (dump_file)
-    fprintf (dump_file, "\n;; Considering simply peeling loop\n");
-
-  if (flag_peel_codesize_limit)
-    {
-      /* Determine whether to limit code size growth from peeling,
-         using FDO profile summary information that gives an
-         estimated number of executed blocks.  */
-      limit_factor = code_size_limit_factor (loop);
-      if (dump_file && limit_factor > 1)
-	{
-          fprintf (dump_file,
-                   ";; Due to large code size footprint estimate, limit "
-                   "max peeled insns by divisor %d\n", limit_factor);
-	}
-    }
-
-  /* npeel = number of iterations to peel.  */
-  npeel = PARAM_VALUE (PARAM_MAX_PEELED_INSNS) / limit_factor
-          / loop->ninsns;
-  if (npeel > (unsigned) PARAM_VALUE (PARAM_MAX_PEEL_TIMES))
-    npeel = PARAM_VALUE (PARAM_MAX_PEEL_TIMES);
-
-  /* Skip big loops.  */
-  if (!npeel)
-    {
-      if (dump_file)
-	fprintf (dump_file, ";; Not considering loop, is too big\n");
-      return;
-    }
-
-  struct niter_desc *desc = get_simple_loop_desc (loop);
-
-  /* Check number of iterations.  */
-  if (desc->simple_p && !desc->assumptions && desc->const_iter)
-    {
-      if (dump_file)
-        fprintf (dump_file, ";; Loop iterates constant times\n");
-      return;
-    }
-
-  /* Do not simply peel loops with branches inside -- it increases number
-     of mispredicts.  
-     Exception is when we do have profile and we however have good chance
-     to peel proper number of iterations loop will iterate in practice.
-     TODO: this heuristic needs tunning; while for complete unrolling
-     the branch inside loop mostly eliminates any improvements, for
-     peeling it is not the case.  Also a function call inside loop is
-     also branch from branch prediction POV (and probably better reason
-     to not unroll/peel).  */
-  if (desc->num_branches > 1
-      && profile_status_for_fn (cfun) != PROFILE_READ)
-    {
-      if (dump_file)
-	fprintf (dump_file, ";; Not peeling, contains branches\n");
-      return;
-    }
-
-  /* If we have realistic estimate on number of iterations, use it.  */
-  if (get_estimated_loop_iterations (loop, &iterations))
-    {
-      if (wi::leu_p (npeel, iterations))
-	{
-	  if (dump_file)
-	    {
-	      fprintf (dump_file, ";; Not peeling loop, rolls too much (");
-	      fprintf (dump_file, "%"PRId64,
-		       (int64_t) (iterations.to_shwi () + 1));
-	      fprintf (dump_file, " iterations > %d [maximum peelings])\n",
-		       npeel);
-	    }
-	  return;
-	}
-      npeel = iterations.to_shwi () + 1;
-    }
-  /* If we have small enough bound on iterations, we can still peel (completely
-     unroll).  */
-  else if (get_max_loop_iterations (loop, &iterations)
-           && wi::ltu_p (iterations, npeel))
-    npeel = iterations.to_shwi () + 1;
-  else
-    {
-      /* For now we have no good heuristics to decide whether loop peeling
-         will be effective, so disable it.  */
-      if (dump_file)
-	fprintf (dump_file,
-		 ";; Not peeling loop, no evidence it will be profitable\n");
-      return;
-    }
-
-  /* Success.  */
-  loop->lpt_decision.decision = LPT_PEEL_SIMPLE;
-  loop->lpt_decision.times = npeel;
 }
 
 /* Peel a LOOP LOOP->LPT_DECISION.TIMES times.  The transformation does this:

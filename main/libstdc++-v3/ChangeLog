@@ -1,15 +1,445 @@
+2014-10-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/complex (complex::real, complex::imag): Add const.
+	* testsuite/26_numerics/complex/value_operations/constexpr2.cc: New.
+
+2014-10-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/std/limits: Remove stray semicolon.
+
+2014-10-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/20_util/add_const/requirements/alias_decl.cc: Prefer
+	-std=gnu++14.
+	* testsuite/20_util/add_cv/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/add_lvalue_reference/requirements/alias_decl.cc:
+	Likewise.
+	* testsuite/20_util/add_pointer/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/add_rvalue_reference/requirements/alias_decl.cc:
+	Likewise.
+	* testsuite/20_util/add_volatile/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/aligned_storage/requirements/alias_decl.cc:
+	Likewise.
+	* testsuite/20_util/aligned_union/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/common_type/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/conditional/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/decay/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/duration/literals/61166.cc: Likewise.
+	* testsuite/20_util/duration/literals/ns_detail.cc: Likewise.
+	* testsuite/20_util/duration/literals/range.cc: Likewise.
+	* testsuite/20_util/duration/literals/types.cc: Likewise.
+	* testsuite/20_util/duration/literals/values.cc: Likewise.
+	* testsuite/20_util/enable_if/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/exchange/1.cc: Likewise.
+	* testsuite/20_util/function_objects/comparisons_void.cc: Likewise.
+	* testsuite/20_util/integer_sequence/intseq.cc: Likewise.
+	* testsuite/20_util/integer_sequence/requirements/typedefs.cc:
+	Likewise.
+	* testsuite/20_util/integral_constant/call_operator.cc: Likewise.
+	* testsuite/20_util/make_signed/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/make_unsigned/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/pair/astuple/constexpr_get_by_type.cc: Likewise.
+	* testsuite/20_util/pair/astuple/get_by_type.cc: Likewise.
+	* testsuite/20_util/pair/astuple/get_by_type_neg.cc: Likewise.
+	* testsuite/20_util/pair/astuple/get_neg.cc: Likewise.
+	* testsuite/20_util/remove_all_extents/requirements/alias_decl.cc:
+	Likewise.
+	* testsuite/20_util/remove_const/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/remove_cv/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/remove_extent/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/remove_pointer/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/remove_reference/requirements/alias_decl.cc:
+	Likewise.
+	* testsuite/20_util/remove_volatile/requirements/alias_decl.cc:
+	Likewise.
+	* testsuite/20_util/result_of/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/tuple/element_access/constexpr_get_by_type.cc:
+	Likewise.
+	* testsuite/20_util/tuple/element_access/get2_by_type.cc: Likewise.
+	* testsuite/20_util/tuple/element_access/get_by_type.cc: Likewise.
+	* testsuite/20_util/underlying_type/requirements/alias_decl.cc:
+	Likewise.
+	* testsuite/20_util/unique_ptr/creation/array.cc: Likewise.
+	* testsuite/20_util/unique_ptr/creation/array_neg.cc: Likewise.
+	* testsuite/20_util/unique_ptr/creation/single.cc: Likewise.
+	* testsuite/21_strings/basic_string/literals/types.cc: Likewise.
+	* testsuite/21_strings/basic_string/literals/values.cc: Likewise.
+	* testsuite/25_algorithms/equal/2.cc: Likewise.
+	* testsuite/25_algorithms/equal/check_type2.cc: Likewise.
+	* testsuite/25_algorithms/is_permutation/2.cc: Likewise.
+	* testsuite/25_algorithms/is_permutation/check_type2.cc: Likewise.
+	* testsuite/25_algorithms/is_permutation/vectorbool.cc: Likewise.
+	* testsuite/25_algorithms/mismatch/2.cc: Likewise.
+	* testsuite/25_algorithms/mismatch/check_type2.cc: Likewise.
+	* testsuite/26_numerics/complex/literals/values.cc: Likewise.
+	* testsuite/27_io/manipulators/standard/char/quoted.cc: Likewise.
+	* testsuite/27_io/manipulators/standard/wchar_t/quoted.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/1.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/2.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/3.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/4.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/5.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/6.cc: Likewise.
+	* testsuite/30_threads/shared_lock/locking/1.cc: Likewise.
+	* testsuite/30_threads/shared_lock/locking/2.cc: Likewise.
+	* testsuite/30_threads/shared_lock/locking/3.cc: Likewise.
+	* testsuite/30_threads/shared_lock/locking/4.cc: Likewise.
+	* testsuite/30_threads/shared_lock/modifiers/1.cc: Likewise.
+	* testsuite/30_threads/shared_lock/modifiers/2.cc: Likewise.
+	* testsuite/30_threads/shared_lock/requirements/
+	explicit_instantiation.cc: Likewise.
+	* testsuite/30_threads/shared_lock/requirements/typedefs.cc: Likewise.
+	* testsuite/30_threads/shared_timed_mutex/cons/1.cc: Likewise.
+	* testsuite/30_threads/shared_timed_mutex/cons/assign_neg.cc: Likewise.
+	* testsuite/30_threads/shared_timed_mutex/cons/copy_neg.cc: Likewise.
+	* testsuite/30_threads/shared_timed_mutex/requirements/
+	standard_layout.cc: Likewise.
+	* testsuite/30_threads/shared_timed_mutex/try_lock/1.cc: Likewise.
+	* testsuite/30_threads/shared_timed_mutex/try_lock/2.cc: Likewise.
+	* testsuite/experimental/optional/assignment/1.cc: Likewise.
+	* testsuite/experimental/optional/assignment/2.cc: Likewise.
+	* testsuite/experimental/optional/assignment/3.cc: Likewise.
+	* testsuite/experimental/optional/assignment/4.cc: Likewise.
+	* testsuite/experimental/optional/assignment/5.cc: Likewise.
+	* testsuite/experimental/optional/assignment/6.cc: Likewise.
+	* testsuite/experimental/optional/cons/copy.cc: Likewise.
+	* testsuite/experimental/optional/cons/default.cc: Likewise.
+	* testsuite/experimental/optional/cons/move.cc: Likewise.
+	* testsuite/experimental/optional/cons/value.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/cons/default.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/cons/value.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/in_place.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/make_optional.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/nullopt.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/observers/1.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/observers/2.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/observers/3.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/observers/4.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/observers/5.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/relops/1.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/relops/2.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/relops/3.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/relops/4.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/relops/5.cc: Likewise.
+	* testsuite/experimental/optional/constexpr/relops/6.cc: Likewise.
+	* testsuite/experimental/optional/in_place.cc: Likewise.
+	* testsuite/experimental/optional/make_optional.cc: Likewise.
+	* testsuite/experimental/optional/nullopt.cc: Likewise.
+	* testsuite/experimental/optional/observers/1.cc: Likewise.
+	* testsuite/experimental/optional/observers/2.cc: Likewise.
+	* testsuite/experimental/optional/observers/3.cc: Likewise.
+	* testsuite/experimental/optional/observers/4.cc: Likewise.
+	* testsuite/experimental/optional/observers/5.cc: Likewise.
+	* testsuite/experimental/optional/relops/1.cc: Likewise.
+	* testsuite/experimental/optional/relops/2.cc: Likewise.
+	* testsuite/experimental/optional/relops/3.cc: Likewise.
+	* testsuite/experimental/optional/relops/4.cc: Likewise.
+	* testsuite/experimental/optional/relops/5.cc: Likewise.
+	* testsuite/experimental/optional/relops/6.cc: Likewise.
+	* testsuite/experimental/optional/requirements.cc: Likewise.
+	* testsuite/experimental/optional/swap/1.cc: Likewise.
+	* testsuite/experimental/string_view/capacity/1.cc: Likewise.
+	* testsuite/experimental/string_view/cons/char/1.cc: Likewise.
+	* testsuite/experimental/string_view/cons/char/2.cc: Likewise.
+	* testsuite/experimental/string_view/cons/char/3.cc: Likewise.
+	* testsuite/experimental/string_view/cons/wchar_t/1.cc: Likewise.
+	* testsuite/experimental/string_view/cons/wchar_t/2.cc: Likewise.
+	* testsuite/experimental/string_view/cons/wchar_t/3.cc: Likewise.
+	* testsuite/experimental/string_view/element_access/char/1.cc: Likewise.
+	* testsuite/experimental/string_view/element_access/char/2.cc: Likewise.
+	* testsuite/experimental/string_view/element_access/char/empty.cc:
+	Likewise.
+	* testsuite/experimental/string_view/element_access/char/
+	front_back.cc: Likewise.
+	* testsuite/experimental/string_view/element_access/wchar_t/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/element_access/wchar_t/2.cc:
+	Likewise.
+	* testsuite/experimental/string_view/element_access/wchar_t/empty.cc:
+	Likewise.
+	* testsuite/experimental/string_view/element_access/wchar_t/
+	front_back.cc: Likewise.
+	* testsuite/experimental/string_view/include.cc: Likewise.
+	* testsuite/experimental/string_view/inserters/char/1.cc: Likewise.
+	* testsuite/experimental/string_view/inserters/char/2.cc: Likewise.
+	* testsuite/experimental/string_view/inserters/char/3.cc: Likewise.
+	* testsuite/experimental/string_view/inserters/pod/10081-out.cc:
+	Likewise.
+	* testsuite/experimental/string_view/inserters/wchar_t/1.cc: Likewise.
+	* testsuite/experimental/string_view/inserters/wchar_t/2.cc: Likewise.
+	* testsuite/experimental/string_view/inserters/wchar_t/3.cc: Likewise.
+	* testsuite/experimental/string_view/literals/types.cc: Likewise.
+	* testsuite/experimental/string_view/literals/values.cc: Likewise.
+	* testsuite/experimental/string_view/modifiers/remove_prefix/char/
+	1.cc: Likewise.
+	* testsuite/experimental/string_view/modifiers/remove_prefix/
+	wchar_t/1.cc: Likewise.
+	* testsuite/experimental/string_view/modifiers/remove_suffix/
+	char/1.cc: Likewise.
+	* testsuite/experimental/string_view/modifiers/remove_suffix/
+	wchar_t/1.cc: Likewise.
+	* testsuite/experimental/string_view/operations/compare/char/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/compare/char/13650.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/compare/wchar_t/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/compare/wchar_t/
+	13650.cc: Likewise.
+	* testsuite/experimental/string_view/operations/copy/char/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/copy/wchar_t/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/data/char/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/data/wchar_t/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/find/char/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/find/char/2.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/find/char/3.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/find/char/4.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/find/wchar_t/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/find/wchar_t/2.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/find/wchar_t/3.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/find/wchar_t/4.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/rfind/char/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/rfind/char/2.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/rfind/char/3.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/rfind/wchar_t/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/rfind/wchar_t/2.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/rfind/wchar_t/3.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/substr/char/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/substr/wchar_t/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/to_string/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operators/char/2.cc: Likewise.
+	* testsuite/experimental/string_view/operators/wchar_t/2.cc: Likewise.
+	* testsuite/experimental/string_view/range_access/char/1.cc: Likewise.
+	* testsuite/experimental/string_view/range_access/wchar_t/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/requirements/
+	explicit_instantiation/1.cc: Likewise.
+	* testsuite/experimental/string_view/requirements/
+	explicit_instantiation/char/1.cc: Likewise.
+	* testsuite/experimental/string_view/requirements/
+	explicit_instantiation/char16_t/1.cc: Likewise.
+	* testsuite/experimental/string_view/requirements/
+	explicit_instantiation/char32_t/1.cc: Likewise.
+	* testsuite/experimental/string_view/requirements/
+	explicit_instantiation/wchar_t/1.cc: Likewise.
+	* testsuite/experimental/string_view/requirements/typedefs.cc: Likewise.
+	* testsuite/experimental/string_view/types/1.cc: Likewise.
+
+2014-10-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/20_util/add_const/requirements/alias_decl.cc: New.
+	* testsuite/20_util/add_cv/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/add_pointer/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/add_volatile/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/aligned_storage/requirements/alias_decl.cc:
+	Likewise.
+	* testsuite/20_util/aligned_union/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/remove_all_extents/requirements/alias_decl.cc:
+	Likewise.
+	* testsuite/20_util/remove_const/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/remove_cv/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/remove_extent/requirements/alias_decl.cc: Likewise.
+	* testsuite/20_util/remove_pointer/requirements/alias_decl.cc:
+	Likewise.
+	* testsuite/20_util/remove_volatile/requirements/alias_decl.cc:
+	Likewise.
+
+2014-10-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/std/limits: Remove stray spaces after backslash.
+	* testsuite/20_util/declval/requirements/1_neg.cc: Adjust dg-error
+	line number.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc:
+	Likewise.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Likewise.
+
+2014-10-14  DJ Delorie  <dj@redhat.com>
+
+	* src/c++11/limits.cc: Add support for __intN types.
+	* include/std/type_traits: Likewise.
+	* include/std/limits: Likewise.
+	* include/c_std/cstdlib: Likewise.
+	* include/bits/cpp_type_traits.h: Likewise.
+	* include/c_global/cstdlib: Likewise.
+
+2014-10-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/20_util/align/1.cc: Add dg-require-stdint.
+	* testsuite/20_util/align/2.cc: Likewise.
+
+	* doc/xml/manual/intro.xml: Update.
+	* doc/xml/manual/status_cxx2011.xml: Update.
+	* doc/html/manual/*: Regenerate.
+
+2014-10-14  Rüdiger Sonderfeld  <ruediger@c-plusplus.de>
+
+	PR libstdc++/54354
+	* include/std/iomanip (_Put_time): New struct.
+	(put_time): New manipulator.
+	(operator<<): New overloaded function.
+	* testsuite/27_io/manipulators/extended/put_time/char/1.cc: New.
+	* testsuite/27_io/manipulators/extended/put_time/char/2.cc: New.
+	* testsuite/27_io/manipulators/extended/put_time/wchar_t/1.cc: New.
+	* testsuite/27_io/manipulators/extended/put_time/wchar_t/2.cc: New.
+
+2014-10-14  Kai Tietz  <ktietz@redhat.com>
+
+	PR libstdc++/57440
+	* config/os/mingw32/os_defines.h (_GTHREAD_USE_MUTEX_INIT_FUNC):
+	Define to avoid leak.
+	* config/os/mingw32-w64/os_defines.h: Likewise.
+
+2014-10-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/20_util/add_lvalue_reference/requirements/typedefs.cc:
+	Rename to alias_decl.cc.
+	* testsuite/20_util/add_rvalue_reference/requirements/typedefs.cc:
+	Likewise.
+	* testsuite/20_util/common_type/requirements/typedefs-3.cc: Likewise.
+	* testsuite/20_util/conditional/requirements/typedefs-2.cc: Likewise.
+	* testsuite/20_util/decay/requirements/typedefs-2.cc: Likewise.
+	* testsuite/20_util/enable_if/requirements/typedefs-2.cc: Likewise.
+	* testsuite/20_util/make_signed/requirements/typedefs-3.cc: Likewise.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-3.cc:
+	Likewise.
+	* testsuite/20_util/remove_reference/requirements/typedefs.cc:
+	Likewise.
+	* testsuite/20_util/result_of/requirements/typedefs.cc: Likewise.
+	* testsuite/20_util/underlying_type/requirements/typedefs-3.cc:
+	Likewise.
+
+2014-10-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/57350
+	* include/std/memory (align): Do not adjust correctly aligned address.
+	* testsuite/20_util/align/2.cc: New.
+
+2014-10-13  Siva Chandra Reddy  <sivachandra@google.com>
+
+	* python/libstdcxx/v6/xmethods.py: Add xmethods for std::array,
+	std::deque, std::forward_list, std::list, std::vector.
+	* testsuite/libstdc++-xmethods/array.cc: New file.
+	* testsuite/libstdc++-xmethods/deque.cc: Likewise.
+	* testsuite/libstdc++-xmethods/forwardlist.cc: Likewise.
+	* testsuite/libstdc++-xmethods/list.cc: Likewise.
+	* testsuite/libstdc++-xmethods/vector.cc: Add tests.
+
+2014-10-13  Rüdiger Sonderfeld  <ruediger@c-plusplus.de>
+
+	* include/std/memory (align): Define.
+	* testsuite/20_util/align/1.cc: New.
+
+2014-10-13  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR libstdc++/61347
+	PR libstdc++/63345
+	* include/bits/list.tcc (_List_base::_M_clear()): Delay cast so it
+	isn't done for the sentinel.
+	* include/bits/stl_list.h (_List_base::_M_size): Move...
+	(_List_base::_List_impl::_M_node): ... here.
+	(_List_base::_M_get_size(), _List_base::_M_set_size(size_t),
+	_List_base::_M_inc_size(size_t), _List_base::_M_dec_size(size_t),
+	_List_base::_M_node_count): Adapt to the move.
+	* 23_containers/list/requirements/dr438/assign_neg.cc: Update
+	line number.
+	* 23_containers/list/requirements/dr438/constructor_1_neg.cc: Likewise.
+	* 23_containers/list/requirements/dr438/constructor_2_neg.cc: Likewise.
+	* 23_containers/list/requirements/dr438/insert_neg.cc: Likewise.
+
+2014-10-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/Makefile.in: Regenerate.
+
+2014-10-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/49561
+	* acinclude.m4 (GLIBCXX_ENABLE_LIBSTDCXX_CXX11_ABI): Define.
+	* configure.ac: Use GLIBCXX_ENABLE_LIBSTDCXX_CXX11_ABI.
+	* configure: Regenerate.
+	* include/Makefile.am (stamp-cxx11-abi): New target.
+	(c++config.h): Set _GLIBCXX_USE_CXX11_ABI macro.
+	* include/Makefile.in: Regenerate.
+	* include/bits/c++config: Add _GLIBCXX_USE_CXX11_ABI placeholder and
+	define _GLIBCXX_DEFAULT_ABI_TAG.
+	* include/bits/list.tcc (list::emplace(const_iterator, _Args&...)):
+	Increment size.
+	(list::emplace(const_iterator, const value_type&)): Likewise.
+	(list::merge(list&), list::merge(list&, _StrictWeakOrdering)): Adjust
+	list sizes.
+	* include/bits/stl_list.h (_List_base, list): Add ABI tag macro.
+	(_List_base::_M_size): New data member in cxx11 ABI mode.
+	(_List_base::_S_distance(_List_node_base*, _List_node_base*)): New
+	function.
+	(_List_base::_M_get_size(), _List_base::_M_set_size(size_t),
+	_List_base::_M_inc_size(size_t), _List_base::_M_dec_size(size_t),
+	_List_base::_M_distance, _List_base::_M_node_count): New functions for
+	accessing list size correctly for the ABI mode.
+	(_List_base::_List_base(_List_base&&)): Copy size and reset source.
+	(_List_base::_M_init()): Initialize size member.
+	(list::size()): Use _List_base::_M_node_count.
+	(list::swap(list&)): Swap sizes.
+	(list::splice(iterator, list&)): Update sizes.
+	(list::splice(iterator, list&, iterator)): Likewise.
+	(list::insert(iterator, const value_type&)): Update size.
+	(list::insert(iterator, _Args&&...)): Likewise.
+	(list::_M_erase(iterator)): Likewise.
+	* testsuite/23_containers/list/requirements/dr438/assign_neg.cc:
+	Adjust.
+	* testsuite/23_containers/list/requirements/dr438/constructor_1_neg.cc:
+	Adjust.
+	* testsuite/23_containers/list/requirements/dr438/constructor_2_neg.cc:
+	Adjust.
+	* testsuite/23_containers/list/requirements/dr438/insert_neg.cc:
+	Adjust.
+	* testsuite/ext/profile/mutex_extensions_neg.cc: Adjust.
+
+2014-10-09  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/status_cxx2011.xml: Update.
+	* doc/html/manual/status.html: Regenerate.
+
+	PR libstdc++/63322
+	* include/std/atomic (atomic): Add assertion for trivially copyable.
+	* testsuite/29_atomics/atomic/60695.cc: Adjust line number.
+
+	PR libstdc++/61909
+	* include/std/functional (__is_location_invariant): Treat all
+	trivially copyable types as location invariant.
+
 2014-10-09  Ville Voutilainen  <ville.voutilainen@gmail.com>
 
 	PR libstdc++/60132
 	* include/std/type_traits (is_trivially_copyable,
-    	is_trivially_constructible, is_trivially_default_constructible,
-    	is_trivially_copy_constructible, is_trivially_move_constructible,
-    	is_trivially_assignable, is_trivially_copy_assignable,
-    	is_trivially_move_assignable): New.
+	is_trivially_constructible, is_trivially_default_constructible,
+	is_trivially_copy_constructible, is_trivially_move_constructible,
+	is_trivially_assignable, is_trivially_copy_assignable,
+	is_trivially_move_assignable): New.
 	* testsuite/20_util/is_trivially_assignable/requirements/
-    	typedefs.cc: Likewise.
+	typedefs.cc: Likewise.
 	* testsuite/20_util/is_trivially_assignable/requirements/
-    	explicit_instantiation.cc: Likewise.
+	explicit_instantiation.cc: Likewise.
 	* testsuite/20_util/is_trivially_assignable/value.cc: Likewise.
 	* testsuite/20_util/is_trivially_constructible/requirements/
 	typedefs.cc: Likewise.
@@ -32,20 +462,20 @@
 	explicit_instantiation.cc: Likewise.
 	* testsuite/20_util/is_trivially_copy_constructible/value.cc: Likewise.
 	* testsuite/20_util/is_trivially_default_constructible/requirements/
-    	typedefs.cc: Likewise.
+	typedefs.cc: Likewise.
 	* testsuite/20_util/is_trivially_default_constructible/requirements/
-    	explicit_instantiation.cc: Likewise.
+	explicit_instantiation.cc: Likewise.
 	* testsuite/20_util/is_trivially_default_constructible/
 	value.cc: Likewise.
 	* testsuite/20_util/is_trivially_move_assignable/requirements/
-    	typedefs.cc: Likewise.
+	typedefs.cc: Likewise.
 	* testsuite/20_util/is_trivially_move_assignable/requirements/
-    	explicit_instantiation.cc: Likewise.
+	explicit_instantiation.cc: Likewise.
 	* testsuite/20_util/is_trivially_move_assignable/value.cc: Likewise.
 	* testsuite/20_util/is_trivially_move_constructible/requirements/
-    	typedefs.cc: Likewise.
+	typedefs.cc: Likewise.
 	* testsuite/20_util/is_trivially_move_constructible/requirements/
-    	explicit_instantiation.cc: Likewise.
+	explicit_instantiation.cc: Likewise.
 	* testsuite/20_util/is_trivially_move_constructible/value.cc:
 	Likewise.
 	* testsuite/20_util/declval/requirements/1_neg.cc: Adjust dg-error

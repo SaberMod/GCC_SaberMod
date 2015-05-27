@@ -30,8 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 enum lpt_dec
 {
   LPT_NONE,
-  LPT_PEEL_COMPLETELY,
-  LPT_PEEL_SIMPLE,
   LPT_UNROLL_CONSTANT,
   LPT_UNROLL_RUNTIME,
   LPT_UNROLL_STUPID
@@ -76,7 +74,7 @@ struct GTY ((chain_next ("%h.next"))) nb_iter_bound {
 
 /* Description of the loop exit.  */
 
-struct GTY (()) loop_exit {
+struct GTY ((for_user)) loop_exit {
   /* The exit edge.  */
   edge e;
 
@@ -86,6 +84,15 @@ struct GTY (()) loop_exit {
 
   /* Next element in the list of loops from that E exits.  */
   struct loop_exit *next_e;
+};
+
+struct loop_exit_hasher : ggc_hasher<loop_exit *>
+{
+  typedef edge compare_type;
+
+  static hashval_t hash (loop_exit *);
+  static bool equal (loop_exit *, edge);
+  static void remove (loop_exit *);
 };
 
 typedef struct loop *loop_p;
@@ -229,7 +236,7 @@ struct GTY (()) loops {
   /* Maps edges to the list of their descriptions as loop exits.  Edges
      whose sources or destinations have loop_father == NULL (which may
      happen during the cfg manipulations) should not appear in EXITS.  */
-  htab_t GTY((param_is (struct loop_exit))) exits;
+  hash_table<loop_exit_hasher> *GTY(()) exits;
 
   /* Pointer to root of loop hierarchy tree.  */
   struct loop *tree_root;
@@ -735,12 +742,11 @@ extern void loop_optimizer_finalize (void);
 /* Optimization passes.  */
 enum
 {
-  UAP_PEEL = 1,		/* Enables loop peeling.  */
-  UAP_UNROLL = 2,	/* Enables unrolling of loops if it seems profitable.  */
-  UAP_UNROLL_ALL = 4	/* Enables unrolling of all loops.  */
+  UAP_UNROLL = 1,	/* Enables unrolling of loops if it seems profitable.  */
+  UAP_UNROLL_ALL = 2	/* Enables unrolling of all loops.  */
 };
 
-extern void unroll_and_peel_loops (int);
+extern void unroll_loops (int);
 extern void doloop_optimize_loops (void);
 extern void move_loop_invariants (void);
 extern void scale_loop_profile (struct loop *loop, int scale, gcov_type iteration_bound);

@@ -1,5 +1,5 @@
-// { dg-options "-std=gnu++1y" }
 // { dg-do compile }
+// { dg-options "-std=gnu++14" }
 
 // Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
@@ -8,23 +8,22 @@
 // terms of the GNU General Public License as published by the
 // Free Software Foundation; either version 3, or (at your option)
 // any later version.
-
+//
 // This library is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-
+//
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
-
-
-// NB: This file is for testing type_traits with NO OTHER INCLUDES.
 
 #include <type_traits>
 
 using namespace std;
 
-static_assert( is_same<typename add_rvalue_reference<long>::type,
-                       add_rvalue_reference_t<long>>(),
-               "add_rvalue_reference_t" );
+static_assert( is_same<enable_if<true>::type, enable_if_t<true>>(),
+               "enable_if_t<true>" );
+struct X;
+static_assert( is_same<enable_if<true, X>::type, enable_if_t<true, X>>(),
+               "enable_if_t<true, X>" );

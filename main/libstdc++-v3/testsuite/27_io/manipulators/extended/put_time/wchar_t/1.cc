@@ -1,7 +1,8 @@
-// { dg-options "-std=gnu++1y" }
-// { dg-do compile }
+// { dg-options " -std=gnu++11 " }
 
-// Copyright (C) 2013-2014 Free Software Foundation, Inc.
+// 2014-04-14 Rüdiger Sonderfeld  <ruediger@c-plusplus.de>
+
+// Copyright (C) 2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,15 +19,26 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-#include <type_traits>
+// 27.7.5. (C++11) Extended manipulators [ext.manip]: put_time
 
-using namespace std;
+#include <locale>
+#include <sstream>
+#include <iomanip>
+#include <testsuite_hooks.h>
 
-using F1 = char(*)(char);
-static_assert( is_same<result_of<F1(int)>::type, result_of_t<F1(int)>>(),
-               "result_of_t<F1(int)>" );
+void test01()
+{
+  using namespace std;
+  bool test __attribute__((unused)) = true;
+  locale loc_c = locale::classic();
+  wostringstream oss;
+  oss.imbue(loc_c);
+  const tm time1 = __gnu_test::test_tm(0, 0, 12, 4, 3, 71, 0, 93, 0);
+  oss << put_time(&time1, L"%a %Y");
+  VERIFY(oss.str() == L"Sun 1971");
+}
 
-struct X { };
-using F2 = int X::*;
-static_assert( is_same<result_of<F2(X)>::type, result_of_t<F2(X)>>(),
-               "result_of_t<F2(X)>" );
+int main()
+{
+  test01();
+}

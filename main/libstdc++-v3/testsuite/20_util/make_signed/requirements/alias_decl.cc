@@ -1,4 +1,4 @@
-// { dg-options "-std=gnu++1y" }
+// { dg-options "-std=gnu++14" }
 // { dg-do compile }
 
 // Copyright (C) 2013-2014 Free Software Foundation, Inc.
@@ -25,11 +25,11 @@ using namespace std;
 template<typename Trait, typename Result>
   using test = is_same<typename Trait::type, Result>;
 
-static_assert( test<decay<bool>, decay_t<bool>>(), "decay<bool>" );
-static_assert( test<decay<const int>, decay_t<const int>>(),
-               "decay<const int>" );
-static_assert( test<decay<int[4]>, decay_t<int[4]>>(), "decay<int[4]>" );
-typedef void (fn_type) ();
-static_assert( test<decay<fn_type>, decay_t<fn_type>>(), "decay<fn_type>" );
-typedef void (cfn_type) () const;
-static_assert( test<decay<cfn_type>, decay_t<cfn_type>>(), "decay<cfn_type>" );
+static_assert( test<make_signed<const int>, make_signed_t<const int>>(),
+               "make_signed_t<const int>" );
+
+static_assert( test<make_signed<unsigned>, make_signed_t<unsigned>>(),
+               "make_signed_t<unsigned>" );
+
+static_assert( test<make_signed<char>, make_signed_t<char>>(),
+               "make_signed_t<char>" );

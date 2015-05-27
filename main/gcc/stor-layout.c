@@ -211,12 +211,7 @@ self_referential_size (tree size)
       param_type = TREE_TYPE (ref);
       param_decl
 	= build_decl (input_location, PARM_DECL, param_name, param_type);
-      if (targetm.calls.promote_prototypes (NULL_TREE)
-	  && INTEGRAL_TYPE_P (param_type)
-	  && TYPE_PRECISION (param_type) < TYPE_PRECISION (integer_type_node))
-	DECL_ARG_TYPE (param_decl) = integer_type_node;
-      else
-	DECL_ARG_TYPE (param_decl) = param_type;
+      DECL_ARG_TYPE (param_decl) = param_type;
       DECL_ARTIFICIAL (param_decl) = 1;
       TREE_READONLY (param_decl) = 1;
 
@@ -313,6 +308,7 @@ enum machine_mode
 mode_for_size (unsigned int size, enum mode_class mclass, int limit)
 {
   enum machine_mode mode;
+  int i;
 
   if (limit && size > MAX_FIXED_MODE_SIZE)
     return BLKmode;
@@ -322,6 +318,12 @@ mode_for_size (unsigned int size, enum mode_class mclass, int limit)
        mode = GET_MODE_WIDER_MODE (mode))
     if (GET_MODE_PRECISION (mode) == size)
       return mode;
+
+  if (mclass == MODE_INT || mclass == MODE_PARTIAL_INT)
+    for (i = 0; i < NUM_INT_N_ENTS; i ++)
+      if (int_n_data[i].bitsize == size
+	  && int_n_enabled_p[i])
+	return int_n_data[i].m;
 
   return BLKmode;
 }
@@ -349,16 +351,27 @@ mode_for_size_tree (const_tree size, enum mode_class mclass, int limit)
 enum machine_mode
 smallest_mode_for_size (unsigned int size, enum mode_class mclass)
 {
-  enum machine_mode mode;
+  enum machine_mode mode = VOIDmode;
+  int i;
 
   /* Get the first mode which has at least this size, in the
      specified class.  */
   for (mode = GET_CLASS_NARROWEST_MODE (mclass); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     if (GET_MODE_PRECISION (mode) >= size)
-      return mode;
+      break;
 
-  gcc_unreachable ();
+  if (mclass == MODE_INT || mclass == MODE_PARTIAL_INT)
+    for (i = 0; i < NUM_INT_N_ENTS; i ++)
+      if (int_n_data[i].bitsize >= size
+	  && int_n_data[i].bitsize < GET_MODE_PRECISION (mode)
+	  && int_n_enabled_p[i])
+	mode = int_n_data[i].m;
+
+  if (mode == VOIDmode)
+    gcc_unreachable ();
+
+  return mode;
 }
 
 /* Find an integer mode of the exact same size, or BLKmode on failure.  */
@@ -2400,17 +2413,19 @@ min_align_of_type (tree type)
 {
   unsigned int align = TYPE_ALIGN (type);
   align = MIN (align, BIGGEST_ALIGNMENT);
+  if (!TYPE_USER_ALIGN (type))
+    {
 #ifdef BIGGEST_FIELD_ALIGNMENT
-  align = MIN (align, BIGGEST_FIELD_ALIGNMENT);
+      align = MIN (align, BIGGEST_FIELD_ALIGNMENT);
 #endif
-  unsigned int field_align = align;
+      unsigned int field_align = align;
 #ifdef ADJUST_FIELD_ALIGN
-  tree field = build_decl (UNKNOWN_LOCATION, FIELD_DECL, NULL_TREE,
-			   type);
-  field_align = ADJUST_FIELD_ALIGN (field, field_align);
-  ggc_free (field);
+      tree field = build_decl (UNKNOWN_LOCATION, FIELD_DECL, NULL_TREE, type);
+      field_align = ADJUST_FIELD_ALIGN (field, field_align);
+      ggc_free (field);
 #endif
-  align = MIN (align, field_align);
+      align = MIN (align, field_align);
+    }
   return align / BITS_PER_UNIT;
 }
 
@@ -2548,7 +2563,24 @@ initialize_sizetypes (void)
   else if (strcmp (SIZETYPE, "short unsigned int") == 0)
     precision = SHORT_TYPE_SIZE;
   else
-    gcc_unreachable ();
+    {
+      int i;
+
+      precision = -1;
+      for (i = 0; i < NUM_INT_N_ENTS; i++)
+	if (int_n_enabled_p[i])
+	  {
+	    char name[50];
+	    sprintf (name, "__int%d unsigned", int_n_data[i].bitsize);
+
+	    if (strcmp (name, SIZETYPE) == 0)
+	      {
+		precision = int_n_data[i].bitsize;
+	      }
+	  }
+      if (precision == -1)
+	gcc_unreachable ();
+    }
 
   bprecision
     = MIN (precision + BITS_PER_UNIT_LOG + 1, MAX_FIXED_MODE_SIZE);

@@ -1,7 +1,7 @@
-// { dg-options "-std=gnu++1y" }
+// { dg-options "-std=gnu++14" }
 // { dg-do compile }
 
-// Copyright (C) 2013-2014 Free Software Foundation, Inc.
+// Copyright (C) 2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,16 +18,16 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-
 // NB: This file is for testing type_traits with NO OTHER INCLUDES.
 
 #include <type_traits>
 
 using namespace std;
 
-static_assert( is_same<typename conditional<true, long, void>::type,
-                       conditional_t<true, long, void>>(),
-               "conditional_t<true, ...>" );
-static_assert( is_same<typename conditional<false, long, void>::type,
-                       conditional_t<false, long, void>>(),
-               "conditional_t<false, ...>" );
+static_assert (is_same<typename add_pointer<int>::type,
+	               add_pointer_t<int>>(),
+               "add_pointer_t" );
+
+static_assert (is_same<typename add_pointer<long*>::type,
+                       add_pointer_t<long*>>(),
+	       "add_pointer_t" );

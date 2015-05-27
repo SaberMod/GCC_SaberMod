@@ -6142,6 +6142,68 @@ ix86_maybe_switch_abi (void)
     reinit_regs ();
 }
 
+/* Return 1 if pseudo register should be created and used to hold
+   GOT address for PIC code.  */
+static bool
+ix86_use_pseudo_pic_reg (void)
+{
+  if ((TARGET_64BIT
+       && (ix86_cmodel == CM_SMALL_PIC
+	   || TARGET_PECOFF))
+      || !flag_pic)
+    return false;
+  return true;
+}
+
+/* Create and initialize PIC register if required.  */
+static void
+ix86_init_pic_reg (void)
+{
+  edge entry_edge;
+  rtx_insn *seq;
+
+  if (!ix86_use_pseudo_pic_reg ())
+    return;
+
+  start_sequence ();
+
+  if (TARGET_64BIT)
+    {
+      if (ix86_cmodel == CM_LARGE_PIC)
+	{
+	  rtx_code_label *label;
+	  rtx tmp_reg;
+
+	  gcc_assert (Pmode == DImode);
+	  label = gen_label_rtx ();
+	  emit_label (label);
+	  LABEL_PRESERVE_P (label) = 1;
+	  tmp_reg = gen_rtx_REG (Pmode, R11_REG);
+	  gcc_assert (REGNO (pic_offset_table_rtx) != REGNO (tmp_reg));
+	  emit_insn (gen_set_rip_rex64 (pic_offset_table_rtx,
+					label));
+	  emit_insn (gen_set_got_offset_rex64 (tmp_reg, label));
+	  emit_insn (ix86_gen_add3 (pic_offset_table_rtx,
+				    pic_offset_table_rtx, tmp_reg));
+	}
+      else
+	emit_insn (gen_set_got_rex64 (pic_offset_table_rtx));
+    }
+  else
+    {
+      rtx insn = emit_insn (gen_set_got (pic_offset_table_rtx));
+      RTX_FRAME_RELATED_P (insn) = 1;
+      add_reg_note (insn, REG_CFA_FLUSH_QUEUE, NULL_RTX);
+    }
+
+  seq = get_insns ();
+  end_sequence ();
+
+  entry_edge = single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun));
+  insert_insn_on_edge (seq, entry_edge);
+  commit_one_edge_insertion (entry_edge);
+}
+
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
@@ -9384,6 +9446,9 @@ gen_pop (rtx arg)
 static unsigned int
 ix86_select_alt_pic_regnum (void)
 {
+  if (ix86_use_pseudo_pic_reg ())
+    return INVALID_REGNUM;
+
   if (crtl->is_leaf
       && !crtl->profile
       && !ix86_current_function_calls_tls_descriptor)
@@ -9408,6 +9473,7 @@ static bool
 ix86_save_reg (unsigned int regno, bool maybe_eh_return)
 {
   if (pic_offset_table_rtx
+      && !ix86_use_pseudo_pic_reg ()
       && regno == REAL_PIC_OFFSET_TABLE_REGNUM
       && (df_regs_ever_live_p (REAL_PIC_OFFSET_TABLE_REGNUM)
 	  || crtl->profile
@@ -10760,7 +10826,6 @@ ix86_expand_prologue (void)
 {
   struct machine_function *m = cfun->machine;
   rtx insn, t;
-  bool pic_reg_used;
   struct ix86_frame frame;
   HOST_WIDE_INT allocate;
   bool int_registers_saved;
@@ -11206,60 +11271,6 @@ ix86_expand_prologue (void)
     ix86_emit_save_regs_using_mov (frame.reg_save_offset);
   if (!sse_registers_saved)
     ix86_emit_save_sse_regs_using_mov (frame.sse_reg_save_offset);
-
-  pic_reg_used = false;
-  /* We don't use pic-register for pe-coff target.  */
-  if (pic_offset_table_rtx
-      && !TARGET_PECOFF
-      && (df_regs_ever_live_p (REAL_PIC_OFFSET_TABLE_REGNUM)
-	  || crtl->profile))
-    {
-      unsigned int alt_pic_reg_used = ix86_select_alt_pic_regnum ();
-
-      if (alt_pic_reg_used != INVALID_REGNUM)
-	SET_REGNO (pic_offset_table_rtx, alt_pic_reg_used);
-
-      pic_reg_used = true;
-    }
-
-  if (pic_reg_used)
-    {
-      if (TARGET_64BIT)
-	{
-	  if (ix86_cmodel == CM_LARGE_PIC)
-	    {
-	      rtx_code_label *label;
-	      rtx tmp_reg;
-
-	      gcc_assert (Pmode == DImode);
-	      label = gen_label_rtx ();
-	      emit_label (label);
-	      LABEL_PRESERVE_P (label) = 1;
-	      tmp_reg = gen_rtx_REG (Pmode, R11_REG);
-	      gcc_assert (REGNO (pic_offset_table_rtx) != REGNO (tmp_reg));
-	      insn = emit_insn (gen_set_rip_rex64 (pic_offset_table_rtx,
-						   label));
-	      insn = emit_insn (gen_set_got_offset_rex64 (tmp_reg, label));
-	      insn = emit_insn (ix86_gen_add3 (pic_offset_table_rtx,
-					       pic_offset_table_rtx, tmp_reg));
-	    }
-	  else
-            insn = emit_insn (gen_set_got_rex64 (pic_offset_table_rtx));
-	}
-      else
-	{
-          insn = emit_insn (gen_set_got (pic_offset_table_rtx));
-	  RTX_FRAME_RELATED_P (insn) = 1;
-	  add_reg_note (insn, REG_CFA_FLUSH_QUEUE, NULL_RTX);
-	}
-    }
-
-  /* In the pic_reg_used case, make sure that the got load isn't deleted
-     when mcount needs it.  Blockage to avoid call movement across mcount
-     call is emitted in generic code after the NOTE_INSN_PROLOGUE_END
-     note.  */
-  if (crtl->profile && !flag_fentry && pic_reg_used)
-    emit_insn (gen_prologue_use (pic_offset_table_rtx));
 
   if (crtl->drap_reg && !crtl->stack_realign_needed)
     {
@@ -12040,7 +12051,8 @@ ix86_elf_asm_named_section (const char *name, unsigned int flags,
 static void
 ix86_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED, HOST_WIDE_INT)
 {
-  if (pic_offset_table_rtx)
+  if (pic_offset_table_rtx
+      && !ix86_use_pseudo_pic_reg ())
     SET_REGNO (pic_offset_table_rtx, REAL_PIC_OFFSET_TABLE_REGNUM);
 #if TARGET_MACHO
   /* Mach-O doesn't support labels at the end of objects, so if
@@ -12227,7 +12239,10 @@ ix86_expand_split_stack_prologue (void)
 		    REG_BR_PROB_BASE - REG_BR_PROB_BASE / 100);
 
   if (split_stack_fn == NULL_RTX)
-    split_stack_fn = gen_rtx_SYMBOL_REF (Pmode, "__morestack");
+    {
+      split_stack_fn = gen_rtx_SYMBOL_REF (Pmode, "__morestack");
+      SYMBOL_REF_FLAGS (split_stack_fn) |= SYMBOL_FLAG_LOCAL;
+    }
   fn = split_stack_fn;
 
   /* Get more stack space.  We pass in the desired stack space and the
@@ -12272,9 +12287,11 @@ ix86_expand_split_stack_prologue (void)
 	  gcc_assert ((args_size & 0xffffffff) == args_size);
 
 	  if (split_stack_fn_large == NULL_RTX)
-	    split_stack_fn_large =
-	      gen_rtx_SYMBOL_REF (Pmode, "__morestack_large_model");
-
+	    {
+	      split_stack_fn_large =
+	        gen_rtx_SYMBOL_REF (Pmode, "__morestack_large_model");
+	      SYMBOL_REF_FLAGS (split_stack_fn_large) |= SYMBOL_FLAG_LOCAL;
+	    }
 	  if (ix86_cmodel == CM_LARGE_PIC)
 	    {
 	      rtx_code_label *label;
@@ -12683,9 +12700,18 @@ ix86_address_cost (rtx x, enum machine_mode, addr_space_t, bool)
 	      || REGNO (parts.index) >= FIRST_PSEUDO_REGISTER)))
     cost++;
 
+  /* When address base or index is "pic_offset_table_rtx" we don't increase
+     address cost.  When a memopt with "pic_offset_table_rtx" is not invariant
+     itself it most likely means that base or index is not invariant.
+     Therefore only "pic_offset_table_rtx" could be hoisted out, which is not
+     profitable for x86.  */
   if (parts.base
+      && (!pic_offset_table_rtx
+	  || REGNO (pic_offset_table_rtx) != REGNO(parts.base))
       && (!REG_P (parts.base) || REGNO (parts.base) >= FIRST_PSEUDO_REGISTER)
       && parts.index
+      && (!pic_offset_table_rtx
+	  || REGNO (pic_offset_table_rtx) != REGNO(parts.index))
       && (!REG_P (parts.index) || REGNO (parts.index) >= FIRST_PSEUDO_REGISTER)
       && parts.base != parts.index)
     cost++;
@@ -13360,6 +13386,15 @@ ix86_GOT_alias_set (void)
   return set;
 }
 
+/* Set regs_ever_live for PIC base address register
+   to true if required.  */
+static void
+set_pic_reg_ever_live ()
+{
+  if (reload_in_progress)
+    df_set_regs_ever_live (REGNO (pic_offset_table_rtx), true);
+}
+
 /* Return a legitimate reference for ORIG (an address) using the
    register REG.  If REG is 0, a new pseudo is generated.
 
@@ -13410,8 +13445,7 @@ legitimize_pic_address (rtx orig, rtx reg)
       /* This symbol may be referenced via a displacement from the PIC
 	 base address (@GOTOFF).  */
 
-      if (reload_in_progress)
-	df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
+      set_pic_reg_ever_live ();
       if (GET_CODE (addr) == CONST)
 	addr = XEXP (addr, 0);
       if (GET_CODE (addr) == PLUS)
@@ -13443,8 +13477,7 @@ legitimize_pic_address (rtx orig, rtx reg)
       /* This symbol may be referenced via a displacement from the PIC
 	 base address (@GOTOFF).  */
 
-      if (reload_in_progress)
-	df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
+      set_pic_reg_ever_live ();
       if (GET_CODE (addr) == CONST)
 	addr = XEXP (addr, 0);
       if (GET_CODE (addr) == PLUS)
@@ -13505,8 +13538,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 	  /* This symbol must be referenced via a load from the
 	     Global Offset Table (@GOT).  */
 
-	  if (reload_in_progress)
-	    df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
+	  set_pic_reg_ever_live ();
 	  new_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOT);
 	  new_rtx = gen_rtx_CONST (Pmode, new_rtx);
 	  if (TARGET_64BIT)
@@ -13558,8 +13590,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 	    {
 	      if (!TARGET_64BIT)
 		{
-		  if (reload_in_progress)
-		    df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
+		  set_pic_reg_ever_live ();
 		  new_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op0),
 					    UNSPEC_GOTOFF);
 		  new_rtx = gen_rtx_PLUS (Pmode, new_rtx, op1);
@@ -13855,8 +13886,7 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
 	}
       else if (flag_pic)
 	{
-	  if (reload_in_progress)
-	    df_set_regs_ever_live (PIC_OFFSET_TABLE_REGNUM, true);
+	  set_pic_reg_ever_live ();
 	  pic = pic_offset_table_rtx;
 	  type = TARGET_ANY_GNU_TLS ? UNSPEC_GOTNTPOFF : UNSPEC_GOTTPOFF;
 	}
@@ -14487,6 +14517,8 @@ ix86_pic_register_p (rtx x)
   if (GET_CODE (x) == VALUE && CSELIB_VAL_PTR (x))
     return (pic_offset_table_rtx
 	    && rtx_equal_for_cselib_p (x, pic_offset_table_rtx));
+  else if (pic_offset_table_rtx)
+    return REG_P (x) && REGNO (x) == REGNO (pic_offset_table_rtx);
   else
     return REG_P (x) && REGNO (x) == PIC_OFFSET_TABLE_REGNUM;
 }
@@ -14661,8 +14693,12 @@ ix86_delegitimize_address (rtx x)
 	 leal (%ebx, %ecx, 4), %ecx
 	 ...
 	 movl foo@GOTOFF(%ecx), %edx
-	 in which case we return (%ecx - %ebx) + foo.  */
-      if (pic_offset_table_rtx)
+	 in which case we return (%ecx - %ebx) + foo.
+
+	 Note that when pseudo_pic_reg is used we can generate it only
+	 before reload_completed.  */
+      if (pic_offset_table_rtx
+	  && (!reload_completed || !ix86_use_pseudo_pic_reg ()))
         result = gen_rtx_PLUS (Pmode, gen_rtx_MINUS (Pmode, copy_rtx (addend),
 						     pic_offset_table_rtx),
 			       result);
@@ -17749,8 +17785,10 @@ ix86_expand_vector_logical_operator (enum rtx_code code, enum machine_mode mode,
 	{
 	case V4SFmode:
 	case V8SFmode:
+	case V16SFmode:
 	case V2DFmode:
 	case V4DFmode:
+	case V8DFmode:
 	  dst = gen_reg_rtx (GET_MODE (SUBREG_REG (op1)));
 	  if (GET_CODE (op2) == CONST_VECTOR)
 	    {
@@ -21247,6 +21285,12 @@ ix86_expand_sse_movcc (rtx dest, rtx cmp, rtx op_true, rtx op_false)
 	    }
 	  break;
 
+	case V64QImode:
+	  gen = gen_avx512bw_blendmv64qi;
+	  break;
+	case V32HImode:
+	  gen = gen_avx512bw_blendmv32hi;
+	  break;
 	case V16SImode:
 	  gen = gen_avx512f_blendmv16si;
 	  break;
@@ -21563,6 +21607,8 @@ ix86_expand_int_vcond (rtx operands[])
 		}
 	      break;
 
+	    case V64QImode:
+	    case V32HImode:
 	    case V32QImode:
 	    case V16HImode:
 	    case V16QImode:
@@ -25139,7 +25185,12 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 		  && DEFAULT_ABI != MS_ABI))
 	  && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF
 	  && ! SYMBOL_REF_LOCAL_P (XEXP (fnaddr, 0)))
-	use_reg (&use, pic_offset_table_rtx);
+	{
+	  use_reg (&use, gen_rtx_REG (Pmode, REAL_PIC_OFFSET_TABLE_REGNUM));
+	  if (ix86_use_pseudo_pic_reg ())
+	    emit_move_insn (gen_rtx_REG (Pmode, REAL_PIC_OFFSET_TABLE_REGNUM),
+			    pic_offset_table_rtx);
+	}
     }
 
   if (TARGET_64BIT && INTVAL (callarg2) >= 0)
@@ -34322,6 +34373,14 @@ ix86_expand_args_builtin (const struct builtin_description *d,
 	      case CODE_FOR_avx512f_cmpv16si3_mask:
 	      case CODE_FOR_avx512f_ucmpv8di3_mask:
 	      case CODE_FOR_avx512f_ucmpv16si3_mask:
+	      case CODE_FOR_avx512vl_cmpv4di3_mask:
+	      case CODE_FOR_avx512vl_cmpv8si3_mask:
+	      case CODE_FOR_avx512vl_ucmpv4di3_mask:
+	      case CODE_FOR_avx512vl_ucmpv8si3_mask:
+	      case CODE_FOR_avx512vl_cmpv2di3_mask:
+	      case CODE_FOR_avx512vl_cmpv4si3_mask:
+	      case CODE_FOR_avx512vl_ucmpv2di3_mask:
+	      case CODE_FOR_avx512vl_ucmpv4si3_mask:
 		error ("the last argument must be a 3-bit immediate");
 		return const0_rtx;
 
@@ -41414,6 +41473,8 @@ emit_reduc_half (rtx dest, rtx src, int i)
 				    GEN_INT (i / 2));
 	}
       break;
+    case V64QImode:
+    case V32HImode:
     case V16SImode:
     case V16SFmode:
     case V8DImode:
@@ -47669,6 +47730,10 @@ ix86_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 #define TARGET_FUNCTION_ARG_ADVANCE ix86_function_arg_advance
 #undef TARGET_FUNCTION_ARG
 #define TARGET_FUNCTION_ARG ix86_function_arg
+#undef TARGET_INIT_PIC_REG
+#define TARGET_INIT_PIC_REG ix86_init_pic_reg
+#undef TARGET_USE_PSEUDO_PIC_REG
+#define TARGET_USE_PSEUDO_PIC_REG ix86_use_pseudo_pic_reg
 #undef TARGET_FUNCTION_ARG_BOUNDARY
 #define TARGET_FUNCTION_ARG_BOUNDARY ix86_function_arg_boundary
 #undef TARGET_PASS_BY_REFERENCE

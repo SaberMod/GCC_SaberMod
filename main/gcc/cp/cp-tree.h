@@ -102,7 +102,7 @@ c-common.h, not after.
       TARGET_EXPR_DIRECT_INIT_P (in TARGET_EXPR)
       FNDECL_USED_AUTO (in FUNCTION_DECL)
       DECLTYPE_FOR_LAMBDA_PROXY (in DECLTYPE_TYPE)
-      REF_PARENTHESIZED_P (in COMPONENT_REF, SCOPE_REF)
+      REF_PARENTHESIZED_P (in COMPONENT_REF, INDIRECT_REF)
       AGGR_INIT_ZERO_FIRST (in AGGR_INIT_EXPR)
    3: (TREE_REFERENCE_EXPR) (in NON_LVALUE_EXPR) (commented-out).
       ICS_BAD_FLAG (in _CONV)
@@ -1134,13 +1134,24 @@ struct GTY(()) saved_scope {
 
 extern GTY(()) struct saved_scope *scope_chain;
 
-struct GTY(()) cxx_int_tree_map {
+struct GTY((for_user)) cxx_int_tree_map {
   unsigned int uid;
   tree to;
 };
 
-extern unsigned int cxx_int_tree_map_hash (const void *);
-extern int cxx_int_tree_map_eq (const void *, const void *);
+struct cxx_int_tree_map_hasher : ggc_hasher<cxx_int_tree_map *>
+{
+  static hashval_t hash (cxx_int_tree_map *);
+  static bool equal (cxx_int_tree_map *, cxx_int_tree_map *);
+};
+
+struct named_label_entry;
+
+struct named_label_hasher : ggc_hasher<named_label_entry *>
+{
+  static hashval_t hash (named_label_entry *);
+  static bool equal (named_label_entry *, named_label_entry *);
+};
 
 /* Global state pertinent to the current function.  */
 
@@ -1166,13 +1177,13 @@ struct GTY(()) language_function {
   /* True if this function can throw an exception.  */
   BOOL_BITFIELD can_throw : 1;
 
-  htab_t GTY((param_is(struct named_label_entry))) x_named_labels;
+  hash_table<named_label_hasher> *x_named_labels;
   cp_binding_level *bindings;
   vec<tree, va_gc> *x_local_names;
   /* Tracking possibly infinite loops.  This is a vec<tree> only because
      vec<bool> doesn't work with gtype.  */
   vec<tree, va_gc> *infinite_loops;
-  htab_t GTY((param_is (struct cxx_int_tree_map))) extern_decl_map;
+  hash_table<cxx_int_tree_map_hasher> *extern_decl_map;
 };
 
 /* The current C++-specific per-function global variables.  */
@@ -3060,11 +3071,12 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 #define PAREN_STRING_LITERAL_P(NODE) \
   TREE_LANG_FLAG_0 (STRING_CST_CHECK (NODE))
 
-/* Indicates whether a COMPONENT_REF has been parenthesized.  Currently
-   only set some of the time in C++14 mode.  */
+/* Indicates whether a COMPONENT_REF has been parenthesized, or an
+   INDIRECT_REF comes from parenthesizing a VAR_DECL.  Currently only set
+   some of the time in C++14 mode.  */
 
 #define REF_PARENTHESIZED_P(NODE) \
-  TREE_LANG_FLAG_2 (COMPONENT_REF_CHECK (NODE))
+  TREE_LANG_FLAG_2 (TREE_CHECK2 ((NODE), COMPONENT_REF, INDIRECT_REF))
 
 /* Nonzero if this AGGR_INIT_EXPR provides for initialization via a
    constructor call, rather than an ordinary function call.  */
@@ -4888,6 +4900,8 @@ typedef struct cp_decl_specifier_seq {
   /* The storage class specified -- or sc_none if no storage class was
      explicitly specified.  */
   cp_storage_class storage_class;
+  /* For the __intN declspec, this stores the index into the int_n_* arrays.  */
+  int int_n_idx;
   /* True iff TYPE_SPEC defines a class or enum.  */
   BOOL_BITFIELD type_definition_p : 1;
   /* True iff multiple types were (erroneously) specified for this
@@ -4903,8 +4917,8 @@ typedef struct cp_decl_specifier_seq {
   BOOL_BITFIELD any_type_specifiers_p : 1;
   /* True iff "int" was explicitly provided.  */
   BOOL_BITFIELD explicit_int_p : 1;
-  /* True iff "__int128" was explicitly provided.  */
-  BOOL_BITFIELD explicit_int128_p : 1;
+  /* True iff "__intN" was explicitly provided.  */
+  BOOL_BITFIELD explicit_intN_p : 1;
   /* True iff "char" was explicitly provided.  */
   BOOL_BITFIELD explicit_char_p : 1;
   /* True iff ds_thread is set for __thread, not thread_local.  */
@@ -5827,23 +5841,7 @@ extern tree begin_handler			(void);
 extern void finish_handler_parms		(tree, tree);
 extern void finish_handler			(tree);
 extern void finish_cleanup			(tree, tree);
-extern bool literal_type_p (tree);
-extern tree register_constexpr_fundef (tree, tree);
-extern bool check_constexpr_ctor_body (tree, tree);
-extern tree ensure_literal_type_for_constexpr_object (tree);
-extern bool potential_constant_expression (tree);
-extern bool potential_rvalue_constant_expression (tree);
-extern bool require_potential_constant_expression (tree);
-extern bool require_potential_rvalue_constant_expression (tree);
-extern tree cxx_constant_value (tree);
-extern tree maybe_constant_value (tree);
-extern tree maybe_constant_init (tree);
-extern bool is_sub_constant_expr (tree);
-extern bool reduced_constant_expression_p (tree);
-extern bool var_in_constexpr_fn (tree);
-extern void explain_invalid_constexpr_fn (tree);
-extern vec<tree> cx_error_context (void);
-extern bool is_this_parameter (tree);
+extern bool is_this_parameter                   (tree);
 
 enum {
   BCS_NO_SCOPE = 1,
@@ -5885,6 +5883,8 @@ extern void finish_template_decl		(tree);
 extern tree finish_template_type		(tree, tree, int);
 extern tree finish_base_specifier		(tree, tree, bool);
 extern void finish_member_declaration		(tree);
+extern bool outer_automatic_var_p		(tree);
+extern tree process_outer_var_ref		(tree, tsubst_flags_t);
 extern tree finish_id_expression		(tree, tree, tree,
 						 cp_id_kind *,
 						 bool, bool, bool *,
@@ -6329,6 +6329,26 @@ extern bool cpp_validate_cilk_plus_loop		(tree);
 extern tree expand_array_notation_exprs         (tree);
 bool cilkplus_an_triplet_types_ok_p             (location_t, tree, tree, tree,
 						 tree);
+
+/* In constexpr.c */
+extern bool literal_type_p                      (tree);
+extern tree register_constexpr_fundef           (tree, tree);
+extern bool check_constexpr_ctor_body           (tree, tree, bool);
+extern tree ensure_literal_type_for_constexpr_object (tree);
+extern bool potential_constant_expression       (tree);
+extern bool potential_rvalue_constant_expression (tree);
+extern bool require_potential_constant_expression (tree);
+extern bool require_potential_rvalue_constant_expression (tree);
+extern tree cxx_constant_value                  (tree);
+extern tree maybe_constant_value                (tree);
+extern tree maybe_constant_init                 (tree);
+extern bool is_sub_constant_expr                (tree);
+extern bool reduced_constant_expression_p       (tree);
+extern bool is_instantiation_of_constexpr       (tree);
+extern bool var_in_constexpr_fn                 (tree);
+extern void explain_invalid_constexpr_fn        (tree);
+extern vec<tree> cx_error_context               (void);
+
 /* In c-family/cilk.c */
 extern bool cilk_valid_spawn                    (tree);
 

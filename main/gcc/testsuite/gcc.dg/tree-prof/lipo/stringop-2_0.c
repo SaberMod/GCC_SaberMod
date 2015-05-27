@@ -3,7 +3,7 @@ int a[1000];
 int b[1000];
 int size=1;
 int max=10000;
-main()
+int main()
 {
   int i;
   for (i=0;i<max; i++)

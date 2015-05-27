@@ -1,4 +1,4 @@
-// { dg-options "-std=gnu++1y" }
+// { dg-options "-std=gnu++14" }
 // { dg-do compile }
 
 // Copyright (C) 2013-2014 Free Software Foundation, Inc.
@@ -18,13 +18,15 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-
-// NB: This file is for testing type_traits with NO OTHER INCLUDES.
-
 #include <type_traits>
 
 using namespace std;
 
-static_assert( is_same<typename add_lvalue_reference<long>::type,
-                       add_lvalue_reference_t<long>>(),
-               "add_lvalue_reference_t" );
+using F1 = char(*)(char);
+static_assert( is_same<result_of<F1(int)>::type, result_of_t<F1(int)>>(),
+               "result_of_t<F1(int)>" );
+
+struct X { };
+using F2 = int X::*;
+static_assert( is_same<result_of<F2(X)>::type, result_of_t<F2(X)>>(),
+               "result_of_t<F2(X)>" );

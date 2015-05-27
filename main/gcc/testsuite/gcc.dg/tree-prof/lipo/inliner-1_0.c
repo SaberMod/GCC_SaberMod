@@ -1,4 +1,4 @@
-/* { dg-options "-O2 --param inline-hot-caller=0 -fdump-tree-optimized" } */
+/* { dg-options "-O2 -fdisable-tree-einline --param inline-hot-caller=0 -fdump-tree-optimized" } */
 int a;
 int b[100];
 void abort (void);
@@ -21,7 +21,7 @@ hot_function ()
       abort ();
 }
 
-main ()
+int main ()
 {
   int i;
   for (i = 0; i < 100; i++)
