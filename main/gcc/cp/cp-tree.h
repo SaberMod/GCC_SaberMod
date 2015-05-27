@@ -99,6 +99,7 @@ c-common.h, not after.
       DECL_FINAL_P (in FUNCTION_DECL)
       QUALIFIED_NAME_IS_TEMPLATE (in SCOPE_REF)
       DECLTYPE_FOR_INIT_CAPTURE (in DECLTYPE_TYPE)
+      CONSTRUCTOR_NO_IMPLICIT_ZERO (in CONSTRUCTOR)
    2: IDENTIFIER_OPNAME_P (in IDENTIFIER_NODE)
       ICS_THIS_FLAG (in _CONV)
       DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (in VAR_DECL)
@@ -3480,6 +3481,11 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    B b{1,2}, not B b({1,2}) or B b = {1,2}.  */
 #define CONSTRUCTOR_IS_DIRECT_INIT(NODE) (TREE_LANG_FLAG_0 (CONSTRUCTOR_CHECK (NODE)))
 
+/* True if an uninitialized element in NODE should not be treated as
+   implicitly value-initialized.  Only used in constexpr evaluation.  */
+#define CONSTRUCTOR_NO_IMPLICIT_ZERO(NODE) \
+  (TREE_LANG_FLAG_1 (CONSTRUCTOR_CHECK (NODE)))
+
 #define DIRECT_LIST_INIT_P(NODE) \
    (BRACE_ENCLOSED_INITIALIZER_P (NODE) && CONSTRUCTOR_IS_DIRECT_INIT (NODE))
 
@@ -5968,6 +5974,7 @@ extern bool is_normal_capture_proxy             (tree);
 extern void register_capture_members		(tree);
 extern tree lambda_expr_this_capture            (tree, bool);
 extern tree maybe_resolve_dummy			(tree, bool);
+extern tree current_nonlambda_function		(void);
 extern tree nonlambda_method_basetype		(void);
 extern void maybe_add_lambda_conv_op            (tree);
 extern bool is_lambda_ignored_entity            (tree);
@@ -6039,6 +6046,8 @@ extern tree bind_template_template_parm		(tree, tree);
 extern tree array_type_nelts_total		(tree);
 extern tree array_type_nelts_top		(tree);
 extern tree break_out_target_exprs		(tree);
+extern tree build_ctor_subob_ref		(tree, tree, tree);
+extern tree replace_placeholders		(tree, tree);
 extern tree get_type_decl			(tree);
 extern tree decl_namespace_context		(tree);
 extern bool decl_anon_ns_mem_p			(const_tree);
@@ -6344,9 +6353,9 @@ extern bool potential_constant_expression       (tree);
 extern bool potential_rvalue_constant_expression (tree);
 extern bool require_potential_constant_expression (tree);
 extern bool require_potential_rvalue_constant_expression (tree);
-extern tree cxx_constant_value                  (tree);
-extern tree maybe_constant_value                (tree);
-extern tree maybe_constant_init                 (tree);
+extern tree cxx_constant_value			(tree, tree = NULL_TREE);
+extern tree maybe_constant_value		(tree, tree = NULL_TREE);
+extern tree maybe_constant_init			(tree, tree = NULL_TREE);
 extern bool is_sub_constant_expr                (tree);
 extern bool reduced_constant_expression_p       (tree);
 extern bool is_instantiation_of_constexpr       (tree);

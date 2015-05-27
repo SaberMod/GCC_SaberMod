@@ -178,6 +178,15 @@ diagnostic_finish (diagnostic_context *context)
     }
 
   diagnostic_file_cache_fini ();
+
+  XDELETEVEC (context->classify_diagnostic);
+  context->classify_diagnostic = NULL;
+
+  /* diagnostic_initialize allocates context->printer using XNEW
+     and placement-new.  */
+  context->printer->~pretty_printer ();
+  XDELETE (context->printer);
+  context->printer = NULL;
 }
 
 /* Initialize DIAGNOSTIC, where the message MSG has already been
@@ -343,7 +352,7 @@ diagnostic_show_locus (diagnostic_context * context,
 static const char * const bt_stop[] =
 {
   "main",
-  "toplev_main",
+  "toplev::main",
   "execute_one_pass",
   "compile_file",
 };

@@ -112,6 +112,11 @@ package body Freeze is
    --  to deferred constants without completion. We report this at the freeze
    --  point of the function, to provide a better error message.
 
+   --  In most cases the expression itself is frozen by the time the function
+   --  itself is frozen, because the formals will be frozen by then. However,
+   --  Attribute references to outer types are freeze points for those types;
+   --  this routine generates the required freeze nodes for them.
+
    procedure Check_Strict_Alignment (E : Entity_Id);
    --  E is a base type. If E is tagged or has a component that is aliased
    --  or tagged or contains something this is aliased or tagged, set
@@ -573,11 +578,13 @@ package body Freeze is
    --------------------------
 
    procedure Check_Address_Clause (E : Entity_Id) is
-      Addr : constant Node_Id    := Address_Clause (E);
-      Expr : Node_Id;
-      Decl : constant Node_Id    := Declaration_Node (E);
-      Loc  : constant Source_Ptr := Sloc (Decl);
-      Typ  : constant Entity_Id  := Etype (E);
+      Addr       : constant Node_Id    := Address_Clause (E);
+      Expr       : Node_Id;
+      Decl       : constant Node_Id    := Declaration_Node (E);
+      Loc        : constant Source_Ptr := Sloc (Decl);
+      Typ        : constant Entity_Id  := Etype (E);
+      Lhs        : Node_Id;
+      Tag_Assign : Node_Id;
 
    begin
       if Present (Addr) then
@@ -631,9 +638,13 @@ package body Freeze is
 
          if Present (Expression (Decl)) then
 
-            --  Capture initialization value at point of declaration
+            --  Capture initialization value at point of declaration,
+            --  and make explicit assignment legal, because object may
+            --  be a constant.
 
             Remove_Side_Effects (Expression (Decl));
+            Lhs := New_Occurrence_Of (E, Loc);
+            Set_Assignment_OK (Lhs);
 
             --  Move initialization to freeze actions (once the object has
             --  been frozen, and the address clause alignment check has been
@@ -641,10 +652,19 @@ package body Freeze is
 
             Append_Freeze_Action (E,
               Make_Assignment_Statement (Loc,
-                Name       => New_Occurrence_Of (E, Loc),
+                Name       => Lhs,
                 Expression => Expression (Decl)));
 
             Set_No_Initialization (Decl);
+
+            --  If the objet is tagged, check whether the tag must be
+            --  reassigned expliitly.
+
+            Tag_Assign := Make_Tag_Assignment (Decl);
+            if Present (Tag_Assign) then
+               Append_Freeze_Action (E, Tag_Assign);
+            end if;
+
          end if;
       end if;
    end Check_Address_Clause;
@@ -1272,6 +1292,14 @@ package body Freeze is
          then
             Error_Msg_NE
               ("premature use of& in call or instance", N, Entity (Nod));
+
+         elsif Nkind (Nod) = N_Attribute_Reference then
+            Analyze (Prefix (Nod));
+            if Is_Entity_Name (Prefix (Nod))
+              and then Is_Type (Entity (Prefix (Nod)))
+            then
+               Freeze_Before (N, Entity (Prefix (Nod)));
+            end if;
          end if;
 
          return OK;
@@ -3328,6 +3356,14 @@ package body Freeze is
                      elsif CodePeer_Mode then
                         null;
 
+                     --  Omit check if component has a generic type. This can
+                     --  happen in an instantiation within a generic in ASIS
+                     --  mode, where we force freeze actions without full
+                     --  expansion.
+
+                     elsif Is_Generic_Type (Etype (Comp)) then
+                        null;
+
                      --  Do the check
 
                      elsif not
@@ -3556,10 +3592,14 @@ package body Freeze is
             Next_Entity (Comp);
          end loop;
 
-         SSO_ADC := Get_Attribute_Definition_Clause
-                      (Rec, Attribute_Scalar_Storage_Order);
+         --  Deal with default setting of reverse storage order
+
+         Set_SSO_From_Default (Rec);
 
          --  Check consistent attribute setting on component types
+
+         SSO_ADC := Get_Attribute_Definition_Clause
+                      (Rec, Attribute_Scalar_Storage_Order);
 
          declare
             Comp_ADC_Present : Boolean;
@@ -3575,10 +3615,6 @@ package body Freeze is
                Next_Component (Comp);
             end loop;
          end;
-
-         --  Deal with default setting of reverse storage order
-
-         Set_SSO_From_Default (Rec);
 
          --  Now deal with reverse storage order/bit order issues
 
@@ -3968,6 +4004,47 @@ package body Freeze is
             --  call to the Analyze_Freeze_Entity for the record type.
 
          end Check_Variant_Part;
+
+         --  Check that all the primitives of an interface type are abstract
+         --  or null procedures.
+
+         if Is_Interface (Rec)
+           and then not Error_Posted (Parent (Rec))
+         then
+            declare
+               Elmt : Elmt_Id;
+               Subp : Entity_Id;
+
+            begin
+               Elmt := First_Elmt (Primitive_Operations (Rec));
+               while Present (Elmt) loop
+                  Subp := Node (Elmt);
+
+                  if not Is_Abstract_Subprogram (Subp)
+
+                     --  Avoid reporting the error on inherited primitives
+
+                    and then Comes_From_Source (Subp)
+                  then
+                     Error_Msg_Name_1 := Chars (Subp);
+
+                     if Ekind (Subp) = E_Procedure then
+                        if not Null_Present (Parent (Subp)) then
+                           Error_Msg_N
+                             ("interface procedure % must be abstract or null",
+                              Parent (Subp));
+                        end if;
+                     else
+                        Error_Msg_N
+                          ("interface function % must be abstract",
+                           Parent (Subp));
+                     end if;
+                  end if;
+
+                  Next_Elmt (Elmt);
+               end loop;
+            end;
+         end if;
       end Freeze_Record_Type;
 
       -------------------------------
@@ -4485,6 +4562,11 @@ package body Freeze is
                      Error_Msg_NE
                        ("\} may need a cpp_constructor",
                        Object_Definition (Parent (E)), Etype (E));
+
+                  elsif Present (Expression (Parent (E))) then
+                     Error_Msg_N --  CODEFIX
+                       ("\maybe a class-wide type was meant",
+                         Object_Definition (Parent (E)));
                   end if;
                end if;
 
@@ -4732,6 +4814,14 @@ package body Freeze is
                  ("\can only be specified for a tagged type", Prag);
             end if;
          end;
+
+         --  A Ghost type cannot be effectively volatile (SPARK RM 6.9(8))
+
+         if Is_Ghost_Entity (E)
+           and then Is_Effectively_Volatile (E)
+         then
+            SPARK_Msg_N ("ghost type & cannot be volatile", E);
+         end if;
 
          --  Deal with special cases of freezing for subtype
 
@@ -5342,8 +5432,13 @@ package body Freeze is
                Check_Suspicious_Modulus (E);
             end if;
 
+         --  the pool applies to named and anonymous access types, but not
+         --  to subprogram and to  internal types generated for 'Access
+         --  references.
+
          elsif Is_Access_Type (E)
            and then not Is_Access_Subprogram_Type (E)
+           and then Ekind (E) /= E_Access_Attribute_Type
          then
             --  If a pragma Default_Storage_Pool applies, and this type has no
             --  Storage_Pool or Storage_Size clause (which must have occurred
@@ -5983,7 +6078,7 @@ package body Freeze is
       --  and the expressions include allocators, the designed type is frozen
       --  as well.
 
-      function In_Exp_Body (N : Node_Id) return Boolean;
+      function In_Expanded_Body (N : Node_Id) return Boolean;
       --  Given an N_Handled_Sequence_Of_Statements node N, determines whether
       --  it is the handled statement sequence of an expander-generated
       --  subprogram (init proc, stream subprogram, or renaming as body).
@@ -6023,11 +6118,11 @@ package body Freeze is
          return Empty;
       end Find_Aggregate_Component_Desig_Type;
 
-      -----------------
-      -- In_Exp_Body --
-      -----------------
+      ----------------------
+      -- In_Expanded_Body --
+      ----------------------
 
-      function In_Exp_Body (N : Node_Id) return Boolean is
+      function In_Expanded_Body (N : Node_Id) return Boolean is
          P  : Node_Id;
          Id : Entity_Id;
 
@@ -6044,7 +6139,8 @@ package body Freeze is
          else
             Id := Defining_Unit_Name (Specification (P));
 
-            --  Following complex conditional could use comments ???
+            --  The following are expander-created bodies, or bodies that
+            --  are not freeze points.
 
             if Nkind (Id) = N_Defining_Identifier
               and then (Is_Init_Proc (Id)
@@ -6061,7 +6157,7 @@ package body Freeze is
                return False;
             end if;
          end if;
-      end In_Exp_Body;
+      end In_Expanded_Body;
 
    --  Start of processing for Freeze_Expression
 
@@ -6314,7 +6410,7 @@ package body Freeze is
                --  outside this body, not inside it, and we skip past the
                --  subprogram body that we are inside.
 
-               if In_Exp_Body (Parent_P) then
+               if In_Expanded_Body (Parent_P) then
                   declare
                      Subp : constant Node_Id := Parent (Parent_P);
                      Spec : Entity_Id;
@@ -6358,7 +6454,7 @@ package body Freeze is
                      --  of F (2) would place Hidden's freeze node (1) in the
                      --  wrong place. Avoid explicit freezing and let the usual
                      --  scenarios do the job - for example, reaching the end
-                     --  of the private declarations.
+                     --  of the private declarations, or a call to F.
 
                      if Nkind (Original_Node (Subp)) =
                                                 N_Expression_Function

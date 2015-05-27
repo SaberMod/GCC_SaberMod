@@ -90,8 +90,14 @@
     UNSPEC_GOTTINYPIC
     UNSPEC_LD1
     UNSPEC_LD2
+    UNSPEC_LD2_DUP
     UNSPEC_LD3
+    UNSPEC_LD3_DUP
     UNSPEC_LD4
+    UNSPEC_LD4_DUP
+    UNSPEC_LD2_LANE
+    UNSPEC_LD3_LANE
+    UNSPEC_LD4_LANE
     UNSPEC_MB
     UNSPEC_NOP
     UNSPEC_PRLG_STK
@@ -3825,7 +3831,7 @@
 		(match_operand 2 "aarch64_valid_symref" "S")))]
   ""
 {
-  enum machine_mode mode = GET_MODE (operands[0]);
+  machine_mode mode = GET_MODE (operands[0]);
 
   emit_insn ((mode == DImode
 	      ? gen_add_losym_di
@@ -3936,7 +3942,7 @@
                    UNSPEC_GOTSMALLTLS))]
   ""
 {
-  enum machine_mode mode = GET_MODE (operands[0]);
+  machine_mode mode = GET_MODE (operands[0]);
   emit_insn ((mode == DImode
 	      ? gen_tlsle_small_di
 	      : gen_tlsle_small_si) (operands[0],
@@ -3995,7 +4001,7 @@
    (match_operand 1 "memory_operand")]
   ""
 {
-  enum machine_mode mode = GET_MODE (operands[0]);
+  machine_mode mode = GET_MODE (operands[0]);
 
   emit_insn ((mode == DImode
 	      ? gen_stack_protect_set_di
@@ -4020,7 +4026,7 @@
   ""
 {
   rtx result;
-  enum machine_mode mode = GET_MODE (operands[0]);
+  machine_mode mode = GET_MODE (operands[0]);
 
   result = gen_reg_rtx(mode);
 

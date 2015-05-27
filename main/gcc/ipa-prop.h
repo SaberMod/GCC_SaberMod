@@ -20,9 +20,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef IPA_PROP_H
 #define IPA_PROP_H
 
-#include "vec.h"
-#include "cgraph.h"
-#include "alloc-pool.h"
 
 /* The following definitions and interfaces are used by
    interprocedural analyses or parameters.  */
@@ -731,5 +728,8 @@ ipa_parm_adjustment *ipa_get_adjustment_candidate (tree **, bool *,
 /* From tree-sra.c:  */
 tree build_ref_for_offset (location_t, tree, HOST_WIDE_INT, tree,
 			   gimple_stmt_iterator *, bool);
+
+/* In ipa-cp.c  */
+void ipa_cp_c_finalize (void);
 
 #endif /* IPA_PROP_H */

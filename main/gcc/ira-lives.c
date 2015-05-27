@@ -29,6 +29,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "except.h"
 #include "hard-reg-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "insn-config.h"
 #include "recog.h"
@@ -84,6 +91,10 @@ static ira_loop_tree_node_t curr_bb_node;
 static int last_call_num;
 /* The number of last call at which given allocno was saved.  */
 static int *allocno_saved_at_call;
+
+/* The value of get_preferred_alternatives for the current instruction,
+   supplemental to recog_data.  */
+static alternative_mask preferred_alternatives;
 
 /* Record the birth of hard register REGNO, updating hard_regs_live and
    hard reg conflict information for living allocnos.  */
@@ -641,10 +652,9 @@ check_and_make_def_conflict (int alt, int def, enum reg_class def_cl)
       /* If there's any alternative that allows USE to match DEF, do not
 	 record a conflict.  If that causes us to create an invalid
 	 instruction due to the earlyclobber, reload must fix it up.  */
-      alternative_mask enabled = recog_data.enabled_alternatives;
       for (alt1 = 0; alt1 < recog_data.n_alternatives; alt1++)
 	{
-	  if (!TEST_BIT (enabled, alt1))
+	  if (!TEST_BIT (preferred_alternatives, alt1))
 	    continue;
 	  const operand_alternative *op_alt1
 	    = &recog_op_alt[alt1 * n_operands];
@@ -692,10 +702,9 @@ make_early_clobber_and_input_conflicts (void)
 
   int n_alternatives = recog_data.n_alternatives;
   int n_operands = recog_data.n_operands;
-  alternative_mask enabled = recog_data.enabled_alternatives;
   const operand_alternative *op_alt = recog_op_alt;
   for (alt = 0; alt < n_alternatives; alt++, op_alt += n_operands)
-    if (TEST_BIT (enabled, alt))
+    if (TEST_BIT (preferred_alternatives, alt))
       for (def = 0; def < n_operands; def++)
 	{
 	  def_cl = NO_REGS;
@@ -762,13 +771,13 @@ single_reg_class (const char *constraints, rtx op, rtx equiv_const)
   enum constraint_num cn;
 
   cl = NO_REGS;
-  alternative_mask enabled = recog_data.enabled_alternatives;
+  alternative_mask preferred = preferred_alternatives;
   for (; (c = *constraints); constraints += CONSTRAINT_LEN (c, constraints))
     if (c == '#')
-      enabled &= ~ALTERNATIVE_BIT (0);
+      preferred &= ~ALTERNATIVE_BIT (0);
     else if (c == ',')
-      enabled >>= 1;
-    else if (enabled & 1)
+      preferred >>= 1;
+    else if (preferred & 1)
       switch (c)
 	{
 	case 'g':
@@ -833,7 +842,7 @@ ira_implicitly_set_insn_hard_regs (HARD_REG_SET *set)
   int i, c, regno = 0;
   enum reg_class cl;
   rtx op;
-  enum machine_mode mode;
+  machine_mode mode;
 
   CLEAR_HARD_REG_SET (*set);
   for (i = 0; i < recog_data.n_operands; i++)
@@ -851,13 +860,13 @@ ira_implicitly_set_insn_hard_regs (HARD_REG_SET *set)
 	  mode = (GET_CODE (op) == SCRATCH
 		  ? GET_MODE (op) : PSEUDO_REGNO_MODE (regno));
 	  cl = NO_REGS;
-	  alternative_mask enabled = recog_data.enabled_alternatives;
+	  alternative_mask preferred = preferred_alternatives;
 	  for (; (c = *p); p += CONSTRAINT_LEN (c, p))
 	    if (c == '#')
-	      enabled &= ~ALTERNATIVE_BIT (0);
+	      preferred &= ~ALTERNATIVE_BIT (0);
 	    else if (c == ',')
-	      enabled >>= 1;
-	    else if (enabled & 1)
+	      preferred >>= 1;
+	    else if (preferred & 1)
 	      {
 		cl = reg_class_for_constraint (lookup_constraint (p));
 		if (cl != NO_REGS)
@@ -919,7 +928,7 @@ process_single_reg_class_operands (bool in_p, int freq)
 		 a simplification of:
 
 		    (subreg:YMODE (reg:XMODE XREGNO) OFFSET).  */
-	      enum machine_mode ymode, xmode;
+	      machine_mode ymode, xmode;
 	      int xregno, yregno;
 	      HOST_WIDE_INT offset;
 
@@ -1174,6 +1183,7 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	      }
 
 	  extract_insn (insn);
+	  preferred_alternatives = get_preferred_alternatives (insn);
 	  preprocess_constraints (insn);
 	  process_single_reg_class_operands (false, freq);
 

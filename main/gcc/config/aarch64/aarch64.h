@@ -503,8 +503,11 @@ enum target_cpus
 /* If inserting NOP before a mult-accumulate insn remember to adjust the
    length so that conditional branching code is updated appropriately.  */
 #define ADJUST_INSN_LENGTH(insn, length)	\
-  if (aarch64_madd_needs_nop (insn))		\
-    length += 4;
+  do						\
+    {						\
+       if (aarch64_madd_needs_nop (insn))	\
+         length += 4;				\
+    } while (0)
 
 #define FINAL_PRESCAN_INSN(INSN, OPVEC, NOPERANDS)	\
     aarch64_final_prescan_insn (INSN);			\
@@ -601,7 +604,7 @@ enum arm_pcs
 
 
 
-/* We can't use enum machine_mode inside a generator file because it
+/* We can't use machine_mode inside a generator file because it
    hasn't been created yet; we shouldn't be using any code that
    needs the real definition though, so this ought to be safe.  */
 #ifdef GENERATOR_FILE

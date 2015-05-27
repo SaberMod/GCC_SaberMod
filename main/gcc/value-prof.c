@@ -27,6 +27,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "expr.h"
 #include "hard-reg-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "value-prof.h"
 #include "flags.h"
@@ -39,6 +48,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-eh.h"
 #include "gimple-expr.h"
 #include "is-a.h"
+#include "plugin-api.h"
+#include "alloc-pool.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -59,11 +70,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "l-ipo.h"
 #include "profile.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
+#include "ipa-prop.h"
 #include "ipa-inline.h"
+#include "hash-map.h"
 #include "data-streamer.h"
 #include "builtins.h"
 #include "tree-nested.h"
-#include "hash-set.h"
 #include "params.h"
 
 /* In this file value profile based optimizations are placed.  Currently the
@@ -143,7 +157,7 @@ static bool gimple_ic_transform (gimple_stmt_iterator *);
 
 /* Allocate histogram value.  */
 
-static histogram_value
+histogram_value
 gimple_alloc_histogram_value (struct function *fun ATTRIBUTE_UNUSED,
 			      enum hist_type type, gimple stmt, tree value)
 {
@@ -1527,7 +1541,7 @@ find_func_by_global_id (unsigned HOST_WIDE_INT gid)
    may ICE. Here we only do very minimal sanity check just to make compiler happy.
    Returns true if TARGET is considered ok for call CALL_STMT.  */
 
-static bool
+bool
 check_ic_target (gimple call_stmt, struct cgraph_node *target)
 {
    location_t locus;

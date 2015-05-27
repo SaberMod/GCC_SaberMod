@@ -1,5 +1,5 @@
 #   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-#   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
+#   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2014
 #   Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify it
@@ -126,7 +126,7 @@ extra_host_args=
 # these library is used by various programs built for the build
 # environment
 #
-build_libs="build-libiberty"
+build_libs="build-libiberty build-libcpp"
 
 # these tools are built for the build environment
 build_tools="build-texinfo build-flex build-bison build-m4 build-fixincludes"
@@ -141,7 +141,7 @@ host_libs="intl libiberty opcodes bfd readline tcl tk itcl libgui zlib libbacktr
 # binutils, gas and ld appear in that order because it makes sense to run
 # "make check" in that particular order.
 # If --enable-gold is used, "gold" may replace "ld".
-host_tools="texinfo flex bison binutils gas ld fixincludes gcc cgen sid sim gdb gprof etc expect dejagnu m4 utils guile fastjar gnattools"
+host_tools="texinfo flex bison binutils gas ld fixincludes gcc cgen sid sim gdb gprof etc expect dejagnu m4 utils guile fastjar gnattools libcc1"
 
 # libgcj represents the runtime libraries only used by gcj.
 libgcj="target-libffi \
@@ -769,7 +769,15 @@ case "${target}" in
     ;;
   *-*-lynxos*)
     noconfigdirs="$noconfigdirs ${libgcj}"
-    ;; 
+    ;;
+esac
+
+# Disable the go frontend on systems where it is known to not work. Please keep
+# this in sync with contrib/config-list.mk.
+case "${target}" in
+*-*-darwin* | *-*-cygwin* | *-*-mingw* | *-*-aix*)
+    unsupported_languages="$unsupported_languages go"
+    ;;
 esac
 
 # Disable libgo for some systems where it is known to not work.
@@ -1850,7 +1858,6 @@ if test -d ${srcdir}/gcc; then
   new_enable_languages=,c,
 
   # If LTO is enabled, add the LTO front end.
-  extra_host_libiberty_configure_flags=
   if test "$enable_lto" = "yes" ; then
     case ,${enable_languages}, in
       *,lto,*) ;;
@@ -1858,7 +1865,6 @@ if test -d ${srcdir}/gcc; then
     esac
     if test "${build_lto_plugin}" = "yes" ; then
       configdirs="$configdirs lto-plugin"
-      extra_host_libiberty_configure_flags=--enable-shared
     fi
   fi
   if test "${build_function_reordering_plugin}" = "yes" ; then
@@ -2179,6 +2185,17 @@ then
       AC_MSG_ERROR([libiberty missing]);;
   esac
 fi
+
+# Sometimes we have special requirements for the host libiberty.
+extra_host_libiberty_configure_flags=
+case " $configdirs " in
+  *" lto-plugin "* | *" libcc1 "*)
+    # When these are to be built as shared libraries, the same applies to
+    # libiberty.
+    extra_host_libiberty_configure_flags=--enable-shared
+    ;;
+esac
+AC_SUBST(extra_host_libiberty_configure_flags)
 
 # Produce a warning message for the subdirs we can't configure.
 # This isn't especially interesting in the Cygnus tree, but in the individual
@@ -2925,8 +2942,10 @@ AC_ARG_VAR([target_configargs],
 
 # For the build-side libraries, we just need to pretend we're native,
 # and not use the same cache file.  Multilibs are neither needed nor
-# desired.
-build_configargs="$build_configargs --cache-file=../config.cache ${baseargs}"
+# desired.  We can't even use the same cache file for all build-side
+# libraries, as they're compiled differently; some with C, some with
+# C++ or with different feature-enabling options.
+build_configargs="$build_configargs --cache-file=./config.cache ${baseargs}"
 
 # For host modules, accept cache file option, or specification as blank.
 case "${cache_file}" in

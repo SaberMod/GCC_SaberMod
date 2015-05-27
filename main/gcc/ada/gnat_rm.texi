@@ -209,6 +209,7 @@ Implementation Defined Pragmas
 * Pragma No_Return::
 * Pragma No_Run_Time::
 * Pragma No_Strict_Aliasing ::
+* Pragma No_Tagged_Streams::
 * Pragma Normalize_Scalars::
 * Pragma Obsolescent::
 * Pragma Optimize_Alignment::
@@ -313,6 +314,7 @@ Implementation Defined Aspects
 * Aspect Iterable::
 * Aspect Linker_Section::
 * Aspect No_Elaboration_Code_All::
+* Aspect No_Tagged_Streams::
 * Aspect Object_Size::
 * Aspect Obsolescent::
 * Aspect Part_Of::
@@ -540,6 +542,8 @@ The GNAT Library
 * Ada.Containers.Formal_Ordered_Maps (a-cforma.ads)::
 * Ada.Containers.Formal_Ordered_Sets (a-cforse.ads)::
 * Ada.Containers.Formal_Vectors (a-cofove.ads)::
+* Ada.Containers.Formal_Indefinite_Vectors (a-cfinve.ads)::
+* Ada.Containers.Bounded_Holders (a-coboho.ads)::
 * Ada.Command_Line.Environment (a-colien.ads)::
 * Ada.Command_Line.Remove (a-colire.ads)::
 * Ada.Command_Line.Response_File (a-clrefi.ads)::
@@ -1081,6 +1085,7 @@ consideration, the use of these pragmas should be minimized.
 * Pragma No_Return::
 * Pragma No_Run_Time::
 * Pragma No_Strict_Aliasing::
+* Pragma No_Tagged_Streams::
 * Pragma Normalize_Scalars::
 * Pragma Obsolescent::
 * Pragma Optimize_Alignment::
@@ -1375,7 +1380,7 @@ in the two situations.
 @noindent
 Syntax:
 @smallexample @c ada
-pragma Annotate (IDENTIFIER [,IDENTIFIER @{, ARG@}] [entity => local_NAME]);
+pragma Annotate (IDENTIFIER [, IDENTIFIER @{, ARG@}] [, entity => local_NAME]);
 
 ARG ::= NAME | EXPRESSION
 @end smallexample
@@ -2556,8 +2561,8 @@ types declared within that package spec or declarative part.
 If this pragma is used as a configuration pragma which appears within a
 configuration pragma file (as opposed to appearing explicitly at the start
 of a single unit), then the binder will require that all units in a partition
-be compiled in a similar manner, including all units in the run-time that
-are included in the partition.
+be compiled in a similar manner, other than run-time units, which are not
+affected by this pragma.
 
 The following example shows the use of this pragma:
 
@@ -4778,6 +4783,41 @@ Aliasing,,, gnat_ugn, @value{EDITION} User's Guide}.
 
 This pragma currently has no effects on access to unconstrained array types.
 
+@node Pragma No_Tagged_Streams
+@unnumberedsec Pragma No_Tagged_Streams
+@findex No_Tagged_Streams
+@noindent
+Syntax:
+
+@smallexample @c ada
+pragma No_Tagged_Streams;
+pragma No_Tagged_Streams [([Entity =>] tagged_type_LOCAL_NAME)];
+@end smallexample
+
+@noindent
+Normally when a tagged type is introduced using a full type declaration,
+part of the processing includes generating stream access routines to be
+used by stream attributes referencing the type (or one of its subtypes
+or derived types). This can involve the generation of significant amounts
+of code which is wasted space if stream routines are not needed for the
+type in question.
+
+The @code{No_Tagged_Streams} pragma causes the generation of these stream
+routines to be skipped, and any attempt to use stream operations on
+types subject to this pragma will be statically rejected as illegal.
+
+There are two forms of the pragma. The form with no arguments must appear
+in a declarative sequence or in the declarations of a package spec. This
+pragma affects all subsequent root tagged types declared in the declaration
+sequence, and specifies that no stream routines be generated. The form with
+an argument (for which there is also a corresponding aspect) specifies a
+single root tagged type for which stream routines are not to be generated.
+
+Once the pragma has been given for a particular root tagged type, all subtypes
+and derived types of this type inherit the pragma automatically, so the effect
+applies to a complete hierarchy (this is necessary to deal with the class-wide
+dispatching versions of the stream routines).
+
 @node Pragma Normalize_Scalars
 @unnumberedsec Pragma Normalize_Scalars
 @findex Normalize_Scalars
@@ -5126,6 +5166,10 @@ requests warnings for inappropriate uses (comparisons and explicit
 subranges) for unordered types. If this switch is used, then any
 enumeration type not marked with pragma @code{Ordered} will be considered
 as unordered, and will generate warnings for inappropriate uses.
+
+Note that generic types are not considered ordered or unordered (since the
+template can be instantiated for both cases), so we never generate warnings
+for the case of generic enumerated types.
 
 For additional information please refer to the description of the
 @option{-gnatw.u} switch in the @value{EDITION} User's Guide.
@@ -7936,14 +7980,16 @@ pragma Warnings (On, Pattern);
 @end smallexample
 
 @noindent
-In this usage, the pattern string must match in the Off and On pragmas,
-and at least one matching warning must be suppressed.
+In this usage, the pattern string must match in the Off and On
+pragmas, and (if @option{-gnatw.w} is given) at least one matching
+warning must be suppressed.
 
 Note: to write a string that will match any warning, use the string
-@code{"***"}. It will not work to use a single asterisk or two asterisks
-since this looks like an operator name. This form with three asterisks
-is similar in effect to specifying @code{pragma Warnings (Off)} except that a
-matching @code{pragma Warnings (On, "***")} will be required. This can be
+@code{"***"}. It will not work to use a single asterisk or two
+asterisks since this looks like an operator name. This form with three
+asterisks is similar in effect to specifying @code{pragma Warnings
+(Off)} except (if @option{-gnatw.w} is given) that a matching
+@code{pragma Warnings (On, "***")} will be required. This can be
 helpful in avoiding forgetting to turn warnings back on.
 
 Note: the debug flag -gnatd.i (@code{/NOWARNINGS_PRAGMAS} in VMS) can be
@@ -8110,6 +8156,7 @@ or attribute definition clause.
 * Aspect Linker_Section::
 * Aspect Lock_Free::
 * Aspect No_Elaboration_Code_All::
+* Aspect No_Tagged_Streams::
 * Aspect Object_Size::
 * Aspect Obsolescent::
 * Aspect Part_Of::
@@ -8387,6 +8434,14 @@ This boolean aspect is equivalent to pragma @code{Lock_Free}.
 @noindent
 This aspect is equivalent to a @code{pragma No_Elaboration_Code_All}
 statement for a program unit.
+
+@node Aspect No_Tagged_Streams
+@unnumberedsec Aspect No_Tagged_Streams
+@findex No_Tagged_Streams
+@noindent
+This aspect is equivalent to a @code{pragma No_Tagged_Streams} with an
+argument specifying a root tagged type (thus this aspect can only be
+applied to such a type).
 
 @node Aspect Object_Size
 @unnumberedsec Aspect Object_Size
@@ -18973,6 +19028,8 @@ of GNAT, and will generate a warning message.
 * Ada.Containers.Formal_Ordered_Maps (a-cforma.ads)::
 * Ada.Containers.Formal_Ordered_Sets (a-cforse.ads)::
 * Ada.Containers.Formal_Vectors (a-cofove.ads)::
+* Ada.Containers.Formal_Indefinite_Vectors (a-cfinve.ads)::
+* Ada.Containers.Bounded_Holders (a-coboho.ads)::
 * Ada.Command_Line.Environment (a-colien.ads)::
 * Ada.Command_Line.Remove (a-colire.ads)::
 * Ada.Command_Line.Response_File (a-clrefi.ads)::
@@ -19275,6 +19332,31 @@ Note that although this container was designed with formal verification
 in mind, it may well be generally useful in that it is a simplified more
 efficient version than the one defined in the standard. In particular it
 does not have the complex overhead required to detect cursor tampering.
+
+@node Ada.Containers.Formal_Indefinite_Vectors (a-cfinve.ads)
+@section @code{Ada.Containers.Formal_Indefinite_Vectors} (@file{a-cfinve.ads})
+@cindex @code{Ada.Containers.Formal_Indefinite_Vectors} (@file{a-cfinve.ads})
+@cindex Formal container for vectors
+
+@noindent
+This child of @code{Ada.Containers} defines a modified version of the
+Ada 2005 container for vectors of indefinite elements, meant to
+facilitate formal verification of code using such containers. The
+specification of this unit is compatible with SPARK 2014.
+
+Note that although this container was designed with formal verification
+in mind, it may well be generally useful in that it is a simplified more
+efficient version than the one defined in the standard. In particular it
+does not have the complex overhead required to detect cursor tampering.
+
+@node Ada.Containers.Bounded_Holders (a-coboho.ads)
+@section @code{Ada.Containers.Bounded_Holders} (@file{a-coboho.ads})
+@cindex @code{Ada.Containers.Bounded_Holders} (@file{a-coboho.ads})
+@cindex Formal container for vectors
+
+@noindent
+This child of @code{Ada.Containers} defines a modified version of
+Indefinite_Holders that avoids heap allocation.
 
 @node Ada.Command_Line.Environment (a-colien.ads)
 @section @code{Ada.Command_Line.Environment} (@file{a-colien.ads})

@@ -2188,6 +2188,13 @@ package Einfo is
 --       Defined in all entities. Set for character types and subtypes,
 --       i.e. enumeration types that have at least one character literal.
 
+--    Is_Checked_Ghost_Entity (Flag277)
+--       Applies to all entities. Set for abstract states, [generic] packages,
+--       [generic] subprograms, components, discriminants, formal parameters,
+--       objects, package bodies, subprogram bodies, and [sub]types subject to
+--       pragma Ghost or inherit "ghostness" from an enclosing construct, and
+--       subject to Assertion_Policy Ghost => Check.
+
 --    Is_Child_Unit (Flag73)
 --       Defined in all entities. Set only for defining entities of program
 --       units that are child units (but False for subunits).
@@ -2425,18 +2432,6 @@ package Einfo is
 --       package, generic function, generic procedure), and False for all
 --       other entities.
 
---    Is_Ghost_Entity (synthesized)
---       Applies to all entities. Yields True for a subprogram or a whole
---       object that has convention Ghost. For now only functions can have
---       Ghost convention, so this will be false for other than functions,
---       but we expect that to change in the future.
-
---    Is_Ghost_Subprogram (synthesized)
---       Applies to all entities. Yields True for a subprogram that has a Ghost
---       convention. Note: for now, only ghost functions are allowed, so this
---       will always be false for procedures, but that is expected to change in
---       the future.
-
 --    Is_Hidden (Flag57)
 --       Defined in all entities. Set for all entities declared in the
 --       private part or body of a package. Also marks generic formals of a
@@ -2457,6 +2452,13 @@ package Einfo is
 --       Defined in all entities. Set for a scope that contains the
 --       instantiation of a child unit, and whose entities are not visible
 --       during analysis of the instance.
+
+--    Is_Ignored_Ghost_Entity (Flag278)
+--       Applies to all entities. Set for abstract states, [generic] packages,
+--       [generic] subprograms, components, discriminants, formal parameters,
+--       objects, package bodies, subprogram bodies, and [sub]types subject to
+--       pragma Ghost or inherit "ghostness" from an enclosing construct, and
+--       subject to Assertion_Policy Ghost => Ignore.
 
 --    Is_Immediately_Visible (Flag7)
 --       Defined in all entities. Set if entity is immediately visible, i.e.
@@ -3361,20 +3363,6 @@ package Einfo is
 --       Empty if applied to the last literal. This is actually a synonym
 --       for Next, but its use is preferred in this context.
 
---    Non_Binary_Modulus (Flag58) [base type only]
---       Defined in all subtype and type entities. Set for modular integer
---       types if the modulus value is other than a power of 2.
-
---    Non_Limited_View (Node17)
---       Defined in abstract states and incomplete types that act as shadow
---       entities created when analysing a limited with clause (Ada 2005:
---       AI-50217). Points to the defining entity of the original declaration.
-
---    Nonzero_Is_True (Flag162) [base type only]
---       Defined in enumeration types. Set if any non-zero value is to be
---       interpreted as true. Currently this is set for derived Boolean
---       types which have a convention of C, C++ or Fortran.
-
 --    No_Dynamic_Predicate_On_Actual (Flag276)
 --       Defined in discrete types. Set for generic formal types that are used
 --       in loops and quantified expressions. The corresponing actual cannot
@@ -3395,6 +3383,35 @@ package Einfo is
 --    No_Return (Flag113)
 --       Defined in all entities. Always false except in the case of procedures
 --       and generic procedures for which a pragma No_Return is given.
+
+--    No_Strict_Aliasing (Flag136) [base type only]
+--       Defined in access types. Set to direct the backend to avoid any
+--       optimizations based on an assumption about the aliasing status of
+--       objects designated by the access type. For the case of the gcc
+--       backend, the effect is as though all references to objects of
+--       the type were compiled with -fno-strict-aliasing. This flag is
+--       set if an unchecked conversion with the access type as a target
+--       type occurs in the same source unit as the declaration of the
+--       access type, or if an explicit pragma No_Strict_Aliasing applies.
+
+--    No_Tagged_Streams_Pragma (Node32)
+--       Present in  all subtype and type entities. Set for tagged types and
+--       subtypes (i.e. entities with Is_Tagged_Type set True) if a valid
+--       pragma/aspect applies to the type.
+
+--    Non_Binary_Modulus (Flag58) [base type only]
+--       Defined in all subtype and type entities. Set for modular integer
+--       types if the modulus value is other than a power of 2.
+
+--    Non_Limited_View (Node17)
+--       Defined in abstract states and incomplete types that act as shadow
+--       entities created when analysing a limited with clause (Ada 2005:
+--       AI-50217). Points to the defining entity of the original declaration.
+
+--    Nonzero_Is_True (Flag162) [base type only]
+--       Defined in enumeration types. Set if any non-zero value is to be
+--       interpreted as true. Currently this is set for derived Boolean
+--       types which have a convention of C, C++ or Fortran.
 
 --    Normalized_First_Bit (Uint8)
 --       Defined in components and discriminants. Indicates the normalized
@@ -3418,16 +3435,6 @@ package Einfo is
 --       This is used by Layout in front end layout mode to properly computed
 --       the maximum size such records (needed for allocation purposes when
 --       there are default discriminants, and also for the 'Size value).
-
---    No_Strict_Aliasing (Flag136) [base type only]
---       Defined in access types. Set to direct the backend to avoid any
---       optimizations based on an assumption about the aliasing status of
---       objects designated by the access type. For the case of the gcc
---       backend, the effect is as though all references to objects of
---       the type were compiled with -fno-strict-aliasing. This flag is
---       set if an unchecked conversion with the access type as a target
---       type occurs in the same source unit as the declaration of the
---       access type, or if an explicit pragma No_Strict_Aliasing applies.
 
 --    Number_Dimensions (synthesized)
 --       Applies to array types and subtypes. Returns the number of dimensions
@@ -5173,6 +5180,7 @@ package Einfo is
    --    Is_Bit_Packed_Array                 (Flag122)  (base type only)
    --    Is_Aliased                          (Flag15)
    --    Is_Character_Type                   (Flag63)
+   --    Is_Checked_Ghost_Entity             (Flag277)
    --    Is_Child_Unit                       (Flag73)
    --    Is_Compilation_Unit                 (Flag149)
    --    Is_Completely_Hidden                (Flag103)
@@ -5189,6 +5197,7 @@ package Einfo is
    --    Is_Generic_Type                     (Flag13)
    --    Is_Hidden                           (Flag57)
    --    Is_Hidden_Open_Scope                (Flag171)
+   --    Is_Ignored_Ghost_Entity             (Flag278)
    --    Is_Immediately_Visible              (Flag7)
    --    Is_Implementation_Defined           (Flag254)
    --    Is_Imported                         (Flag24)
@@ -5261,6 +5270,7 @@ package Einfo is
    --    Current_Use_Clause                  (Node27)
    --    Subprograms_For_Type                (Node29)
    --    Derived_Type_Link                   (Node31)
+   --    No_Tagged_Streams_Pragma            (Node32)
    --    Linker_Section_Pragma               (Node33)
 
    --    Depends_On_Private                  (Flag14)
@@ -5734,8 +5744,6 @@ package Einfo is
    --    Address_Clause                      (synth)
    --    First_Formal                        (synth)
    --    First_Formal_With_Extras            (synth)
-   --    Is_Ghost_Entity                     (synth)    (non-generic case only)
-   --    Is_Ghost_Subprogram                 (synth)    (non-generic case only)
    --    Last_Formal                         (synth)
    --    Number_Formals                      (synth)
    --    Scope_Depth                         (synth)
@@ -6031,8 +6039,6 @@ package Einfo is
    --    First_Formal                        (synth)
    --    First_Formal_With_Extras            (synth)
    --    Is_Finalizer                        (synth)
-   --    Is_Ghost_Entity                     (synth)    (non-generic case only)
-   --    Is_Ghost_Subprogram                 (synth)    (non-generic case only)
    --    Last_Formal                         (synth)
    --    Number_Formals                      (synth)
 
@@ -6243,7 +6249,6 @@ package Einfo is
    --    Treat_As_Volatile                   (Flag41)
    --    Address_Clause                      (synth)
    --    Alignment_Clause                    (synth)
-   --    Is_Ghost_Entity                     (synth)
    --    Size_Clause                         (synth)
 
    --  E_Void
@@ -6698,6 +6703,7 @@ package Einfo is
    function Is_CPP_Class                        (Id : E) return B;
    function Is_Called                           (Id : E) return B;
    function Is_Character_Type                   (Id : E) return B;
+   function Is_Checked_Ghost_Entity             (Id : E) return B;
    function Is_Child_Unit                       (Id : E) return B;
    function Is_Class_Wide_Equivalent_Type       (Id : E) return B;
    function Is_Compilation_Unit                 (Id : E) return B;
@@ -6724,6 +6730,7 @@ package Einfo is
    function Is_Hidden                           (Id : E) return B;
    function Is_Hidden_Non_Overridden_Subpgm     (Id : E) return B;
    function Is_Hidden_Open_Scope                (Id : E) return B;
+   function Is_Ignored_Ghost_Entity             (Id : E) return B;
    function Is_Immediately_Visible              (Id : E) return B;
    function Is_Implementation_Defined           (Id : E) return B;
    function Is_Imported                         (Id : E) return B;
@@ -6814,6 +6821,7 @@ package Einfo is
    function No_Predicate_On_Actual              (Id : E) return B;
    function No_Return                           (Id : E) return B;
    function No_Strict_Aliasing                  (Id : E) return B;
+   function No_Tagged_Streams_Pragma            (Id : E) return N;
    function Non_Binary_Modulus                  (Id : E) return B;
    function Non_Limited_View                    (Id : E) return E;
    function Nonzero_Is_True                     (Id : E) return B;
@@ -7005,8 +7013,6 @@ package Einfo is
    function Is_Dynamic_Scope                    (Id : E) return B;
    function Is_External_State                   (Id : E) return B;
    function Is_Finalizer                        (Id : E) return B;
-   function Is_Ghost_Entity                     (Id : E) return B;
-   function Is_Ghost_Subprogram                 (Id : E) return B;
    function Is_Null_State                       (Id : E) return B;
    function Is_Package_Or_Generic_Package       (Id : E) return B;
    function Is_Packed_Array                     (Id : E) return B;
@@ -7336,6 +7342,7 @@ package Einfo is
    procedure Set_Is_CPP_Class                    (Id : E; V : B := True);
    procedure Set_Is_Called                       (Id : E; V : B := True);
    procedure Set_Is_Character_Type               (Id : E; V : B := True);
+   procedure Set_Is_Checked_Ghost_Entity         (Id : E; V : B := True);
    procedure Set_Is_Child_Unit                   (Id : E; V : B := True);
    procedure Set_Is_Class_Wide_Equivalent_Type   (Id : E; V : B := True);
    procedure Set_Is_Compilation_Unit             (Id : E; V : B := True);
@@ -7367,6 +7374,7 @@ package Einfo is
    procedure Set_Is_Hidden                       (Id : E; V : B := True);
    procedure Set_Is_Hidden_Non_Overridden_Subpgm (Id : E; V : B := True);
    procedure Set_Is_Hidden_Open_Scope            (Id : E; V : B := True);
+   procedure Set_Is_Ignored_Ghost_Entity         (Id : E; V : B := True);
    procedure Set_Is_Immediately_Visible          (Id : E; V : B := True);
    procedure Set_Is_Implementation_Defined       (Id : E; V : B := True);
    procedure Set_Is_Imported                     (Id : E; V : B := True);
@@ -7458,6 +7466,7 @@ package Einfo is
    procedure Set_No_Predicate_On_Actual          (Id : E; V : B := True);
    procedure Set_No_Return                       (Id : E; V : B := True);
    procedure Set_No_Strict_Aliasing              (Id : E; V : B := True);
+   procedure Set_No_Tagged_Streams_Pragma        (Id : E; V : N);
    procedure Set_Non_Binary_Modulus              (Id : E; V : B := True);
    procedure Set_Non_Limited_View                (Id : E; V : E);
    procedure Set_Nonzero_Is_True                 (Id : E; V : B := True);
@@ -8093,6 +8102,7 @@ package Einfo is
    pragma Inline (Is_CPP_Class);
    pragma Inline (Is_Called);
    pragma Inline (Is_Character_Type);
+   pragma Inline (Is_Checked_Ghost_Entity);
    pragma Inline (Is_Child_Unit);
    pragma Inline (Is_Class_Wide_Equivalent_Type);
    pragma Inline (Is_Class_Wide_Type);
@@ -8141,6 +8151,7 @@ package Einfo is
    pragma Inline (Is_Hidden);
    pragma Inline (Is_Hidden_Non_Overridden_Subpgm);
    pragma Inline (Is_Hidden_Open_Scope);
+   pragma Inline (Is_Ignored_Ghost_Entity);
    pragma Inline (Is_Immediately_Visible);
    pragma Inline (Is_Implementation_Defined);
    pragma Inline (Is_Imported);
@@ -8251,6 +8262,7 @@ package Einfo is
    pragma Inline (No_Predicate_On_Actual);
    pragma Inline (No_Return);
    pragma Inline (No_Strict_Aliasing);
+   pragma Inline (No_Tagged_Streams_Pragma);
    pragma Inline (Non_Binary_Modulus);
    pragma Inline (Non_Limited_View);
    pragma Inline (Nonzero_Is_True);
@@ -8571,6 +8583,7 @@ package Einfo is
    pragma Inline (Set_Is_CPP_Class);
    pragma Inline (Set_Is_Called);
    pragma Inline (Set_Is_Character_Type);
+   pragma Inline (Set_Is_Checked_Ghost_Entity);
    pragma Inline (Set_Is_Child_Unit);
    pragma Inline (Set_Is_Class_Wide_Equivalent_Type);
    pragma Inline (Set_Is_Compilation_Unit);
@@ -8602,6 +8615,7 @@ package Einfo is
    pragma Inline (Set_Is_Hidden);
    pragma Inline (Set_Is_Hidden_Non_Overridden_Subpgm);
    pragma Inline (Set_Is_Hidden_Open_Scope);
+   pragma Inline (Set_Is_Ignored_Ghost_Entity);
    pragma Inline (Set_Is_Immediately_Visible);
    pragma Inline (Set_Is_Implementation_Defined);
    pragma Inline (Set_Is_Imported);
@@ -8693,6 +8707,7 @@ package Einfo is
    pragma Inline (Set_No_Predicate_On_Actual);
    pragma Inline (Set_No_Return);
    pragma Inline (Set_No_Strict_Aliasing);
+   pragma Inline (Set_No_Tagged_Streams_Pragma);
    pragma Inline (Set_Non_Binary_Modulus);
    pragma Inline (Set_Non_Limited_View);
    pragma Inline (Set_Nonzero_Is_True);

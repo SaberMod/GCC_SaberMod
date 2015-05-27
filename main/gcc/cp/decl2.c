@@ -45,6 +45,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "c-family/c-common.h"
 #include "c-family/c-objc.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-inline.h"
 #include "c-family/c-pragma.h"
@@ -477,7 +488,7 @@ delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete,
   /* Deleting ptr to void is undefined behavior [expr.delete/3].  */
   if (VOID_TYPE_P (TREE_TYPE (type)))
     {
-      warning (0, "deleting %qT is undefined", type);
+      warning (OPT_Wdelete_incomplete, "deleting %qT is undefined", type);
       doing_vec = 0;
     }
 

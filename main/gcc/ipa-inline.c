@@ -108,6 +108,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "rtl.h"
 #include "bitmap.h"
+#include "profile.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -115,6 +124,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "is-a.h"
 #include "gimple.h"
 #include "gimple-ssa.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
+#include "alloc-pool.h"
 #include "ipa-prop.h"
 #include "basic-block.h"
 #include "toplev.h"
@@ -125,6 +139,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-inline.h"
 #include "ipa-utils.h"
 #include "sreal.h"
+#include "auto-profile.h"
 #include "cilk.h"
 #include "builtins.h"
 
@@ -454,6 +469,14 @@ want_early_inline_function_p (struct cgraph_edge *e)
 
   if (DECL_DISREGARD_INLINE_LIMITS (callee->decl))
     ;
+  /* For AutoFDO, we need to make sure that before profile annotation, all
+     hot paths' IR look exactly the same as profiled binary. As a result,
+     in einliner, we will disregard size limit and inline those callsites
+     that are:
+       * inlined in the profiled binary, and
+       * the cloned callee has enough samples to be considered "hot".  */
+  else if (flag_auto_profile && afdo_callsite_hot_enough_for_early_inline (e))
+    ;
   else if (!DECL_DECLARED_INLINE_P (callee->decl)
 	   && !flag_inline_small_functions)
     {
@@ -671,19 +694,21 @@ want_inline_small_function_p (struct cgraph_edge *e, bool report)
       want_inline = false;
     }
   /* Do fast and conservative check if the function can be good
-     inline cnadidate.  At themoment we allow inline hints to
-     promote non-inline function to inline and we increase
-     MAX_INLINE_INSNS_SINGLE 16fold for inline functions.  */
+     inline candidate.  At the moment we allow inline hints to
+     promote non-inline functions to inline and we increase
+     MAX_INLINE_INSNS_SINGLE 16-fold for inline functions.  */
   else if ((!DECL_DECLARED_INLINE_P (callee->decl)
 	   && (!e->count || !e->maybe_hot_p ()))
-	   && inline_summary (callee)->min_size - inline_edge_summary (e)->call_stmt_size
+	   && inline_summary (callee)->min_size
+		- inline_edge_summary (e)->call_stmt_size
 	      > MAX (MAX_INLINE_INSNS_SINGLE, MAX_INLINE_INSNS_AUTO))
     {
       e->inline_failed = CIF_MAX_INLINE_INSNS_AUTO_LIMIT;
       want_inline = false;
     }
   else if ((DECL_DECLARED_INLINE_P (callee->decl) || e->count)
-	   && inline_summary (callee)->min_size - inline_edge_summary (e)->call_stmt_size
+	   && inline_summary (callee)->min_size
+		- inline_edge_summary (e)->call_stmt_size
 	      > 16 * MAX_INLINE_INSNS_SINGLE)
     {
       e->inline_failed = (DECL_DECLARED_INLINE_P (callee->decl)
@@ -917,27 +942,26 @@ has_caller_p (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
 static bool
 want_inline_function_to_all_callers_p (struct cgraph_node *node, bool cold)
 {
-   struct cgraph_node *function = node->ultimate_alias_target ();
-   bool has_hot_call = false;
+  bool has_hot_call = false;
 
-   /* Does it have callers?  */
-   if (!node->call_for_symbol_thunks_and_aliases (has_caller_p, NULL, true))
-     return false;
-   /* Already inlined?  */
-   if (function->global.inlined_to)
-     return false;
-   if (node->ultimate_alias_target () != node)
-     return false;
-   /* Inlining into all callers would increase size?  */
-   if (estimate_growth (node) > 0)
-     return false;
-   /* All inlines must be possible.  */
-   if (node->call_for_symbol_thunks_and_aliases
-     (check_callers, &has_hot_call, true))
-     return false;
-   if (!cold && !has_hot_call)
-     return false;
-   return true;
+  if (node->ultimate_alias_target () != node)
+    return false;
+  /* Already inlined?  */
+  if (node->global.inlined_to)
+    return false;
+  /* Does it have callers?  */
+  if (!node->call_for_symbol_thunks_and_aliases (has_caller_p, NULL, true))
+    return false;
+  /* Inlining into all callers would increase size?  */
+  if (estimate_growth (node) > 0)
+    return false;
+  /* All inlines must be possible.  */
+  if (node->call_for_symbol_thunks_and_aliases (check_callers, &has_hot_call,
+						true))
+    return false;
+  if (!cold && !has_hot_call)
+    return false;
+  return true;
 }
 
 #define RELATIVE_TIME_BENEFIT_RANGE (INT_MAX / 64)
@@ -2557,39 +2581,8 @@ early_inline_small_functions (struct cgraph_node *node)
   return inlined;
 }
 
-/* Do inlining of small functions.  Doing so early helps profiling and other
-   passes to be somewhat more effective and avoids some code duplication in
-   later real inlining pass for testcases with very many function calls.  */
-
-namespace {
-
-const pass_data pass_data_early_inline =
-{
-  GIMPLE_PASS, /* type */
-  "einline", /* name */
-  OPTGROUP_INLINE, /* optinfo_flags */
-  TV_EARLY_INLINING, /* tv_id */
-  PROP_ssa, /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  0, /* todo_flags_finish */
-};
-
-class pass_early_inline : public gimple_opt_pass
-{
-public:
-  pass_early_inline (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_early_inline, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  virtual unsigned int execute (function *);
-
-}; // class pass_early_inline
-
 unsigned int
-pass_early_inline::execute (function *fun)
+early_inliner (function *fun)
 {
   struct cgraph_node *node = cgraph_node::get (current_function_decl);
   struct cgraph_edge *edge;
@@ -2691,6 +2684,43 @@ pass_early_inline::execute (function *fun)
   fun->always_inline_functions_inlined = true;
 
   return todo;
+}
+
+/* Do inlining of small functions.  Doing so early helps profiling and other
+   passes to be somewhat more effective and avoids some code duplication in
+   later real inlining pass for testcases with very many function calls.  */
+
+namespace {
+
+const pass_data pass_data_early_inline =
+{
+  GIMPLE_PASS, /* type */
+  "einline", /* name */
+  OPTGROUP_INLINE, /* optinfo_flags */
+  TV_EARLY_INLINING, /* tv_id */
+  PROP_ssa, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_early_inline : public gimple_opt_pass
+{
+public:
+  pass_early_inline (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_early_inline, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual unsigned int execute (function *);
+
+}; // class pass_early_inline
+
+unsigned int
+pass_early_inline::execute (function *fun)
+{
+  return early_inliner (fun);
 }
 
 } // anon namespace

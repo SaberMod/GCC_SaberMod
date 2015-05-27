@@ -1123,13 +1123,6 @@ package Sinfo is
    --    elaboration processing has determined that an Elaborate pragma is
    --    desirable for correct elaboration for this unit.
 
-   --  Elaboration_Boolean (Node2-Sem)
-   --    This field is present in function and procedure specification nodes.
-   --    If set, it points to the entity for a Boolean flag that must be tested
-   --    for certain calls to check for access before elaboration. See body of
-   --    Sem_Elab for further details. This field is Empty if no elaboration
-   --    boolean is required.
-
    --  Else_Actions (List3-Sem)
    --    This field is present in if expression nodes. During code
    --    expansion we use the Insert_Actions procedure (in Exp_Util) to insert
@@ -1579,6 +1572,10 @@ package Sinfo is
    --    significance is that optimizations based on assuming that the
    --    discriminant check has a correct value cannot be performed in this
    --    case (or the discriminant check may be optimized away).
+
+   --  Is_Inherited (Flag4-Sem)
+   --    This flag is set in an N_Pragma node that appears in a N_Contract node
+   --    to indicate that the pragma has been inherited from a parent context.
 
    --  Is_Machine_Number (Flag11-Sem)
    --    This flag is set in an N_Real_Literal node to indicate that the value
@@ -2391,11 +2388,12 @@ package Sinfo is
       --  Next_Rep_Item (Node5-Sem)
       --  Class_Present (Flag6) set if from Aspect with 'Class
       --  From_Aspect_Specification (Flag13-Sem)
+      --  Import_Interface_Present (Flag16-Sem)
+      --  Is_Checked (Flag11-Sem)
       --  Is_Delayed_Aspect (Flag14-Sem)
       --  Is_Disabled (Flag15-Sem)
       --  Is_Ignored (Flag9-Sem)
-      --  Is_Checked (Flag11-Sem)
-      --  Import_Interface_Present (Flag16-Sem)
+      --  Is_Inherited (Flag4-Sem)
       --  Split_PPC (Flag17) set if corresponding aspect had Split_PPC set
       --  Uneval_Old_Accept (Flag7-Sem)
       --  Uneval_Old_Warn (Flag18-Sem)
@@ -4895,7 +4893,6 @@ package Sinfo is
       --  N_Function_Specification
       --  Sloc points to FUNCTION
       --  Defining_Unit_Name (Node1) (the designator)
-      --  Elaboration_Boolean (Node2-Sem)
       --  Parameter_Specifications (List3) (set to No_List if no formal part)
       --  Null_Exclusion_Present (Flag11)
       --  Result_Definition (Node4) for result subtype
@@ -4906,7 +4903,6 @@ package Sinfo is
       --  N_Procedure_Specification
       --  Sloc points to PROCEDURE
       --  Defining_Unit_Name (Node1)
-      --  Elaboration_Boolean (Node2-Sem)
       --  Parameter_Specifications (List3) (set to No_List if no formal part)
       --  Generic_Parent (Node5-Sem)
       --  Null_Present (Flag13) set for null procedure case (Ada 2005 feature)
@@ -8963,9 +8959,6 @@ package Sinfo is
    function Elaborate_Present
      (N : Node_Id) return Boolean;    -- Flag4
 
-   function Elaboration_Boolean
-     (N : Node_Id) return Node_Id;    -- Node2
-
    function Else_Actions
      (N : Node_Id) return List_Id;    -- List3
 
@@ -9240,6 +9233,9 @@ package Sinfo is
 
    function Is_In_Discriminant_Check
      (N : Node_Id) return Boolean;    -- Flag11
+
+   function Is_Inherited
+     (N : Node_Id) return Boolean;    -- Flag4
 
    function Is_Machine_Number
      (N : Node_Id) return Boolean;    -- Flag11
@@ -9985,9 +9981,6 @@ package Sinfo is
    procedure Set_Elaborate_Present
      (N : Node_Id; Val : Boolean := True);    -- Flag4
 
-   procedure Set_Elaboration_Boolean
-     (N : Node_Id; Val : Node_Id);            -- Node2
-
    procedure Set_Else_Actions
      (N : Node_Id; Val : List_Id);            -- List3
 
@@ -10260,6 +10253,9 @@ package Sinfo is
 
    procedure Set_Is_In_Discriminant_Check
      (N : Node_Id; Val : Boolean := True);    -- Flag11
+
+   procedure Set_Is_Inherited
+     (N : Node_Id; Val : Boolean := True);    -- Flag4
 
    procedure Set_Is_Machine_Number
      (N : Node_Id; Val : Boolean := True);    -- Flag11
@@ -11510,14 +11506,14 @@ package Sinfo is
 
      N_Function_Specification =>
        (1 => True,    --  Defining_Unit_Name (Node1)
-        2 => False,   --  Elaboration_Boolean (Node2-Sem)
+        2 => False,   --  unused
         3 => True,    --  Parameter_Specifications (List3)
         4 => True,    --  Result_Definition (Node4)
         5 => False),  --  Generic_Parent (Node5-Sem)
 
      N_Procedure_Specification =>
        (1 => True,    --  Defining_Unit_Name (Node1)
-        2 => False,   --  Elaboration_Boolean (Node2-Sem)
+        2 => False,   --  unused
         3 => True,    --  Parameter_Specifications (List3)
         4 => False,   --  unused
         5 => False),  --  Generic_Parent (Node5-Sem)
@@ -12551,7 +12547,6 @@ package Sinfo is
    pragma Inline (Elaborate_All_Desirable);
    pragma Inline (Elaborate_All_Present);
    pragma Inline (Elaborate_Desirable);
-   pragma Inline (Elaboration_Boolean);
    pragma Inline (Else_Actions);
    pragma Inline (Else_Statements);
    pragma Inline (Elsif_Parts);
@@ -12645,6 +12640,7 @@ package Sinfo is
    pragma Inline (Is_Folded_In_Parser);
    pragma Inline (Is_Ignored);
    pragma Inline (Is_In_Discriminant_Check);
+   pragma Inline (Is_Inherited);
    pragma Inline (Is_Machine_Number);
    pragma Inline (Is_Null_Loop);
    pragma Inline (Is_Overloaded);
@@ -12889,7 +12885,6 @@ package Sinfo is
    pragma Inline (Set_Elaborate_All_Present);
    pragma Inline (Set_Elaborate_Desirable);
    pragma Inline (Set_Elaborate_Present);
-   pragma Inline (Set_Elaboration_Boolean);
    pragma Inline (Set_Else_Actions);
    pragma Inline (Set_Else_Statements);
    pragma Inline (Set_Elsif_Parts);
@@ -12980,6 +12975,7 @@ package Sinfo is
    pragma Inline (Set_Is_Folded_In_Parser);
    pragma Inline (Set_Is_Ignored);
    pragma Inline (Set_Is_In_Discriminant_Check);
+   pragma Inline (Set_Is_Inherited);
    pragma Inline (Set_Is_Machine_Number);
    pragma Inline (Set_Is_Null_Loop);
    pragma Inline (Set_Is_Overloaded);

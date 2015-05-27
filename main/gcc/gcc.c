@@ -822,7 +822,7 @@ proper position among the other output files.  */
     -plugin %(func_reorder_linker_plugin_file) \
     -plugin-opt=%(func_reorder_linker_plugin_opt)}" \
    "%{flto|flto=*:%<fcompare-debug*} \
-    %{flto} %{flto=*} %l " LINK_PIE_SPEC \
+    %{flto} %{fno-lto} %{flto=*} %l " LINK_PIE_SPEC \
    "%{fuse-ld=*:-fuse-ld=%*} " LINK_COMPRESS_DEBUG_SPEC \
    "%X %{o*} %{e*} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{z} %{Z} %{!nostdlib:%{!nostartfiles:%S}} " VTABLE_VERIFICATION_SPEC " \

@@ -44,6 +44,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "function.h"
 #include "flags.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "debug.h"
 #include "constructor.h"
@@ -153,6 +157,7 @@ tree gfor_fndecl_caf_unlock;
 tree gfor_fndecl_co_broadcast;
 tree gfor_fndecl_co_max;
 tree gfor_fndecl_co_min;
+tree gfor_fndecl_co_reduce;
 tree gfor_fndecl_co_sum;
 
 
@@ -3444,6 +3449,14 @@ gfc_build_builtin_function_decls (void)
 	get_identifier (PREFIX("caf_co_min")), "W.WW",
 	void_type_node, 6, pvoid_type_node, integer_type_node,
 	pint_type, pchar_type_node, integer_type_node, integer_type_node);
+
+      gfor_fndecl_co_reduce = gfc_build_library_function_decl_with_spec (
+	get_identifier (PREFIX("caf_co_reduce")), "W.R.WW",
+	void_type_node, 8, pvoid_type_node,
+        build_pointer_type (build_varargs_function_type_list (void_type_node,
+							      NULL_TREE)),
+	integer_type_node, integer_type_node, pint_type, pchar_type_node,
+	integer_type_node, integer_type_node);
 
       gfor_fndecl_co_sum = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("caf_co_sum")), "W.WW",

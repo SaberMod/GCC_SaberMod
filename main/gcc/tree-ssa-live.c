@@ -27,6 +27,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "bitmap.h"
 #include "sbitmap.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -605,7 +615,7 @@ remove_unused_scope_block_p (tree scope)
      ;
    /* When not generating debug info we can eliminate info on unused
       variables.  */
-   else if (debug_info_level == DINFO_LEVEL_NONE)
+   else if (!flag_auto_profile && debug_info_level == DINFO_LEVEL_NONE)
      {
        /* Even for -g0 don't prune outer scopes from artificial
 	  functions, otherwise diagnostics using tree_nonartificial_location

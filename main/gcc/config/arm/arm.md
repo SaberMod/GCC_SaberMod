@@ -3540,7 +3540,7 @@
               (set (match_dup 0)
                    (match_dup 6)))]
   {
-  enum machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
+  machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
                                            operands[2], operands[3]);
   enum rtx_code rc = minmax_code (operands[4]);
   operands[4] = gen_rtx_fmt_ee (rc, VOIDmode,
@@ -4878,7 +4878,7 @@
   [(set (match_dup 0) (match_dup 1))]
 {
   rtx lo_part = gen_lowpart (SImode, operands[0]);
-  enum machine_mode src_mode = GET_MODE (operands[1]);
+  machine_mode src_mode = GET_MODE (operands[1]);
 
   if (REG_P (operands[0])
       && !reg_overlap_mentioned_p (operands[0], operands[1]))
@@ -4904,7 +4904,7 @@
   [(set (match_dup 0) (ashiftrt:SI (match_dup 1) (const_int 31)))]
 {
   rtx lo_part = gen_lowpart (SImode, operands[0]);
-  enum machine_mode src_mode = GET_MODE (operands[1]);
+  machine_mode src_mode = GET_MODE (operands[1]);
 
   if (REG_P (operands[0])
       && !reg_overlap_mentioned_p (operands[0], operands[1]))
@@ -7455,7 +7455,7 @@
   [(const_int 0)]
   {
     enum rtx_code rev_code;
-    enum machine_mode mode;
+    machine_mode mode;
     rtx rev_cond;
 
     emit_insn (gen_rtx_COND_EXEC (VOIDmode,
@@ -8385,7 +8385,7 @@
    (cond_exec (match_dup 4) (set (match_dup 0)
                                  (and:SI (match_dup 3) (const_int 1))))]
   {
-    enum machine_mode mode = GET_MODE (operands[2]);
+    machine_mode mode = GET_MODE (operands[2]);
     enum rtx_code rc = GET_CODE (operands[1]);
 
     /* Note that operands[4] is the same as operands[1],
@@ -8419,7 +8419,7 @@
    (cond_exec (match_dup 4) (set (match_dup 0)
                                  (ior:SI (match_dup 3) (const_int 1))))]
   {
-    enum machine_mode mode = GET_MODE (operands[2]);
+    machine_mode mode = GET_MODE (operands[2]);
     enum rtx_code rc = GET_CODE (operands[1]);
 
     /* Note that operands[4] is the same as operands[1],
@@ -8523,7 +8523,7 @@
    (cond_exec (match_dup 5) (set (match_dup 0) (const_int 1)))]
 {
   rtx tmp1;
-  enum machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
+  machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
 					   operands[2], operands[3]);
   enum rtx_code rc = GET_CODE (operands[1]);
 
@@ -9327,7 +9327,7 @@
 	      (set (match_dup 0) (match_dup 2)))]
   "
   {
-    enum machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[5]),
+    machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[5]),
 					     operands[3], operands[4]);
     enum rtx_code rc = GET_CODE (operands[5]);
     operands[6] = gen_rtx_REG (mode, CC_REGNUM);
@@ -10223,7 +10223,7 @@
 	      (set (match_dup 0) (match_dup 4)))]
   "
   {
-    enum machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
+    machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
 					     operands[2], operands[3]);
     enum rtx_code rc = GET_CODE (operands[1]);
 
@@ -10251,7 +10251,7 @@
 	      (set (match_dup 0) (match_dup 4)))]
   "
   {
-    enum machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
+    machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
 					     operands[2], operands[3]);
 
     operands[5] = gen_rtx_REG (mode, CC_REGNUM);
@@ -10274,7 +10274,7 @@
 	      (set (match_dup 0) (match_dup 5)))]
   "
   {
-    enum machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
+    machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
 					     operands[2], operands[3]);
     enum rtx_code rc = GET_CODE (operands[1]);
 
@@ -10306,7 +10306,7 @@
 	      (set (match_dup 0) (not:SI (match_dup 5))))]
   "
   {
-    enum machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
+    machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
 					     operands[2], operands[3]);
     enum rtx_code rc = GET_CODE (operands[1]);
 

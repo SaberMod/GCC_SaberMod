@@ -1664,6 +1664,18 @@ package body Sem_Ch12 is
                         Assoc);
                   end if;
 
+                  --  If the object is a call to an expression function, this
+                  --  is a freezing point for it.
+
+                  if Is_Entity_Name (Match)
+                    and then Present (Entity (Match))
+                    and then Nkind
+                      (Original_Node (Unit_Declaration_Node (Entity (Match))))
+                        = N_Expression_Function
+                  then
+                     Append_Elmt (Entity (Match), Actuals_To_Freeze);
+                  end if;
+
                when N_Formal_Type_Declaration =>
                   Match :=
                     Matching_Actual (
@@ -3368,6 +3380,13 @@ package body Sem_Ch12 is
       Set_Etype    (Id, Standard_Void_Type);
       Set_Contract (Id, Make_Contract (Sloc (Id)));
 
+      --  A generic package declared within a Ghost scope is rendered Ghost
+      --  (SPARK RM 6.9(2)).
+
+      if Within_Ghost_Scope then
+         Set_Is_Ghost_Entity (Id);
+      end if;
+
       --  Analyze aspects now, so that generated pragmas appear in the
       --  declarations before building and analyzing the generic copy.
 
@@ -3424,6 +3443,27 @@ package body Sem_Ch12 is
          if not Body_Required (Parent (N)) then
             Check_References (Id);
          end if;
+      end if;
+
+      --  If there is a specified storage pool in the context, create an
+      --  aspect on the package declaration, so that it is used in any
+      --  instance that does not override it.
+
+      if Present (Default_Pool) then
+         declare
+            ASN : Node_Id;
+
+         begin
+            ASN := Make_Aspect_Specification (Loc,
+               Identifier => Make_Identifier (Loc, Name_Default_Storage_Pool),
+               Expression => New_Copy (Default_Pool));
+
+            if No (Aspect_Specifications (Specification (N))) then
+               Set_Aspect_Specifications (Specification (N), New_List (ASN));
+            else
+               Append (ASN, Aspect_Specifications (Specification (N)));
+            end if;
+         end;
       end if;
    end Analyze_Generic_Package_Declaration;
 
@@ -3547,6 +3587,13 @@ package body Sem_Ch12 is
          Set_Etype (Id, Standard_Void_Type);
       end if;
 
+      --  A generic subprogram declared within a Ghost scope is rendered Ghost
+      --  (SPARK RM 6.9(2)).
+
+      if Within_Ghost_Scope then
+         Set_Is_Ghost_Entity (Id);
+      end if;
+
       --  For a library unit, we have reconstructed the entity for the unit,
       --  and must reset it in the library tables. We also make sure that
       --  Body_Required is set properly in the original compilation unit node.
@@ -3593,6 +3640,7 @@ package body Sem_Ch12 is
       Act_Tree      : Node_Id;
 
       Gen_Decl : Node_Id;
+      Gen_Spec : Node_Id;
       Gen_Unit : Entity_Id;
 
       Is_Actual_Pack : constant Boolean :=
@@ -3623,11 +3671,6 @@ package body Sem_Ch12 is
       --  we instantiate the body. This may cause superfluous instantiations,
       --  but it is simpler than detecting the need for the body at the point
       --  of inlining, when the context of the instance is not available.
-
-      function Must_Inline_Subp return Boolean;
-      --  If inlining is active and the generic contains inlined subprograms,
-      --  return True if some of the inlined subprograms must be inlined by
-      --  the frontend.
 
       -----------------------
       -- Delay_Descriptors --
@@ -3665,34 +3708,6 @@ package body Sem_Ch12 is
 
          return False;
       end Might_Inline_Subp;
-
-      ----------------------
-      -- Must_Inline_Subp --
-      ----------------------
-
-      function Must_Inline_Subp return Boolean is
-         E : Entity_Id;
-
-      begin
-         if not Inline_Processing_Required then
-            return False;
-
-         else
-            E := First_Entity (Gen_Unit);
-            while Present (E) loop
-               if Is_Subprogram (E)
-                 and then Is_Inlined (E)
-                 and then Must_Inline (E)
-               then
-                  return True;
-               end if;
-
-               Next_Entity (E);
-            end loop;
-         end if;
-
-         return False;
-      end Must_Inline_Subp;
 
       --  Local declarations
 
@@ -3858,6 +3873,7 @@ package body Sem_Ch12 is
          end if;
 
          Gen_Decl := Unit_Declaration_Node (Gen_Unit);
+         Gen_Spec := Specification (Gen_Decl);
 
          --  Initialize renamings map, for error checking, and the list that
          --  holds private entities whose views have changed between generic
@@ -3931,6 +3947,52 @@ package body Sem_Ch12 is
               New_Copy_List_Tree (Aspect_Specifications (Act_Tree)));
          end if;
 
+         --  The generic may have a generated Default_Storage_Pool aspect,
+         --  set at the point of generic declaration. If the instance has
+         --  that aspect, it overrides the one inherited from the generic.
+
+         if Has_Aspects (Gen_Spec) then
+            if No (Aspect_Specifications (N)) then
+               Set_Aspect_Specifications (N,
+                 (New_Copy_List_Tree
+                   (Aspect_Specifications (Gen_Spec))));
+
+            else
+               declare
+                  ASN1, ASN2 : Node_Id;
+
+               begin
+                  ASN1 := First (Aspect_Specifications (N));
+                  while Present (ASN1) loop
+                     if Chars (Identifier (ASN1))
+                        = Name_Default_Storage_Pool
+                     then
+                        --  If generic carries a default storage pool, remove
+                        --  it in favor of the instance one.
+
+                        ASN2 := First (Aspect_Specifications (Gen_Spec));
+                        while Present (ASN2) loop
+                           if Chars (Identifier (ASN2))
+                              = Name_Default_Storage_Pool
+                           then
+                              Remove (ASN2);
+                              exit;
+                           end if;
+
+                           Next (ASN2);
+                        end loop;
+                     end if;
+
+                     Next (ASN1);
+                  end loop;
+
+                  Prepend_List_To (Aspect_Specifications (N),
+                    (New_Copy_List_Tree
+                      (Aspect_Specifications (Gen_Spec))));
+               end;
+            end if;
+         end if;
+
          --  Save the instantiation node, for subsequent instantiation of the
          --  body, if there is one and we are generating code for the current
          --  unit. Mark unit as having a body (avoids premature error message).
@@ -3988,14 +4050,6 @@ package body Sem_Ch12 is
             then
                if not Back_End_Inlining
                  and then Front_End_Inlining
-                 and then (Is_In_Main_Unit (N)
-                            or else In_Main_Context (Current_Scope))
-                 and then Nkind (Parent (N)) /= N_Compilation_Unit
-               then
-                  Inline_Now := True;
-
-               elsif Back_End_Inlining
-                 and then Must_Inline_Subp
                  and then (Is_In_Main_Unit (N)
                             or else In_Main_Context (Current_Scope))
                  and then Nkind (Parent (N)) /= N_Compilation_Unit
@@ -4241,6 +4295,40 @@ package body Sem_Ch12 is
          if Nkind (Parent (N)) /= N_Compilation_Unit then
             Mark_Rewrite_Insertion (Act_Decl);
             Insert_Before (N, Act_Decl);
+
+            if Has_Aspects (N) then
+               Analyze_Aspect_Specifications (N, Act_Decl_Id);
+
+               --  The pragma created for a Default_Storage_Pool aspect must
+               --  appear ahead of the declarations in the instance spec.
+               --  Analysis has placed it after the instance node, so remove
+               --  it and reinsert it properly now.
+
+               declare
+                  ASN : constant Node_Id := First (Aspect_Specifications (N));
+                  A_Name : constant Name_Id := Chars (Identifier (ASN));
+                  Decl : Node_Id;
+
+               begin
+                  if A_Name = Name_Default_Storage_Pool then
+                     if No (Visible_Declarations (Act_Spec)) then
+                        Set_Visible_Declarations (Act_Spec, New_List);
+                     end if;
+
+                     Decl := Next (N);
+                     while Present (Decl) loop
+                        if Nkind (Decl) = N_Pragma then
+                           Remove (Decl);
+                           Prepend (Decl, Visible_Declarations (Act_Spec));
+                           exit;
+                        end if;
+
+                        Next (Decl);
+                     end loop;
+                  end if;
+               end;
+            end if;
+
             Analyze (Act_Decl);
 
          --  For an instantiation that is a compilation unit, place
@@ -4413,14 +4501,16 @@ package body Sem_Ch12 is
       Gen_Unit : Entity_Id;
       Act_Decl : Node_Id)
    is
-      Vis          : Boolean;
-      Gen_Comp     : constant Entity_Id :=
-                      Cunit_Entity (Get_Source_Unit (Gen_Unit));
-      Curr_Comp    : constant Node_Id := Cunit (Current_Sem_Unit);
-      Curr_Scope   : Entity_Id := Empty;
-      Curr_Unit    : constant Entity_Id := Cunit_Entity (Current_Sem_Unit);
-      Removed      : Boolean := False;
-      Num_Scopes   : Int := 0;
+      Curr_Comp : constant Node_Id   := Cunit (Current_Sem_Unit);
+      Curr_Unit : constant Entity_Id := Cunit_Entity (Current_Sem_Unit);
+      Gen_Comp  : constant Entity_Id :=
+                    Cunit_Entity (Get_Source_Unit (Gen_Unit));
+
+      Save_SM  : constant SPARK_Mode_Type := SPARK_Mode;
+      Save_SMP : constant Node_Id         := SPARK_Mode_Pragma;
+      --  Save all SPARK_Mode-related attributes as removing enclosing scopes
+      --  to provide a clean environment for analysis of the inlined body will
+      --  eliminate any previously set SPARK_Mode.
 
       Scope_Stack_Depth : constant Int :=
                             Scope_Stack.Last - Scope_Stack.First + 1;
@@ -4428,10 +4518,14 @@ package body Sem_Ch12 is
       Use_Clauses  : array (1 .. Scope_Stack_Depth) of Node_Id;
       Instances    : array (1 .. Scope_Stack_Depth) of Entity_Id;
       Inner_Scopes : array (1 .. Scope_Stack_Depth) of Entity_Id;
+      Curr_Scope   : Entity_Id := Empty;
       List         : Elist_Id;
       Num_Inner    : Int := 0;
+      Num_Scopes   : Int := 0;
       N_Instances  : Int := 0;
+      Removed      : Boolean := False;
       S            : Entity_Id;
+      Vis          : Boolean;
 
    begin
       --  Case of generic unit defined in another unit. We must remove the
@@ -4562,6 +4656,10 @@ package body Sem_Ch12 is
 
          pragma Assert (Num_Inner < Num_Scopes);
 
+         --  The inlined package body must be analyzed with the SPARK_Mode of
+         --  the enclosing context, otherwise the body may cause bogus errors
+         --  if a configuration SPARK_Mode pragma in in effect.
+
          Push_Scope (Standard_Standard);
          Scope_Stack.Table (Scope_Stack.Last).Is_Active_Stack_Base := True;
          Instantiate_Package_Body
@@ -4575,8 +4673,8 @@ package body Sem_Ch12 is
                Version                  => Ada_Version,
                Version_Pragma           => Ada_Version_Pragma,
                Warnings                 => Save_Warnings,
-               SPARK_Mode               => SPARK_Mode,
-               SPARK_Mode_Pragma        => SPARK_Mode_Pragma)),
+               SPARK_Mode               => Save_SM,
+               SPARK_Mode_Pragma        => Save_SMP)),
             Inlined_Body => True);
 
          Pop_Scope;
@@ -4680,7 +4778,9 @@ package body Sem_Ch12 is
             end loop;
          end;
 
-      --  If generic unit is in current unit, current context is correct
+      --  If generic unit is in current unit, current context is correct. Note
+      --  that the context is guaranteed to carry the correct SPARK_Mode as no
+      --  enclosing scopes were removed.
 
       else
          Instantiate_Package_Body
@@ -12954,16 +13054,7 @@ package body Sem_Ch12 is
                Analyze (Act);
             end if;
 
-            --  Ensure that a ghost subprogram does not act as generic actual
-
-            if Is_Entity_Name (Act)
-              and then Is_Ghost_Subprogram (Entity (Act))
-            then
-               Error_Msg_N
-                 ("ghost subprogram & cannot act as generic actual", Act);
-               Abandon_Instantiation (Act);
-
-            elsif Errs /= Serious_Errors_Detected then
+            if Errs /= Serious_Errors_Detected then
 
                --  Do a minimal analysis of the generic, to prevent spurious
                --  warnings complaining about the generic being unreferenced,

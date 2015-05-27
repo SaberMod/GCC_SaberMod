@@ -53,10 +53,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "common/common-target.h"
 #include "targhooks.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "basic-block.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "l-ipo.h"
 #include "asan.h"
-#include "basic-block.h"
 #include "rtl-iter.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
@@ -769,7 +776,7 @@ mergeable_string_section (tree decl ATTRIBUTE_UNUSED,
       && (len = int_size_in_bytes (TREE_TYPE (decl))) > 0
       && TREE_STRING_LENGTH (decl) >= len)
     {
-      enum machine_mode mode;
+      machine_mode mode;
       unsigned int modesize;
       const char *str;
       HOST_WIDE_INT i;
@@ -813,7 +820,7 @@ mergeable_string_section (tree decl ATTRIBUTE_UNUSED,
 /* Return the section to use for constant merging.  */
 
 section *
-mergeable_constant_section (enum machine_mode mode ATTRIBUTE_UNUSED,
+mergeable_constant_section (machine_mode mode ATTRIBUTE_UNUSED,
 			    unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED,
 			    unsigned int flags ATTRIBUTE_UNUSED)
 {
@@ -1318,7 +1325,7 @@ make_decl_rtl (tree decl)
   else if (TREE_CODE (decl) != FUNCTION_DECL && DECL_REGISTER (decl))
     {
       const char *asmspec = name+1;
-      enum machine_mode mode = DECL_MODE (decl);
+      machine_mode mode = DECL_MODE (decl);
       reg_number = decode_reg_name (asmspec);
       /* First detect errors in declaring global registers.  */
       if (reg_number == -1)
@@ -1418,7 +1425,7 @@ make_decl_rtl (tree decl)
     x = create_block_symbol (name, get_block_for_decl (decl), -1);
   else
     {
-      enum machine_mode address_mode = Pmode;
+      machine_mode address_mode = Pmode;
       if (TREE_TYPE (decl) != error_mark_node)
 	{
 	  addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (decl));
@@ -2689,7 +2696,7 @@ assemble_integer (rtx x, unsigned int size, unsigned int align, int force)
      it into words it if is multi-word, otherwise split it into bytes.  */
   if (size > 1)
     {
-      enum machine_mode omode, imode;
+      machine_mode omode, imode;
       unsigned int subalign;
       unsigned int subsize, i;
       enum mode_class mclass;
@@ -2724,7 +2731,7 @@ assemble_integer (rtx x, unsigned int size, unsigned int align, int force)
 }
 
 void
-assemble_real (REAL_VALUE_TYPE d, enum machine_mode mode, unsigned int align)
+assemble_real (REAL_VALUE_TYPE d, machine_mode mode, unsigned int align)
 {
   long data[4] = {0, 0, 0, 0};
   int i;
@@ -3447,7 +3454,7 @@ struct GTY((chain_next ("%h.next"), for_user)) constant_descriptor_rtx {
   rtx constant;
   HOST_WIDE_INT offset;
   hashval_t hash;
-  enum machine_mode mode;
+  machine_mode mode;
   unsigned int align;
   int labelno;
   int mark;
@@ -3505,7 +3512,7 @@ static hashval_t
 const_rtx_hash_1 (const_rtx x)
 {
   unsigned HOST_WIDE_INT hwi;
-  enum machine_mode mode;
+  machine_mode mode;
   enum rtx_code code;
   hashval_t h;
   int i;
@@ -3626,7 +3633,7 @@ simplify_subtraction (rtx x)
    and return a MEM rtx to refer to it in memory.  */
 
 rtx
-force_const_mem (enum machine_mode mode, rtx x)
+force_const_mem (machine_mode mode, rtx x)
 {
   struct constant_descriptor_rtx *desc, tmp;
   struct rtx_constant_pool *pool;
@@ -3747,7 +3754,7 @@ get_pool_constant_mark (rtx addr, bool *pmarked)
 
 /* Similar, return the mode.  */
 
-enum machine_mode
+machine_mode
 get_pool_mode (const_rtx addr)
 {
   return SYMBOL_REF_CONSTANT (addr)->mode;
@@ -3765,7 +3772,7 @@ get_pool_size (void)
    in MODE with known alignment ALIGN.  */
 
 static void
-output_constant_pool_2 (enum machine_mode mode, rtx x, unsigned int align)
+output_constant_pool_2 (machine_mode mode, rtx x, unsigned int align)
 {
   switch (GET_MODE_CLASS (mode))
     {
@@ -3797,7 +3804,7 @@ output_constant_pool_2 (enum machine_mode mode, rtx x, unsigned int align)
     case MODE_VECTOR_UACCUM:
       {
 	int i, units;
-        enum machine_mode submode = GET_MODE_INNER (mode);
+        machine_mode submode = GET_MODE_INNER (mode);
 	unsigned int subalign = MIN (align, GET_MODE_BITSIZE (submode));
 
 	gcc_assert (GET_CODE (x) == CONST_VECTOR);
@@ -4718,7 +4725,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
 	  break;
 	case VECTOR_CST:
 	  {
-	    enum machine_mode inner = TYPE_MODE (TREE_TYPE (TREE_TYPE (exp)));
+	    machine_mode inner = TYPE_MODE (TREE_TYPE (TREE_TYPE (exp)));
 	    unsigned int nalign = MIN (align, GET_MODE_ALIGNMENT (inner));
 	    int elt_size = GET_MODE_SIZE (inner);
 	    output_constant (VECTOR_CST_ELT (exp, 0), elt_size, align);
@@ -6559,7 +6566,7 @@ compute_reloc_for_rtx (const_rtx x)
 }
 
 section *
-default_select_rtx_section (enum machine_mode mode ATTRIBUTE_UNUSED,
+default_select_rtx_section (machine_mode mode ATTRIBUTE_UNUSED,
 			    rtx x,
 			    unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
 {
@@ -6570,7 +6577,7 @@ default_select_rtx_section (enum machine_mode mode ATTRIBUTE_UNUSED,
 }
 
 section *
-default_elf_select_rtx_section (enum machine_mode mode, rtx x,
+default_elf_select_rtx_section (machine_mode mode, rtx x,
 				unsigned HOST_WIDE_INT align)
 {
   int reloc = compute_reloc_for_rtx (x);
@@ -7405,7 +7412,7 @@ rtx
 make_debug_expr_from_rtl (const_rtx exp)
 {
   tree ddecl = make_node (DEBUG_EXPR_DECL), type;
-  enum machine_mode mode = GET_MODE (exp);
+  machine_mode mode = GET_MODE (exp);
   rtx dval;
 
   DECL_ARTIFICIAL (ddecl) = 1;

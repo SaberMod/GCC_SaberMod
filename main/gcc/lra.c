@@ -113,6 +113,11 @@ along with GCC; see the file COPYING3.	If not see
 #include "input.h"
 #include "function.h"
 #include "expr.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfgbuild.h"
 #include "basic-block.h"
 #include "except.h"
 #include "tree-pass.h"
@@ -151,10 +156,10 @@ expand_reg_data (int old)
    attributes of ORIGINAL if it is a register.  The created register
    will have unique held value.  */
 rtx
-lra_create_new_reg_with_unique_value (enum machine_mode md_mode, rtx original,
+lra_create_new_reg_with_unique_value (machine_mode md_mode, rtx original,
 				      enum reg_class rclass, const char *title)
 {
-  enum machine_mode mode;
+  machine_mode mode;
   rtx new_reg;
 
   if (original == NULL_RTX || (mode = GET_MODE (original)) == VOIDmode)
@@ -193,7 +198,7 @@ lra_create_new_reg_with_unique_value (enum machine_mode md_mode, rtx original,
 /* Analogous to the previous function but also inherits value of
    ORIGINAL.  */
 rtx
-lra_create_new_reg (enum machine_mode md_mode, rtx original,
+lra_create_new_reg (machine_mode md_mode, rtx original,
 		    enum reg_class rclass, const char *title)
 {
   rtx new_reg;
@@ -509,7 +514,7 @@ init_insn_regs (void)
    info (NEXT).	 */
 static struct lra_insn_reg *
 new_insn_reg (rtx_insn *insn, int regno, enum op_type type,
-	      enum machine_mode mode,
+	      machine_mode mode,
 	      bool subreg_p, bool early_clobber, struct lra_insn_reg *next)
 {
   struct lra_insn_reg *ir;
@@ -784,7 +789,7 @@ collect_non_operand_hard_regs (rtx *x, lra_insn_recog_data_t data,
 {
   int i, j, regno, last;
   bool subreg_p;
-  enum machine_mode mode;
+  machine_mode mode;
   struct lra_insn_reg *curr;
   rtx op = *x;
   enum rtx_code code = GET_CODE (op);
@@ -921,7 +926,7 @@ lra_set_insn_recog_data (rtx_insn *insn)
       data->insn_static_data = &debug_insn_static_data;
       data->dup_loc = NULL;
       data->arg_hard_regs = NULL;
-      data->enabled_alternatives = ALL_ALTERNATIVES;
+      data->preferred_alternatives = ALL_ALTERNATIVES;
       data->operand_loc = XNEWVEC (rtx *, 1);
       data->operand_loc[0] = &INSN_VAR_LOCATION_LOC (insn);
       return data;
@@ -929,7 +934,7 @@ lra_set_insn_recog_data (rtx_insn *insn)
   if (icode < 0)
     {
       int nop, nalt;
-      enum machine_mode operand_mode[MAX_RECOG_OPERANDS];
+      machine_mode operand_mode[MAX_RECOG_OPERANDS];
       const char *constraints[MAX_RECOG_OPERANDS];
 
       nop = asm_noperands (PATTERN (insn));
@@ -981,7 +986,7 @@ lra_set_insn_recog_data (rtx_insn *insn)
 	  = (insn_static_data->operand[i].constraint[0] == '=' ? OP_OUT
 	     : insn_static_data->operand[i].constraint[0] == '+' ? OP_INOUT
 	     : OP_IN);
-      data->enabled_alternatives = ALL_ALTERNATIVES;
+      data->preferred_alternatives = ALL_ALTERNATIVES;
       if (nop > 0)
 	{
 	  operand_alternative *op_alt = XCNEWVEC (operand_alternative,
@@ -1015,7 +1020,7 @@ lra_set_insn_recog_data (rtx_insn *insn)
 	  memcpy (locs, recog_data.dup_loc, n * sizeof (rtx *));
 	}
       data->dup_loc = locs;
-      data->enabled_alternatives = get_enabled_alternatives (insn);
+      data->preferred_alternatives = get_preferred_alternatives (insn);
       const operand_alternative *op_alt = preprocess_insn_constraints (icode);
       if (!insn_static_data->operand_alternative)
 	setup_operand_alternative (data, op_alt);
@@ -1160,7 +1165,7 @@ lra_update_insn_recog_data (rtx_insn *insn)
   if (data->icode < 0)
     {
       int nop;
-      enum machine_mode operand_mode[MAX_RECOG_OPERANDS];
+      machine_mode operand_mode[MAX_RECOG_OPERANDS];
       const char *constraints[MAX_RECOG_OPERANDS];
 
       nop = asm_noperands (PATTERN (insn));
@@ -1206,27 +1211,7 @@ lra_update_insn_recog_data (rtx_insn *insn)
       n = insn_static_data->n_dups;
       if (n != 0)
 	memcpy (data->dup_loc, recog_data.dup_loc, n * sizeof (rtx *));
-#if HAVE_ATTR_enabled
-#ifdef ENABLE_CHECKING
-      {
-	int i;
-	alternative_mask enabled;
-
-	n = insn_static_data->n_alternatives;
-	enabled = data->enabled_alternatives;
-	lra_assert (n >= 0);
-	/* Cache the insn to prevent extract_insn call from
-	   get_attr_enabled.  */
-	recog_data.insn = insn;
-	for (i = 0; i < n; i++)
-	  {
-	    which_alternative = i;
-	    lra_assert (TEST_BIT (enabled, i)
-			== (bool) get_attr_enabled (insn));
-	  }
-      }
-#endif
-#endif
+      lra_assert (check_bool_attrs (insn));
     }
   return data;
 }
@@ -1420,7 +1405,7 @@ add_regs_to_insn_regno_info (lra_insn_recog_data_t data, rtx x, int uid,
 {
   int i, j, regno;
   bool subreg_p;
-  enum machine_mode mode;
+  machine_mode mode;
   const char *fmt;
   enum rtx_code code;
   struct lra_insn_reg *curr;
@@ -1923,8 +1908,9 @@ check_rtl (bool final_p)
       {
 	if (final_p)
 	  {
-	    extract_insn (insn);
-	    lra_assert (constrain_operands (1));
+#ifdef ENABLED_CHECKING
+	    extract_constrain_insn (insn);
+#endif
 	    continue;
 	  }
 	/* LRA code is based on assumption that all addresses can be
@@ -2095,7 +2081,7 @@ setup_reg_spill_flag (void)
     for (cl = 0; cl < (int) LIM_REG_CLASSES; cl++)
       for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
 	if (targetm.spill_class ((enum reg_class) cl,
-				 (enum machine_mode) mode) != NO_REGS)
+				 (machine_mode) mode) != NO_REGS)
 	  {
 	    lra_reg_spill_p = true;
 	    return;
@@ -2138,11 +2124,6 @@ lra (FILE *f)
 #endif
 
   lra_in_progress = 1;
-
-  /* The enable attributes can change their values as LRA starts
-     although it is a bad practice.  To prevent reuse of the outdated
-     values, clear them.  */
-  recog_init ();
 
   lra_live_range_iter = lra_coalesce_iter = lra_constraint_iter = 0;
   lra_assignment_iter = lra_assignment_iter_after_spill = 0;

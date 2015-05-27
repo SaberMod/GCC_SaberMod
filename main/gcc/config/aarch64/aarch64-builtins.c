@@ -36,6 +36,20 @@
 #include "hash-table.h"
 #include "vec.h"
 #include "ggc.h"
+#include "predict.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -105,7 +119,7 @@ enum aarch64_type_qualifiers
 typedef struct
 {
   const char *name;
-  enum machine_mode mode;
+  machine_mode mode;
   const enum insn_code code;
   unsigned int fcode;
   enum aarch64_type_qualifiers *qualifiers;
@@ -201,6 +215,11 @@ aarch64_types_load1_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_none, qualifier_const_pointer_map_mode };
 #define TYPES_LOAD1 (aarch64_types_load1_qualifiers)
 #define TYPES_LOADSTRUCT (aarch64_types_load1_qualifiers)
+static enum aarch64_type_qualifiers
+aarch64_types_loadstruct_lane_qualifiers[SIMD_MAX_BUILTIN_ARGS]
+  = { qualifier_none, qualifier_const_pointer_map_mode,
+      qualifier_none, qualifier_none };
+#define TYPES_LOADSTRUCT_LANE (aarch64_types_loadstruct_lane_qualifiers)
 
 static enum aarch64_type_qualifiers
 aarch64_types_bsl_p_qualifiers[SIMD_MAX_BUILTIN_ARGS]
@@ -297,7 +316,7 @@ static aarch64_simd_builtin_datum aarch64_simd_builtin_data[] = {
 typedef struct
 {
   const char *name;
-  enum machine_mode mode;
+  machine_mode mode;
   const enum insn_code icode;
   unsigned int fcode;
 } aarch64_crc_builtin_datum;
@@ -346,7 +365,7 @@ static GTY(()) tree aarch64_builtin_decls[AARCH64_BUILTIN_MAX];
 /* Return a tree for a signed or unsigned argument of either
    the mode specified by MODE, or the inner mode of MODE.  */
 tree
-aarch64_build_scalar_type (enum machine_mode mode,
+aarch64_build_scalar_type (machine_mode mode,
 			   bool unsigned_p,
 			   bool poly_p)
 {
@@ -425,7 +444,7 @@ aarch64_build_scalar_type (enum machine_mode mode,
 }
 
 tree
-aarch64_build_vector_type (enum machine_mode mode,
+aarch64_build_vector_type (machine_mode mode,
 			   bool unsigned_p,
 			   bool poly_p)
 {
@@ -492,7 +511,7 @@ aarch64_build_vector_type (enum machine_mode mode,
 }
 
 tree
-aarch64_build_type (enum machine_mode mode, bool unsigned_p, bool poly_p)
+aarch64_build_type (machine_mode mode, bool unsigned_p, bool poly_p)
 {
   if (VECTOR_MODE_P (mode))
     return aarch64_build_vector_type (mode, unsigned_p, poly_p);
@@ -501,19 +520,19 @@ aarch64_build_type (enum machine_mode mode, bool unsigned_p, bool poly_p)
 }
 
 tree
-aarch64_build_signed_type (enum machine_mode mode)
+aarch64_build_signed_type (machine_mode mode)
 {
   return aarch64_build_type (mode, false, false);
 }
 
 tree
-aarch64_build_unsigned_type (enum machine_mode mode)
+aarch64_build_unsigned_type (machine_mode mode)
 {
   return aarch64_build_type (mode, true, false);
 }
 
 tree
-aarch64_build_poly_type (enum machine_mode mode)
+aarch64_build_poly_type (machine_mode mode)
 {
   return aarch64_build_type (mode, false, true);
 }
@@ -627,7 +646,7 @@ aarch64_init_simd_builtins (void)
 	 removing duplicates for us.  */
       for (; op_num >= 0; arg_num--, op_num--)
 	{
-	  enum machine_mode op_mode = insn_data[d->code].operand[op_num].mode;
+	  machine_mode op_mode = insn_data[d->code].operand[op_num].mode;
 	  enum aarch64_type_qualifiers qualifiers = d->qualifiers[arg_num];
 
 	  if (qualifiers & qualifier_unsigned)
@@ -762,8 +781,8 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
   rtx pat;
   tree arg[SIMD_MAX_BUILTIN_ARGS];
   rtx op[SIMD_MAX_BUILTIN_ARGS];
-  enum machine_mode tmode = insn_data[icode].operand[0].mode;
-  enum machine_mode mode[SIMD_MAX_BUILTIN_ARGS];
+  machine_mode tmode = insn_data[icode].operand[0].mode;
+  machine_mode mode[SIMD_MAX_BUILTIN_ARGS];
   int argc = 0;
 
   if (have_retval
@@ -940,9 +959,9 @@ aarch64_crc32_expand_builtin (int fcode, tree exp, rtx target)
   tree arg1 = CALL_EXPR_ARG (exp, 1);
   rtx op0 = expand_normal (arg0);
   rtx op1 = expand_normal (arg1);
-  enum machine_mode tmode = insn_data[icode].operand[0].mode;
-  enum machine_mode mode0 = insn_data[icode].operand[1].mode;
-  enum machine_mode mode1 = insn_data[icode].operand[2].mode;
+  machine_mode tmode = insn_data[icode].operand[0].mode;
+  machine_mode mode0 = insn_data[icode].operand[1].mode;
+  machine_mode mode1 = insn_data[icode].operand[2].mode;
 
   if (! target
       || GET_MODE (target) != tmode
@@ -971,7 +990,7 @@ rtx
 aarch64_expand_builtin (tree exp,
 		     rtx target,
 		     rtx subtarget ATTRIBUTE_UNUSED,
-		     enum machine_mode mode ATTRIBUTE_UNUSED,
+		     machine_mode mode ATTRIBUTE_UNUSED,
 		     int ignore ATTRIBUTE_UNUSED)
 {
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
@@ -1018,7 +1037,7 @@ aarch64_expand_builtin (tree exp,
 tree
 aarch64_builtin_vectorized_function (tree fndecl, tree type_out, tree type_in)
 {
-  enum machine_mode in_mode, out_mode;
+  machine_mode in_mode, out_mode;
   int in_n, out_n;
 
   if (TREE_CODE (type_out) != VECTOR_TYPE
@@ -1197,19 +1216,6 @@ aarch64_gimple_fold_builtin (gimple_stmt_iterator *gsi)
   tree fndecl;
   gimple new_stmt = NULL;
 
-  /* The operations folded below are reduction operations.  These are
-     defined to leave their result in the 0'th element (from the perspective
-     of GCC).  The architectural instruction we are folding will leave the
-     result in the 0'th element (from the perspective of the architecture).
-     For big-endian systems, these perspectives are not aligned.
-
-     It is therefore wrong to perform this fold on big-endian.  There
-     are some tricks we could play with shuffling, but the mid-end is
-     inconsistent in the way it treats reduction operations, so we will
-     end up in difficulty.  Until we fix the ambiguity - just bail out.  */
-  if (BYTES_BIG_ENDIAN)
-    return false;
-
   if (call)
     {
       fndecl = gimple_call_fndecl (stmt);
@@ -1221,23 +1227,28 @@ aarch64_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 			? gimple_call_arg_ptr (stmt, 0)
 			: &error_mark_node);
 
+	  /* We use gimple's REDUC_(PLUS|MIN|MAX)_EXPRs for float, signed int
+	     and unsigned int; it will distinguish according to the types of
+	     the arguments to the __builtin.  */
 	  switch (fcode)
 	    {
-	      BUILTIN_VALL (UNOP, reduc_splus_, 10)
-		new_stmt = gimple_build_assign_with_ops (
+	      BUILTIN_VALL (UNOP, reduc_plus_scal_, 10)
+	        new_stmt = gimple_build_assign_with_ops (
 						REDUC_PLUS_EXPR,
 						gimple_call_lhs (stmt),
 						args[0],
 						NULL_TREE);
 		break;
-	      BUILTIN_VDQIF (UNOP, reduc_smax_, 10)
+	      BUILTIN_VDQIF (UNOP, reduc_smax_scal_, 10)
+	      BUILTIN_VDQ_BHSI (UNOPU, reduc_umax_scal_, 10)
 		new_stmt = gimple_build_assign_with_ops (
 						REDUC_MAX_EXPR,
 						gimple_call_lhs (stmt),
 						args[0],
 						NULL_TREE);
 		break;
-	      BUILTIN_VDQIF (UNOP, reduc_smin_, 10)
+	      BUILTIN_VDQIF (UNOP, reduc_smin_scal_, 10)
+	      BUILTIN_VDQ_BHSI (UNOPU, reduc_umin_scal_, 10)
 		new_stmt = gimple_build_assign_with_ops (
 						REDUC_MIN_EXPR,
 						gimple_call_lhs (stmt),

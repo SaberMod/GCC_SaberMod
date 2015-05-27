@@ -27,6 +27,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "tree.h"
 #include "stor-layout.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
@@ -2513,7 +2524,7 @@ optimize_range_tests_to_bit_test (enum tree_code opcode, int first, int length,
 	{
 	  tree high = wide_int_to_tree (TREE_TYPE (lowi),
 					wi::to_widest (lowi)
-					+ prec - wi::clz (mask));
+					+ prec - 1 - wi::clz (mask));
 	  operand_entry_t oe = (*ops)[ranges[i].idx];
 	  tree op = oe->op;
 	  gimple stmt = op ? SSA_NAME_DEF_STMT (op)
@@ -3629,7 +3640,7 @@ get_required_cycles (int ops_num, int cpu_width)
 
 static int
 get_reassociation_width (int ops_num, enum tree_code opc,
-			 enum machine_mode mode)
+			 machine_mode mode)
 {
   int param_width = PARAM_VALUE (PARAM_TREE_REASSOC_WIDTH);
   int width;
@@ -4804,7 +4815,7 @@ reassociate_bb (basic_block bb)
 		}
 	      else
 		{
-		  enum machine_mode mode = TYPE_MODE (TREE_TYPE (lhs));
+		  machine_mode mode = TYPE_MODE (TREE_TYPE (lhs));
 		  int ops_num = ops.length ();
 		  int width = get_reassociation_width (ops_num, rhs_code, mode);
 		  tree new_lhs = lhs;

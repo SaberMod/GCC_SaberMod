@@ -136,6 +136,7 @@ package body Prj.Attr is
    "Saobject_generated#" &
    "Saobjects_linked#" &
    "SVtargetDtarget_value#" &
+   "SaruntimeDruntime_value#" &
 
    --  Configuration - Libraries
 
@@ -279,9 +280,6 @@ package body Prj.Attr is
    --  Configuration - Linking
 
    "SVdriver#" &
-   "LVexecutable_switch#" &
-   "SVlib_dir_switch#" &
-   "SVlib_name_switch#" &
 
    --  Configuration - Response files
 

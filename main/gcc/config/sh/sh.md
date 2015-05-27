@@ -1580,7 +1580,7 @@
    (set (match_dup 4) (match_dup 5))]
 {
   rtx set1, set2;
-  rtx_insn *insn2;
+  rtx_insn *insn1, *insn2;
   rtx replacements[4];
 
   /* We want to replace occurrences of operands[0] with operands[1] and
@@ -1607,14 +1607,16 @@
   /* ??? The last insn might be a jump insn, but the generic peephole2 code
      always uses emit_insn.  */
   /* Check that we don't violate matching constraints or earlyclobbers.  */
-  extract_insn (emit_insn (set1));
-  if (! constrain_operands (1))
+  basic_block bb = BLOCK_FOR_INSN (peep2_next_insn (2));
+  insn1 = emit_insn (set1);
+  extract_insn (insn1);
+  if (! constrain_operands (1, get_preferred_alternatives (insn1, bb)))
     goto failure;
   insn2 = emit (set2);
   if (GET_CODE (insn2) == BARRIER)
     goto failure;
   extract_insn (insn2);
-  if (! constrain_operands (1))
+  if (! constrain_operands (1, get_preferred_alternatives (insn2, bb)))
     {
       rtx tmp;
     failure:
@@ -3989,7 +3991,7 @@ label:
   [(set (match_dup 5) (match_dup 4))
    (set (match_dup 0) (sign_extend:DI (match_dup 5)))]
 {
-  enum machine_mode inmode = GET_MODE (operands[1]);
+  machine_mode inmode = GET_MODE (operands[1]);
   int offset = 0;
 
   if (GET_CODE (operands[0]) == SUBREG)
@@ -8688,7 +8690,7 @@ label:
 		      (pc)))]
   "TARGET_SHMEDIA"
 {
-  enum machine_mode mode = GET_MODE (operands[1]);
+  machine_mode mode = GET_MODE (operands[1]);
   if (mode == VOIDmode)
     mode = GET_MODE (operands[2]);
   if (GET_CODE (operands[0]) == EQ || GET_CODE (operands[0]) == NE)
@@ -11297,7 +11299,7 @@ label:
 	  (match_operand 3 "cmp_operand" "")]))]
   "TARGET_SHMEDIA"
 {
-  enum machine_mode mode = GET_MODE (operands[2]);
+  machine_mode mode = GET_MODE (operands[2]);
   enum rtx_code code = GET_CODE (operands[1]);
   bool invert, swap;
   if (mode == VOIDmode)
@@ -14032,7 +14034,7 @@ label:
   [(set (match_dup 0) (match_dup 1))]
 {
   rtx v = operands[1];
-  enum machine_mode new_mode
+  machine_mode new_mode
     = mode_for_size (GET_MODE_BITSIZE (GET_MODE (v)), MODE_INT, 0);
 
   operands[0] = gen_rtx_REG (new_mode, true_regnum (operands[0]));
@@ -15121,7 +15123,7 @@ label:
   [(set (match_dup 0) (match_dup 3))]
 {
   rtx count = operands[2];
-  enum machine_mode outer_mode = GET_MODE (operands[2]), inner_mode;
+  machine_mode outer_mode = GET_MODE (operands[2]), inner_mode;
 
   while (GET_CODE (count) == ZERO_EXTEND || GET_CODE (count) == SIGN_EXTEND
 	 || (GET_CODE (count) == SUBREG && SUBREG_BYTE (count) == 0)
@@ -15801,10 +15803,7 @@ label:
   "TARGET_SHMEDIA && reload_completed"
   [(set (match_dup 0) (match_dup 1))]
 {
-  int n_changes = 0;
-
-  for_each_rtx (&operands[1], shmedia_cleanup_truncate, &n_changes);
-  if (!n_changes)
+  if (!shmedia_cleanup_truncate (operands[1]))
     FAIL;
 })
 

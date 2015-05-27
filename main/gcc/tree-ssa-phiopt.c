@@ -26,8 +26,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
-#include "basic-block.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
 #include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
+#include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
@@ -814,7 +824,7 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
 	 for the edges e0 and e1 then we can remove the middle basic block. */
       if (emtpy_or_with_defined_p
 	  && single_non_singleton_phi_for_edges (phi_nodes (gimple_bb (phi)),
-							    e0, e1))
+						 e0, e1) == phi)
 	{
           replace_phi_edge_with_variable (cond_bb, e1, phi, arg);
 	  /* Note that we optimized this PHI.  */

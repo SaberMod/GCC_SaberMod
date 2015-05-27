@@ -70,12 +70,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h" /* exact_log2, floor_log2 */
 #include "reload.h"
 #include "intl.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
 #include "basic-block.h"
 #include "target.h"
 #include "targhooks.h"
 #include "debug.h"
 #include "expr.h"
 #include "tree-pass.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-ssa.h"
 #include "coverage.h"
@@ -1296,7 +1304,7 @@ shorten_branches (rtx_insn *first)
 	      rtx_insn *prev;
 	      int rel_align = 0;
 	      addr_diff_vec_flags flags;
-	      enum machine_mode vec_mode;
+	      machine_mode vec_mode;
 
 	      /* Avoid automatic aggregate initialization.  */
 	      flags = ADDR_DIFF_VEC_FLAGS (body);
@@ -2942,7 +2950,7 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	    print_rtx_head = "";
 	  }
 
-	if (! constrain_operands_cached (1))
+	if (! constrain_operands_cached (insn, 1))
 	  fatal_insn_not_found (insn);
 
 	/* Some target machines need to prescan each insn before

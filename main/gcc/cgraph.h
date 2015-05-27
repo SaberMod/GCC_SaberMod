@@ -21,21 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CGRAPH_H
 #define GCC_CGRAPH_H
 
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "vec.h"
-#include "basic-block.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "ipa-ref.h"
 #include "l-ipo.h"
-#include "dumpfile.h"
 
 /* Symbol table consists of functions and variables.
    TODO: add labels and CONST_DECLs.  */
@@ -1796,12 +1782,7 @@ public:
   friend class cgraph_edge;
 
   /* Initialize callgraph dump file.  */
-  inline void
-  initialize (void)
-  {
-    if (!dump_file)
-      dump_file = dump_begin (TDI_cgraph, NULL);
-  }
+  void initialize (void);
 
   /* Returns a hash code for P.  */
   static hashval_t hash_node_by_assembler_name (const void *p);
@@ -2147,6 +2128,7 @@ asmname_hasher::pch_nx (symtab_node *&n, gt_pointer_operator op, void *cookie)
 }
 
 /* In cgraph.c  */
+void cgraph_c_finalize (void);
 void release_function_body (tree);
 cgraph_indirect_call_info *cgraph_allocate_init_indirect_info (void);
 
@@ -2243,6 +2225,8 @@ void cgraph_speculative_call_info (struct cgraph_edge *,
 extern bool gimple_check_call_matching_types (gimple, tree, bool);
 
 /* In cgraphunit.c  */
+void cgraphunit_c_finalize (void);
+
 /*  Initialize datastructures so DECL is a function in lowered gimple form.
     IN_SSA is true if the gimple is in SSA.  */
 basic_block init_lowered_empty_function (tree, bool);
@@ -2400,21 +2384,6 @@ symbol_table::unregister (symtab_node *node)
 
   node->next = NULL;
   node->previous = NULL;
-}
-
-/* Allocate new callgraph node and insert it into basic data structures.  */
-
-inline cgraph_node *
-symbol_table::create_empty (void)
-{
-  cgraph_node *node = allocate_cgraph_symbol ();
-
-  node->type = SYMTAB_FUNCTION;
-  node->frequency = NODE_FREQUENCY_NORMAL;
-  node->count_materialization_scale = REG_BR_PROB_BASE;
-  cgraph_count++;
-
-  return node;
 }
 
 /* Release a callgraph NODE with UID and put in to the list of free nodes.  */
@@ -2836,6 +2805,19 @@ cgraph_node::mark_force_output (void)
 {
   force_output = 1;
   gcc_checking_assert (!global.inlined_to);
+}
+
+/* Return true if function should be optimized for size.  */
+
+inline bool
+cgraph_node::optimize_for_size_p (void)
+{
+  if (optimize_size)
+    return true;
+  if (frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED)
+    return true;
+  else
+    return false;
 }
 
 inline symtab_node * symtab_node::get_create (tree node)
