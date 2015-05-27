@@ -22,10 +22,15 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_CP_TREE_H
 
 #include "ggc.h"
-#include "function.h"
 #include "hashtab.h"
+#include "hash-set.h"
 #include "vec.h"
 #include "l-ipo.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "hash-map.h"
 
 /* In order for the format checking to accept the C++ front end

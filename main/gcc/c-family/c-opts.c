@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 				   TARGET_FLT_EVAL_METHOD_NON_DEFAULT and
 				   TARGET_OPTF.  */
 #include "tm_p.h"		/* For C_COMMON_OVERRIDE_OPTIONS.  */
+#include "hard-reg-set.h"
 #include "function.h"
 #include "params.h"
 #include "l-ipo.h"

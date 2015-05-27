@@ -1,3 +1,212 @@
+2014-10-16  Andrew MacLeod  <amacleod@redhat.com>
+
+	* g++.dg/plugin/pragma_plugin.c: Adjust include files.
+
+2014-10-16  Martin Liska  <mliska@suse.cz>
+
+	* g++.dg/ipa/ipa-icf-4.C: Correct number of equivalences set.
+	* g++.dg/ipa/ipa-icf-5.C: Likewise
+
+2014-10-16  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/63260
+	* gcc.target/sh/pr63260.c: Fix typo __builtin_fabs vs. __builtin_abs.
+
+2014-10-16  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/63554
+	* gcc.dg/torture/pr63554.c: New testcase.
+
+2014-10-16  Marek Polacek  <polacek@redhat.com>
+
+	* gcc.target/powerpc/pr58673-1.c: Fix defaulting to int.
+	* gcc.target/powerpc/pr58673-2.c: Add declarations.
+
+2014-10-16  Marek Polacek  <polacek@redhat.com>
+
+	* gcc.dg/graphite/id-1.c: Fix defaulting to int.
+	* gcc.dg/graphite/id-2.c: Likewise.
+	* gcc.dg/graphite/id-4.c: Likewise.
+	* gcc.dg/graphite/id-8.c: Likewise.
+	* gcc.dg/graphite/id-pr45230-1.c: Likewise.
+	* gcc.dg/graphite/id-pr45230.c: Likewise.
+	* gcc.dg/graphite/id-pr45231.c: Likewise.
+	* gcc.dg/graphite/pr38073.c: Likewise.
+	* gcc.dg/graphite/pr38125.c: Likewise.
+	* gcc.dg/graphite/pr38409.c: Likewise.
+	* gcc.dg/graphite/pr38413.c: Likewise.
+	* gcc.dg/graphite/pr38510.c: Likewise.
+	* gcc.dg/graphite/pr38786.c: Likewise.
+	* gcc.dg/graphite/pr39260.c: Likewise.
+	* gcc.dg/graphite/scop-19.c: Likewise.
+	* gcc.dg/graphite/id-13.c: Fix implicit declarations.
+	* gcc.dg/graphite/id-17.c: Likewise.
+	* gcc.dg/graphite/id-23.c: Likewise.
+	* gcc.dg/graphite/id-26.c: Likewise.
+	* gcc.dg/graphite/id-pr43464-1.c: Likewise.
+	* gcc.dg/graphite/pr37485.c: Likewise.
+	* gcc.dg/graphite/pr38500.c: Likewise.
+	* gcc.dg/graphite/pr42284.c: Likewise.
+	* gcc.dg/graphite/pr42914.c: Likewise.
+	* gcc.dg/graphite/pr46404-1.c: Likewise.
+	* gcc.dg/graphite/pr60979.c: Likewise.
+	* gcc.dg/graphite/id-pr43464.c: Fix implicit declarations and
+	defaulting to int.
+
+2014-10-16  Martin Liska  <mliska@suse.cz>
+	    Jan Hubicka  <hubicka@ucw.cz>
+
+	* g++.dg/ipa/ipa-icf-1.C: New test.
+	* g++.dg/ipa/ipa-icf-2.C: New test.
+	* g++.dg/ipa/ipa-icf-3.C: New test.
+	* g++.dg/ipa/ipa-icf-4.C: New test.
+	* g++.dg/ipa/ipa-icf-5.C: New test.
+	* gcc.dg/ipa/ipa-icf-1.c: New test.
+	* gcc.dg/ipa/ipa-icf-10.c: New test.
+	* gcc.dg/ipa/ipa-icf-11.c: New test.
+	* gcc.dg/ipa/ipa-icf-12.c: New test.
+	* gcc.dg/ipa/ipa-icf-13.c: New test.
+	* gcc.dg/ipa/ipa-icf-14.c: New test.
+	* gcc.dg/ipa/ipa-icf-15.c: New test.
+	* gcc.dg/ipa/ipa-icf-16.c: New test.
+	* gcc.dg/ipa/ipa-icf-17.c: New test.
+	* gcc.dg/ipa/ipa-icf-18.c: New test.
+	* gcc.dg/ipa/ipa-icf-19.c: New test.
+	* gcc.dg/ipa/ipa-icf-2.c: New test.
+	* gcc.dg/ipa/ipa-icf-20.c: New test.
+	* gcc.dg/ipa/ipa-icf-21.c: New test.
+	* gcc.dg/ipa/ipa-icf-22.c: New test.
+	* gcc.dg/ipa/ipa-icf-23.c: New test.
+	* gcc.dg/ipa/ipa-icf-24.c: New test.
+	* gcc.dg/ipa/ipa-icf-25.c: New test.
+	* gcc.dg/ipa/ipa-icf-26.c: New test.
+	* gcc.dg/ipa/ipa-icf-27.c: New test.
+	* gcc.dg/ipa/ipa-icf-28.c: New test.
+	* gcc.dg/ipa/ipa-icf-29.c: New test.
+	* gcc.dg/ipa/ipa-icf-3.c: New test.
+	* gcc.dg/ipa/ipa-icf-30.c: New test.
+	* gcc.dg/ipa/ipa-icf-4.c: New test.
+	* gcc.dg/ipa/ipa-icf-5.c: New test.
+	* gcc.dg/ipa/ipa-icf-6.c: New test.
+	* gcc.dg/ipa/ipa-icf-7.c: New test.
+	* gcc.dg/ipa/ipa-icf-8.c: New test.
+	* gcc.dg/ipa/ipa-icf-9.c: New test.
+
+2014-10-16  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/53513
+	* gcc.target/sh/pr54680.c: Adjust matching of lds insn.
+
+2014-10-16  Martin Liska  <mliska@suse.cz>
+	    Jan Hubicka  <hubicka@ucw.cz>
+
+	* c-c++-common/rotate-1.c: Options changed to not collide
+	with a new IPA ICF pass.
+	* c-c++-common/rotate-2.c: Likewise.
+	* c-c++-common/rotate-3.c: Likewise.
+	* c-c++-common/rotate-4.c: Likewise.
+	* g++.dg/cpp0x/rv-return.C: Likewise.
+	* g++.dg/cpp0x/rv1n.C: Likewise.
+	* g++.dg/cpp0x/rv1p.C: Likewise.
+	* g++.dg/cpp0x/rv2n.C: Likewise.
+	* g++.dg/cpp0x/rv3n.C: Likewise.
+	* g++.dg/cpp0x/rv4n.C: Likewise.
+	* g++.dg/cpp0x/rv5n.C: Likewise.
+	* g++.dg/cpp0x/rv6n.C: Likewise.
+	* g++.dg/cpp0x/rv7n.C: Likewise.
+	* g++.dg/ipa/devirt-g-1.C: Likewise.
+	* g++.dg/ipa/inline-1.C: Likewise.
+	* g++.dg/ipa/inline-2.C: Likewise.
+	* g++.dg/ipa/inline-3.C: Likewise.
+	* g++.dg/opt/pr30965.C: Likewise.
+	* g++.dg/tree-ssa/pr19637.C: Likewise.
+	* gcc.dg/guality/csttest.c: Likewise.
+	* gcc.dg/ipa/iinline-4.c (struct S): Likewise.
+	* gcc.dg/ipa/iinline-7.c: Likewise.
+	* gcc.dg/ipa/ipa-pta-13.c: Likewise.
+	* gcc.dg/ipa/ipacost-1.c: Likewise.
+	* gcc.dg/ipa/ipacost-2.c: Likewise.
+	* gcc.dg/ipa/ipcp-agg-6.c: Likewise.
+	* gcc.dg/ipa/remref-2a.c: Likewise.
+	* gcc.dg/ipa/remref-2b.c: Likewise.
+	* gcc.dg/pr46309-2.c: Likewise.
+	* gcc.dg/torture/ipa-pta-1.c: Likewise.
+	* gcc.dg/tree-ssa/andor-3.c (int f): Likewise.
+	* gcc.dg/tree-ssa/andor-4.c: Likewise.
+	* gcc.dg/tree-ssa/andor-5.c: Likewise.
+	* gcc.dg/vect/no-vfa-pr29145.c: Likewise.
+	* gcc.dg/vect/vect-cond-10.c: Likewise.
+	* gcc.dg/vect/vect-cond-9.c: Likewise.
+	* gcc.dg/vect/vect-widen-mult-const-s16.c: Likewise.
+	* gcc.dg/vect/vect-widen-mult-const-u16.c: Likewise.
+	* gcc.dg/vect/vect-widen-mult-half-u8.c: Likewise.
+	* gcc.target/i386/bmi-1.c: Likewise.
+	* gcc.target/i386/bmi-2.c: Likewise.
+	* gcc.target/i386/pr56564-2.c: Likewise.
+
+2014-10-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/63168
+	* gcc.dg/tree-ssa/loop-40.c: New testcase.
+
+2014-10-16  Andreas Schwab  <schwab@suse.de>
+
+	* gcc.target/m68k/crash1.c: Fix implicit declaration.
+
+	* gcc.target/ia64/20090324-1.c: Fix implicit declarations and
+	implicit int.
+	* gcc.target/ia64/mfused-madd-vect.c: Likewise.
+	* gcc.target/ia64/mno-fused-madd-vect.c: Likewise.
+	* gcc.target/ia64/pr29682.c: Likewise.
+	* gcc.target/ia64/pr43603.c: Likewise.
+	* gcc.target/ia64/pr48496.c: Likewise.
+
+2014-10-16  Marek Polacek  <polacek@redhat.com>
+
+	* ada/acats/tests/cd/cd300051.c: Fix defaulting to int.
+
+2014-10-16  Jakub Jelinek  <jakub@redhat.com>
+	    Marek Polacek  <polacek@redhat.com>
+
+	* gcc.dg/20020122-2.c: Use dg-additional-options.  Fix implicit
+	declarations.
+	* gcc.dg/pr32176.c: Likewise.
+	* gcc.dg/builtin-apply4.c: Use dg-additional-options.
+	* gcc.dg/ia64-sync-1.c: Fix implicit declarations.
+	* gcc.dg/ia64-sync-2.c: Likewise.
+	* gcc.dg/ia64-sync-3.c: Likewise.
+	* gcc.dg/sync-2.c: Likewise.
+	* gcc.dg/sync-3.c: Likewise.
+	* gcc.target/i386/990524-1.c: Likewise.
+	* gcc.target/i386/avx512f-pr57233.c: Likewise.
+	* gcc.target/i386/avx512f-typecast-1.c: Likewise.
+	* gcc.target/i386/pr26826.c: Likewise.
+	* gcc.target/i386/pr37184.c: Likewise.
+	* gcc.target/i386/20060125-1.c: Fix defaulting to int.
+	* gcc.target/i386/20060125-2.c: Likewise.
+	* gcc.target/i386/memcpy-1.c: Likewise.
+	* gcc.target/i386/pr40934.c: Likewise.
+	* gcc.target/i386/sse-5.c: Likewise.
+	* gcc.target/i386/stackalign/asm-1.c: Likewise.
+	* gcc.target/i386/vectorize4.c: Likewise.
+	* gcc.target/i386/980312-1.c: Fix defaulting to int.  Use
+	-fgnu89-inline.
+	* gcc.target/i386/980313-1.c: Likewise.
+	* gcc.target/i386/builtin-apply-mmx.c: Use -fgnu89-inline.
+	* gcc.target/i386/crc32-2.c: Use -std=gnu89.
+	* gcc.target/i386/crc32-3.c: Likewise.
+	* gcc.target/i386/intrinsics_3.c: Likewise.
+	* gcc.target/i386/loop-1.c: Likewise.
+	* gcc.target/i386/pr44948-2a.c: Likewise.
+	* gcc.target/i386/pr47564.c: Likewise.
+	* gcc.target/i386/pr50712.c: Likewise.
+	* gcc.target/i386/stackalign/return-2.c: Likewise.
+
+2014-10-15  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/62026
+	* lto/pr62026.C: New testcase.
+
 2014-10-15  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR rtl-optimization/63448

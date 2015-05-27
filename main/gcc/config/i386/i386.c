@@ -38,6 +38,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "except.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "input.h"
 #include "function.h"
 #include "recog.h"
 #include "expr.h"
@@ -53,7 +58,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "reload.h"
 #include "cgraph.h"
 #include "hash-table.h"
-#include "vec.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -18016,14 +18020,6 @@ ix86_split_idivmod (enum machine_mode mode, rtx operands[],
   set_unique_reg_note (insn, REG_EQUAL, div);
 
   emit_label (end_label);
-}
-
-/* Whether it is OK to emit CFI directives when emitting asm code.  */
-
-bool
-ix86_emit_cfi ()
-{
-  return dwarf2out_do_cfi_asm ();
 }
 
 #define LEA_MAX_STALL (3)
@@ -41112,6 +41108,79 @@ half:
       emit_insn (gen_insert[j][i] (target, target, tmp));
       return;
 
+    case V8DFmode:
+      if (TARGET_AVX512F)
+	{
+	  tmp = gen_reg_rtx (mode);
+	  emit_insn (gen_rtx_SET (VOIDmode, tmp,
+				  gen_rtx_VEC_DUPLICATE (mode, val)));
+	  emit_insn (gen_avx512f_blendmv8df (target, tmp, target,
+					     force_reg (QImode, GEN_INT (1 << elt))));
+	  return;
+	}
+      else
+	break;
+    case V8DImode:
+      if (TARGET_AVX512F)
+	{
+	  tmp = gen_reg_rtx (mode);
+	  emit_insn (gen_rtx_SET (VOIDmode, tmp,
+				  gen_rtx_VEC_DUPLICATE (mode, val)));
+	  emit_insn (gen_avx512f_blendmv8di (target, tmp, target,
+					     force_reg (QImode, GEN_INT (1 << elt))));
+	  return;
+	}
+      else
+	break;
+    case V16SFmode:
+      if (TARGET_AVX512F)
+	{
+	  tmp = gen_reg_rtx (mode);
+	  emit_insn (gen_rtx_SET (VOIDmode, tmp,
+				  gen_rtx_VEC_DUPLICATE (mode, val)));
+	  emit_insn (gen_avx512f_blendmv16sf (target, tmp, target,
+					      force_reg (HImode, GEN_INT (1 << elt))));
+	  return;
+	}
+      else
+	break;
+    case V16SImode:
+      if (TARGET_AVX512F)
+	{
+	  tmp = gen_reg_rtx (mode);
+	  emit_insn (gen_rtx_SET (VOIDmode, tmp,
+				  gen_rtx_VEC_DUPLICATE (mode, val)));
+	  emit_insn (gen_avx512f_blendmv16si (target, tmp, target,
+					      force_reg (HImode, GEN_INT (1 << elt))));
+	  return;
+	}
+      else
+	break;
+    case V32HImode:
+      if (TARGET_AVX512F && TARGET_AVX512BW)
+	{
+	  tmp = gen_reg_rtx (mode);
+	  emit_insn (gen_rtx_SET (VOIDmode, tmp,
+				  gen_rtx_VEC_DUPLICATE (mode, val)));
+	  emit_insn (gen_avx512bw_blendmv32hi (target, tmp, target,
+					       force_reg (SImode, GEN_INT (1 << elt))));
+	  return;
+	}
+      else
+	break;
+    case V64QImode:
+      if (TARGET_AVX512F && TARGET_AVX512BW)
+	{
+	  tmp = gen_reg_rtx (mode);
+	  emit_insn (gen_rtx_SET (VOIDmode, tmp,
+				  gen_rtx_VEC_DUPLICATE (mode, val)));
+	  emit_insn (gen_avx512bw_blendmv64qi (target, tmp, target,
+					       force_reg (DImode, GEN_INT (1 << elt))));
+	  return;
+	}
+      else
+	break;
+
     default:
       break;
     }
@@ -45747,6 +45816,9 @@ ix86_expand_mul_widen_hilo (rtx dest, rtx op1, rtx op2,
 
     case V16QImode:
     case V32QImode:
+    case V32HImode:
+    case V16SImode:
+    case V64QImode:
       t1 = gen_reg_rtx (wmode);
       t2 = gen_reg_rtx (wmode);
       ix86_expand_sse_unpack (t1, op1, uns_p, high_p);

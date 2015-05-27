@@ -1,3 +1,438 @@
+2014-10-16  Andrew MacLeod  <amacleod@redhat.com>
+
+	* function.h: Flatten file.  Remove includes, adjust prototypes to 
+	reflect only what is in function.h.
+	(enum direction, struct args_size, struct locate_and_pad_arg_data,
+	ADD_PARM_SIZE, SUB_PARM_SIZE, ARGS_SIZE_TREE, ARGS_SIZE_RTX): Relocate
+	from expr.h.
+	(ASLK_REDUCE_ALIGN, ASLK_RECORD_PAD): Relocate from rtl.h.
+	(optimize_function_for_size_p, optimize_function_for_speed_p): Move
+	prototypes to predict.h.
+	(init_varasm_status): Move prototype to varasm.h.
+	* expr.h: Adjust include files.
+	(enum direction, struct args_size, struct locate_and_pad_arg_data,
+	ADD_PARM_SIZE, SUB_PARM_SIZE, ARGS_SIZE_TREE, ARGS_SIZE_RTX): Move
+	to function.h.
+	(locate_and_pad_parm): Move prototype to function.h.
+	* rtl.h: (assign_stack_local, ASLK_REDUCE_ALIGN, ASLK_RECORD_PAD,
+	assign_stack_local_1, assign_stack_temp, assign_stack_temp_for_type,
+	assign_temp, reposition_prologue_and_epilogue_notes,
+	prologue_epilogue_contains, sibcall_epilogue_contains,
+	update_temp_slot_address, maybe_copy_prologue_epilogue_insn,
+	set_return_jump_label): Move prototypes to function.h.
+	* predict.h (optimize_function_for_size_p,
+	optimize_function_for_speed_p): Relocate prototypes from function.h.
+	* shrink-wrap.h (emit_return_into_block, active_insn_between,
+	convert_jumps_to_returns, emit_return_for_exit): Move prototypes to
+	function.h.
+	* varasm.h (init_varasm_status): Relocate prototype from function.h.
+	* genattrtab.c (write_header): Add predict.h to include list.
+	* genconditions.c (write_header): Add predict.h to include list.
+	* genemit.c (main): Adjust header file includes.
+	* gengtype.c (ifiles): Add flattened function.h header files.
+	* genoutput.c (output_prologue): Add predict.h to include list.
+	* genpreds.c (write_insn_preds_c): Adjust header file includes.
+	* genrecog.c (write_header): Add flattened function.h header files.
+	* alias.c: Adjust include files.
+	* auto-inc-dec.c: Likewise.
+	* basic-block.h: Likewise.
+	* bb-reorder.c: Likewise.
+	* bt-load.c: Likewise.
+	* builtins.c: Likewise.
+	* caller-save.c: Likewise.
+	* calls.c: Likewise.
+	* cfgbuild.c: Likewise.
+	* cfgcleanup.c: Likewise.
+	* cfgexpand.c: Likewise.
+	* cfgloop.c: Likewise.
+	* cfgloop.h: Likewise.
+	* cfgrtl.c: Likewise.
+	* cgraph.h: Likewise.
+	* cgraphclones.c: Likewise.
+	* cgraphunit.c: Likewise.
+	* combine-stack-adj.c: Likewise.
+	* combine.c: Likewise.
+	* coverage.c: Likewise.
+	* cprop.c: Likewise.
+	* cse.c: Likewise.
+	* cselib.c: Likewise.
+	* dbxout.c: Likewise.
+	* ddg.c: Likewise.
+	* df-core.c: Likewise.
+	* df-problems.c: Likewise.
+	* df-scan.c: Likewise.
+	* dojump.c: Likewise.
+	* dwarf2cfi.c: Likewise.
+	* dwarf2out.c: Likewise.
+	* emit-rtl.c: Likewise.
+	* except.c: Likewise.
+	* explow.c: Likewise.
+	* expr.c: Likewise.
+	* final.c: Likewise.
+	* function.c: Likewise.
+	* gcse.c: Likewise.
+	* gimple-fold.c: Likewise.
+	* gimple-low.c: Likewise.
+	* gimple-streamer.h: Likewise.
+	* haifa-sched.c: Likewise.
+	* ifcvt.c: Likewise.
+	* ira.c: Likewise.
+	* jump.c: Likewise.
+	* lcm.c: Likewise.
+	* loop-invariant.c: Likewise.
+	* lra-assigns.c: Likewise.
+	* lra-coalesce.c: Likewise.
+	* lra-constraints.c: Likewise.
+	* lra-eliminations.c: Likewise.
+	* lra-lives.c: Likewise.
+	* lra-spills.c: Likewise.
+	* lra.c: Likewise.
+	* lto-cgraph.c: Likewise.
+	* lto-section-in.c: Likewise.
+	* lto-section-out.c: Likewise.
+	* lto-streamer-in.c: Likewise.
+	* lto-streamer-out.c: Likewise.
+	* mode-switching.c: Likewise.
+	* modulo-sched.c: Likewise.
+	* omp-low.c: Likewise.
+	* optabs.c: Likewise.
+	* passes.c: Likewise.
+	* postreload-gcse.c: Likewise.
+	* postreload.c: Likewise.
+	* predict.c: Likewise.
+	* profile.c: Likewise.
+	* recog.c: Likewise.
+	* ree.c: Likewise.
+	* reg-stack.c: Likewise.
+	* regcprop.c: Likewise.
+	* reginfo.c: Likewise.
+	* regrename.c: Likewise.
+	* reload.c: Likewise.
+	* reload1.c: Likewise.
+	* reorg.c: Likewise.
+	* resource.c: Likewise.
+	* rtlanal.c: Likewise.
+	* sched-deps.c: Likewise.
+	* sched-ebb.c: Likewise.
+	* sched-rgn.c: Likewise.
+	* sel-sched-dump.c: Likewise.
+	* sel-sched-ir.c: Likewise.
+	* sel-sched.c: Likewise.
+	* shrink-wrap.c: Likewise.
+	* simplify-rtx.c: Likewise.
+	* statistics.c: Likewise.
+	* stmt.c: Likewise.
+	* stor-layout.c: Likewise.
+	* store-motion.c: Likewise.
+	* symtab.c: Likewise.
+	* targhooks.c: Likewise.
+	* toplev.c: Likewise.
+	* trans-mem.c: Likewise.
+	* tree-cfg.c: Likewise.
+	* tree-cfgcleanup.c: Likewise.
+	* tree-dfa.c: Likewise.
+	* tree-eh.c: Likewise.
+	* tree-inline.c: Likewise.
+	* tree-into-ssa.c: Likewise.
+	* tree-nested.c: Likewise.
+	* tree-nrv.c: Likewise.
+	* tree-profile.c: Likewise.
+	* tree-ssa-alias.c: Likewise.
+	* tree-ssa-ccp.c: Likewise.
+	* tree-ssa-copy.c: Likewise.
+	* tree-ssa-copyrename.c: Likewise.
+	* tree-ssa-dom.c: Likewise.
+	* tree-ssa-operands.c: Likewise.
+	* tree-ssa-propagate.c: Likewise.
+	* tree-ssa-structalias.c: Likewise.
+	* tree-ssa-tail-merge.c: Likewise.
+	* tree-ssa-threadedge.c: Likewise.
+	* tree-ssa-threadupdate.c: Likewise.
+	* tree-ssa-uncprop.c: Likewise.
+	* tree-ssa-uninit.c: Likewise.
+	* tree-ssa.c: Likewise.
+	* tree-stdarg.c: Likewise.
+	* tree-tailcall.c: Likewise.
+	* tree.c: Likewise.
+	* tsan.c: Likewise.
+	* valtrack.c: Likewise.
+	* varasm.c: Likewise.
+	* vmsdbgout.c: Likewise.
+	* web.c: Likewise.
+	* config/aarch64/aarch64.c: Add flattened includes from function.h.
+	* config/alpha/alpha.c: Likewise.
+	* config/arc/arc.c: Likewise.
+	* config/arm/arm.c: Likewise.
+	* config/avr/avr-log.c: Likewise.
+	* config/avr/avr.c: Likewise.
+	* config/bfin/bfin.c: Likewise.
+	* config/c6x/c6x.c: Likewise.
+	* config/cr16/cr16.c: Likewise.
+	* config/cris/cris.c: Likewise.
+	* config/darwin.c: Likewise.
+	* config/epiphany/epiphany.c: Likewise.
+	* config/epiphany/mode-switch-use.c: Likewise.
+	* config/epiphany/resolve-sw-modes.c: Likewise.
+	* config/fr30/fr30.c: Likewise.
+	* config/frv/frv.c: Likewise.
+	* config/h8300/h8300.c: Likewise.
+	* config/i386/i386.c: Likewise.
+	* config/ia64/ia64.c: Likewise.
+	* config/iq2000/iq2000.c: Likewise.
+	* config/lm32/lm32.c: Likewise.
+	* config/m32c/m32c.c: Likewise.
+	* config/m32r/m32r.c: Likewise.
+	* config/m68k/m68k.c: Likewise.
+	* config/mcore/mcore.c: Likewise.
+	* config/mep/mep-pragma.c: Likewise.
+	* config/mep/mep.c: Likewise.
+	* config/microblaze/microblaze.c: Likewise.
+	* config/mips/mips.c: Likewise.
+	* config/mmix/mmix.c: Likewise.
+	* config/mn10300/mn10300.c: Likewise.
+	* config/moxie/moxie.c: Likewise.
+	* config/msp430/msp430.c: Likewise.
+	* config/nds32/nds32-cost.c: Likewise.
+	* config/nds32/nds32-fp-as-gp.c: Likewise.
+	* config/nds32/nds32-intrinsic.c: Likewise.
+	* config/nds32/nds32-isr.c: Likewise.
+	* config/nds32/nds32-md-auxiliary.c: Likewise.
+	* config/nds32/nds32-memory-manipulation.c: Likewise.
+	* config/nds32/nds32-pipelines-auxiliary.c: Likewise.
+	* config/nds32/nds32-predicates.c: Likewise.
+	* config/nds32/nds32.c: Likewise.
+	* config/nios2/nios2.c: Likewise.
+	* config/pa/pa.c: Likewise.
+	* config/pdp11/pdp11.c: Likewise.
+	* config/rl78/rl78.c: Likewise.
+	* config/rs6000/rs6000.c: Likewise.
+	* config/rx/rx.c: Likewise.
+	* config/s390/s390.c: Likewise.
+	* config/score/score.c: Likewise.
+	* config/sh/sh.c: Likewise.
+	* config/sparc/sparc.c: Likewise.
+	* config/spu/spu.c: Likewise.
+	* config/stormy16/stormy16.c: Likewise.
+	* config/tilegx/tilegx.c: Likewise.
+	* config/tilepro/tilepro.c: Likewise.
+	* config/v850/v850.c: Likewise.
+	* config/vax/vax.c: Likewise.
+	* config/xtensa/xtensa.c: Likewise.
+
+2014-10-16  Richard Earnshaw  <rearnsha@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_legitimize_address): New function.
+	(TARGET_LEGITIMIZE_ADDRESS): Redefine.
+
+2014-10-16  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/sh-protos.h (fldi_ok): Remove.
+	* config/sh/sh.c (fldi_ok): Likewise.
+	(sh_secondary_reload): Don't use fldi_ok.
+	* config/sh/constraints.md (G constraint, H constraint): Don't use
+	fldi_ok.
+
+2014-10-16  Martin Liska  <mliska@suse.cz>
+
+	* ipa-icf.c (sem_item_optimizer::process_cong_reduction):
+	Cast to unsigned long.
+	(sem_item_optimizer::dump_cong_classes): Likewise.
+
+2014-10-16  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-into-ssa.c (update_ssa): Assert that there's no ssa use operand
+	with SSA_NAME_IN_FREELIST.
+
+2014-10-16  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/63554
+	* builtins.c (fold_builtin_4): Do not call fold_builtin_strncat_chk.
+	(fold_builtin_strncat_chk): Move ...
+	* gimple-fold.c (gimple_fold_builtin_strncat_chk): ... here.
+	(gimple_fold_builtin): Call gimple_fold_builtin_strncat_chk.
+
+2014-10-16  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/59401
+	* config/sh/sh.h (CALL_REALLY_USED_REGISTERS): Expand macro and set
+	GBR to 0.
+
+2014-10-16  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/i386.c (ix86_expand_mul_widen_hilo): Handle V32HI, V16SI,
+	V64QI modes.
+
+2014-10-16  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_set): Handle V8DF, V8DI, V16SF,
+	V16SI, V32HI, V64QI modes.
+
+2014-10-16  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/53513
+	* config/sh/sh-protos.h (emit_sf_insn, emit_df_insn, expand_sf_unop,
+	expand_sf_binop, expand_df_unop, expand_df_binop): Remove.
+
+	* config/sh/sh.c (sh_emit_set_t_insn): Adjust generated insn pattern
+	to match fp insn patterns.
+	(calc_live_regs): Add FPSCR_MODES_REG and FPSCR_STAT_REG to the ignore
+	list.
+	(emit_sf_insn, emit_df_insn, expand_sf_unop, expand_sf_binop,
+	expand_df_unop, expand_df_binop): Remove.
+	(sh_conditional_register_usage): Mark FPSCR_MODES_REG and
+	FPSCR_STAT_REG as not call clobbered.
+	(sh_emit_mode_set): Emit fpscr store-modify-load sequence instead of
+	invoking fpscr_set_from_mem.
+
+	* config/sh/sh.h (MAX_REGISTER_NAME_LENGTH): Increase to 6.
+	(SH_REGISTER_NAMES_INITIALIZER): Add names for FPSCR_MODES_REG and
+	FPSCR_STAT_REG.
+	(REGISTER_NAMES): Adjust.
+	(SPECIAL_REGISTER_P): Add FPSCR_MODES_REG and FPSCR_STAT_REG.
+	(FIRST_PSEUDO_REGISTER): Increase to 156.
+	(DWARF_FRAME_REGISTERS): Define as 153 to keep the original value.
+	(FIXED_REGISTERS, CALL_USED_REGISTERS): Add FPSCR_MODES_REG and
+	FPSCR_STAT_REG.
+	(REG_CLASS_CONTENTS): Adjust ALL_REGS bit mask to include
+	FPSCR_MODES_REG and FPSCR_STAT_REG.
+	(REG_ALLOC_ORDER): Add FPSCR_MODES_REG and FPSCR_STAT_REG.
+
+	* config/sh/sh.md (FPSCR_MODES_REG, FPSCR_STAT_REG, FPSCR_PR,
+	FPSCR_SZ): Add new constants.
+	(UNSPECV_FPSCR_MODES, UNSPECV_FPSCR_STAT): Add new unspecv constants.
+
+	(movpsi): Use TARGET_FPU_ANY condition, invoke gen_fpu_switch.
+	(fpu_switch): Add use and set of FPSCR_STAT_REG and FPSCR_MODES_REG.
+	Use TARGET_FPU_ANY condition.
+	(fpu_switch peephole2): Remove.
+	(fpu_switch split): Use simple_mem_operand to capture the mem and
+	adjust split implementation.
+	(extend_psi_si, truncate_si_psi): New insns.
+	(toggle_sz, toggle_pr): Use FPSCR_SZ, FPSCR_PR constants.  Add
+	set of FPSCR_MODES_REG.
+
+	(push_e, push_4, pop_e, pop_4, movdf_i4, reload_indf__frn, movsf_ie,
+	reload_insf__frn, force_mode_for_call, calli, calli_tbr_rel,
+	calli_pcrel, call_pcrel, call_compact, call_compact_rettramp,
+	call_valuei, call_valuei_tbr_rel, call_valuei_pcrel, call_value_pcrel,
+	call_value_compact, call_value_compact_rettramp, call,
+	call_pop_compact, call_pop_compact_rettramp, call_value, sibcalli,
+	sibcalli_pcrel, sibcalli_thunk, sibcall_pcrel, sibcall_compact,
+	sibcall, sibcall_valuei, sibcall_valuei_pcrel, sibcall_value_pcrel,
+	sibcall_value_compact, sibcall_value, call_value_pop_compact,
+	call_value_pop_compact_rettramp, various unnamed splits):
+	Replace use of FPSCR_REG with use of FPSCR_MODES_REG.  Adjust gen_*
+	function uses.
+
+	(floatsisf2_i4, *floatsisf2_ie): Merge into floatsisf2_i4.
+	(fix_truncsfsi2_i4, *fixsfsi): Merge into fix_truncsfsi2_i4.
+	(cmpgtsf_t, cmpgtsf_t_i4): Merge into cmpgtsf_t.
+	(cmpeqsf_t, cmpeqsf_t_i4): Merge into cmpeqsf_t.
+	(ieee_ccmpeqsf_t, *ieee_ccmpeqsf_t_4): Merge into ieee_ccmpeqsf_t.
+
+	(udivsi3_i4, divsi3_i4, addsf3_i, subsf3_i, mulsf3_i, fmasf4_i,
+	*fmasf4, divsf3_i, floatsisf2_i4, fix_truncsfsi2_i4, cmpgtsf_t,
+	cmpeqsf_t, ieee_ccmpeqsf_t, sqrtsf2_i, rsqrtsf2, fsca, adddf3_i,
+	subdf3_i, muldf3_i, divdf3_i, floatsidf2_i, fix_truncdfsi2_i,
+	cmpgtdf_t, cmpeqdf_t, *ieee_ccmpeqdf_t, sqrtdf2_i, extendsfdf2_i4,
+	truncdfsf2_i4): Replace use of FPSCR_REG with clobber of FPSCR_STAT_REG
+	and use of FPSCR_MODES_REG.  Adjust gen_* function uses.
+
+2014-10-16  Martin Liska  <mliska@suse.cz>
+	    Jan Hubicka  <hubicka@ucw.cz>
+
+	* Makefile.in: New object files included.
+	* cgraph.c (cgraph_node::dump): New cgraph_node flag icf_merged
+	is printed.
+	(verify_edge_corresponds_to_fndecl): More sensitive verification
+	of nodes that are merged by IPA ICF.
+	* cgraph.h (cgraph_node::num_references): New function.
+	* cgraphunit.c (cgraph_node::expand_thunk): White space fixed.
+	* common.opt: New options ipa-icf, ipa-icf-functions and
+	ipa-icf-variables introduced.
+	* doc/invoke.texi: Documentation of new options introduced.
+	* ipa-icf-gimple.c: New file.
+	* ipa-icf-gimple.h: New file.
+	* ipa-icf.c: New file.
+	* ipa-icf.h: New file.
+	* lto-cgraph.c (lto_output_node): Streaming of icf_merged flag added.
+	(input_overwrite_node): Likewise.
+	* lto-section-in.c: New icf section added.
+	* lto-streamer.h (enum lto_section_type): Likewise.
+	* opts.c (common_handle_option): New option added.
+	* passes.def: New pass included.
+	* timevar.def: Time variable for IPA ICF added.
+	* tree-pass.h: New IPA ICF pass entry point added.
+
+2014-10-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/63168
+	* tree-cfg.c (gimple_can_merge_blocks_p): Only protect
+	latches if after merging they are no longer simple.
+	* cfghooks.c (merge_blocks): Handle merging a latch block
+	into another block.
+
+2014-10-16  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/sse.md
+	(define_expand "floatuns<sseintvecmodelower><mode>2"): Extend to
+	support AVX-512VL instructions.
+
+2014-10-16  DJ Delorie  <dj@redhat.com>
+
+	* tree-core.h: Fix comment to not assume pointers are multiples of
+	bytes.
+
+2014-10-15  Tom Tromey  <tromey@redhat.com>
+
+	* timevar.h (class auto_timevar): New class.
+
+2014-10-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR go/59432
+	* config/i386/sync.md (atomic_compare_and_swap<dwi>_doubleword):
+	Remove the second alternative.
+	(regprefix): Remove mode attribute.
+	(atomic_compare_and_swap<mode>): Do not fixup operand 2.
+	* config/i386/predicates.md (cmpxchg8b_pic_memory_operand): Remove.
+
+	Revert:
+	2013-11-05  Ian Lance Taylor  <iant@google.com>
+
+	* config/i386/sync.md (atomic_compare_and_swap<dwi>_doubleword):
+	If possible, add .cfi directives to record change to bx.
+	* config/i386/i386.c (ix86_emit_cfi): New function.
+	* config/i386/i386-protos.h (ix86_emit_cfi): Declare.
+
+2014-10-15  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/62026
+	* cgraphclones.c (duplicate_thunk_for_node): Get body to have args
+	to duplicate.
+	* lto-streamer-out.c (lto_output): Handle correctly thunks that was born
+	at WPA time.
+
 2014-10-15  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR rtl-optimization/63448
