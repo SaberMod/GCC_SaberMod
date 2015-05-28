@@ -1176,6 +1176,7 @@ OBJS = \
 	builtins.o \
 	caller-save.o \
 	calls.o \
+	ccmp.o \
 	cfg.o \
 	cfganal.o \
 	cfgbuild.o \

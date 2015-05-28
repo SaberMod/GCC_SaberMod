@@ -4167,8 +4167,11 @@ prepare_cmp_insn (rtx x, rtx y, enum rtx_code comparison, rtx size,
 
   if (GET_MODE_CLASS (mode) == MODE_CC)
     {
-      gcc_assert (can_compare_p (comparison, CCmode, ccp_jump));
-      *ptest = gen_rtx_fmt_ee (comparison, VOIDmode, x, y);
+      enum insn_code icode = optab_handler (cbranch_optab, CCmode);
+      test = gen_rtx_fmt_ee (comparison, VOIDmode, x, y);
+      gcc_assert (icode != CODE_FOR_nothing
+                  && insn_operand_matches (icode, 0, test));
+      *ptest = test;
       return;
     }
 
@@ -6454,7 +6457,7 @@ gen_cond_trap (enum rtx_code code, rtx op1, rtx op2, rtx tcode)
 /* Return rtx code for TCODE. Use UNSIGNEDP to select signed
    or unsigned operation code.  */
 
-static enum rtx_code
+enum rtx_code
 get_rtx_code (enum tree_code tcode, bool unsignedp)
 {
   enum rtx_code code;
@@ -6502,6 +6505,14 @@ get_rtx_code (enum tree_code tcode, bool unsignedp)
       break;
     case LTGT_EXPR:
       code = LTGT;
+      break;
+
+    case BIT_AND_EXPR:
+      code = AND;
+      break;
+
+    case BIT_IOR_EXPR:
+      code = IOR;
       break;
 
     default:
@@ -6618,8 +6629,6 @@ shift_amt_for_vec_perm_mask (rtx sel)
 	return NULL_RTX;
     }
 
-  if (BYTES_BIG_ENDIAN)
-    first = (2 * nelt) - first;
   return GEN_INT (first * bitsize);
 }
 

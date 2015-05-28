@@ -5224,11 +5224,29 @@ redeclare_class_template (tree type, tree parms)
     return true;
 }
 
+/* The actual substitution part of instantiate_non_dependent_expr_sfinae,
+   to be used when the caller has already checked
+   (processing_template_decl
+    && !instantiation_dependent_expression_p (expr)
+    && potential_constant_expression (expr))
+   and cleared processing_template_decl.  */
+
+tree
+instantiate_non_dependent_expr_internal (tree expr, tsubst_flags_t complain)
+{
+  return tsubst_copy_and_build (expr,
+				/*args=*/NULL_TREE,
+				complain,
+				/*in_decl=*/NULL_TREE,
+				/*function_p=*/false,
+				/*integral_constant_expression_p=*/true);
+}
+
 /* Simplify EXPR if it is a non-dependent expression.  Returns the
    (possibly simplified) expression.  */
 
 tree
-fold_non_dependent_expr_sfinae (tree expr, tsubst_flags_t complain)
+instantiate_non_dependent_expr_sfinae (tree expr, tsubst_flags_t complain)
 {
   if (expr == NULL_TREE)
     return NULL_TREE;
@@ -5244,25 +5262,16 @@ fold_non_dependent_expr_sfinae (tree expr, tsubst_flags_t complain)
       && !instantiation_dependent_expression_p (expr)
       && potential_constant_expression (expr))
     {
-      HOST_WIDE_INT saved_processing_template_decl;
-
-      saved_processing_template_decl = processing_template_decl;
-      processing_template_decl = 0;
-      expr = tsubst_copy_and_build (expr,
-				    /*args=*/NULL_TREE,
-				    complain,
-				    /*in_decl=*/NULL_TREE,
-				    /*function_p=*/false,
-				    /*integral_constant_expression_p=*/true);
-      processing_template_decl = saved_processing_template_decl;
+      processing_template_decl_sentinel s;
+      expr = instantiate_non_dependent_expr_internal (expr, complain);
     }
   return expr;
 }
 
 tree
-fold_non_dependent_expr (tree expr)
+instantiate_non_dependent_expr (tree expr)
 {
-  return fold_non_dependent_expr_sfinae (expr, tf_error);
+  return instantiate_non_dependent_expr_sfinae (expr, tf_error);
 }
 
 /* Return TRUE iff T is a type alias, a TEMPLATE_DECL for an alias
@@ -5748,11 +5757,15 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
      so that access checking can be performed when the template is
      instantiated -- but here we need the resolved form so that we can
      convert the argument.  */
+  bool non_dep = false;
   if (TYPE_REF_OBJ_P (type)
       && has_value_dependent_address (expr))
     /* If we want the address and it's value-dependent, don't fold.  */;
-  else if (!type_unknown_p (expr))
-    expr = fold_non_dependent_expr_sfinae (expr, complain);
+  else if (!type_unknown_p (expr)
+	   && processing_template_decl
+	   && !instantiation_dependent_expression_p (expr)
+	   && potential_constant_expression (expr))
+    non_dep = true;
   if (error_operand_p (expr))
     return error_mark_node;
   expr_type = TREE_TYPE (expr);
@@ -5760,6 +5773,12 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
     expr = mark_lvalue_use (expr);
   else
     expr = mark_rvalue_use (expr);
+
+  /* If the argument is non-dependent, perform any conversions in
+     non-dependent context as well.  */
+  processing_template_decl_sentinel s (non_dep);
+  if (non_dep)
+    expr = instantiate_non_dependent_expr_internal (expr, complain);
 
   /* 14.3.2/5: The null pointer{,-to-member} conversion is applied
      to a non-type argument of "nullptr".  */
@@ -6167,7 +6186,7 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
      right type?  */
   gcc_assert (same_type_ignoring_top_level_qualifiers_p
 	      (type, TREE_TYPE (expr)));
-  return expr;
+  return convert_from_reference (expr);
 }
 
 /* Subroutine of coerce_template_template_parms, which returns 1 if
@@ -8287,6 +8306,9 @@ for_each_template_parm (tree t, tree_fn_t fn, void* data,
 int
 uses_template_parms (tree t)
 {
+  if (t == NULL_TREE)
+    return false;
+
   bool dependent_p;
   int saved_processing_template_decl;
 
@@ -8326,7 +8348,7 @@ uses_template_parms (tree t)
 
 /* Returns true iff current_function_decl is an incompletely instantiated
    template.  Useful instead of processing_template_decl because the latter
-   is set to 0 during fold_non_dependent_expr.  */
+   is set to 0 during instantiate_non_dependent_expr.  */
 
 bool
 in_template_function (void)
@@ -12817,7 +12839,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  return t;
 	/* If ARGS is NULL, then T is known to be non-dependent.  */
 	if (args == NULL_TREE)
-	  return integral_constant_value (t);
+	  return scalar_constant_value (t);
 
 	/* Unfortunately, we cannot just call lookup_name here.
 	   Consider:
@@ -12948,7 +12970,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		      else if (decl_constant_var_p (r))
 			/* A use of a local constant decays to its value.
 			   FIXME update for core DR 696.  */
-			r = integral_constant_value (r);
+			r = scalar_constant_value (r);
 		    }
 		}
 	      /* Remember this for subsequent uses.  */
@@ -15146,8 +15168,7 @@ tsubst_copy_and_build (tree t,
     case COND_EXPR:
       {
 	tree cond = RECUR (TREE_OPERAND (t, 0));
-	tree folded_cond = (maybe_constant_value
-			    (fold_non_dependent_expr_sfinae (cond, tf_none)));
+	tree folded_cond = fold_non_dependent_expr (cond);
 	tree exp1, exp2;
 
 	if (TREE_CODE (folded_cond) == INTEGER_CST)
@@ -15730,6 +15751,7 @@ check_instantiated_arg (tree tmpl, tree t, tsubst_flags_t complain)
      constant.  */
   else if (TREE_TYPE (t)
 	   && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (t))
+	   && !REFERENCE_REF_P (t)
 	   && !TREE_CONSTANT (t))
     {
       if (complain & tf_error)
@@ -15865,8 +15887,8 @@ instantiate_template_1 (tree tmpl, tree orig_args, tsubst_flags_t complain)
     ++processing_template_decl;
   if (DECL_CLASS_SCOPE_P (gen_tmpl))
     {
-      tree ctx = tsubst (DECL_CONTEXT (gen_tmpl), targ_ptr,
-			 complain, gen_tmpl);
+      tree ctx = tsubst_aggr_type (DECL_CONTEXT (gen_tmpl), targ_ptr,
+				   complain, gen_tmpl, true);
       push_nested_class (ctx);
     }
   /* Substitute template parameters to obtain the specialization.  */
@@ -18429,7 +18451,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
     case CONST_DECL:
       if (DECL_TEMPLATE_PARM_P (parm))
 	return unify (tparms, targs, DECL_INITIAL (parm), arg, strict, explain_p);
-      if (arg != integral_constant_value (parm))
+      if (arg != scalar_constant_value (parm))
 	return unify_template_argument_mismatch (explain_p, parm, arg);
       return unify_success (explain_p);
 
@@ -18463,8 +18485,12 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
 
     case INDIRECT_REF:
       if (REFERENCE_REF_P (parm))
-	return unify (tparms, targs, TREE_OPERAND (parm, 0), arg,
-		      strict, explain_p);
+	{
+	  if (REFERENCE_REF_P (arg))
+	    arg = TREE_OPERAND (arg, 0);
+	  return unify (tparms, targs, TREE_OPERAND (parm, 0), arg,
+			strict, explain_p);
+	}
       /* FALLTHRU */
 
     default:
@@ -20974,6 +21000,8 @@ value_dependent_expression_p (tree expression)
       if (DECL_INITIAL (expression)
 	  && decl_constant_var_p (expression)
 	  && (TREE_CODE (DECL_INITIAL (expression)) == TREE_LIST
+	      /* cp_finish_decl doesn't fold reference initializers.  */
+	      || TREE_CODE (TREE_TYPE (expression)) == REFERENCE_TYPE
 	      || value_dependent_expression_p (DECL_INITIAL (expression))))
 	return true;
       return false;
@@ -21124,7 +21152,7 @@ value_dependent_expression_p (tree expression)
 
     case STMT_EXPR:
       /* Treat a GNU statement expression as dependent to avoid crashing
-	 under fold_non_dependent_expr; it can't be constant.  */
+	 under instantiate_non_dependent_expr; it can't be constant.  */
       return true;
 
     default:
@@ -21878,7 +21906,7 @@ build_non_dependent_expr (tree expr)
   /* Try to get a constant value for all non-dependent expressions in
       order to expose bugs in *_dependent_expression_p and constexpr.  */
   if (cxx_dialect >= cxx11)
-    maybe_constant_value (fold_non_dependent_expr_sfinae (expr, tf_none));
+    fold_non_dependent_expr (expr);
 #endif
 
   /* Preserve OVERLOADs; the functions must be available to resolve

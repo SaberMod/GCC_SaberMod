@@ -100,6 +100,9 @@ static sparseset start_living, start_dying;
    insn.  */
 static sparseset unused_set, dead_set;
 
+/* Bitmap used for holding intermediate bitmap operation results.  */
+static bitmap_head temp_bitmap;
+
 /* Pool for pseudo live ranges.	 */
 static alloc_pool live_range_pool;
 
@@ -318,11 +321,11 @@ mark_pseudo_dead (int regno, int point)
 static bitmap bb_killed_pseudos, bb_gen_pseudos;
 
 /* Mark register REGNO (pseudo or hard register) in MODE as live at
-   program point POINT.  Update BB_GEN_PSEUDOS if LOCAL_SETS_P.
+   program point POINT.  Update BB_GEN_PSEUDOS.
    Return TRUE if the liveness tracking sets were modified, or FALSE
    if nothing changed.  */
 static bool
-mark_regno_live (int regno, machine_mode mode, int point, bool local_sets_p)
+mark_regno_live (int regno, machine_mode mode, int point)
 {
   int last;
   bool changed = false;
@@ -341,19 +344,17 @@ mark_regno_live (int regno, machine_mode mode, int point, bool local_sets_p)
 	  mark_pseudo_live (regno, point);
 	  changed = true;
 	}
-      if (local_sets_p)
-	bitmap_set_bit (bb_gen_pseudos, regno);
+      bitmap_set_bit (bb_gen_pseudos, regno);
     }
   return changed;
 }
 
 
 /* Mark register REGNO in MODE as dead at program point POINT.  Update
-   BB_GEN_PSEUDOS and BB_KILLED_PSEUDOS if LOCAL_SETS_P.  Return TRUE
-   if the liveness tracking sets were modified, or FALSE if nothing
-   changed.  */
+   BB_GEN_PSEUDOS and BB_KILLED_PSEUDOS.  Return TRUE if the liveness
+   tracking sets were modified, or FALSE if nothing changed.  */
 static bool
-mark_regno_dead (int regno, machine_mode mode, int point, bool local_sets_p)
+mark_regno_dead (int regno, machine_mode mode, int point)
 {
   int last;
   bool changed = false;
@@ -372,11 +373,8 @@ mark_regno_dead (int regno, machine_mode mode, int point, bool local_sets_p)
 	  mark_pseudo_dead (regno, point);
 	  changed = true;
 	}
-      if (local_sets_p)
-	{
-	  bitmap_clear_bit (bb_gen_pseudos, regno);
-	  bitmap_set_bit (bb_killed_pseudos, regno);
-	}
+      bitmap_clear_bit (bb_gen_pseudos, regno);
+      bitmap_set_bit (bb_killed_pseudos, regno);
     }
   return changed;
 }
@@ -419,9 +417,6 @@ get_bb_data_by_index (int index)
 
 /* Bitmap with all hard regs.  */
 static bitmap_head all_hard_regs_bitmap;
-
-/* Bitmap used for holding intermediate bitmap operation results.  */
-static bitmap_head temp_bitmap;
 
 /* The transfer function used by the DF equation solver to propagate
    live info through block with BB_INDEX according to the following
@@ -476,7 +471,6 @@ static bitmap_head all_blocks;
 static void
 initiate_live_solver (void)
 {
-  bitmap_initialize (&temp_bitmap, &reg_obstack);
   bitmap_initialize (&all_hard_regs_bitmap, &reg_obstack);
   bitmap_set_range (&all_hard_regs_bitmap, 0, FIRST_PSEUDO_REGISTER);
   bb_data = XNEWVEC (struct bb_data_pseudos, last_basic_block_for_fn (cfun));
@@ -508,7 +502,6 @@ finish_live_solver (void)
     }
   free (bb_data);
   bitmap_clear (&all_hard_regs_bitmap);
-  bitmap_clear (&temp_bitmap);
 }
 
 
@@ -640,10 +633,11 @@ check_pseudos_live_through_calls (int regno)
    backward scan of BB insns.  CURR_POINT is the program point where
    BB ends.  The function updates this counter and returns in
    CURR_POINT the program point where BB starts.  The function also
-   can delete the dead insns.  It returns true if pseudo live info was
+   does local live info updates and can delete the dead insns if
+   DEAD_INSN_P.  It returns true if pseudo live info was
    changed at the BB start.  */
 static bool
-process_bb_lives (basic_block bb, int &curr_point)
+process_bb_lives (basic_block bb, int &curr_point, bool dead_insn_p)
 {
   int i, regno, freq;
   unsigned int j;
@@ -667,7 +661,6 @@ process_bb_lives (basic_block bb, int &curr_point)
   bb_killed_pseudos = &get_bb_data (bb)->killed_pseudos;
   bitmap_clear (bb_gen_pseudos);
   bitmap_clear (bb_killed_pseudos);
-
   freq = REG_FREQ_FROM_BB (bb);
 
   if (lra_dump_file != NULL)
@@ -700,7 +693,7 @@ process_bb_lives (basic_block bb, int &curr_point)
 
       set = single_set (curr_insn);
 
-      if (set != NULL_RTX
+      if (dead_insn_p && set != NULL_RTX
 	  && REG_P (SET_DEST (set)) && REGNO (SET_DEST (set)) >= FIRST_PSEUDO_REGISTER
 	  && find_reg_note (curr_insn, REG_EH_REGION, NULL_RTX) == NULL_RTX
 	  && ! may_trap_p (PATTERN (curr_insn))
@@ -709,21 +702,21 @@ process_bb_lives (basic_block bb, int &curr_point)
 	  && (pic_offset_table_rtx == NULL_RTX
 	      || pic_offset_table_rtx != SET_DEST (set)))
 	{
-	  bool dead_insn_p = true;
+	  bool remove_p = true;
 
 	  for (reg = curr_id->regs; reg != NULL; reg = reg->next)
 	    if (reg->type != OP_IN && sparseset_bit_p (pseudos_live, reg->regno))
 	      {
-		dead_insn_p = false;
+		remove_p = false;
 		break;
 	      }
 	  for (reg = curr_static_id->hard_regs; reg != NULL; reg = reg->next)
 	    if (reg->type != OP_IN)
 	      {
-		dead_insn_p = false;
+		remove_p = false;
 		break;
 	      }
-	  if (dead_insn_p && ! volatile_refs_p (PATTERN (curr_insn)))
+	  if (remove_p && ! volatile_refs_p (PATTERN (curr_insn)))
 	    {
 	      dst_regno = REGNO (SET_DEST (set));
 	      if (lra_dump_file != NULL)
@@ -736,8 +729,8 @@ process_bb_lives (basic_block bb, int &curr_point)
 		  unsigned int uid;
 		  rtx_insn *insn;
 
-		  EXECUTE_IF_SET_IN_BITMAP
-		    (&lra_reg_info[dst_regno].insn_bitmap, 0, uid, bi)
+		  bitmap_copy (&temp_bitmap, &lra_reg_info[dst_regno].insn_bitmap);
+		  EXECUTE_IF_SET_IN_BITMAP (&temp_bitmap, 0, uid, bi)
 		    {
 		      insn = lra_insn_recog_data[uid]->insn;
 		      lra_substitute_pseudo_within_insn (insn, dst_regno,
@@ -815,9 +808,9 @@ process_bb_lives (basic_block bb, int &curr_point)
       for (reg = curr_id->regs; reg != NULL; reg = reg->next)
 	if (reg->type != OP_IN)
 	  {
-	    need_curr_point_incr |= mark_regno_live (reg->regno,
-						     reg->biggest_mode,
-						     curr_point, true);
+	    need_curr_point_incr
+	      |= mark_regno_live (reg->regno, reg->biggest_mode,
+				  curr_point);
 	    check_pseudos_live_through_calls (reg->regno);
 	  }
 
@@ -832,9 +825,9 @@ process_bb_lives (basic_block bb, int &curr_point)
       /* See which defined values die here.  */
       for (reg = curr_id->regs; reg != NULL; reg = reg->next)
 	if (reg->type == OP_OUT && ! reg->early_clobber && ! reg->subreg_p)
-	  need_curr_point_incr |= mark_regno_dead (reg->regno,
-						   reg->biggest_mode,
-						   curr_point, true);
+	  need_curr_point_incr
+	    |= mark_regno_dead (reg->regno, reg->biggest_mode,
+				curr_point);
 
       for (reg = curr_static_id->hard_regs; reg != NULL; reg = reg->next)
 	if (reg->type == OP_OUT && ! reg->early_clobber && ! reg->subreg_p)
@@ -874,9 +867,9 @@ process_bb_lives (basic_block bb, int &curr_point)
       for (reg = curr_id->regs; reg != NULL; reg = reg->next)
 	if (reg->type == OP_IN)
 	  {
-	    need_curr_point_incr |= mark_regno_live (reg->regno,
-						     reg->biggest_mode,
-						     curr_point, true);
+	    need_curr_point_incr
+	      |= mark_regno_live (reg->regno, reg->biggest_mode,
+				  curr_point);
 	    check_pseudos_live_through_calls (reg->regno);
 	  }
 
@@ -894,9 +887,9 @@ process_bb_lives (basic_block bb, int &curr_point)
       /* Mark early clobber outputs dead.  */
       for (reg = curr_id->regs; reg != NULL; reg = reg->next)
 	if (reg->type == OP_OUT && reg->early_clobber && ! reg->subreg_p)
-	  need_curr_point_incr |= mark_regno_dead (reg->regno,
-						   reg->biggest_mode,
-						   curr_point, true);
+	  need_curr_point_incr
+	    |= mark_regno_dead (reg->regno, reg->biggest_mode,
+				curr_point);
 
       for (reg = curr_static_id->hard_regs; reg != NULL; reg = reg->next)
 	if (reg->type == OP_OUT && reg->early_clobber && ! reg->subreg_p)
@@ -969,10 +962,11 @@ process_bb_lives (basic_block bb, int &curr_point)
 	    make_hard_regno_born (px);
     }
 
+  bool live_change_p = false;
   /* Check if bb border live info was changed.  */
   unsigned int live_pseudos_num = 0;
-  bool live_change_p = false;
-  EXECUTE_IF_SET_IN_BITMAP (df_get_live_in (bb), FIRST_PSEUDO_REGISTER, j, bi)
+  EXECUTE_IF_SET_IN_BITMAP (df_get_live_in (bb),
+			    FIRST_PSEUDO_REGISTER, j, bi)
     {
       live_pseudos_num++;
       if (! sparseset_bit_p (pseudos_live, j))
@@ -981,8 +975,10 @@ process_bb_lives (basic_block bb, int &curr_point)
 	  break;
 	}
     }
-  live_change_p = live_change_p || sparseset_cardinality (pseudos_live) != live_pseudos_num;
-
+  live_change_p
+    = (live_change_p
+       || sparseset_cardinality (pseudos_live) != live_pseudos_num);
+  
   /* See if we'll need an increment at the end of this basic block.
      An increment is needed if the PSEUDOS_LIVE set is not empty,
      to make sure the finish points are set up correctly.  */
@@ -1173,12 +1169,14 @@ compress_live_ranges (void)
 /* The number of the current live range pass.  */
 int lra_live_range_iter;
 
-/* The main entry function creates live ranges only for memory pseudos
-   (or for all ones if ALL_P), set up CONFLICT_HARD_REGS for the
-   pseudos.  It also does global live analysis only for pseudos and
-   only if the pseudo live info was changed on a BB border.  */
-void
-lra_create_live_ranges (bool all_p)
+/* The function creates live ranges only for memory pseudos (or for
+   all ones if ALL_P), set up CONFLICT_HARD_REGS for the pseudos.  It
+   also does dead insn elimination if DEAD_INSN_P and global live
+   analysis only for pseudos and only if the pseudo live info was
+   changed on a BB border.  Return TRUE if the live info was
+   changed.  */
+static bool
+lra_create_live_ranges_1 (bool all_p, bool dead_insn_p)
 {
   basic_block bb;
   int i, hard_regno, max_regno = max_reg_num ();
@@ -1231,7 +1229,7 @@ lra_create_live_ranges (bool all_p)
   if (! have_referenced_pseudos)
     {
       timevar_pop (TV_LRA_CREATE_LIVE_RANGES);
-      return;
+      return false;
     }
 
   pseudos_live = sparseset_alloc (max_regno);
@@ -1254,7 +1252,7 @@ lra_create_live_ranges (bool all_p)
       if (bb == EXIT_BLOCK_PTR_FOR_FN (cfun) || bb
 	  == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	continue;
-      if (process_bb_lives (bb, curr_point))
+      if (process_bb_lives (bb, curr_point, dead_insn_p))
 	bb_live_change_p = true;
     }
   if (bb_live_change_p)
@@ -1309,6 +1307,27 @@ lra_create_live_ranges (bool all_p)
   sparseset_free (pseudos_live);
   compress_live_ranges ();
   timevar_pop (TV_LRA_CREATE_LIVE_RANGES);
+  return bb_live_change_p;
+}
+
+/* The main entry function creates live-ranges and other live info
+   necessary for the assignment sub-pass.  It uses
+   lra_creates_live_ranges_1 -- so read comments for the
+   function.  */
+void
+lra_create_live_ranges (bool all_p, bool dead_insn_p)
+{
+  if (! lra_create_live_ranges_1 (all_p, dead_insn_p))
+    return;
+  if (lra_dump_file != NULL)
+    fprintf (lra_dump_file, "Live info was changed -- recalculate it\n");
+  /* Live info was changed on a bb border.  It means that some info,
+     e.g. about conflict regs, calls crossed may be wrong, live
+     ranges.  We need this info for allocation.  So recalcualate it
+     again.  */
+  lra_clear_live_ranges ();
+  bool res = lra_create_live_ranges_1 (all_p, dead_insn_p);
+  lra_assert (! res);
 }
 
 /* Finish all live ranges.  */
@@ -1328,6 +1347,7 @@ lra_live_ranges_init (void)
 {
   live_range_pool = create_alloc_pool ("live ranges",
 				       sizeof (struct lra_live_range), 100);
+  bitmap_initialize (&temp_bitmap, &reg_obstack);
   initiate_live_solver ();
 }
 
@@ -1336,5 +1356,6 @@ void
 lra_live_ranges_finish (void)
 {
   finish_live_solver ();
+  bitmap_clear (&temp_bitmap);
   free_alloc_pool (live_range_pool);
 }

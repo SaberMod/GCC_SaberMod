@@ -110,7 +110,6 @@ can_remove_node_now_p_1 (struct cgraph_node *node)
      the callgraph so references can point to it.  */
   return (!node->address_taken
 	  && !node->has_aliases_p ()
-	  && !node->used_as_abstract_origin
 	  && node->can_remove_if_no_direct_calls_p ()
 	  /* Inlining might enable more devirtualizing, so we want to remove
 	     those only after all devirtualizable virtual calls are processed.
@@ -228,6 +227,7 @@ clone_inlined_nodes (struct cgraph_edge *e, bool duplicate,
 				       update_original, vNULL, true,
 				       inlining_into,
 				       NULL);
+	  n->used_as_abstract_origin = e->callee->used_as_abstract_origin;
 	  e->redirect_callee (n);
 	}
     }
@@ -621,6 +621,7 @@ inline_transform (struct cgraph_node *node)
 {
   unsigned int todo = 0;
   struct cgraph_edge *e, *next;
+  bool has_inline = false;
  
   /* FIXME: Currently the pass manager is adding inline transform more than
      once to some clones.  This needs revisiting after WPA cleanups.  */
@@ -634,13 +635,15 @@ inline_transform (struct cgraph_node *node)
 
   for (e = node->callees; e; e = next)
     {
+      if (!e->inline_failed)
+	has_inline = true;
       next = e->next_callee;
       e->redirect_call_stmt_to_callee ();
     }
   node->remove_all_references ();
 
   timevar_push (TV_INTEGRATION);
-  if (node->callees && optimize)
+  if (node->callees && (optimize || has_inline))
     todo = optimize_inline_calls (current_function_decl);
   timevar_pop (TV_INTEGRATION);
 

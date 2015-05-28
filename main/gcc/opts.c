@@ -307,6 +307,14 @@ init_options_struct (struct gcc_options *opts, struct gcc_options *opts_set)
   targetm_common.option_init_struct (opts);
 }
 
+/* Release any allocations owned by OPTS.  */
+
+void
+finalize_options_struct (struct gcc_options *opts)
+{
+  XDELETEVEC (opts->x_param_values);
+}
+
 /* If indicated by the optimization level LEVEL (-Os if SIZE is set,
    -Ofast if FAST is set, -Og if DEBUG is set), apply the option DEFAULT_OPT
    to OPTS and OPTS_SET, diagnostic context DC, location LOC, with language
@@ -947,6 +955,19 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 
   if (opts->x_flag_sanitize_recover & SANITIZE_LEAK)
     error_at (loc, "-fsanitize-recover=leak is not supported");
+
+  /* When instrumenting the pointers, we don't want to remove
+     the null pointer checks.  */
+  if (opts->x_flag_sanitize & (SANITIZE_NULL | SANITIZE_NONNULL_ATTRIBUTE
+				| SANITIZE_RETURNS_NONNULL_ATTRIBUTE))
+    opts->x_flag_delete_null_pointer_checks = 0;
+
+  /* Aggressive compiler optimizations may cause false negatives.  */
+  if (opts->x_flag_sanitize)
+    {
+      opts->x_flag_aggressive_loop_optimizations = 0;
+      opts->x_flag_strict_overflow = 0;
+    }
 }
 
 #define LEFT_COLUMN	27
@@ -1665,12 +1686,6 @@ common_handle_option (struct gcc_options *opts,
 
 	if (code != OPT_fsanitize_)
 	  break;
-
-	/* When instrumenting the pointers, we don't want to remove
-	   the null pointer checks.  */
-	if (opts->x_flag_sanitize & (SANITIZE_NULL | SANITIZE_NONNULL_ATTRIBUTE
-				     | SANITIZE_RETURNS_NONNULL_ATTRIBUTE))
-	  opts->x_flag_delete_null_pointer_checks = 0;
 
 	/* Kernel ASan implies normal ASan but does not yet support
 	   all features.  */

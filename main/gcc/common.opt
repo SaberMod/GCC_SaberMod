@@ -1411,6 +1411,10 @@ floop-block
 Common Report Var(flag_loop_block) Optimization
 Enable Loop Blocking transformation
 
+floop-unroll-and-jam
+Common Report Var(flag_loop_unroll_jam) Optimization
+Enable Loop Unroll Jam transformation
+ 
 fgnu-tm
 Common Report Var(flag_tm)
 Enable support for GNU transactional memory
@@ -1484,7 +1488,7 @@ Common Report Var(flag_inhibit_size_directive)
 Do not generate .size directives
 
 findirect-inlining
-Common Report Var(flag_indirect_inlining)
+Common Report Var(flag_indirect_inlining) Optimization
 Perform indirect inlining
 
 ; General flag to enable inlining.  Specifying -fno-inline will disable
@@ -1983,6 +1987,10 @@ Relief of register pressure through live range shrinkage
 frename-registers
 Common Report Var(flag_rename_registers) Init(2) Optimization
 Perform a register renaming optimization pass
+
+fschedule-fusion
+Common Report Var(flag_schedule_fusion) Init(2) Optimization
+Perform a target dependent instruction fusion optimization pass
 
 freorder-blocks
 Common Report Var(flag_reorder_blocks) Optimization

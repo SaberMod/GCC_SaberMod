@@ -1,3 +1,50 @@
+2014-11-20  Mark Wielaard  <mjw@redhat.com>
+
+	PR debug/38757
+	* c-opts.c (set_std_c89): Set lang_hooks.name.
+	(set_std_c99): Likewise.
+	(set_std_c11): Likewise.
+	(set_std_cxx98): Likewise.
+	(set_std_cxx11): Likewise.
+	(set_std_cxx14): Likewise.
+	(set_std_cxx1z): Likewise.
+
+2014-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/63764
+	* c-common.h (convert_vector_to_pointer_for_subscript): Change
+	return type to bool.
+	* c-common.c: Include gimple-expr.c.
+	(convert_vector_to_pointer_for_subscript): Change return type to
+	bool.  If *vecp is not lvalue_p and has VECTOR_TYPE, return true
+	and copy it into a TARGET_EXPR and use that instead of *vecp
+	directly.
+
+2014-11-19  David Malcolm  <dmalcolm@redhat.com>
+
+	Merger of git branch "gimple-classes-v2-option-3".
+	* ChangeLog.gimple-classes: New.
+	* c-gimplify.c (add_block_to_enclosing): Strengthen local "stack"
+	from being just a vec<gimple> to a vec<gbind *>.
+
+2014-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/63813
+	* c-ubsan.c (ubsan_maybe_instrument_reference_or_call): Change type
+	argument to ptype, set type to TREE_TYPE (ptype).  Don't call
+	get_pointer_alignment for non-pointers.  Use ptype, or if it is
+	reference type, corresponding pointer type, as type of kind
+	argument.
+	(ubsan_maybe_instrument_reference,
+	ubsan_maybe_instrument_member_call): Adjust callers.
+
+2014-11-15  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/63884
+	* array-notation-common.c (is_sec_implicit_index_fn): Return false
+	for NULL fndecl.
+	(extract_array_notation_exprs): Return for NULL node.
+
 2014-11-12  Joseph Myers  <joseph@codesourcery.com>
 
 	* c-cppbuiltin.c (c_cpp_builtins_optimize_pragma): Define and

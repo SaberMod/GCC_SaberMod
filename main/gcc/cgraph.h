@@ -789,7 +789,7 @@ public:
      When WHOLE_SPECULATIVE_EDGES is true, all three components of
      speculative edge gets updated.  Otherwise we update only direct
      call.  */
-  void set_call_stmt_including_clones (gimple old_stmt, gimple new_stmt,
+  void set_call_stmt_including_clones (gimple old_stmt, gcall *new_stmt,
 				       bool update_speculative = true);
 
   /* Walk the alias chain to return the function cgraph_node is alias of.
@@ -937,6 +937,11 @@ public:
 
   /* When doing LTO, read cgraph_node's body from disk if it is not already
      present.  */
+  bool get_untransformed_body (void);
+
+  /* Prepare function body.  When doing LTO, read cgraph_node's body from disk 
+     if it is not already present.  When some IPA transformations are scheduled,
+     apply them.  */
   bool get_body (void);
 
   /* Release memory used to represent body of function.
@@ -965,13 +970,13 @@ public:
 
   /* Create edge from a given function to CALLEE in the cgraph.  */
   cgraph_edge *create_edge (cgraph_node *callee,
-			    gimple call_stmt, gcov_type count,
+			    gcall *call_stmt, gcov_type count,
 			    int freq);
 
   /* Create an indirect edge with a yet-undetermined callee where the call
      statement destination is a formal parameter of the caller with index
      PARAM_INDEX. */
-  cgraph_edge *create_indirect_edge (gimple call_stmt, int ecf_flags,
+  cgraph_edge *create_indirect_edge (gcall *call_stmt, int ecf_flags,
 				     gcov_type count, int freq,
 				     bool compute_indirect_info = true);
 
@@ -979,7 +984,7 @@ public:
    same function body.  If clones already have edge for OLD_STMT; only
    update the edge same way as cgraph_set_call_stmt_including_clones does.  */
   void create_edge_including_clones (cgraph_node *callee,
-				     gimple old_stmt, gimple stmt,
+				     gimple old_stmt, gcall *stmt,
 				     gcov_type count,
 				     int freq,
 				     cgraph_inline_failed_t reason);
@@ -1275,6 +1280,10 @@ public:
   /* True when function is clone created for Pointer Bounds Checker
      instrumentation.  */
   unsigned instrumentation_clone : 1;
+  /* True if call to node can't result in a call to free, munmap or
+     other operation that could make previously non-trapping memory
+     accesses trapping.  */
+  unsigned nonfreeing_fn : 1;
 };
 
 /* A cgraph node set is a collection of cgraph nodes.  A cgraph node
@@ -1388,12 +1397,16 @@ public:
      If actual type the context is being used in is known, OTR_TYPE should be
      set accordingly. This improves quality of combined result.  */
   bool combine_with (ipa_polymorphic_call_context, tree otr_type = NULL);
+  bool meet_with (ipa_polymorphic_call_context, tree otr_type = NULL);
 
   /* Return TRUE if context is fully useless.  */
   bool useless_p () const;
+  /* Return TRUE if this context conveys the same information as X.  */
+  bool equal_to (const ipa_polymorphic_call_context &x) const;
 
-  /* Dump human readable context to F.  */
-  void dump (FILE *f) const;
+  /* Dump human readable context to F.  If NEWLINE is true, it will be
+     terminated by a newline.  */
+  void dump (FILE *f, bool newline = true) const;
   void DEBUG_FUNCTION debug () const;
 
   /* LTO streaming.  */
@@ -1402,9 +1415,10 @@ public:
 
 private:
   bool combine_speculation_with (tree, HOST_WIDE_INT, bool, tree);
+  bool meet_speculation_with (tree, HOST_WIDE_INT, bool, tree);
   void set_by_decl (tree, HOST_WIDE_INT);
   bool set_by_invariant (tree, tree, HOST_WIDE_INT);
-  bool speculation_consistent_p (tree, HOST_WIDE_INT, bool, tree);
+  bool speculation_consistent_p (tree, HOST_WIDE_INT, bool, tree) const;
   void make_speculative (tree otr_type = NULL);
 };
 
@@ -1456,7 +1470,7 @@ struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"),
   /* Change field call_stmt of edge to NEW_STMT.
      If UPDATE_SPECULATIVE and E is any component of speculative
      edge, then update all components.  */
-  void set_call_stmt (gimple new_stmt, bool update_speculative = true);
+  void set_call_stmt (gcall *new_stmt, bool update_speculative = true);
 
   /* Redirect callee of the edge to N.  The function does not update underlying
      call expression.  */
@@ -1489,7 +1503,7 @@ struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"),
 
   /* Create clone of edge in the node N represented
      by CALL_EXPR the callgraph.  */
-  cgraph_edge * clone (cgraph_node *n, gimple call_stmt, unsigned stmt_uid,
+  cgraph_edge * clone (cgraph_node *n, gcall *call_stmt, unsigned stmt_uid,
 		       gcov_type count_scale, int freq_scale, bool update_original);
 
   /* Return true when call of edge can not lead to return from caller
@@ -1519,7 +1533,7 @@ struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"),
   cgraph_edge *next_caller;
   cgraph_edge *prev_callee;
   cgraph_edge *next_callee;
-  gimple call_stmt;
+  gcall *call_stmt;
   /* Additional information about an indirect call.  Not cleared when an edge
      becomes direct.  */
   cgraph_indirect_call_info *indirect_info;
@@ -2085,7 +2099,7 @@ private:
      parameters of which only CALLEE can be NULL (when creating an indirect call
      edge).  */
   cgraph_edge *create_edge (cgraph_node *caller, cgraph_node *callee,
-			    gimple call_stmt, gcov_type count, int freq,
+			    gcall *call_stmt, gcov_type count, int freq,
 			    bool indir_unknown_callee);
 
   /* Put the edge onto the free list.  */
@@ -2839,7 +2853,7 @@ cgraph_node::mark_force_output (void)
 inline bool
 cgraph_node::optimize_for_size_p (void)
 {
-  if (optimize_size)
+  if (opt_for_fn (decl, optimize_size))
     return true;
   if (frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED)
     return true;

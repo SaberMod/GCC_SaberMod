@@ -1568,6 +1568,8 @@ extern void protected_set_expr_location (tree, location_t);
 #define SET_TYPE_MODE(NODE, MODE) \
   (TYPE_CHECK (NODE)->type_common.mode = (MODE))
 
+extern machine_mode element_mode (const_tree t);
+
 /* The "canonical" type for this type node, which is used by frontends to
    compare the type for equality with another type.  If two types are
    equal (based on the semantics of the language), then they will have
@@ -4003,6 +4005,11 @@ extern int integer_pow2p (const_tree);
 
 extern int integer_nonzerop (const_tree);
 
+/* integer_truep (tree x) is nonzero if X is an integer constant of value 1 or
+   a vector where each element is an integer constant of value -1.  */
+
+extern int integer_truep (const_tree);
+
 extern bool cst_and_fits_in_hwi (const_tree);
 extern tree num_ending_zeros (const_tree);
 
@@ -4398,6 +4405,28 @@ extern unsigned int tree_map_hash (const void *);
 #define tree_decl_map_eq tree_map_base_eq
 extern unsigned int tree_decl_map_hash (const void *);
 #define tree_decl_map_marked_p tree_map_base_marked_p
+
+struct tree_decl_map_cache_hasher : ggc_cache_hasher<tree_decl_map *>
+{
+  static hashval_t hash (tree_decl_map *m) { return tree_decl_map_hash (m); }
+  static bool
+  equal (tree_decl_map *a, tree_decl_map *b)
+  {
+    return tree_decl_map_eq (a, b);
+  }
+
+  static void
+  handle_cache_entry (tree_decl_map *&m)
+  {
+    extern void gt_ggc_mx (tree_decl_map *&);
+    if (m == HTAB_EMPTY_ENTRY || m == HTAB_DELETED_ENTRY)
+      return;
+    else if (ggc_marked_p (m->base.from))
+      gt_ggc_mx (m);
+    else
+      m = static_cast<tree_decl_map *> (HTAB_DELETED_ENTRY);
+  }
+};
 
 #define tree_int_map_eq tree_map_base_eq
 #define tree_int_map_hash tree_map_base_hash
@@ -4850,4 +4879,9 @@ int_bit_position (const_tree field)
   return (wi::lshift (wi::to_offset (DECL_FIELD_OFFSET (field)), BITS_PER_UNIT_LOG)
 	  + wi::to_offset (DECL_FIELD_BIT_OFFSET (field))).to_shwi ();
 }
+
+extern void gt_ggc_mx (tree &);
+extern void gt_pch_nx (tree &);
+extern void gt_pch_nx (tree &, gt_pointer_operator, void *);
+
 #endif  /* GCC_TREE_H  */

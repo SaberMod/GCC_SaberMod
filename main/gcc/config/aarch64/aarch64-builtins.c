@@ -138,7 +138,6 @@ static enum aarch64_type_qualifiers
 aarch64_types_unopu_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_unsigned, qualifier_unsigned };
 #define TYPES_UNOPU (aarch64_types_unopu_qualifiers)
-#define TYPES_CREATE (aarch64_types_unop_qualifiers)
 static enum aarch64_type_qualifiers
 aarch64_types_binop_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_none, qualifier_none, qualifier_maybe_immediate };
@@ -910,7 +909,7 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
 		{
 		  enum machine_mode vmode = mode[argc - 1];
 		  aarch64_simd_lane_bounds (op[argc],
-					    0, GET_MODE_NUNITS (vmode));
+					    0, GET_MODE_NUNITS (vmode), exp);
 		  /* Keep to GCC-vector-extension lane indices in the RTL.  */
 		  op[argc] = GEN_INT (ENDIAN_LANE_N (vmode, INTVAL (op[argc])));
 		}
@@ -1199,6 +1198,14 @@ aarch64_builtin_vectorized_function (tree fndecl, tree type_out, tree type_in)
             if (AARCH64_CHECK_BUILTIN_MODE (4, S))
               return aarch64_builtin_decls[AARCH64_SIMD_BUILTIN_UNOP_clzv4si];
             return NULL_TREE;
+          }
+	case BUILT_IN_CTZ:
+          {
+	    if (AARCH64_CHECK_BUILTIN_MODE (2, S))
+	      return aarch64_builtin_decls[AARCH64_SIMD_BUILTIN_UNOP_ctzv2si];
+	    else if (AARCH64_CHECK_BUILTIN_MODE (4, S))
+	      return aarch64_builtin_decls[AARCH64_SIMD_BUILTIN_UNOP_ctzv4si];
+	    return NULL_TREE;
           }
 #undef AARCH64_CHECK_BUILTIN_MODE
 #define AARCH64_CHECK_BUILTIN_MODE(C, N) \

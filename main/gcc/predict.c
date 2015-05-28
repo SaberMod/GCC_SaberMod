@@ -125,7 +125,8 @@ static inline bool
 maybe_hot_frequency_p (struct function *fun, int freq)
 {
   struct cgraph_node *node = cgraph_node::get (fun->decl);
-  if (!profile_info || !flag_branch_probabilities)
+  if (!profile_info
+      || !opt_for_fn (fun->decl, flag_branch_probabilities))
     {
       if (node->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED)
         return false;
@@ -216,34 +217,34 @@ probably_never_executed (struct function *fun,
                          gcov_type count, int frequency)
 {
   gcc_checking_assert (fun);
-  if (profile_status_for_fn (cfun) == PROFILE_READ)
+  if (profile_status_for_fn (fun) == PROFILE_READ)
     {
       int unlikely_count_fraction = PARAM_VALUE (UNLIKELY_BB_COUNT_FRACTION);
       if (count * unlikely_count_fraction >= profile_info->runs)
 	return false;
       if (!frequency)
 	return true;
-      if (!ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency)
+      if (!ENTRY_BLOCK_PTR_FOR_FN (fun)->frequency)
 	return false;
-      if (ENTRY_BLOCK_PTR_FOR_FN (cfun)->count)
+      if (ENTRY_BLOCK_PTR_FOR_FN (fun)->count)
 	{
           gcov_type computed_count;
           /* Check for possibility of overflow, in which case entry bb count
              is large enough to do the division first without losing much
              precision.  */
-	  if (ENTRY_BLOCK_PTR_FOR_FN (cfun)->count < REG_BR_PROB_BASE *
+	  if (ENTRY_BLOCK_PTR_FOR_FN (fun)->count < REG_BR_PROB_BASE *
 	      REG_BR_PROB_BASE)
             {
               gcov_type scaled_count
-		  = frequency * ENTRY_BLOCK_PTR_FOR_FN (cfun)->count *
+		  = frequency * ENTRY_BLOCK_PTR_FOR_FN (fun)->count *
 	     unlikely_count_fraction;
 	      computed_count = RDIV (scaled_count,
-				     ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency);
+				     ENTRY_BLOCK_PTR_FOR_FN (fun)->frequency);
             }
           else
             {
-	      computed_count = RDIV (ENTRY_BLOCK_PTR_FOR_FN (cfun)->count,
-				     ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency);
+	      computed_count = RDIV (ENTRY_BLOCK_PTR_FOR_FN (fun)->count,
+				     ENTRY_BLOCK_PTR_FOR_FN (fun)->frequency);
               computed_count *= frequency * unlikely_count_fraction;
             }
           if (computed_count >= profile_info->runs)
@@ -251,7 +252,7 @@ probably_never_executed (struct function *fun,
 	}
       return true;
     }
-  if ((!profile_info || !flag_branch_probabilities)
+  if ((!profile_info || !(opt_for_fn (fun->decl, flag_branch_probabilities)))
       && (cgraph_node::get (fun->decl)->frequency
 	  == NODE_FREQUENCY_UNLIKELY_EXECUTED))
     return true;
@@ -281,11 +282,8 @@ probably_never_executed_edge_p (struct function *fun, edge e)
 bool
 optimize_function_for_size_p (struct function *fun)
 {
-  if (optimize_size)
-    return true;
   if (!fun || !fun->decl)
-    return false;
-
+    return optimize_size;
   cgraph_node *n = cgraph_node::get (fun->decl);
   return n && n->optimize_for_size_p ();
 }
@@ -1069,7 +1067,7 @@ get_base_value (tree t)
    Otherwise return false and set LOOP_INVAIANT to NULL.  */
 
 static bool
-is_comparison_with_loop_invariant_p (gimple stmt, struct loop *loop,
+is_comparison_with_loop_invariant_p (gcond *stmt, struct loop *loop,
 				     tree *loop_invariant,
 				     enum tree_code *compare_code,
 				     tree *loop_step,
@@ -1234,7 +1232,8 @@ predict_iv_comparison (struct loop *loop, basic_block bb,
   stmt = last_stmt (bb);
   if (!stmt || gimple_code (stmt) != GIMPLE_COND)
     return;
-  if (!is_comparison_with_loop_invariant_p (stmt, loop, &compare_var,
+  if (!is_comparison_with_loop_invariant_p (as_a <gcond *> (stmt),
+					    loop, &compare_var,
 					    &compare_code,
 					    &compare_step_var,
 					    &compare_base))
@@ -1407,12 +1406,19 @@ predict_extra_loop_exits (edge exit_edge)
 {
   unsigned i;
   bool check_value_one;
-  gimple phi_stmt;
+  gimple lhs_def_stmt;
+  gphi *phi_stmt;
   tree cmp_rhs, cmp_lhs;
-  gimple cmp_stmt = last_stmt (exit_edge->src);
+  gimple last;
+  gcond *cmp_stmt;
 
-  if (!cmp_stmt || gimple_code (cmp_stmt) != GIMPLE_COND)
+  last = last_stmt (exit_edge->src);
+  if (!last)
     return;
+  cmp_stmt = dyn_cast <gcond *> (last);
+  if (!cmp_stmt)
+    return;
+
   cmp_rhs = gimple_cond_rhs (cmp_stmt);
   cmp_lhs = gimple_cond_lhs (cmp_stmt);
   if (!TREE_CONSTANT (cmp_rhs)
@@ -1428,8 +1434,12 @@ predict_extra_loop_exits (edge exit_edge)
 		    ^ (gimple_cond_code (cmp_stmt) == EQ_EXPR))
 		    ^ ((exit_edge->flags & EDGE_TRUE_VALUE) != 0));
 
-  phi_stmt = SSA_NAME_DEF_STMT (cmp_lhs);
-  if (!phi_stmt || gimple_code (phi_stmt) != GIMPLE_PHI)
+  lhs_def_stmt = SSA_NAME_DEF_STMT (cmp_lhs);
+  if (!lhs_def_stmt)
+    return;
+
+  phi_stmt = dyn_cast <gphi *> (lhs_def_stmt);
+  if (!phi_stmt)
     return;
 
   for (i = 0; i < gimple_phi_num_args (phi_stmt); i++)
@@ -1475,7 +1485,7 @@ predict_loops (void)
       tree loop_bound_step = NULL;
       tree loop_bound_var = NULL;
       tree loop_iv_base = NULL;
-      gimple stmt = NULL;
+      gcond *stmt = NULL;
 
       exits = get_loop_exit_edges (loop);
       n_exits = exits.length ();
@@ -1542,12 +1552,12 @@ predict_loops (void)
 	if (nb_iter->stmt
 	    && gimple_code (nb_iter->stmt) == GIMPLE_COND)
 	  {
-	    stmt = nb_iter->stmt;
+	    stmt = as_a <gcond *> (nb_iter->stmt);
 	    break;
 	  }
       if (!stmt && last_stmt (loop->header)
 	  && gimple_code (last_stmt (loop->header)) == GIMPLE_COND)
-	stmt = last_stmt (loop->header);
+	stmt = as_a <gcond *> (last_stmt (loop->header));
       if (stmt)
 	is_comparison_with_loop_invariant_p (stmt, loop,
 					     &loop_bound_var,
@@ -2105,10 +2115,10 @@ return_prediction (tree val, enum prediction *prediction)
 static void
 apply_return_prediction (void)
 {
-  gimple return_stmt = NULL;
+  greturn *return_stmt = NULL;
   tree return_val;
   edge e;
-  gimple phi;
+  gphi *phi;
   int phi_num_args, i;
   enum br_predictor pred;
   enum prediction direction;
@@ -2116,10 +2126,13 @@ apply_return_prediction (void)
 
   FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
     {
-      return_stmt = last_stmt (e->src);
-      if (return_stmt
-	  && gimple_code (return_stmt) == GIMPLE_RETURN)
-	break;
+      gimple last = last_stmt (e->src);
+      if (last
+	  && gimple_code (last) == GIMPLE_RETURN)
+	{
+	  return_stmt = as_a <greturn *> (last);
+	  break;
+	}
     }
   if (!e)
     return;
@@ -2130,7 +2143,7 @@ apply_return_prediction (void)
       || !SSA_NAME_DEF_STMT (return_val)
       || gimple_code (SSA_NAME_DEF_STMT (return_val)) != GIMPLE_PHI)
     return;
-  phi = SSA_NAME_DEF_STMT (return_val);
+  phi = as_a <gphi *> (SSA_NAME_DEF_STMT (return_val));
   phi_num_args = gimple_phi_num_args (phi);
   pred = return_prediction (PHI_ARG_DEF (phi, 0), &direction);
 
@@ -2235,12 +2248,12 @@ tree_estimate_probability_bb (basic_block bb)
 	  gimple_stmt_iterator gi;
 	  for (gi = gsi_start_bb (e->dest); !gsi_end_p (gi); gsi_next (&gi))
 	    {
-	      gimple stmt = gsi_stmt (gi);
+	      glabel *label_stmt = dyn_cast <glabel *> (gsi_stmt (gi));
 	      tree decl;
 
-	      if (gimple_code (stmt) != GIMPLE_LABEL)
+	      if (!label_stmt)
 		break;
-	      decl = gimple_label_label (stmt);
+	      decl = gimple_label_label (label_stmt);
 	      if (DECL_ARTIFICIAL (decl))
 		continue;
 

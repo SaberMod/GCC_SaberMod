@@ -493,7 +493,7 @@ has_mem_ref_been_instrumented (const asan_mem_ref *ref, tree len)
    otherwise.  */
 
 static bool
-get_mem_ref_of_assignment (const gimple assignment,
+get_mem_ref_of_assignment (const gassign *assignment,
 			   asan_mem_ref *ref,
 			   bool *ref_is_store)
 {
@@ -521,7 +521,7 @@ get_mem_ref_of_assignment (const gimple assignment,
    representing a builtin call that has to do with memory access.  */
 
 static bool
-get_mem_refs_of_builtin_call (const gimple call,
+get_mem_refs_of_builtin_call (const gcall *call,
 			      asan_mem_ref *src0,
 			      tree *src0_len,
 			      bool *src0_is_store,
@@ -864,7 +864,8 @@ has_stmt_been_instrumented_p (gimple stmt)
       asan_mem_ref r;
       asan_mem_ref_init (&r, NULL, 1);
 
-      if (get_mem_ref_of_assignment (stmt, &r, &r_is_store))
+      if (get_mem_ref_of_assignment (as_a <gassign *> (stmt), &r,
+				     &r_is_store))
 	return has_mem_ref_been_instrumented (&r);
     }
   else if (gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))
@@ -877,7 +878,7 @@ has_stmt_been_instrumented_p (gimple stmt)
       tree src0_len = NULL_TREE, src1_len = NULL_TREE, dest_len = NULL_TREE;
       bool src0_is_store = false, src1_is_store = false,
 	dest_is_store = false, dest_is_deref = false, intercepted_p = true;
-      if (get_mem_refs_of_builtin_call (stmt,
+      if (get_mem_refs_of_builtin_call (as_a <gcall *> (stmt),
 					&src0, &src0_len, &src0_is_store,
 					&src1, &src1_len, &src1_is_store,
 					&dest, &dest_len, &dest_is_store,
@@ -1556,7 +1557,7 @@ create_cond_insert_point (gimple_stmt_iterator *iter,
    pointing to initially.  */
 
 static void
-insert_if_then_before_iter (gimple cond,
+insert_if_then_before_iter (gcond *cond,
 			    gimple_stmt_iterator *iter,
 			    bool then_more_likely_p,
 			    basic_block *then_bb,
@@ -1599,15 +1600,14 @@ build_shadow_mem_access (gimple_stmt_iterator *gsi, location_t location,
 
   g = gimple_build_assign_with_ops (NOP_EXPR,
 				    make_ssa_name (shadow_ptr_type, NULL),
-				    gimple_assign_lhs (g), NULL_TREE);
+				    gimple_assign_lhs (g));
   gimple_set_location (g, location);
   gsi_insert_after (gsi, g, GSI_NEW_STMT);
 
   t = build2 (MEM_REF, shadow_type, gimple_assign_lhs (g),
 	      build_int_cst (shadow_ptr_type, 0));
   g = gimple_build_assign_with_ops (MEM_REF,
-				    make_ssa_name (shadow_type, NULL),
-				    t, NULL_TREE);
+				    make_ssa_name (shadow_type, NULL), t);
   gimple_set_location (g, location);
   gsi_insert_after (gsi, g, GSI_NEW_STMT);
   return gimple_assign_lhs (g);
@@ -1625,7 +1625,7 @@ maybe_create_ssa_name (location_t loc, tree base, gimple_stmt_iterator *iter,
   gimple g
     = gimple_build_assign_with_ops (TREE_CODE (base),
 				    make_ssa_name (TREE_TYPE (base), NULL),
-				    base, NULL_TREE);
+				    base);
   gimple_set_location (g, loc);
   if (before_p)
     gsi_insert_before (iter, g, GSI_SAME_STMT);
@@ -1645,8 +1645,8 @@ maybe_cast_to_ptrmode (location_t loc, tree len, gimple_stmt_iterator *iter,
     return len;
   gimple g
     = gimple_build_assign_with_ops (NOP_EXPR,
-				    make_ssa_name (pointer_sized_int_node, NULL),
-				    len, NULL);
+				    make_ssa_name (pointer_sized_int_node,
+						   NULL), len);
   gimple_set_location (g, loc);
   if (before_p)
     gsi_insert_before (iter, g, GSI_SAME_STMT);
@@ -1902,7 +1902,7 @@ instrument_builtin_call (gimple_stmt_iterator *iter)
     return false;
 
   bool iter_advanced_p = false;
-  gimple call = gsi_stmt (*iter);
+  gcall *call = as_a <gcall *> (gsi_stmt (*iter));
 
   gcc_checking_assert (gimple_call_builtin_p (call, BUILT_IN_NORMAL));
 
@@ -2168,8 +2168,13 @@ asan_global_struct (void)
       if (i)
 	DECL_CHAIN (fields[i - 1]) = fields[i];
     }
+  tree type_decl = build_decl (input_location, TYPE_DECL,
+			       get_identifier ("__asan_global"), ret);
+  DECL_IGNORED_P (type_decl) = 1;
+  DECL_ARTIFICIAL (type_decl) = 1;
   TYPE_FIELDS (ret) = fields[0];
-  TYPE_NAME (ret) = get_identifier ("__asan_global");
+  TYPE_NAME (ret) = type_decl;
+  TYPE_STUB_DECL (ret) = type_decl;
   layout_type (ret);
   return ret;
 }
@@ -2346,6 +2351,9 @@ initialize_sanitizer_builtins (void)
 #define ATTR_TMPURE_NOTHROW_LEAF_LIST ECF_TM_PURE | ATTR_NOTHROW_LEAF_LIST
 #undef ATTR_NORETURN_NOTHROW_LEAF_LIST
 #define ATTR_NORETURN_NOTHROW_LEAF_LIST ECF_NORETURN | ATTR_NOTHROW_LEAF_LIST
+#undef ATTR_CONST_NORETURN_NOTHROW_LEAF_LIST
+#define ATTR_CONST_NORETURN_NOTHROW_LEAF_LIST \
+  ECF_CONST | ATTR_NORETURN_NOTHROW_LEAF_LIST
 #undef ATTR_TMPURE_NORETURN_NOTHROW_LEAF_LIST
 #define ATTR_TMPURE_NORETURN_NOTHROW_LEAF_LIST \
   ECF_TM_PURE | ATTR_NORETURN_NOTHROW_LEAF_LIST
@@ -2355,6 +2363,9 @@ initialize_sanitizer_builtins (void)
 #undef ATTR_COLD_NORETURN_NOTHROW_LEAF_LIST
 #define ATTR_COLD_NORETURN_NOTHROW_LEAF_LIST \
   /* ECF_COLD missing */ ATTR_NORETURN_NOTHROW_LEAF_LIST
+#undef ATTR_COLD_CONST_NORETURN_NOTHROW_LEAF_LIST
+#define ATTR_COLD_CONST_NORETURN_NOTHROW_LEAF_LIST \
+  /* ECF_COLD missing */ ATTR_CONST_NORETURN_NOTHROW_LEAF_LIST
 #undef DEF_SANITIZER_BUILTIN
 #define DEF_SANITIZER_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
   decl = add_builtin_function ("__builtin_" NAME, TYPE, ENUM,		\
@@ -2525,8 +2536,7 @@ asan_expand_check_ifn (gimple_stmt_iterator *iter, bool use_calls)
       gimple g
 	= gimple_build_assign_with_ops (NOP_EXPR,
 					make_ssa_name (pointer_sized_int_node,
-					NULL),
-					base, NULL_TREE);
+						       NULL), base);
       gimple_set_location (g, loc);
       gsi_insert_before (iter, g, GSI_SAME_STMT);
       tree base_addr = gimple_assign_lhs (g);
@@ -2540,8 +2550,7 @@ asan_expand_check_ifn (gimple_stmt_iterator *iter, bool use_calls)
 	  gcc_assert (nargs == 2);
 	  g = gimple_build_assign_with_ops (NOP_EXPR,
 					    make_ssa_name (pointer_sized_int_node,
-							   NULL),
-					    len, NULL_TREE);
+							   NULL), len);
 	  gimple_set_location (g, loc);
 	  gsi_insert_before (iter, g, GSI_SAME_STMT);
 	  tree sz_arg = gimple_assign_lhs (g);
@@ -2578,8 +2587,9 @@ asan_expand_check_ifn (gimple_stmt_iterator *iter, bool use_calls)
       gimple_set_location (g, loc);
 
       basic_block then_bb, fallthrough_bb;
-      insert_if_then_before_iter (g, iter, /*then_more_likely_p=*/true,
-				 &then_bb, &fallthrough_bb);
+      insert_if_then_before_iter (as_a <gcond *> (g), iter,
+				  /*then_more_likely_p=*/true,
+				  &then_bb, &fallthrough_bb);
       /* Note that fallthrough_bb starts with the statement that was
 	pointed to by ITER.  */
 
@@ -2599,8 +2609,7 @@ asan_expand_check_ifn (gimple_stmt_iterator *iter, bool use_calls)
 
   g = gimple_build_assign_with_ops (NOP_EXPR,
 				    make_ssa_name (pointer_sized_int_node,
-						   NULL),
-				    base, NULL_TREE);
+						   NULL), base);
   gimple_set_location (g, loc);
   gsi_insert_before (&gsi, g, GSI_NEW_STMT);
   tree base_addr = gimple_assign_lhs (g);

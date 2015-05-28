@@ -319,12 +319,13 @@ arc*-*-*)
 	;;
 arm*-*-*)
 	cpu_type=arm
-	extra_objs="aarch-common.o"
+	extra_objs="arm-builtins.o aarch-common.o"
 	extra_headers="mmintrin.h arm_neon.h arm_acle.h"
 	target_type_format_char='%'
 	c_target_objs="arm-c.o"
 	cxx_target_objs="arm-c.o"
 	extra_options="${extra_options} arm/arm-tables.opt"
+	target_gtfiles="\$(srcdir)/config/arm/arm-builtins.c"
 	;;
 avr-*-*)
 	cpu_type=avr
@@ -366,7 +367,9 @@ i[34567]86-*-*)
 		       avx512cdintrin.h avx512erintrin.h avx512pfintrin.h
 		       shaintrin.h clflushoptintrin.h xsavecintrin.h
 		       xsavesintrin.h avx512dqintrin.h avx512bwintrin.h
-		       avx512vlintrin.h avx512vlbwintrin.h avx512vldqintrin.h"
+		       avx512vlintrin.h avx512vlbwintrin.h avx512vldqintrin.h
+		       avx512ifmaintrin.h avx512ifmavlintrin.h avx512vbmiintrin.h
+		       avx512vbmivlintrin.h clwbintrin.h pcommitintrin.h"
 	;;
 x86_64-*-*)
 	cpu_type=i386
@@ -385,7 +388,9 @@ x86_64-*-*)
 		       avx512cdintrin.h avx512erintrin.h avx512pfintrin.h
 		       shaintrin.h clflushoptintrin.h xsavecintrin.h
 		       xsavesintrin.h avx512dqintrin.h avx512bwintrin.h
-		       avx512vlintrin.h avx512vlbwintrin.h avx512vldqintrin.h"
+		       avx512vlintrin.h avx512vlbwintrin.h avx512vldqintrin.h
+		       avx512ifmaintrin.h avx512ifmavlintrin.h avx512vbmiintrin.h
+		       avx512vbmivlintrin.h clwbintrin.h pcommitintrin.h"
 	;;
 ia64-*-*)
 	extra_headers=ia64intrin.h
@@ -1425,8 +1430,14 @@ i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu | i
 	i[34567]86-*-linux*)
 		tm_file="${tm_file} linux.h linux-android.h"
 		extra_options="${extra_options} linux-android.opt"
-		# Assume modern glibc
-		default_gnu_indirect_function=yes
+		# Assume modern glibc if not targeting Android nor uclibc.
+		case ${target} in
+		*-*-*android*|*-*-*uclibc*)
+		  ;;
+		*)
+		  default_gnu_indirect_function=yes
+		  ;;
+		esac
 		if test x$enable_targets = xall; then
 			tm_file="${tm_file} i386/x86-64.h i386/gnu-user-common.h i386/gnu-user64.h i386/linux-common.h i386/linux64.h"
 			tm_defines="${tm_defines} TARGET_BI_ARCH=1"
@@ -1494,8 +1505,14 @@ x86_64-*-linux* | x86_64-*-kfreebsd*-gnu | x86_64-*-knetbsd*-gnu)
 	x86_64-*-linux*)
 		tm_file="${tm_file} linux.h linux-android.h i386/linux-common.h i386/linux64.h"
 		extra_options="${extra_options} linux-android.opt"
-		# Assume modern glibc
-		default_gnu_indirect_function=yes
+		# Assume modern glibc if not targeting Android nor uclibc.
+		case ${target} in
+		*-*-*android*|*-*-*uclibc*)
+		  ;;
+		*)
+		  default_gnu_indirect_function=yes
+		  ;;
+		esac
 		# Pull in spec changes for GRTE configurations.
 		case ${target} in
 		*-grte*)

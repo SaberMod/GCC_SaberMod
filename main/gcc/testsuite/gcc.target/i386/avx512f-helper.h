@@ -20,6 +20,10 @@
 #include "avx512bw-check.h"
 #elif defined (AVX512VL)
 #include "avx512vl-check.h"
+#elif defined (AVX512IFMA)
+#include "avx512ifma-check.h"
+#elif defined (AVX512VBMI)
+#include "avx512vbmi-check.h"
 #endif
 
 /* Macros expansion.  */
@@ -125,6 +129,12 @@ avx512bw_test (void) { test_512 (); }
 #elif defined (AVX512VL)
 void
 avx512vl_test (void) { test_256 (); test_128 (); }
+#elif defined (AVX512IFMA)
+void
+avx512ifma_test (void) { test_512 (); }
+#elif defined (AVX512VBMI)
+void
+avx512vbmi_test (void) { test_512 (); }
 #endif
 
 #endif /* AVX512F_HELPER_INCLUDED */

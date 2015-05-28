@@ -1,3 +1,80 @@
+2014-11-24  Tobias Burnus  <burnus@net-b.de>
+
+	* error.c (gfc_fatal_error_1): Remove.
+	* gfortran.h (gfc_fatal_error_1): Remove.
+	* check.c (check_co_collective): Change gfc_fatal_error_1 to
+	gfc_fatal_error.
+	* match.c (gfc_match_name): Ditto.
+	* trans-array.c (gfc_conv_array_initializer): Ditto.
+	* trans-stmt.c (gfc_trans_sync): Ditto.
+
+2014-11-23  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* decl.c (gfc_verify_c_interop_param): Use gfc_error_now_2.
+	(gfc_set_constant_character_len): Use gfc_warning_now_2.
+	* resolve.c (resolve_ordinary_assign): Likewise.
+	* gfortran.h (warn_character_truncation): Do not declare here.
+	* error.c (gfc_format_decoder): Handle %L.
+	* lang.opt (Wcharacter-truncation): Add Var and LangEnabledBy.
+	* options.c (gfc_init_options): Do not handle
+	warn_character_truncation explicitly.
+	(set_Wall): Likewise.
+	(gfc_handle_option): Likewise.
+
+2014-11-23  Tobias Burnus  <burnus@net-b.de>
+
+	* invoke.texi (-Wtabs): Swap -Wtabs/-Wno-tabs now that
+	-Wtabs enables the warning.
+
+2014-11-23  Tobias Burnus  <burnus@net-b.de>
+
+	* error.c (gfc_diagnostic_build_prefix): Correct coloring
+	of the colon of the prefix.
+
+2014-11-23  Tobias Burnus  <burnus@net-b.de>
+	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* gfortran.h (gfc_option_t): Remove warn_tabs.
+	* lang.opt (Wpedantic): Add.
+	(Wtabs): Use Var and LangEnabledBy.
+	* options.c (gfc_init_options, gfc_post_options,
+	set_Wall): Remove -Wtabs handling.
+	(gfc_handle_option): Update -std=, remove OPT_Wtabs.
+	* scanner.c (gfc_gobble_whitespace): Update for
+	flag-variable renaming.
+	(load_line): Ditto. Pass warn flag to diagnostic.
+
+2014-11-22  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-expr.c (gfc_caf_get_image_index): Fix image calculation.
+
+2014-11-15  Tobias Burnus  <burnus@net-b.de>
+
+	* error.c (gfc_fatal_error_1): Renamed from gfc_fatal_error.
+	(gfc_fatal_error): Add; uses common diagnostics.
+	* array.c (gfc_match_array_ref, gfc_match_array_spec): Use
+	%< %>.
+	* check.c (check_co_collective, gfc_check_lcobound,
+	gfc_check_image_index, gfc_check_num_images,
+	gfc_check_this_image, gfc_check_ucobound): Ditto.
+	* cpp.c (gfc_cpp_post_options): Ditto.
+	(gfc_cpp_init_0, gfc_cpp_done): Change %s to %qs.
+	* gfc-diagnostic.def (DK_FATAL): Capitalize first letter.
+	* gfortran.h (gfc_fatal_error_1): Add.
+	* match.c (gfc_match_name, gfc_match_critical,
+	lock_unlock_statement, sync_statement): Add %< %>.
+	* module.c (bad_module, gfc_dump_module, gfc_use_module): Change
+	%s to %qs.
+	* options.c (gfc_handle_module_path_options, gfc_handle_fpe_option,
+	gfc_handle_coarray_option, gfc_handle_runtime_check_option,
+	gfc_handle_option): Add %< %>.
+	* simplify.c (gfc_simplify_num_images): Ditto.
+	* trans-stmt.c (gfc_trans_sync): Use gfc_fatal_error_1.
+	* trans-array.c (gfc_conv_array_initializer): Ditto.
+	* trans-types.c (gfc_init_kinds): Use gfc_fatal_error instead
+	of fatal_error; add %< %> quotations.
+
 2014-11-13  Bernd Schmidt  <bernds@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>
 	    Ilya Verbin  <ilya.verbin@intel.com>

@@ -595,7 +595,7 @@ rtx get_personality_function (tree);
 /* In stmt.c */
 
 /* Expand a GIMPLE_SWITCH statement.  */
-extern void expand_case (gimple);
+extern void expand_case (gswitch *);
 
 /* Like expand_case but special-case for SJLJ exception dispatching.  */
 extern void expand_sjlj_dispatch_table (rtx, vec<tree> );
@@ -619,4 +619,6 @@ extern bool categorize_ctor_elements (const_tree, HOST_WIDE_INT *,
    by EXP.  This does not include any offset in DECL_FIELD_BIT_OFFSET.  */
 extern tree component_ref_field_offset (tree);
 
+extern void expand_operands (tree, tree, rtx, rtx*, rtx*,
+			     enum expand_modifier);
 #endif /* GCC_EXPR_H */

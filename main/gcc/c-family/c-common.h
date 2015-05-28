@@ -101,7 +101,7 @@ enum rid
   RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_CHOOSE_EXPR,
   RID_TYPES_COMPATIBLE_P,      RID_BUILTIN_COMPLEX,	     RID_BUILTIN_SHUFFLE,
   RID_DFLOAT32, RID_DFLOAT64, RID_DFLOAT128,
-  RID_FRACT, RID_ACCUM, RID_AUTO_TYPE,
+  RID_FRACT, RID_ACCUM, RID_AUTO_TYPE, RID_BUILTIN_CALL_WITH_STATIC_CHAIN,
 
   /* C11 */
   RID_ALIGNAS, RID_GENERIC,
@@ -1311,7 +1311,7 @@ extern tree build_userdef_literal (tree suffix_id, tree value,
 				   enum overflow_type overflow,
 				   tree num_string);
 
-extern void convert_vector_to_pointer_for_subscript (location_t, tree*, tree);
+extern bool convert_vector_to_pointer_for_subscript (location_t, tree *, tree);
 
 /* Possibe cases of scalar_to_vector conversion.  */
 enum stv_conv {

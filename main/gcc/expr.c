@@ -81,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "tree-chkp.h"
 #include "rtl-chkp.h"
+#include "ccmp.h"
 
 #ifndef STACK_PUSH_CODE
 #ifdef STACK_GROWS_DOWNWARD
@@ -159,8 +160,6 @@ static rtx store_field (rtx, HOST_WIDE_INT, HOST_WIDE_INT,
 static unsigned HOST_WIDE_INT highest_pow2_factor_for_target (const_tree, const_tree);
 
 static int is_aligning_offset (const_tree, const_tree);
-static void expand_operands (tree, tree, rtx, rtx*, rtx*,
-			     enum expand_modifier);
 static rtx reduce_to_bit_field_precision (rtx, rtx, tree);
 static rtx do_store_flag (sepops, rtx, machine_mode);
 #ifdef PUSH_ROUNDING
@@ -7573,7 +7572,7 @@ convert_tree_comp_to_rtx (enum tree_code tcode, int unsignedp)
    The value may be stored in TARGET if TARGET is nonzero.  The
    MODIFIER argument is as documented by expand_expr.  */
 
-static void
+void
 expand_operands (tree exp0, tree exp1, rtx target, rtx *op0, rtx *op1,
 		 enum expand_modifier modifier)
 {
@@ -8064,7 +8063,9 @@ expand_cond_expr_using_cmove (tree treeop0 ATTRIBUTE_UNUSED,
       op00 = expand_normal (treeop0);
       op01 = const0_rtx;
       comparison_code = NE;
-      comparison_mode = TYPE_MODE (TREE_TYPE (treeop0));
+      comparison_mode = GET_MODE (op00);
+      if (comparison_mode == VOIDmode)
+	comparison_mode = TYPE_MODE (TREE_TYPE (treeop0));
     }
 
   if (GET_MODE (op1) != mode)
@@ -9506,6 +9507,15 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	      /* Fallthru */
 	    case GIMPLE_BINARY_RHS:
 	      ops.op1 = gimple_assign_rhs2 (g);
+
+	      /* Try to expand conditonal compare.  */
+	      if (targetm.gen_ccmp_first)
+		{
+		  gcc_checking_assert (targetm.gen_ccmp_next != NULL);
+		  r = expand_ccmp_expr (g);
+		  if (r)
+		    break;
+		}
 	      /* Fallthru */
 	    case GIMPLE_UNARY_RHS:
 	      ops.op0 = gimple_assign_rhs1 (g);
@@ -10452,7 +10462,11 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	if (fndecl && DECL_BUILT_IN (fndecl))
 	  {
 	    gcc_assert (DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_FRONTEND);
-	    return expand_builtin (exp, target, subtarget, tmode, ignore);
+	    if (CALL_WITH_BOUNDS_P (exp))
+	      return expand_builtin_with_bounds (exp, target, subtarget,
+						 tmode, ignore);
+	    else
+	      return expand_builtin (exp, target, subtarget, tmode, ignore);
 	  }
       }
       return expand_call (exp, target, ignore);

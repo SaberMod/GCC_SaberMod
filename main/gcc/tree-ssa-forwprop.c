@@ -355,7 +355,7 @@ remove_prop_source_from_use (tree name)
   return cfg_changed;
 }
 
-/* Return the rhs of a gimple_assign STMT in a form of a single tree,
+/* Return the rhs of a gassign *STMT in a form of a single tree,
    converted to type TYPE.
 
    This should disappear, but is needed so we can combine expressions and use
@@ -442,9 +442,21 @@ forward_propagate_into_comparison_1 (gimple stmt,
       gimple def_stmt = get_prop_source_stmt (op0, false, &single_use0_p);
       if (def_stmt && can_propagate_from (def_stmt))
 	{
+	  enum tree_code def_code = gimple_assign_rhs_code (def_stmt);
+	  bool invariant_only_p = !single_use0_p;
+
 	  rhs0 = rhs_to_tree (TREE_TYPE (op1), def_stmt);
+
+	  /* Always combine comparisons or conversions from booleans.  */
+	  if (TREE_CODE (op1) == INTEGER_CST
+	      && ((CONVERT_EXPR_CODE_P (def_code)
+		   && TREE_CODE (TREE_TYPE (TREE_OPERAND (rhs0, 0)))
+		      == BOOLEAN_TYPE)
+		  || TREE_CODE_CLASS (def_code) == tcc_comparison))
+	    invariant_only_p = false;
+
 	  tmp = combine_cond_expr_cond (stmt, code, type,
-					rhs0, op1, !single_use0_p);
+					rhs0, op1, invariant_only_p);
 	  if (tmp)
 	    return tmp;
 	}
@@ -517,7 +529,7 @@ forward_propagate_into_comparison (gimple_stmt_iterator *gsi)
    This must be kept in sync with forward_propagate_into_cond.  */
 
 static int
-forward_propagate_into_gimple_cond (gimple stmt)
+forward_propagate_into_gimple_cond (gcond *stmt)
 {
   tree tmp;
   enum tree_code code = gimple_cond_code (stmt);
@@ -745,10 +757,9 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
 
       if (useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (new_def_rhs)))
 	gimple_assign_set_rhs_with_ops (use_stmt_gsi, TREE_CODE (new_def_rhs),
-					new_def_rhs, NULL_TREE);
+					new_def_rhs);
       else if (is_gimple_min_invariant (new_def_rhs))
-	gimple_assign_set_rhs_with_ops (use_stmt_gsi, NOP_EXPR,
-					new_def_rhs, NULL_TREE);
+	gimple_assign_set_rhs_with_ops (use_stmt_gsi, NOP_EXPR, new_def_rhs);
       else
 	return false;
       gcc_assert (gsi_stmt (*use_stmt_gsi) == use_stmt);
@@ -1032,7 +1043,7 @@ forward_propagate_addr_expr (tree name, tree rhs, bool parent_single_use_p)
    have values outside the range of the new type.  */
 
 static void
-simplify_gimple_switch_label_vec (gimple stmt, tree index_type)
+simplify_gimple_switch_label_vec (gswitch *stmt, tree index_type)
 {
   unsigned int branch_num = gimple_switch_num_labels (stmt);
   auto_vec<tree> labels (branch_num);
@@ -1102,7 +1113,7 @@ simplify_gimple_switch_label_vec (gimple stmt, tree index_type)
    the condition which we may be able to optimize better.  */
 
 static bool
-simplify_gimple_switch (gimple stmt)
+simplify_gimple_switch (gswitch *stmt)
 {
   /* The optimization that we really care about is removing unnecessary
      casts.  That will let us do much better in propagating the inferred
@@ -1713,8 +1724,7 @@ simplify_rotate (gimple_stmt_iterator *gsi)
     {
       g = gimple_build_assign_with_ops (NOP_EXPR,
 					make_ssa_name (TREE_TYPE (def_arg2[0]),
-						       NULL),
-					rotcnt, NULL_TREE);
+						       NULL), rotcnt);
       gsi_insert_before (gsi, g, GSI_SAME_STMT);
       rotcnt = gimple_assign_lhs (g);
     }
@@ -1728,7 +1738,7 @@ simplify_rotate (gimple_stmt_iterator *gsi)
     {
       gsi_insert_before (gsi, g, GSI_SAME_STMT);
       g = gimple_build_assign_with_ops (NOP_EXPR, gimple_assign_lhs (stmt),
-					lhs, NULL_TREE);
+					lhs);
     }
   gsi_replace (gsi, g, false);
   return true;
@@ -2043,7 +2053,7 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
       for (i = 0; i < nelts; i++)
 	mask_elts[i] = build_int_cst (TREE_TYPE (mask_type), sel[i]);
       op2 = build_vector (mask_type, mask_elts);
-      gimple_assign_set_rhs_with_ops_1 (gsi, VEC_PERM_EXPR, orig, orig, op2);
+      gimple_assign_set_rhs_with_ops (gsi, VEC_PERM_EXPR, orig, orig, op2);
     }
   update_stmt (gsi_stmt (*gsi));
   return true;
@@ -2223,10 +2233,10 @@ pass_forwprop::execute (function *fun)
 		bitmap_set_bit (to_purge, bb->index);
 	      /* Cleanup the CFG if we simplified a condition to
 	         true or false.  */
-	      if (gimple_code (stmt) == GIMPLE_COND
-		  && (gimple_cond_true_p (stmt)
-		      || gimple_cond_false_p (stmt)))
-		cfg_changed = true;
+	      if (gcond *cond = dyn_cast <gcond *> (stmt))
+		if (gimple_cond_true_p (cond)
+		    || gimple_cond_false_p (cond))
+		  cfg_changed = true;
 	      update_stmt (stmt);
 	    }
 
@@ -2276,13 +2286,13 @@ pass_forwprop::execute (function *fun)
 	      }
 
 	    case GIMPLE_SWITCH:
-	      changed = simplify_gimple_switch (stmt);
+	      changed = simplify_gimple_switch (as_a <gswitch *> (stmt));
 	      break;
 
 	    case GIMPLE_COND:
 	      {
-		int did_something;
-		did_something = forward_propagate_into_gimple_cond (stmt);
+		int did_something
+		  = forward_propagate_into_gimple_cond (as_a <gcond *> (stmt));
 		if (did_something == 2)
 		  cfg_changed = true;
 		changed = did_something != 0;

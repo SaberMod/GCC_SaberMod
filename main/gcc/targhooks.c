@@ -841,11 +841,8 @@ default_internal_arg_pointer (void)
 }
 
 rtx
-default_static_chain (const_tree fndecl, bool incoming_p)
+default_static_chain (const_tree ARG_UNUSED (fndecl_or_type), bool incoming_p)
 {
-  if (!DECL_STATIC_CHAIN (fndecl))
-    return NULL;
-
   if (incoming_p)
     {
 #ifdef STATIC_CHAIN_INCOMING_REGNUM
@@ -1430,7 +1427,7 @@ get_move_ratio (bool speed_p ATTRIBUTE_UNUSED)
    a call to memcpy emitted.  */
 
 bool
-default_use_by_pieces_infrastructure_p (unsigned int size,
+default_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 					unsigned int alignment,
 					enum by_pieces_operation op,
 					bool speed_p)

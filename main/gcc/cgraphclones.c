@@ -118,7 +118,7 @@ along with GCC; see the file COPYING3.  If not see
    the callgraph.  */
 
 cgraph_edge *
-cgraph_edge::clone (cgraph_node *n, gimple call_stmt, unsigned stmt_uid,
+cgraph_edge::clone (cgraph_node *n, gcall *call_stmt, unsigned stmt_uid,
 		    gcov_type count_scale, int freq_scale, bool update_original)
 {
   cgraph_edge *new_edge;
@@ -312,7 +312,7 @@ duplicate_thunk_for_node (cgraph_node *thunk, cgraph_node *node)
     node = duplicate_thunk_for_node (thunk_of, node);
 
   if (!DECL_ARGUMENTS (thunk->decl))
-    thunk->get_body ();
+    thunk->get_untransformed_body ();
 
   cgraph_edge *cs;
   for (cs = node->callers; cs; cs = cs->next_caller)
@@ -714,7 +714,8 @@ cgraph_node::find_replacement (void)
    call.  */
 
 void
-cgraph_node::set_call_stmt_including_clones (gimple old_stmt, gimple new_stmt,
+cgraph_node::set_call_stmt_including_clones (gimple old_stmt,
+					     gcall *new_stmt,
 					     bool update_speculative)
 {
   cgraph_node *node;
@@ -769,7 +770,7 @@ cgraph_node::set_call_stmt_including_clones (gimple old_stmt, gimple new_stmt,
 
 void
 cgraph_node::create_edge_including_clones (cgraph_node *callee,
-					   gimple old_stmt, gimple stmt,
+					   gimple old_stmt, gcall *stmt,
 					   gcov_type count,
 					   int freq,
 					   cgraph_inline_failed_t reason)
@@ -1080,7 +1081,7 @@ symbol_table::materialize_all_clones (void)
 	      && !gimple_has_body_p (node->decl))
 	    {
 	      if (!node->clone_of->clone_of)
-		node->clone_of->get_body ();
+		node->clone_of->get_untransformed_body ();
 	      if (gimple_has_body_p (node->clone_of->decl))
 	        {
 		  if (symtab->dump_file)

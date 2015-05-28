@@ -81,7 +81,7 @@ struct copy_body_data
 
   /* GIMPLE_CALL if va arg parameter packs should be expanded or NULL
      is not.  */
-  gimple gimple_call;
+  gimple call_stmt;
 
   /* Exception landing pad the inlined call lies in.  */
   int eh_lp_nr;
@@ -133,7 +133,7 @@ struct copy_body_data
   bitmap blocks_to_copy;
 
   /* Debug statements that need processing.  */
-  vec<gimple> debug_stmts;
+  vec<gdebug *> debug_stmts;
 
   /* A map from local declarations in the inlined function to
      equivalents in the function into which it is being inlined, where
@@ -209,6 +209,7 @@ extern tree remap_decl (tree decl, copy_body_data *id);
 extern tree remap_type (tree type, copy_body_data *id);
 extern gimple_seq copy_gimple_seq_and_replace_locals (gimple_seq seq);
 extern bool debug_find_tree (tree, tree);
+extern tree copy_fn (tree, tree&, tree&);
 
 /* This is in tree-inline.c since the routine uses
    data structures from the inliner.  */

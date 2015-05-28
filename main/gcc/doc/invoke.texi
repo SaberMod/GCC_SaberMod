@@ -397,7 +397,8 @@ Objective-C and Objective-C++ Dialects}.
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
 -fisolate-erroneous-paths-dereference -fisolate-erroneous-paths-attribute @gol
 -fivopts -fkeep-inline-functions -fkeep-static-consts -flive-range-shrinkage @gol
--floop-block -floop-interchange -floop-strip-mine -floop-nest-optimize @gol
+-floop-block -floop-interchange -floop-strip-mine @gol  
+-floop-unroll-and-jam -floop-nest-optimize @gol
 -floop-parallelize-all -flra-remat -flto -flto-compression-level @gol
 -flto-partition=@var{alg} -flto-report -flto-report-wpa -fmerge-all-constants @gol
 -fmerge-constants -fmodulo-sched -fmodulo-sched-allow-regmoves @gol
@@ -412,7 +413,7 @@ Objective-C and Objective-C++ Dialects}.
 -fprofile-correction -fprofile-dir=@var{path} -fprofile-generate @gol
 -fprofile-generate=@var{path} -fprofile-generate-sampling @gol
 -fprofile-use -fprofile-use=@var{path} -fprofile-values -fprofile-reorder-functions @gol
--freciprocal-math -free -frename-registers -freorder-blocks @gol
+-freciprocal-math -free -frename-registers -fschedule-fusion -freorder-blocks @gol
 -frecord-gcc-switches-in-elf@gol
 -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop -freschedule-modulo-scheduled-loops @gol
@@ -950,7 +951,9 @@ See RS/6000 and PowerPC Options.
 -mcrypto -mno-crypto -mdirect-move -mno-direct-move @gol
 -mquad-memory -mno-quad-memory @gol
 -mquad-memory-atomic -mno-quad-memory-atomic @gol
--mcompat-align-parm -mno-compat-align-parm}
+-mcompat-align-parm -mno-compat-align-parm @gol
+-mupper-regs-df -mno-upper-regs-df -mupper-regs-sf -mno-upper-regs-sf @gol
+-mupper-regs -mno-upper-regs}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -3123,8 +3126,10 @@ a message which is too long to fit on a single line.
 @cindex highlight, color, colour
 @vindex GCC_COLORS @r{environment variable}
 Use color in diagnostics.  @var{WHEN} is @samp{never}, @samp{always},
-or @samp{auto}.  The default is @samp{never} if @env{GCC_COLORS} environment
-variable isn't present in the environment, and @samp{auto} otherwise.
+or @samp{auto}.  The default depends on how the compiler has been configured,
+it can be any of the above @var{WHEN} options or also @samp{never}
+if @env{GCC_COLORS} environment variable isn't present in the environment,
+and @samp{auto} otherwise.
 @samp{auto} means to use color only when the standard error is a terminal.
 The forms @option{-fdiagnostics-color} and @option{-fno-diagnostics-color} are
 aliases for @option{-fdiagnostics-color=always} and
@@ -8485,6 +8490,13 @@ optimizer based on the Pluto optimization algorithms.  It calculates a loop
 structure optimized for data-locality and parallelism.  This option
 is experimental.
 
+@item -floop-unroll-and-jam
+@opindex floop-unroll-and-jam
+Enable unroll and jam for the ISL based loop nest optimizer.  The unroll 
+factor can be changed using the @option{loop-unroll-jam-size} parameter.
+The unrolled dimension (counting from the most inner one) can be changed 
+using the @option{loop-unroll-jam-depth} parameter.                 .
+
 @item -floop-parallelize-all
 @opindex floop-parallelize-all
 Use the Graphite data dependence analysis to identify loops that can
@@ -9789,6 +9801,14 @@ a ``home register''.
 
 Enabled by default with @option{-funroll-loops} and @option{-fpeel-loops}.
 
+@item -fschedule-fusion
+@opindex fschedule-fusion
+Performs a target dependent pass over the instruction stream to schedule
+instructions of same type together because target machine can execute them
+more efficiently if they are adjacent to each other in the instruction flow.
+
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+
 @item -ftracer
 @opindex ftracer
 Perform tail duplication to enlarge superblock size.  This transformation
@@ -10701,6 +10721,14 @@ Loop blocking or strip mining transforms, enabled with
 loop in the loop nest by a given number of iterations.  The strip
 length can be changed using the @option{loop-block-tile-size}
 parameter.  The default value is 51 iterations.
+
+@item loop-unroll-jam-size
+Specify the unroll factor for the @option{-floop-unroll-and-jam}.  The 
+default value is 4.
+
+@item loop-unroll-jam-depth
+Specify the dimension to be unrolled (counting from the most inner loop)
+for the  @option{-floop-unroll-and-jam}.  The default value is 2.
 
 @item ipa-cp-value-list-size
 IPA-CP attempts to track all possible values and types passed to a function's
@@ -19985,6 +20013,39 @@ instructions.  The @option{-mquad-memory} option requires use of
 Generate code that uses (does not use) the atomic quad word memory
 instructions.  The @option{-mquad-memory-atomic} option requires use of
 64-bit mode.
+
+@item -mupper-regs-df
+@itemx -mno-upper-regs-df
+@opindex mupper-regs-df
+@opindex mno-upper-regs-df
+Generate code that uses (does not use) the scalar double precision
+instructions that target all 64 registers in the vector/scalar
+floating point register set that were added in version 2.06 of the
+PowerPC ISA.  The @option{-mupper-regs-df} turned on by default if you
+use either of the @option{-mcpu=power7}, @option{-mcpu=power8}, or
+@option{-mvsx} options.
+
+@item -mupper-regs-sf
+@itemx -mno-upper-regs-sf
+@opindex mupper-regs-sf
+@opindex mno-upper-regs-sf
+Generate code that uses (does not use) the scalar single precision
+instructions that target all 64 registers in the vector/scalar
+floating point register set that were added in version 2.07 of the
+PowerPC ISA.  The @option{-mupper-regs-sf} turned on by default if you
+use either of the @option{-mcpu=power8}, or @option{-mpower8-vector}
+options.
+
+@item -mupper-regs
+@itemx -mno-upper-regs
+@opindex mupper-regs
+@opindex mno-upper-regs
+Generate code that uses (does not use) the scalar
+instructions that target all 64 registers in the vector/scalar
+floating point register set, depending on the model of the machine.
+
+If the @option{-mno-upper-regs} option was used, it will turn off both
+@option{-mupper-regs-sf} and @option{-mupper-regs-df} options.
 
 @item -mfloat-gprs=@var{yes/single/double/no}
 @itemx -mfloat-gprs

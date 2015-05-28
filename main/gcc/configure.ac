@@ -1228,6 +1228,7 @@ saved_CXXFLAGS="$CXXFLAGS"
 CXXFLAGS="$CXXFLAGS -I${srcdir} -I${srcdir}/../include $GMPINC"
 gcc_AC_CHECK_DECLS(getenv atol asprintf sbrk abort atof getcwd getwd \
 	stpcpy strnlen strsignal strstr strverscmp \
+	strtol strtoul strtoll strtoull \
 	errno snprintf vsnprintf vasprintf malloc realloc calloc \
 	free basename getopt clock getpagesize ffs gcc_UNLOCKED_FUNCS, , ,[
 #include "ansidecl.h"
@@ -4299,8 +4300,9 @@ LCF0:
 	  [Define if your assembler supports .gnu_attribute.])])
 
     gcc_GAS_CHECK_FEATURE([.module support],
-      gcc_cv_as_mips_dot_module,,,
-      [.module fp=32],,
+      gcc_cv_as_mips_dot_module,,[-32],
+      [.module mips2
+       .module fp=xx],,
       [AC_DEFINE(HAVE_AS_DOT_MODULE, 1,
 	  [Define if your assembler supports .module.])])
     if test x$gcc_cv_as_mips_dot_module = xno \
@@ -5695,6 +5697,34 @@ if test x"${LINKER_HASH_STYLE}" != x; then
   AC_DEFINE_UNQUOTED(LINKER_HASH_STYLE, "$LINKER_HASH_STYLE",
                                          [The linker hash style])
 fi
+
+# Specify what should be the default of -fdiagnostics-color option.
+AC_ARG_WITH([diagnostics-color],
+[AC_HELP_STRING([--with-diagnostics-color={never,auto,auto-if-env,always}],
+                [specify the default of -fdiagnostics-color option
+                 auto-if-env stands for -fdiagnostics-color=auto if
+                 GCC_COLOR environment variable is present and
+                 -fdiagnostics-color=never otherwise])],
+[case x"$withval" in
+   xnever)
+     DIAGNOSTICS_COLOR_DEFAULT=DIAGNOSTICS_COLOR_NO
+     ;;
+   xauto)
+     DIAGNOSTICS_COLOR_DEFAULT=DIAGNOSTICS_COLOR_AUTO
+     ;;
+   xauto-if-env)
+     DIAGNOSTICS_COLOR_DEFAULT=-1
+     ;;
+   xalways)
+     DIAGNOSTICS_COLOR_DEFAULT=DIAGNOSTICS_COLOR_YES
+     ;;
+   *)
+     AC_MSG_ERROR([$withval is an invalid option to --with-diagnostics-color])
+     ;;
+ esac],
+[DIAGNOSTICS_COLOR_DEFAULT=DIAGNOSTICS_COLOR_AUTO])
+AC_DEFINE_UNQUOTED(DIAGNOSTICS_COLOR_DEFAULT, $DIAGNOSTICS_COLOR_DEFAULT,
+		   [The default for -fdiagnostics-color option])
 
 # Generate gcc-driver-name.h containing GCC_DRIVER_NAME for the benefit
 # of jit/jit-playback.c.

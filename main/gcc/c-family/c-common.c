@@ -61,6 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target-def.h"
 #include "gimplify.h"
 #include "wide-int-print.h"
+#include "gimple-expr.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -461,6 +462,8 @@ const struct c_common_resword c_common_reswords[] =
   { "__attribute__",	RID_ATTRIBUTE,	0 },
   { "__auto_type",	RID_AUTO_TYPE,	D_CONLY },
   { "__bases",          RID_BASES, D_CXXONLY },
+  { "__builtin_call_with_static_chain",
+    RID_BUILTIN_CALL_WITH_STATIC_CHAIN, D_CONLY },
   { "__builtin_choose_expr", RID_CHOOSE_EXPR, D_CONLY },
   { "__builtin_complex", RID_BUILTIN_COMPLEX, D_CONLY },
   { "__builtin_shuffle", RID_BUILTIN_SHUFFLE, 0 },
@@ -12110,22 +12113,47 @@ build_userdef_literal (tree suffix_id, tree value,
 }
 
 /* For vector[index], convert the vector to a
-   pointer of the underlying type.  */
-void
+   pointer of the underlying type.  Return true if the resulting
+   ARRAY_REF should not be an lvalue.  */
+
+bool
 convert_vector_to_pointer_for_subscript (location_t loc,
-					 tree* vecp, tree index)
+					 tree *vecp, tree index)
 {
+  bool ret = false;
   if (TREE_CODE (TREE_TYPE (*vecp)) == VECTOR_TYPE)
     {
       tree type = TREE_TYPE (*vecp);
       tree type1;
 
+      ret = !lvalue_p (*vecp);
       if (TREE_CODE (index) == INTEGER_CST)
         if (!tree_fits_uhwi_p (index)
             || tree_to_uhwi (index) >= TYPE_VECTOR_SUBPARTS (type))
           warning_at (loc, OPT_Warray_bounds, "index value is out of bound");
 
-      c_common_mark_addressable_vec (*vecp);
+      if (ret)
+	{
+	  tree tmp = create_tmp_var_raw (type, NULL);
+	  DECL_SOURCE_LOCATION (tmp) = loc;
+	  *vecp = c_save_expr (*vecp);
+	  if (TREE_CODE (*vecp) == C_MAYBE_CONST_EXPR)
+	    {
+	      bool non_const = C_MAYBE_CONST_EXPR_NON_CONST (*vecp);
+	      *vecp = C_MAYBE_CONST_EXPR_EXPR (*vecp);
+	      *vecp
+		= c_wrap_maybe_const (build4 (TARGET_EXPR, type, tmp,
+					      *vecp, NULL_TREE, NULL_TREE),
+				      non_const);
+	    }
+	  else
+	    *vecp = build4 (TARGET_EXPR, type, tmp, *vecp,
+			    NULL_TREE, NULL_TREE);
+	  SET_EXPR_LOCATION (*vecp, loc);
+	  c_common_mark_addressable_vec (tmp);
+	}
+      else
+	c_common_mark_addressable_vec (*vecp);
       type = build_qualified_type (TREE_TYPE (type), TYPE_QUALS (type));
       type1 = build_pointer_type (TREE_TYPE (*vecp));
       bool ref_all = TYPE_REF_CAN_ALIAS_ALL (type1);
@@ -12145,6 +12173,7 @@ convert_vector_to_pointer_for_subscript (location_t loc,
       *vecp = build1 (ADDR_EXPR, type1, *vecp);
       *vecp = convert (type, *vecp);
     }
+  return ret;
 }
 
 /* Determine which of the operands, if any, is a scalar that needs to be

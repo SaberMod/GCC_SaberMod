@@ -1526,6 +1526,79 @@ parallelism required in output calculations chain.",
 int, (unsigned int opc, machine_mode mode),
 hook_int_uint_mode_1)
 
+/* The following member value is a function that returns priority for
+   fusion of each instruction via pointer parameters.  */
+DEFHOOK
+(fusion_priority,
+"This hook is called by scheduling fusion pass.  It calculates fusion\n\
+priorities for each instruction passed in by parameter.  The priorities\n\
+are returned via pointer parameters.\n\
+\n\
+@var{insn} is the instruction whose priorities need to be calculated.\n\
+@var{max_pri} is the maximum priority can be returned in any cases.\n\
+@var{fusion_pri} is the pointer parameter through which @var{insn}'s\n\
+fusion priority should be calculated and returned.\n\
+@var{pri} is the pointer parameter through which @var{insn}'s priority\n\
+should be calculated and returned.\n\
+\n\
+Same @var{fusion_pri} should be returned for instructions which should\n\
+be scheduled together.  Different @var{pri} should be returned for\n\
+instructions with same @var{fusion_pri}.  @var{fusion_pri} is the major\n\
+sort key, @var{pri} is the minor sort key.  All instructions will be\n\
+scheduled according to the two priorities.  All priorities calculated\n\
+should be between 0 (exclusive) and @var{max_pri} (inclusive).  To avoid\n\
+false dependencies, @var{fusion_pri} of instructions which need to be\n\
+scheduled together should be smaller than @var{fusion_pri} of irrelevant\n\
+instructions.\n\
+\n\
+Given below example:\n\
+\n\
+    ldr r10, [r1, 4]\n\
+    add r4, r4, r10\n\
+    ldr r15, [r2, 8]\n\
+    sub r5, r5, r15\n\
+    ldr r11, [r1, 0]\n\
+    add r4, r4, r11\n\
+    ldr r16, [r2, 12]\n\
+    sub r5, r5, r16\n\
+\n\
+On targets like ARM/AArch64, the two pairs of consecutive loads should be\n\
+merged.  Since peephole2 pass can't help in this case unless consecutive\n\
+loads are actually next to each other in instruction flow.  That's where\n\
+this scheduling fusion pass works.  This hook calculates priority for each\n\
+instruction based on its fustion type, like:\n\
+\n\
+    ldr r10, [r1, 4]  ; fusion_pri=99,  pri=96   \n\
+    add r4, r4, r10   ; fusion_pri=100, pri=100  \n\
+    ldr r15, [r2, 8]  ; fusion_pri=98,  pri=92   \n\
+    sub r5, r5, r15   ; fusion_pri=100, pri=100  \n\
+    ldr r11, [r1, 0]  ; fusion_pri=99,  pri=100  \n\
+    add r4, r4, r11   ; fusion_pri=100, pri=100  \n\
+    ldr r16, [r2, 12] ; fusion_pri=98,  pri=88   \n\
+    sub r5, r5, r16   ; fusion_pri=100, pri=100  \n\
+\n\
+Scheduling fusion pass then sorts all ready to issue instructions according\n\
+to the priorities.  As a result, instructions of same fusion type will be\n\
+pushed together in instruction flow, like:\n\
+\n\
+    ldr r11, [r1, 0]\n\
+    ldr r10, [r1, 4]\n\
+    ldr r15, [r2, 8]\n\
+    ldr r16, [r2, 12]\n\
+    add r4, r4, r10\n\
+    sub r5, r5, r15\n\
+    add r4, r4, r11\n\
+    sub r5, r5, r16\n\
+\n\
+Now peephole2 pass can simply merge the two pairs of loads.\n\
+\n\
+Since scheduling fusion pass relies on peephole2 to do real fusion\n\
+work, it is only enabled by default when peephole2 is in effect.\n\
+\n\
+This is firstly introduced on ARM/AArch64 targets, please refer to\n\
+the hook implementation for how different fusion types are supported.",
+void, (rtx_insn *insn, int max_pri, int *fusion_pri, int *pri), NULL)
+
 HOOK_VECTOR_END (sched)
 
 /* Functions relating to OpenMP and Cilk Plus SIMD clones.  */
@@ -2459,6 +2532,28 @@ modes and they have different conditional execution capability, such as ARM.",
  bool, (void),
  default_have_conditional_execution)
 
+DEFHOOK
+(gen_ccmp_first,
+ "This function emits a comparison insn for the first of a sequence of\n\
+ conditional comparisions.  It returns a comparison expression appropriate\n\
+ for passing to @code{gen_ccmp_next} or @code{cbranch_optab}.  @var{code} is\n\
+ the @code{rtx_code} of the compare for @var{op0} and @var{op1}.",
+ rtx, (int code, rtx op0, rtx op1),
+ NULL)
+
+DEFHOOK
+(gen_ccmp_next,
+ "This function emits a conditional comparison within a sequence of\n\
+ conditional comparisons.  The @var{prev} expression is the result of a\n\
+ prior call to @code{gen_ccmp_first} or @code{gen_ccmp_next}.  It may return\n\
+ @code{NULL} if the combination of @var{prev} and this comparison is\n\
+ not supported, otherwise the result must be appropriate for passing to\n\
+ @code{gen_ccmp_next} or @code{cbranch_optab}.  @var{code} is the\n\
+ @code{rtx_code} of the compare for @var{op0} and @var{op1}.  @var{bit_code}\n\
+ is @code{AND} or @code{IOR}, which is the op on the two compares.",
+ rtx, (rtx prev, int cmp_code, rtx op0, rtx op1, int bit_code),
+ NULL)
+
 /* Return a new value for loop unroll size.  */
 DEFHOOK
 (loop_unroll_adjust,
@@ -3219,7 +3314,7 @@ the body of the memory operation.\n\
 Returning true for higher values of @code{size} may also cause an increase\n\
 in code size, for example where the number of insns emitted to perform a\n\
 move would be greater than that of a library call.",
- bool, (unsigned int size, unsigned int alignment,
+ bool, (unsigned HOST_WIDE_INT size, unsigned int alignment,
         enum by_pieces_operation op, bool speed_p),
  default_use_by_pieces_infrastructure_p)
 
@@ -4421,8 +4516,8 @@ false for naked functions.  The default implementation always returns true.",
  bool, (void),
  hook_bool_void_true)
 
-/* Return an rtx for the static chain for FNDECL.  If INCOMING_P is true,
-       then it should be for the callee; otherwise for the caller.  */
+/* Return an rtx for the static chain for FNDECL_OR_TYPE.  If INCOMING_P
+   is true, then it should be for the callee; otherwise for the caller.  */
 DEFHOOK
 (static_chain,
  "This hook replaces the use of @code{STATIC_CHAIN_REGNUM} et al for\n\
@@ -4444,7 +4539,7 @@ will be at an offset from the frame pointer.\n\
 The variables @code{stack_pointer_rtx}, @code{frame_pointer_rtx}, and\n\
 @code{arg_pointer_rtx} will have been initialized and should be used\n\
 to refer to those items.",
- rtx, (const_tree fndecl, bool incoming_p),
+ rtx, (const_tree fndecl_or_type, bool incoming_p),
  default_static_chain)
 
 /* Fill in the trampoline at MEM with a call to FNDECL and a

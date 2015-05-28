@@ -95,7 +95,6 @@ gfc_init_options (unsigned int decoded_options_count,
 
   gfc_option.warn_aliasing = 0;
   gfc_option.warn_ampersand = 0;
-  gfc_option.warn_character_truncation = 0;
   gfc_option.warn_array_temp = 0;
   gfc_option.warn_c_binding_type = 0;
   gfc_option.gfc_warn_conversion = 0;
@@ -104,7 +103,6 @@ gfc_init_options (unsigned int decoded_options_count,
   gfc_option.warn_implicit_interface = 0;
   gfc_option.warn_line_truncation = 0;
   gfc_option.warn_surprising = 0;
-  gfc_option.warn_tabs = 1;
   gfc_option.warn_underflow = 1;
   gfc_option.warn_intrinsic_shadow = 0;
   gfc_option.warn_intrinsics_std = 0;
@@ -430,10 +428,7 @@ gfc_post_options (const char **pfilename)
     gfc_option.flag_max_stack_var_size = 0;
   
   if (pedantic)
-    { 
-      gfc_option.warn_ampersand = 1;
-      gfc_option.warn_tabs = 0;
-    }
+    gfc_option.warn_ampersand = 1;
 
   /* Optimization implies front end optimization, unless the user
      specified it directly.  */
@@ -461,11 +456,9 @@ set_Wall (int setting)
   gfc_option.gfc_warn_conversion = setting;
   gfc_option.warn_line_truncation = setting;
   gfc_option.warn_surprising = setting;
-  gfc_option.warn_tabs = !setting;
   gfc_option.warn_underflow = setting;
   gfc_option.warn_intrinsic_shadow = setting;
   gfc_option.warn_intrinsics_std = setting;
-  gfc_option.warn_character_truncation = setting;
   gfc_option.warn_real_q_constant = setting;
   gfc_option.warn_unused_dummy_argument = setting;
   gfc_option.warn_target_lifetime = setting;
@@ -489,7 +482,7 @@ gfc_handle_module_path_options (const char *arg)
 {
 
   if (gfc_option.module_dir != NULL)
-    gfc_fatal_error ("gfortran: Only one -J option allowed");
+    gfc_fatal_error ("gfortran: Only one %<-J%> option allowed");
 
   gfc_option.module_dir = XCNEWVEC (char, strlen (arg) + 2);
   strcpy (gfc_option.module_dir, arg);
@@ -561,9 +554,9 @@ gfc_handle_fpe_option (const char *arg, bool trap)
 	    }
 	  }
       if (!result && !trap)
-	gfc_fatal_error ("Argument to -ffpe-trap is not valid: %s", arg);
+	gfc_fatal_error ("Argument to %<-ffpe-trap%> is not valid: %s", arg);
       else if (!result)
-	gfc_fatal_error ("Argument to -ffpe-summary is not valid: %s", arg);
+	gfc_fatal_error ("Argument to %<-ffpe-summary%> is not valid: %s", arg);
 
     }
 }
@@ -579,7 +572,7 @@ gfc_handle_coarray_option (const char *arg)
   else if (strcmp (arg, "lib") == 0)
     gfc_option.coarray = GFC_FCOARRAY_LIB;
   else
-    gfc_fatal_error ("Argument to -fcoarray is not valid: %s", arg);
+    gfc_fatal_error ("Argument to %<-fcoarray%> is not valid: %s", arg);
 }
 
 
@@ -617,7 +610,7 @@ gfc_handle_runtime_check_option (const char *arg)
 	    }
 	}
       if (!result)
-	gfc_fatal_error ("Argument to -fcheck is not valid: %s", arg);
+	gfc_fatal_error ("Argument to %<-fcheck%> is not valid: %s", arg);
     }
 }
 
@@ -668,10 +661,6 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       gfc_option.warn_c_binding_type = value;
       break;
 
-    case OPT_Wcharacter_truncation:
-      gfc_option.warn_character_truncation = value;
-      break;
-
     case OPT_Wcompare_reals:
       gfc_option.warn_compare_reals = value;
       break;
@@ -718,10 +707,6 @@ gfc_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_Wsurprising:
       gfc_option.warn_surprising = value;
-      break;
-
-    case OPT_Wtabs:
-      gfc_option.warn_tabs = value;
       break;
 
     case OPT_Wtarget_lifetime:
@@ -823,7 +808,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_ffixed_line_length_:
       if (value != 0 && value < 7)
-	gfc_fatal_error ("Fixed line length must be at least seven.");
+	gfc_fatal_error ("Fixed line length must be at least seven");
       gfc_option.fixed_line_length = value;
       break;
 
@@ -845,7 +830,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_ffree_line_length_:
       if (value != 0 && value < 4)
-	gfc_fatal_error ("Free line length must be at least three.");
+	gfc_fatal_error ("Free line length must be at least three");
       gfc_option.free_line_length = value;
       break;
 
@@ -859,7 +844,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_static_libgfortran:
 #ifndef HAVE_LD_STATIC_DYNAMIC
-      gfc_fatal_error ("-static-libgfortran is not supported in this "
+      gfc_fatal_error ("%<-static-libgfortran%> is not supported in this "
 		       "configuration");
 #endif
       break;
@@ -974,7 +959,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       else if (!strcasecmp (arg, "true"))
 	gfc_option.flag_init_logical = GFC_INIT_LOGICAL_TRUE;
       else
-	gfc_fatal_error ("Unrecognized option to -finit-logical: %s",
+	gfc_fatal_error ("Unrecognized option to %<-finit-logical%>: %s",
 			 arg);
       break;
 
@@ -990,7 +975,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       else if (!strcasecmp (arg, "-inf"))
 	gfc_option.flag_init_real = GFC_INIT_REAL_NEG_INF;
       else
-	gfc_fatal_error ("Unrecognized option to -finit-real: %s",
+	gfc_fatal_error ("Unrecognized option to %<-finit-real%>: %s",
 			 arg);
       break;
 
@@ -1006,7 +991,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
 	  gfc_option.flag_init_character_value = (char)value;
 	}
       else
-	gfc_fatal_error ("The value of n in -finit-character=n must be "
+	gfc_fatal_error ("The value of n in %<-finit-character=n%> must be "
 			 "between 0 and 127");
       break;
 
@@ -1038,7 +1023,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       gfc_option.max_continue_free = 39;
       gfc_option.max_identifier_length = 31;
       gfc_option.warn_ampersand = 1;
-      gfc_option.warn_tabs = 0;
+      warn_tabs = 1;
       break;
 
     case OPT_std_f2003:
@@ -1047,7 +1032,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       gfc_option.warn_std = GFC_STD_F95_OBS;
       gfc_option.max_identifier_length = 63;
       gfc_option.warn_ampersand = 1;
-      gfc_option.warn_tabs = 0;
+      warn_tabs = 1;
       break;
 
     case OPT_std_f2008:
@@ -1056,7 +1041,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       gfc_option.warn_std = GFC_STD_F95_OBS | GFC_STD_F2008_OBS;
       gfc_option.max_identifier_length = 63;
       gfc_option.warn_ampersand = 1;
-      gfc_option.warn_tabs = 0;
+      warn_tabs = 1;
       break;
 
     case OPT_std_f2008ts:
@@ -1066,7 +1051,7 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       gfc_option.warn_std = GFC_STD_F95_OBS | GFC_STD_F2008_OBS;
       gfc_option.max_identifier_length = 63;
       gfc_option.warn_ampersand = 1;
-      gfc_option.warn_tabs = 0;
+      warn_tabs = 1;
       break;
 
     case OPT_std_gnu:
