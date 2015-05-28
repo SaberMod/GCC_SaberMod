@@ -8297,7 +8297,7 @@ package body Sem_Ch6 is
             then
                Defn :=
                  Type_Definition
-                    (Original_Node (Parent (First_Subtype (F_Typ))));
+                   (Original_Node (Parent (First_Subtype (F_Typ))));
             else
                Defn := Type_Definition (Original_Node (Parent (F_Typ)));
             end if;
@@ -8347,6 +8347,7 @@ package body Sem_Ch6 is
          elsif not Is_Class_Wide_Type (New_Type) then
             while Etype (New_Type) /= New_Type loop
                New_Type := Etype (New_Type);
+
                if New_Type = Prev_Type then
                   return True;
                end if;
@@ -10116,9 +10117,13 @@ package body Sem_Ch6 is
                        (Parent (T), N_Access_Function_Definition,
                                     N_Access_Procedure_Definition)
                      then
-                        if not Is_Class_Wide_Type (Formal_Type) then
+                        --  A limited view has no private dependents
+
+                        if not Is_Class_Wide_Type (Formal_Type)
+                          and then not From_Limited_With (Formal_Type)
+                        then
                            Append_Elmt (Current_Scope,
-                               Private_Dependents (Base_Type (Formal_Type)));
+                             Private_Dependents (Base_Type (Formal_Type)));
                         end if;
 
                         --  Freezing is delayed to ensure that Register_Prim

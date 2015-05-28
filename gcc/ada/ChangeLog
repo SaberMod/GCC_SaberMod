@@ -1,3 +1,103 @@
+2015-05-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc-interface/Makefile.in (TOOLS_LIBS): Add @NO_PIE_FLAG@.
+
+2015-05-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (elaborate_all_entities): Do not elaborate an
+	incomplete type coming from a limited_with and whose non-limited view
+	comes from the main unit.
+
+2015-05-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Variable>: Move down
+	code applying atomic checks to the object.
+
+2015-05-27  Robert Dewar  <dewar@adacore.com>
+
+	* sem_aux.adb: Minor rewording.
+
+2015-05-27  Bob Duff  <duff@adacore.com>
+
+	* exp_prag.adb (Expand_Pragma_Abort_Defer): Make
+	pragma Abort_Defer do nothing if Abort_Allowed is False.
+
+2015-05-27  Arnaud Charlet  <charlet@adacore.com>
+
+	* exp_ch9.adb, sem_util.adb, sem_util.ads, s-stposu.adb, s-spsufi.ads,
+	sem_elab.ads, g-comlin.ads, errout.ads, exp_ch6.adb, sem_ch4.adb,
+	opt.ads, s-bignum.adb, output.ads, sem_ch13.adb, erroutc.ads,
+	sem_disp.ads, exp_ch3.adb: Minor fixes of duplicate words in comments.
+
+2015-05-27  Doug Rupp  <rupp@adacore.com>
+
+	* adaint.c (__gnat_tmp_name) [vxworks]: Robustify and use for rtp as
+	well as kernel.
+
+2015-05-27  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* par_sco.adb (Process_Decision): Store sloc to
+	condition/pragmas SCOs associations into a temporary table before
+	moving them to the SCO_Raw_Hash_Table so that we can back them
+	out just like we do for SCO entries that are simple decisions
+	in an expression context.
+
+2015-05-27  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch6.adb (Process_Formals): A non-private formal type that
+	is a limited view does not have a list of private dependents.
+
+2015-05-27  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch5.adb (Expand_N_Case_Statement): If the expression in
+	the case statement is a compile-time known value, we look for a
+	corresponding alternative to optimize the case statement into a
+	single case. If the type has a static predicate and the expression
+	does not satisfy the predicate, there is no legal alternative and
+	this optimization is not applicable.  Excecution is erroneous,
+	or else if assertions are enabled, an exception will be raised
+	earlier, at the point the expression is elaborated.
+
+2015-05-27  Robert Dewar  <dewar@adacore.com>
+
+	* sem_elab.adb (Check_Internal_Call_Continue): Suppress
+	warning on Finalize, Adjust, or Initialize if type involved has
+	Warnings_Off set.
+
+2015-05-27  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_aux.adb, sem_aux.ads (First_Discriminant): Return empty when
+	applied to a type with no known discriminants.
+
+2015-05-26  Robert Dewar  <dewar@adacore.com>
+
+	* errout.ads, sem_ch4.adb, sem_ch6.adb: Minor reformatting.
+
+2015-05-26  Bob Duff  <duff@adacore.com>
+
+	* sem_elab.adb (Check_A_Call): In the case where we're
+	calling something in an instance of a generic package that is
+	within this same unit (as the call), make sure we treat it
+	as a call to an entity within the same unit. That is, call
+	Check_Internal_Call, rather than putting "Elaborate_All(X)"
+	on X, which would necessarily result in an elaboration cycle in
+	static-elaboration mode.
+
+2015-05-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* freeze.ads (Is_Atomic_VFA_Aggregate): Adjust profile.
+	* freeze.adb (Is_Atomic_VFA_Aggregate): Change Entity
+	parameter into Node parameter and remove Type parameter.
+	Look at Is_Atomic_Or_VFA both on the type and on the object.
+	(Freeze_Entity): Adjust call to Is_Atomic_VFA_Aggregate.
+	* exp_aggr.adb (Expand_Record_Aggregate): Likewise.
+	(Process_Atomic_Independent_Shared_Volatile): Remove code
+	propagating Atomic or VFA from object to locally-defined type.
+
+2015-05-26  Bob Duff  <duff@adacore.com>
+
+	* exp_ch7.adb: Minor comment fix.
+
 2015-05-26  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gcc-interface/trans.c (Attribute_to_gnu) <Attr_Min/Attr_Max>: Do not

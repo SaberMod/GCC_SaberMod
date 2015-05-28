@@ -1,3 +1,287 @@
+2015-05-27  Magnus Granberg  <zorry@gentoo.org>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Makefile.in (COMPILER): Add @NO_PIE_CFLAGS@.
+	(BUILD_CFLAGS): Likewise.
+	(BUILD_CXXFLAGS): Likewise.
+	(LINKER): Add @NO_PIE_FLAG@.
+	(BUILD_LDFLAGS): Likewise.
+	(libgcc.mvars): Set NO_PIE_CFLAGS to -fno-PIE for
+	--enable-default-pie.
+	* common.opt (fPIE): Initialize to -1.
+	(fpie): Likewise.
+	(no-pie): New option.
+	(pie): Replace "Negative(shared)" with "Negative(no-pie)".
+	* configure.ac: Add --enable-default-pie.
+	(NO_PIE_CFLAGS): New.  Check if -fno-PIE works.  AC_SUBST.
+	(NO_PIE_FLAG): New.  Check if -no-pie works.  AC_SUBST.
+	* defaults.h (DEFAULT_FLAG_PIE): New.  Default PIE to -fPIE.
+	* gcc.c (NO_PIE_SPEC): New.
+	(PIE_SPEC): Likewise.
+	(NO_FPIE1_SPEC): Likewise.
+	(FPIE1_SPEC): Likewise.
+	(NO_FPIE2_SPEC): Likewise.
+	(FPIE2_SPEC): Likewise.
+	(NO_FPIE2_SPEC): Likewise.
+	(FPIE_SPEC): Likewise.
+	(NO_FPIE_SPEC): Likewise.
+	(NO_FPIC1_SPEC): Likewise.
+	(FPIC1_SPEC): Likewise.
+	(NO_FPIC2_SPEC): Likewise.
+	(FPIC2_SPEC): Likewise.
+	(NO_FPIC2_SPEC): Likewise.
+	(FPIC_SPEC): Likewise.
+	(NO_FPIC_SPEC): Likewise.
+	(NO_FPIE1_AND_FPIC1_SPEC): Likewise.
+	(FPIE1_OR_FPIC1_SPEC): Likewise.
+	(NO_FPIE2_AND_FPIC2_SPEC): Likewise.
+	(FPIE2_OR_FPIC2_SPEC): Likewise.
+	(NO_FPIE_AND_FPIC_SPEC): Likewise.
+	(FPIE_OR_FPIC_SPEC): Likewise.
+	(LD_PIE_SPEC): Likewise.
+	(LINK_PIE_SPEC): Handle -no-pie.  Use PIE_SPEC and LD_PIE_SPEC.
+	* opts.c (finish_options): Update opts->x_flag_pie if it is -1.
+	* config/darwin.h (PIE_SPEC): Renamed to ...
+	(DARWIN_PIE_SPEC): This.
+	(LINK_SPEC): Replace PIE_SPEC with DARWIN_PIE_SPEC.
+	* config/darwin9.h (PIE_SPEC): Renamed to ...
+	(DARWIN_PIE_SPEC): This.
+	* config/gnu-user.h (GNU_USER_TARGET_STARTFILE_SPEC): Use
+	PIE_SPEC and NO_PIE_SPEC if HAVE_LD_PIE is defined.
+	* config/openbsd.h (ASM_SPEC): Use FPIE1_OR_FPIC1_SPEC and
+	FPIE2_OR_FPIC2_SPEC.
+	* config/m68k/netbsd-elf.h (ASM_SPEC): Likewise.
+	* config/m68k/openbsd.h (ASM_SPEC): Likewise.
+	* gcc/config/sol2.h (ASM_PIC_SPEC): Likewise.
+	* config/arm/freebsd.h (SUBTARGET_EXTRA_ASM_SPEC): Likewise.
+	* config/arm/netbsd-elf.h (SUBTARGET_EXTRA_ASM_SPEC): Likewise.
+	* config/arm/semi.h (SUBTARGET_EXTRA_ASM_SPEC): Likewise.
+	* config/cris/linux.h (CRIS_ASM_SUBTARGET_SPEC): Likewise.
+	* config/m32r/m32r.h (ASM_SPEC): Likewise.
+	* config/m68k/uclinux.h (DRIVER_SELF_SPECS): Likewise.
+	* config/rs6000/linux64.h (ASM_SPEC32): Likewise.
+	* config/rs6000/sysv4.h (ASM_SPEC): Likewise.
+	* config/sparc/freebsd.h (ASM_SPEC): Likewise.
+	* config/sparc/linux.h (ASM_SPEC): Likewise.
+	* config/sparc/linux64.h (ASM_SPEC): Likewise.
+	* config/sparc/netbsd-elf.h (ASM_SPEC): Likewise.
+	* config/sparc/openbsd64.h (ASM_SPEC): Likewise.
+	* config/sparc/sp-elf.h (ASM_SPEC): Likewise.
+	* config/sparc/sp64-elf.h (ASM_SPEC): Likewise.
+	* config/sparc/sparc.h (ASM_SPEC): Likewise.
+	* config/sparc/sysv4.h (ASM_SPEC): Likewise.
+	* config/sparc/vxworks.h (ASM_SPEC): Likewise.
+	* config/c6x/elf-common.h (ASM_SPEC): Use NO_FPIC2_SPEC,
+	FPIC2_SPEC, FPIC1_SPEC and FPIC2_SPEC.
+	* config/c6x/uclinux-elf.h (LINK_SPEC): Use FPIE_SPEC.
+	* config/frv/frv.h (DRIVER_SELF_SPECS): Use FPIC_SPEC,
+	NO_FPIC_SPEC and NO_FPIE1_AND_FPIC1_SPEC.
+	(ASM_SPEC): Use FPIE1_OR_FPIC1_SPEC and FPIE2_OR_FPIC2_SPEC.
+	* config/m68k/m68k.h (ASM_PCREL_SPEC): Use FPIC_SPEC and
+	NO_FPIC_SPEC.
+	* config/mips/gnu-user.h (NO_SHARED_SPECS): Use
+	NO_FPIE_AND_FPIC_SPEC.
+	* config/mips/vxworks.h (SUBTARGET_ASM_SPEC): Use FPIC_SPEC.
+	* config/rs6000/freebsd64.h (ASM_SPEC32): Likewise.
+	* config/rs6000/vxworks.h (ASM_SPEC): Likewise.
+	* config/vax/linux.h (ASM_SPEC): Likewise.
+	* doc/install.texi: Document --enable-default-pie.
+	* doc/invoke.texi: Document -no-pie.
+	* config.in: Regenerated.
+	* configure: Likewise.
+
+2015-05-28  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR rtl-optimization/66168
+	* loop-invariant.c (move_invariant_reg): Pass dest rather than reg to
+	can_move_invariant_reg.
+
+2015-05-27  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR target/66148
+	* config/pa/pa.c (pa_emit_move_sequence): Correct placement of
+	REG_EQUAL note when doing insert.
+
+	* config/pa/pa.c (pa_print_operand): Use HOST_WIDE_INT_PRINT_DEC
+	instead of "%d" for 'o' operand.
+
+2015-05-27  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/66270
+	* tree.c (build_pointer_type_for_mode): Canonical type does not
+	inherit can_alias_all.
+	(build_reference_type_for_mode): Likewise.
+
+2015-05-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* expr.h (array_at_struct_end_p): Move to...
+	(array_ref_element_size): Likewise.
+	(component_ref_field_offset): Likewise.
+	* tree.h (array_ref_element_size): ...here.
+	(array_at_struct_end_p): Likewise.
+	(component_ref_field_offset): Likewise.
+	* expr.c (array_ref_element_size): Move to...
+	(array_ref_low_bound): Likewise.
+	(array_at_struct_end_p): Likewise.
+	(array_ref_up_bound): Likewise.
+	(component_ref_field_offset): Likewise.
+	* tree.c (array_ref_element_size): ...here.
+	(array_ref_low_bound): Likewise.
+	(array_ref_up_bound): Likewise.
+	(array_at_struct_end_p): Likewise.
+	(component_ref_field_offset): Likewise.
+
+2015-05-27  Gregor Richards  <gregor.richards@uwaterloo.ca>
+	    Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* config/aarch64/aarch64-linux.h (MUSL_DYNAMIC_LINKER): Define.
+
+2015-05-27  Jason Merrill  <jason@redhat.com>
+
+	PR bootstrap/66304
+	* configure.ac: Use ACX_PROG_CXX_WARNING_OPTS,
+	ACX_PROG_CXX_WARNING_ALMOST_PEDANTIC, and
+	ACX_PROG_CXX_WARNINGS_ARE_ERRORS.
+
+2015-05-22 Aditya Kumar <hiraditya@msn.com>
+
+	* auto-profile.c (afdo_calculate_branch_prob): Break once has_sample
+	is true.
+
+	* statistics.c (statistics_fini_pass): Print pass name.
+
+2015-05-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66272
+	Revert parts of
+	2014-08-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62031
+	* tree-data-ref.c (dr_analyze_indices): Do not set
+	DR_UNCONSTRAINED_BASE.
+	(dr_may_alias_p): All indirect accesses have to go the
+	formerly DR_UNCONSTRAINED_BASE path.
+	* tree-data-ref.h (struct indices): Remove
+	unconstrained_base member.
+	(DR_UNCONSTRAINED_BASE): Remove.
+
+2015-05-27  Aldy Hernandez  <aldyh@redhat.com>
+
+	* dwarf2out.c: Remove block_map.
+	(gen_call_site_die): Replace block_map use with BLOCK_DIE.
+	(gen_lexical_block_die): Same.
+	(dwarf2out_function_decl): Remove block_map use.
+	(dwarf2out_c_finalize): Same.
+	* tree-core.h (struct tree_block): Add die field.
+	* tree.h (BLOCK_DIE): New.
+
+2015-05-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/65358
+	* expr.c (memory_load_overlap): New function.
+	(emit_push_insn): When pushing partial args to the stack would
+	clobber the register part load the overlapping part into a pseudo
+	and put it into the hard reg after pushing.  Change return type
+	to bool.  Add bool argument.
+	* expr.h (emit_push_insn): Change return type to bool.
+	Add bool argument.
+	* calls.c (expand_call): Cancel sibcall optimization when encountering
+	partial argument on targets with ARGS_GROW_DOWNWARD and
+	!STACK_GROWS_DOWNWARD.
+	(emit_library_call_value_1): Update callsite of emit_push_insn.
+	(store_one_arg): Likewise. 
+
+2015-05-27  Gregor Richards  <gregor.richards@uwaterloo.ca>
+
+	* config/arm/linux-eabi.h (MUSL_DYNAMIC_LINKER): Define.
+
+2015-05-27  Martin Liska  <mliska@suse.cz>
+
+	* Makefile.in: Add additional dependencies related to memory report
+	enhancement.
+	* alloc-pool.c (allocate_pool_descriptor): Use new ctor.
+	* bitmap.c (struct bitmap_descriptor_d): Remove.
+	(struct loc): Likewise.
+	(struct bitmap_desc_hasher): Likewise.
+	(bitmap_desc_hasher::hash): Likewise.
+	(bitmap_desc_hasher::equal): Likewise.
+	(get_bitmap_descriptor): Likewise.
+	(bitmap_register): User new memory descriptor API.
+	(register_overhead): Likewise.
+	(bitmap_find_bit): Register nsearches and search_iter statistics.
+	(struct bitmap_output_info): Remove.
+	(print_statistics): Likewise.
+	(dump_bitmap_statistics): Use new memory descriptor.
+	* bitmap.h (struct bitmap_usage): New class.
+	* genmatch.c: Extend header file inclusion.
+	* genpreds.c: Likewise.
+	* ggc-common.c (struct ggc_usage): New class.
+	(struct ggc_loc_desc_hasher): Remove.
+	(ggc_loc_desc_hasher::hash): Likewise.
+	(ggc_loc_desc_hasher::equal): Likewise.
+	(struct ggc_ptr_hash_entry): Likewise.
+	(struct ptr_hash_hasher): Likewise.
+	(ptr_hash_hasher::hash): Likewise.
+	(ptr_hash_hasher::equal): Likewise.
+	(make_loc_descriptor): Likewise.
+	(ggc_prune_ptr): Likewise.
+	(dump_ggc_loc_statistics): Use new memory descriptor.
+	(ggc_record_overhead): Likewise.
+	(ggc_free_overhead): Likewise.
+	(final_cmp_statistic): Remove.
+	(cmp_statistic): Likewise.
+	(ggc_add_statistics): Liekwise.
+	(ggc_prune_overhead_list): Likewise.
+	* hash-map-traits.h: New file.
+	* hash-map.h (struct default_hashmap_traits): Move the traits to a
+	separate header file.
+	* hash-set.h: Pass memory statistics info to ctor.
+	* hash-table.c (void dump_hash_table_loc_statistics): New function.
+	* hash-table.h (hash_table::hash_table): Add new ctor arguments.
+	(hash_table::~hash_table): Register memory release operation.
+	(hash_table::alloc_entries): Handle memory allocation operation.
+	(hash_table::expand): Likewise.
+	* inchash.c (iterative_hash_hashval_t): Move implementation to header
+	file.
+	(iterative_hash_host_wide_int): Likewise.
+	* inchash.h (class hash): Likewise.
+	* mem-stats-traits.h: New file.
+	* mem-stats.h: New file.
+	(mem_location): Add new class.
+	(mem_usage): Likewise.
+	(mem_alloc_description): Likewise.
+	* sese.c: Add new header file inclusision.
+	* toplev.c (dump_memory_report): Add report for hash_table, hash_map
+	and hash_set.
+	* tree-sra.c: Add new header file inclusision.
+	* vec.c (struct vec_descriptor): Remove.
+	(hash_descriptor): Likewise.
+	(struct vec_usage): Likewise.
+	(struct ptr_hash_entry): Likewise.
+	(hash_ptr): Likewise.
+	(eq_ptr): Likewise.
+	(vec_prefix::register_overhead): Use new memory descriptor API.
+	(vec_prefix::release_overhead): Likewise.
+	(add_statistics): Remove.
+	(dump_vec_loc_statistics): Use new memory descriptor API.
+	* vec.h (struct vec_prefix): Likewise.
+	(va_heap::reserve): Likewise.
+	(va_heap::release): Likewise.
+	* emit-rtl.c (gen_raw_REG): Fix passing MEM_STAT.
+
+2015-05-27  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-stmts.c (vectorizable_load): Initialize slp_perm
+	earlier and remove ??? comment.
+	(vect_analyze_stmt): If we are analyzing a pure SLP stmt
+	and got called from loop analysis bail out.  Always pass the SLP
+	node to the vectorizable_* functions.
+	* tree-vect-loop.c (vect_analyze_loop_operations): Remove
+	the premature SLP check here.
+	* tree-vect-slp.c (vect_detect_hybrid_slp_stmts): Dump hybrid
+	detected SLP stmts.
+	(vect_detect_hybrid_slp_1): Likewise.
+
 2015-05-26  Jeff Law  <law@redhat.com>
 
 	* combine.c (find_split_point): Verify that the shift count is a
@@ -2787,6 +3071,7 @@
 
 2015-05-07  Jeff Law  <law@redhat.com>
 
+	PR target/39726
 	* match.pd (bit_and (plus/minus (convert @0) (convert @1) mask): New
 	simplifier to narrow arithmetic.
 	* generic-match-head.c: (types_match, single_use): New functions.

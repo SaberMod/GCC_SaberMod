@@ -1,3 +1,43 @@
+2015-05-28  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR rtl-optimization/66168
+	* gcc.c-torture/compile/pr66168.c: New test.
+
+2015-05-27  Jeff Law  <law@redhat.com>
+
+	PR target/39726
+	* gcc.dg/target/m68k/pr39726-1.c: New test.
+
+2015-05-27  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/66270
+	* g++.dg/ext/alias-canon3.C: New.
+
+2015-05-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66272
+	Revert parts of
+	2014-08-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62031
+	* gcc.dg/torture/pr66272.c: New testcase.
+
+2015-05-27  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/vect/slp-reduc-7.c: New testcase.
+
+2015-05-27  Honggyu Kim  <hong.gyu.kim@lge.com>
+
+	PR target/65358
+	* gcc.dg/pr65358.c: New test. 
+
+2015-05-27  Andre Vehreschild  <vehre@gmx.de>
+
+	PR fortran/65548
+	* gfortran.dg/allocate_with_source_5.f90: Correct errorneous
+	semantic.
+	* gfortran.dg/allocate_with_source_6.f90: New test.
+
 2015-05-26  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gnat.dg/atomic7_1.adb: New test.
