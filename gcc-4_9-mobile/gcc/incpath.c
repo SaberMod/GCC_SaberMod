@@ -349,6 +349,45 @@ merge_include_chains (const char *sysroot, cpp_reader *pfile, int verbose)
       add_sysroot_to_chain (sysroot, AFTER);
     }
 
+  /* Need to run here before processing below as that'll automatically cull
+     paths that do not exist.  However, we want to throw errors whenever the
+     build includes things like -I/usr/include/asdf even if it happens to not
+     exist on the current system.  */
+  if (flag_poison_system_directories)
+    {
+      unsigned int c;
+      unsigned int chains[] = { QUOTE, BRACKET, SYSTEM, AFTER };
+
+      /* Enable -Werror=poison-system-directories when -Werror and -Wno-error
+        have not been set.
+
+        Ideally this would be done in toplev's process_options, but this
+        function runs before that one, so we inline it here instead.  */
+      if (POISON_SYSTEM_DIRECTORIES_DEFAULT
+         && !global_options_set.x_warnings_are_errors
+         && global_dc->classify_diagnostic[OPT_Wpoison_system_directories] ==
+            DK_UNSPECIFIED)
+       diagnostic_classify_diagnostic (global_dc,
+                                       OPT_Wpoison_system_directories,
+                                       DK_ERROR, UNKNOWN_LOCATION);
+
+      for (c = 0; c < ARRAY_SIZE (chains); ++c)
+       {
+         unsigned int chain = chains[c];
+         struct cpp_dir *p;
+
+         for (p = heads[chain]; p; p = p->next)
+           if (!strncmp (p->name, "/usr/include", 12)
+               || !strncmp (p->name, "/usr/local/include", 18)
+               || !strncmp (p->name, "/usr/X11R6/include", 18)
+               || !strncmp (p->name, "/lib", 4)
+               || !strncmp (p->name, "/usr/local/lib", 14))
+             warning (OPT_Wpoison_system_directories,
+                      "include location \"%s\" is unsafe for "
+                      "cross-compilation", p->name);
+       }
+    }
+
   /* Join the SYSTEM and AFTER chains.  Remove duplicates in the
      resulting SYSTEM chain.  */
   if (heads[SYSTEM])
@@ -382,35 +421,6 @@ merge_include_chains (const char *sysroot, cpp_reader *pfile, int verbose)
 	  fprintf (stderr, " %s\n", p->name);
 	}
       fprintf (stderr, _("End of search list.\n"));
-    }
-
-  if (flag_poison_system_directories)
-    {
-      struct cpp_dir *p;
-
-      /* Enable -Werror=poison-system-directories when -Werror and -Wno-error
-	 have not been set.
-
-	 Ideally this would be done in toplev's process_options, but this check
-	 runs before that gets a chance to run, so we inline it here.  */
-      if (!global_options_set.x_warnings_are_errors
-	  && global_dc->classify_diagnostic[OPT_Wpoison_system_directories] ==
-	     DK_UNSPECIFIED)
-	diagnostic_classify_diagnostic (global_dc,
-				        OPT_Wpoison_system_directories,
-				        DK_ERROR, UNKNOWN_LOCATION);
-
-       for (p = heads[QUOTE]; p; p = p->next)
-	{
-	  if (!strncmp (p->name, "/usr/include", 12)
-	      || !strncmp (p->name, "/usr/local/include", 18)
-	      || !strncmp (p->name, "/usr/X11R6/include", 18)
-	      || !strncmp (p->name, "/lib", 4)
-	      || !strncmp (p->name, "/usr/local/lib", 14))
-	    warning (OPT_Wpoison_system_directories,
-		     "include location \"%s\" is unsafe for cross-compilation",
-		     p->name);
-	}
     }
 }
 
