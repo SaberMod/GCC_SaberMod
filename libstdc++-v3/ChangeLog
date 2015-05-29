@@ -1,3 +1,30 @@
+2015-05-28  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/65352
+	* include/profile/array (array::data): Use __array_traits::_S_ptr.
+	* include/debug/array (array::data): Likewise.
+	* include/std/array (__array_traits::_S_ptr): New function.
+	(array::data): Use _S_ptr to avoid creating invalid reference.
+	* testsuite/23_containers/array/tuple_interface/get_neg.cc: Adjust
+	dg-error line numbers.
+	* testsuite/23_containers/array/tuple_interface/tuple_element_neg.cc:
+	likewise.
+
+	Backport from mainline
+	2015-01-20  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64658
+	* include/std/atomic (atomic_init): Define.
+	* testsuite/29_atomics/atomic/64658.cc: New.
+
+	Backport from mainline
+	2014-12-22  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/37522
+	* include/bits/basic_string.h (stod, stof, stoi, stol, stold, stoll,
+	stoul, stoull, to_string): Only use _GLIBCXX_HAVE_BROKEN_VSWPRINTF
+	to guard definition of to_wstring.
+
 2015-05-22  David Edelsohn  <dje.gcc@gmail.com>
 
 	Backport from mainline
