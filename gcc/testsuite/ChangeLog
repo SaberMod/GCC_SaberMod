@@ -1,3 +1,50 @@
+2015-05-28  DJ Delorie  <dj@redhat.com>
+
+	* gcc.c-torture/execute/pr65369.c: Don't assume int is 32 bits.
+
+2015-05-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr43.adb: New test.
+
+2015-05-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/varsize_temp.adb: Rename into...
+	* gnat.dg/varsize1.adb: ...this.
+	* gnat.dg/varsize_copy.ad[sb]: Rename into...
+	* gnat.dg/varsize2.ad[sb]: ...this.
+	* gnat.dg/varsize3_1.adb: New test.
+	* gnat.dg/varsize3_2.adb: Likewise.
+	* gnat.dg/varsize3_3.adb: Likewise.
+	* gnat.dg/varsize3_4.adb: Likewise.
+	* gnat.dg/varsize3_5.adb: Likewise.
+	* gnat.dg/varsize3_6.adb: Likewise.
+	* gnat.dg/varsize3_pkg1.ads: New helper.
+	* gnat.dg/varsize3_pkg2.ads: Likewise.
+	* gnat.dg/varsize3_pkg3.ads: Likewise.
+
+2015-05-28  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/vect/slp-reduc-sad.c: New testcase.
+
+2015-05-28  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66142
+	* gcc.dg/tree-ssa/ssa-fre-44.c: Fixup.
+
+2015-05-28  Lawrence Velázquez  <vq@larryv.me>
+
+	PR target/63810
+	* gcc.dg/darwin-minversion-3.c: Update testcase.
+	* gcc.dg/darwin-minversion-4.c: Ditto.
+	* gcc.dg/darwin-minversion-5.c: New testcase.
+	* gcc.dg/darwin-minversion-6.c: Ditto.
+	* gcc.dg/darwin-minversion-7.c: Ditto.
+	* gcc.dg/darwin-minversion-8.c: Ditto.
+	* gcc.dg/darwin-minversion-9.c: Ditto.
+	* gcc.dg/darwin-minversion-10.c: Ditto.
+	* gcc.dg/darwin-minversion-11.c: Ditto.
+	* gcc.dg/darwin-minversion-12.c: Ditto.
+
 2015-05-28  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	PR rtl-optimization/66168

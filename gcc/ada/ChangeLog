@@ -1,3 +1,122 @@
+2015-05-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils.c (max_size) <tcc_binary>: Add special code to
+	deal with the subtraction of a "negative" value in an unsigned type.
+
+2015-05-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Subprogram_Type>: Do
+	not error out on a return type which has a size that overflows if the
+	return is done by invisible reference.
+
+2015-05-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils.c (gnat_pushdecl): Reunify the handling of array
+	and pointer types wrt DECL_ORIGINAL_TYPE and adjust left and right.
+
+2015-05-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/gigi.h (gnat_stabilize_reference): Adjust.
+	(rewrite_fn): Remove third parameter.
+	(type_is_padding_self_referential): New inline predicate.
+	(return_type_with_variable_size_p): Likewise.
+	* gcc-interface/decl.c (allocatable_size_p): More around.
+	(cannot_be_superflat_p): Rename into...
+	(cannot_be_superflat ): ...this.
+	(initial_value_needs_conversion): New predicate.
+	(gnat_to_gnu_entity): Invoke type_is_padding_self_referential,
+	initial_value_needs_conversion and adjust to above renaming.
+	For a renaming, force the materialization if the inner expression
+	is compound.  Adjust calls to elaborate_reference and build a
+	compound expression if needed.
+	(struct er_dat): Add N field.
+	(elaborate_reference_1): Remove N parameter and adjust.
+	(elaborate_reference): Add INIT parameter and pass it in the call to
+	gnat_rewrite_reference.  Adjust initial expression.
+	* gcc-interface/trans.c (Call_to_gnu): Treat renamings the same way as
+	regular object declarations when it comes to creating a temporary.
+	Adjust call to gnat_stabilize_reference and build a compound expression
+ 	if needed.  Invoke return_type_with_variable_size_p.
+	(gnat_to_gnu): Invoke type_is_padding_self_referential.  In case #4,
+	return a call to a function unmodified if it returns with variable size
+ 	and is also the initial expression in an object declaration.
+	* gcc-interface/utils2.c (build_binary_op) <INIT_EXPR>: Use the RHS'
+	type if it is a call to a function that returns with variable size.
+	(build_unary_op): Invoke type_is_padding_self_referential.
+	(gnat_stabilize_reference_1): Remove N parameter and adjust.
+	(gnat_stabilize_reference): Add INIT parameter and pass it in the call
+	to gnat_rewrite_reference.
+	(gnat_rewrite_reference):  Remove N, add INIT parameter and adjust.
+	<COMPOUND_EXPR>: New case.
+
+2015-05-28  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Is_Visible_Component): Component is visible
+	in a derived type if inherited through an ancestor that has a
+	partial view of the original type holding the component, if the
+	full view of that original type is in scope.
+	* sem_util.ads (Get_Body_From_Stub): Works for all kinds of stubs.
+
+2015-05-28  Bob Duff  <duff@adacore.com>
+
+	* sem_util.adb (Requires_Transient_Scope): For definite untagged
+	subtypes, we should never have to use the secondary stack. This moves
+	toward that goal. But there are still cases that don't work.
+	Here, we move the check for Is_Definite first, but add a
+	special-purpose check for Has_Discrim_Dep_Array.
+
+2015-05-28  Bob Duff  <duff@adacore.com>
+
+	* sem_util.adb (Requires_Transient_Scope): Avoid returning
+	function results on the secondary stack in so many cases.
+
+2015-05-28  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_util.adb (Wrong_Type): In any instance, do not emit error
+	if type of expression is the partial view of the expected type.
+
+2015-05-28  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_res.adb (Resolve_Actuals): a)  The replacement of formal
+	names in named associations only needs to be done within an
+	instance, on a call to a primitive of a formal derived type,
+	where the actual subprogram may have different formal names than
+	those of the primitive operation of the formal type.
+	b) Defaulted parameters must be taken into account when obtaining
+	the names of the formals of the actual subprogram being called.
+
+2015-05-28  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch13.adb, sem_disp.ads: Minor reformatting.
+
+2015-05-28  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_util.adb (Set_Debug_Info_Needed): For a private type
+	whose full view is itself a derived private type, set flag on
+	underlying full view as well, for proper gdb display.
+
+2015-05-28  Bob Duff  <duff@adacore.com>
+
+	* exp_tss.ads: Minor comment fix.
+	* exp_ch3.adb (Build_Array_Init_Proc, Build_Record_Init_Proc):
+	Inline init_procs when the type has controlled parts. Remove
+	obsolete comments about those init_procs -- init_procs for
+	such types are no longer complex. A typical init_proc just
+	initializes the 'Tag field, and calls the parent init_proc
+	(e.g. for Limited_Controlled), which calls the grandparent
+	(for Root_Controlled), which does nothing. This all boils down
+	to one instruction when inlined.
+	* exp_ch7.adb (Create_Finalizer): Inline the finalizer.
+
+2015-05-28  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch4.adb (Analyze_Selected_Component): If the type to use
+	is a derived type and is a generic actual, the selected component
+	appears within an instance body, and the check over the type
+	has failed, examine ancestor types for the desired component.
+	(Find_Component_In_Instance): If record type is a derived type,
+	examine all ancestors in order to locate desired component.
+
 2015-05-27  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* gcc-interface/Makefile.in (TOOLS_LIBS): Add @NO_PIE_FLAG@.

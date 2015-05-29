@@ -1,3 +1,37 @@
+2015-05-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/linux/x86/futex.h (sys_futex0) [!__x86_64__]: Remove function.
+	(futex_wait) [!__x86_64__]: Use __asm operand instead of sys_futex0.
+	(futex_wake) [!__x86_64__]: Ditto.
+
+2015-05-28  Julian Brown  <julian@codesourcery.com>
+
+	* oacc-init.c (resolve_device): Add FAIL_IS_ERROR argument. Update
+	function comment. Only call gomp_fatal if new argument is true.
+	(acc_dev_num_out_of_range): New function.
+	(acc_init_1, acc_shutdown_1): Update call to resolve_device. Call
+	acc_dev_num_out_of_range as appropriate.
+	(acc_get_num_devices, acc_set_device_type, acc_get_device_type)
+	(acc_get_device_num, acc_set_device_num): Update calls to
+	resolve_device.
+	* testsuite/libgomp.oacc-c-c++-common/lib-4.c: Update expected test
+	output.
+
+2015-05-28  Julian Brown  <julian@codesourcery.com>
+
+	PR libgomp/65742
+	* oacc-init.c (plugin/plugin-host.h): Include.
+	(acc_on_device): Check whether we're in an offloaded region for
+	host_nonshm
+	plugin. Don't use __builtin_acc_on_device.
+	* plugin/plugin-host.c (GOMP_OFFLOAD_openacc_parallel): Set
+	nonshm_exec flag in thread-local data.
+	(GOMP_OFFLOAD_openacc_create_thread_data): Allocate thread-local
+	data for host_nonshm plugin.
+	(GOMP_OFFLOAD_openacc_destroy_thread_data): Free thread-local data
+	for host_nonshm plugin.
+	* plugin/plugin-host.h: New.
+
 2015-05-27  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/linux/ia64/futex.h (sys_futex0) Change operand "op" to int.
@@ -12,8 +46,7 @@
 
 2015-05-27  Uros Bizjak  <ubizjak@gmail.com>
 
-	* config/linux/x86/futex.h (sys_futex0) [__PIC__]: Remove
-	sys_futex0 function.
+	* config/linux/x86/futex.h (sys_futex0) [__PIC__]: Remove function.
 
 2015-05-27  Chung-Lin Tang  <cltang@codesourcery.com>
 
