@@ -1,3 +1,44 @@
+2015-04-29  Thomas Schwinge  <thomas@codesourcery.com>
+
+	Backport from trunk r222564:
+
+	2015-04-29  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* pt.c (tsubst_expr) <OMP_TARGET_UPDATE>: Use
+	OMP_TARGET_UPDATE_CLAUSES instead of OMP_CLAUSES.
+
+2015-04-23  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65727
+	* lambda.c (maybe_resolve_dummy): Handle null return.
+
+2015-04-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65695
+	* cvt.c (cp_fold_convert): Avoid wrapping PTRMEM_CST in NOP_EXPR.
+
+	PR c++/65721
+	* name-lookup.c (do_class_using_decl): Complain about specifying
+	the current class even if there are dependent bases.
+
+2015-04-23  David Krauss  <david_work@me.com>
+
+	PR c++/59766
+	* decl.c (grokdeclarator): Do not flag friends with deduced return.
+
+2015-03-26  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	PR c++/65154
+	* init.c (build_vec_init): Fix initializing aggregates
+	with empty init list.
+
+2015-03-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65209
+	PR c++/65309
+	* decl2.c (constrain_visibility_for_template): Handle reference
+	arguments.
+
 2015-02-25  Jason Merrill  <jason@redhat.com>
 
 	PR c++/62255

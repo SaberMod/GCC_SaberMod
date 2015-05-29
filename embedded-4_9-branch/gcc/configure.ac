@@ -3565,6 +3565,29 @@ AS_HELP_STRING([--disable-fix-cortex-a53-835769],
         esac
       ],
     [])
+    # Enable default workaround for AArch64 Cortex-A53 erratum 843419.
+    AC_ARG_ENABLE(fix-cortex-a53-843419,
+    [
+AS_HELP_STRING([--enable-fix-cortex-a53-843419],
+        [enable workaround for AArch64 Cortex-A53 erratum 843419 by default])
+AS_HELP_STRING([--disable-fix-cortex-a53-843419],
+        [disable workaround for AArch64 Cortex-A53 erratum 843419 by default])
+    ],
+      [
+        case $enableval in
+          yes)
+            tm_defines="${tm_defines} TARGET_FIX_ERR_A53_843419_DEFAULT=1"
+            ;;
+          no)
+            ;;
+          *)
+            AC_MSG_ERROR(['$enableval' is an invalid value for --enable-fix-cortex-a53-843419.\
+  Valid choices are 'yes' and 'no'.])
+            ;;
+
+        esac
+      ],
+    [])
     ;;
 
   # All TARGET_ABI_OSF targets.
@@ -3602,6 +3625,13 @@ AS_HELP_STRING([--disable-fix-cortex-a53-835769],
       [-no-mul-bug-abort], [.text],,
       [AC_DEFINE(HAVE_AS_NO_MUL_BUG_ABORT_OPTION, 1,
 		[Define if your assembler supports the -no-mul-bug-abort option.])])
+    ;;
+
+  avr-*-*)
+    gcc_GAS_CHECK_FEATURE([-mrmw option], gcc_cv_as_avr_mrmw,,
+      [-mrmw], [.text],,
+      [AC_DEFINE(HAVE_AS_AVR_MRMW_OPTION, 1,
+		[Define if your assembler supports -mrmw option.])])
     ;;
 
   sparc*-*-*)

@@ -1,3 +1,640 @@
+2015-05-28  Mike Frysinger  <vapier@gentoo.org>
+
+	* config/nios2/linux.h (CPP_SPEC): Define.
+
+2015-05-28  Mike Frysinger  <vapier@gentoo.org>
+
+	* config/microblaze/linux.h (CPP_SPEC): Define.
+
+2015-05-28  Mike Frysinger  <vapier@gentoo.org>
+
+	* config/pa/pa-linux.h (CPP_SPEC): Change so -D_REENTRANT is used when
+	-pthread is specified.
+
+2015-05-27  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR target/66148
+	* config/pa/pa.c (pa_emit_move_sequence): Correct placement of
+	REG_EQUAL note when doing insert.
+
+2015-05-26  Rohit Arul Raj  <rohitarulraj@freescale.com>
+
+	Backported from mainline
+	2015-05-14  Rohit Arul Raj  <rohitarulraj@freescale.com>
+
+	* varasm.c (output_constant_pool_1): Pass down alignment from
+	constant pool entry's descriptor to output_constant_pool_2.
+	(output_object_block): Add comment prior to call to
+	output_constant_pool_1.
+
+2015-05-21  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Backport from mainline r223418:
+	* config.gcc [powerpc*-*-linux*]: Allow --enable-targets=all
+	to build a biarch toolchain again.
+
+2015-05-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* doc/invoke.texi: Add missing cpu types for march option: z196
+	and zEC12.
+
+2015-05-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66140
+	* config/alpha/alpha.c (get_aligned_mem): Also look for reload
+	replacements in memory addresses.
+	(get_unaligned_address): Ditto.
+
+2015-05-14  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2015-05-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/65955
+	* config/arm/arm.md (movcond_addsi): Check that operands[2] is a
+	REG before taking its REGNO.
+
+2015-05-12  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/2827.md: Split zEC12_simple into zEC12_simple_int
+	and zEC12_simple_fp.
+	* config/s390/s390.c (s390_issue_rate): Set issue rate for zEC12
+	to 1.
+
+2015-05-12  Yvan Roux  <yvan.roux@linaro.org>
+
+	Backport from mainline.
+	2015-05-05  Yvan Roux  <yvan.roux@linaro.org>
+
+	* config/aarch64/aarch64-elf-raw.h (CA53_ERR_843419_SPEC): Define.
+	(LINK_SPEC): Include CA53_ERR_843419_SPEC.
+	* config/aarch64/aarch64-linux.h (CA53_ERR_843419_SPEC): Define.
+	(LINK_SPEC): Include CA53_ERR_843419_SPEC.
+	* config/aarch64/aarch64.opt (mfix-cortex-a53-843419): New option.
+	* configure: Regenerate.
+	* configure.ac: Add --enable-fix-cortex-a53-843419 option.
+	* doc/install.texi (aarch64*-*-*): Document new
+	--enable-fix-cortex-a53-843419 option.
+	* doc/invoke.texi (AArch64 Options): Document -mfix-cortex-a53-843419
+	and -mno-fix-cortex-a53-843419 options.
+
+2015-05-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/65990
+	* config/i386/i386.c (ix86_parse_stringop_strategy_string): Error out
+	if rep_8byte stringop strategy was specified for 32-bit target.
+
+2015-05-05  Jack Howarth  <howarth.at.gcc@gmail.com>
+
+	Backport from mainline
+	2014-05-29  Mike Stump  <mikestump@comcast.net>
+	PR debug/61352
+	* collect2.c (maybe_run_lto_and_relink): Be sure to always run
+	post ld passes when lto is used.
+
+2015-05-05  Shanyao Chen  <chenshanyao@huawei.com>
+
+	Backported from mainline
+	2015-01-19  Jiong Wang  <jiong.wang@arm.com>
+		    Andrew Pinski  <apinski@cavium.com>
+
+	PR target/64304
+	* config/aarch64/aarch64.md (define_insn "*ashl<mode>3_insn"): Deleted.
+	(ashl<mode>3): Don't expand if operands[2] is not constant.
+
+2015-05-05  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline.
+	2015-04-27  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/64579
+	* config/rs6000/htm.md: Remove all define_expands.
+	(UNSPECV_HTM_TABORTDC, UNSPECV_HTM_TABORTDCI, UNSPECV_HTM_TABORTWC,
+	UNSPECV_HTM_TABORTWCI): Remove.
+	(UNSPECV_HTM_TABORTXC, UNSPECV_HTM_TABORTXCI, UNSPECV_HTM_TTEST): New.
+	(tabort_internal, tbegin_internal, tcheck_internal, tend_internal,
+	trechkpt_internal, treclaim_internal, tsr_internal): Rename from this...
+	(tabort, tbegin, tcheck, tend, trechkpt, treclaim, tsr): ...to this.
+	(tabortdc_internal, tabortdci_internal, tabortwc_internal,
+	tabortwci_internal): Remove define_insns.
+	(tabort<wd>c, tabort<wd>ci): New define_insns.
+	(tabort): Use gpc_reg_operand.
+	(tcheck): Remove operand.
+	(htm_mfspr_<mode>, htm_mtspr_<mode>): Use GPR mode macro.
+	* config/rs6000/htmxlintrin.h (__TM_end): Use _HTM_TRANSACTIONAL as
+	expected value.
+	* config/rs6000/rs6000-builtin.def (BU_HTM_SPR0): Remove.
+	(BU_HTM_SPR1): Rename to BU_HTM_V1.  Remove use of RS6000_BTC_SPR.
+	(tabort, tabortdc, tabortdci, tabortwc, tabortwci, tbegin,
+	tcheck, tend, tendall, trechkpt, treclaim, tresume, tsuspend,
+	tsr, ttest): Pass in the RS6000_BTC_CR attribute.
+	(get_tfhar, set_tfhar, get_tfiar, set_tfiar, get_texasr, set_texasr,
+	get_texasru, set_texasru): Pass in the RS6000_BTC_SPR attribute.
+	(tcheck): Remove builtin argument.
+	* config/rs6000/rs6000.c (rs6000_htm_spr_icode): Use TARGET_POWERPC64
+	not TARGET_64BIT.
+	(htm_expand_builtin): Fix usage of expandedp.  Disallow usage of the
+	tabortdc and tabortdci builtins when not in 64-bit mode.
+	Modify code to handle the loss of the HTM define_expands.
+	Emit code to copy the CR register to TARGET.
+	(htm_init_builtins): Modify code to handle the loss of the HTM
+	define_expands.
+	* config/rs6000/rs6000.h (RS6000_BTC_32BIT): Delete.
+	(RS6000_BTC_64BIT): Likewise.
+	(RS6000_BTC_CR): New macro.
+	* doc/extend.texi: Update documentation for htm builtins.
+
+2015-04-28  Tejas Belagod  <tejas.belagod@arm.com>
+
+	Backport from Mainline
+	2014-11-20  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_classify_symbol):
+	Fixup prototype.
+	* config/aarch64/aarch64.c (aarch64_expand_mov_immediate,
+	aarch64_cannot_force_const_mem, aarch64_classify_address,
+	aarch64_classify_symbolic_expression): Fixup call to
+	aarch64_classify_symbol.
+	(aarch64_classify_symbol): Add range-checking for
+	symbol + offset addressing for tiny and small models.
+
+2015-04-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2015-04-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/65849
+	* config/rs6000/rs6000.opt (-mvsx-align-128): Make options that
+	save to independent variables use the Save attribute.  This will
+	allow these options to be modified with the #pragma/attribute
+	target support.
+	(-mallow-movmisalign): Likewise.
+	(-mallow-df-permute): Likewise.
+	(-msched-groups): Likewise.
+	(-malways-hint): Likewise.
+	(-malign-branch-targets): Likewise.
+	(-mvectorize-builtins): Likewise.
+	(-msave-toc-indirect): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_opt_masks): Add more options that
+	can be set via the #pragma/attribute target support.
+	(rs6000_opt_vars): Likewise.
+	(rs6000_inner_target_options): If VSX was set, also set
+	-mno-avoid-indexed-addresses.
+
+2015-04-24  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r222385
+	2015-04-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (*altivec_lvx_<mode>_internal): Remove
+	asterisk from name so this can be generated directly.
+	(*altivec_stvx_<mode>_internal): Likewise.
+	* config/rs6000/rs6000.c (rs6000_emit_le_vsx_store): Add assert
+	that this is never called during or after reload/lra.
+	(rs6000_frame_related): Remove split_reg
+	argument and logic that references it.
+	(emit_frame_save): Remove last parameter from call to
+	rs6000_frame_related.
+	(rs6000_emit_prologue): Remove last parameter from eight calls to
+	rs6000_frame_related.  Force generation of stvx instruction for
+	Altivec register saves.  Remove split_reg handling, which is no
+	longer needed.
+	(rs6000_emit_epilogue):  Force generation of lvx instruction for
+	Altivec register restores.
+
+2015-04-24  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r222362
+	2015-04-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/crypto.md (crypto_vpmsum<CR_char>): Change
+	TARGET_CRYPTO to TARGET_P8_VECTOR>
+	(crypto_vpermxor_<mode>): Likewise.
+	* config/rs6000/rs6000-builtin.def (BU_CRYPTO_2A): New #define.
+	(BU_CRYPTO_3A): Likewise.
+	(BU_CRYPTO_OVERLOAD_2A): Rename from BU_CRYPTO_OVERLOAD_2.
+	(BU_CRYPTO_OVERLOAD_3A): New #define.
+	(VPMSUMB): Change from BU_CRYPTO_2 to BU_CRYPTO_2A.
+	(VPMSUMH): Likewise.
+	(VPMSUMW): Likewise.
+	(VPMSUMD): Likewise.
+	(VPERMXOR_V2DI): Change from BU_CRYPTO_3 to BU_CRYPTO_3A.
+	(VPERMXOR_V4SI): Likewise.
+	(VPERMXOR_V8HI): Likewise.
+	(VPERMXOR_V16QI): Likewise.
+	(VPMSUM): Change from BU_CRYPTO_OVERLOAD_2 to
+	BU_CRYPTO_OVERLOAD_2A.
+	(VPERMXOR): Change from BU_CRYPTO_OVERLOAD3 to
+	BU_CRYPTO_OVERLOAD_3A.
+	* config/rs6000/rs6000.opt (mcrypto): Change description of
+	option.
+
+	Backport from mainline r222362
+	2015-04-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (mcrypto): Change option description to
+	match category changes in ISA 2.07B.
+
+2015-04-24  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r222351
+	2015-04-22  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rtx_is_swappable_p): Commentary
+	adjustments.
+	(insn_is_swappable_p): Return 1 for a convert from double to
+	single precision when all of its uses are splats of BE element
+	zero.
+
+2015-04-24  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r222349
+	2015-04-22  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/65456
+	* config/rs6000/rs6000.c (rs6000_option_override_internal):  For
+	VSX + POWER8, enable TARGET_ALLOW_MOVMISALIGN and
+	TARGET_EFFICIENT_UNALIGNED_VSX if not selected by command line
+	option.
+	(rs6000_builtin_mask_for_load): Return 0 for targets with
+	efficient unaligned VSX accesses so that the vectorizer will use
+	direct unaligned loads.
+	(rs6000_builtin_support_vector_misalignment): Always return true
+	for targets with efficient unaligned VSX accesses.
+	(rs6000_builtin_vectorization_cost): Cost of unaligned loads and
+	stores on targets with efficient unaligned VSX accesses is almost
+	always the same as the cost of an aligned load or store, so model
+	it that way.
+	* config/rs6000/rs6000.h (SLOW_UNALIGNED_ACCESS): Return 0 for
+	unaligned vectors if we have efficient unaligned VSX accesses.
+	* config/rs6000/rs6000.opt (mefficient-unaligned-vector): New
+	undocumented option.
+
+2015-04-18  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline r222205
+	2015-04-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	            Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/65787
+	* config/rs6000/rs6000.c (rtx_is_swappable_p): Ensure that a
+	subsequent SH_NONE operand does not overwrite an existing *special
+	value.
+	(adjust_extract): Handle case where a vec_extract operation is
+	wrapped in a PARALLEL.
+
+2015-04-16  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/65676
+	* config/i386/i386.c (fixup_modeless_constant): New.
+	(ix86_expand_args_builtin): Fixup modeless constant operand.
+	(ix86_expand_round_builtin): Ditto.
+	(ix86_expand_special_args_builtin): Ditto.
+	(ix86_expand_builtin): Ditto.
+
+2015-04-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/65710
+	* lra-assigns.c (spill_for): Update smallest_bad_spills_num.
+	Print bad_spills_num and insn_pseudos_num.
+
+2015-04-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/65710
+	* lra-int.h (lra_bad_spill_regno_start): New.
+	* lra.c (lra_bad_spill_regno_start): New.
+	(lra): Set up lra_bad_spill_regno_start.  Set up
+	lra_constraint_new_regno_start unconditionally.
+	* lra-assigns.c (spill_for): Use lra_bad_spill_regno_start for
+	spill preferences.
+
+2015-04-07  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2015-04-04  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/64909
+	PR tree-optimization/65660
+	* tree-vectorizer.h (vect_get_known_peeling_cost): Adjust
+	to take a cost vector for scalar iteration cost.
+	(vect_get_single_scalar_iteration_cost): Likewise.
+	* tree-vect-loop.c (vect_get_single_scalar_iteration_cost):
+	Compute the scalar iteration cost into a cost vector.
+	(vect_get_known_peeling_cost): Use the scalar cost vector to
+	account for the cost of the peeled iterations.
+	(vect_estimate_min_profitable_iters): Likewise.
+	* tree-vect-data-refs.c (vect_peeling_hash_get_lowest_cost):
+	Likewise.
+
+2015-04-05  Yvan Roux  <yvan.roux@linaro.org>
+
+	Backport from trunk r221867
+	2015-04-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/65647
+	* lra.c (lra): Stop updating lra_constraint_new_regno_start after
+	switching off inheritance.
+
+2015-04-02  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_output_move_double): Directly handle register
+	indexed memory operand.  Simplify handling of scaled register indexed
+	memory operands.
+
+2015-03-31  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_function_num_hotpatch_hw): Allow hotpatching
+	nested functions.
+	(s390_reorg): Adapt to new signature of s390_function_num_hotpatch_hw.
+	(s390_asm_output_function_label): Adapt to new signature of
+	s390_function_num_hotpatch_hw
+	Optimise the code generating assembler output.
+	Add comments to assembler file.
+
+2015-03-27  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Backport from mainline
+	2015-01-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/64688
+	* lra-constraints.c (original_subreg_reg_mode): New.
+	(simplify_operand_subreg): Try to simplify subreg of const.  Use
+	original_subreg_reg_mode for it.
+	(swap_operands): Update original_subreg_reg_mode.
+	(curr_insn_transform): Set up original_subreg_reg_mode.
+
+2015-03-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/65561
+	* config/i386/sse.md (avx512f_vextract<shuffletype>32x4_1_maskm):
+	Check operand 6 and operand 0 for equality.
+	(vec_extract_lo_<mode>_maskm): Check operand 2 and operand 0
+	for equality.
+	(vec_extract_hi_<mode>_maskm): Ditto.
+
+2015-03-26  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport of r214242, r214254, and bug fix patches from mainline
+	* config/rs6000/rs6000.c (context.h): New #include.
+	(tree-pass.h): Likewise.
+	(make_pass_analyze_swaps): New declaration.
+	(rs6000_option_override): Register swap-optimization pass.
+	(swap_web_entry): New class.
+	(special_handling_values): New enum.
+	(union_defs): New function.
+	(union_uses): Likewise.
+	(insn_is_load_p): Likewise.
+	(insn_is_store_p): Likewise.
+	(insn_is_swap_p): Likewise.
+	(rtx_is_swappable_p): Likewise.
+	(insn_is_swappable_p): Likewise.
+	(chain_purpose): New enum.
+	(chain_contains_only_swaps): New function.
+	(mark_swaps_for_removal): Likewise.
+	(swap_const_vector_halves): Likewise.
+	(adjust_subreg_index): Likewise.
+	(permute_load): Likewise.
+	(permute_store): Likewise.
+	(adjust_extract): Likewise.
+	(adjust_splat): Likewise.
+	(handle_special_swappables): Likewise.
+	(replace_swap_with_copy): Likewise.
+	(dump_swap_insn_table): Likewise.
+	(rs6000_analyze_swaps): Likewise.
+	(pass_data_analyze_swaps): New pass_data.
+	(pass_analyze_swaps): New class.
+	(pass_analyze_swaps::gate): New method.
+	(pass_analyze_swaps::execute): New method.
+	(make_pass_analyze_swaps): New function.
+	* config/rs6000/rs6000.opt (moptimize-swaps): New option.
+	* df.h (web_entry_base): New class, replacing struct web_entry.
+	(web_entry_base::pred): New method.
+	(web_entry_base::set_pred): Likewise.
+	(web_entry_base::unionfind_root): Likewise.
+	(web_entry_base::unionfind_union): Likewise.
+	(unionfind_root): Delete external reference.
+	(unionfind_union): Likewise.
+	(union_defs): Likewise.
+	* web.c (web_entry_base::unionfind_root): Convert to method.
+	(web_entry_base::unionfind_union): Likewise.
+	(web_entry): New class.
+	(union_match_dups): Convert to use class structure.
+	(union_defs): Likewise.
+	(entry_register): Likewise.
+	(web_main): Likewise.
+
+2015-03-26  Alan Modra  <amodra@gmail.com>
+
+	PR target/63150
+	Backport from trunk 211857 and 221445.
+	2014-06-20  Maciej W. Rozycki  <macro@codesourcery.com>
+	* config/rs6000/rs6000.md: Append `DONE' to preparation
+	statements of `bswap' pattern splitters.
+
+	2015-03-16  Alan Modra  <amodra@gmail.com>
+	* config/rs6000/rs6000.md (bswapdi2): Remove one scratch reg.
+	Modify Z->r bswapdi splitter to use dest in place of scratch.
+	In r->Z and Z->r bswapdi splitter rename word_high, word_low
+	to word1, word2 and rearrange logic to suit.
+	(bswapdi2_64bit): Remove early clobber on Z->r alternative.
+	(bswapdi2_ldbrx): Likewise.  Remove '??' on r->r.
+	(bswapdi2_32bit): Remove early clobber on Z->r alternative.
+	Add one '?' on r->r.  Modify Z->r splitter to avoid need for
+	early clobber.
+
+2015-03-26  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2015-03-26  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/t-sh (MULTILIB_EXCEPTIONS): Handle default endian.
+
+2015-03-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/60851
+	* recog.c (constrain_operands): Accept a pseudo register before reload
+	for LRA enabled targets.
+
+2015-03-23  Yvan Roux  <yvan.roux@linaro.org>
+
+	Backport from trunk r220616.
+	2015-02-11  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/64813
+	* cgraphunit.c (cgraph_node::expand_thunk): Do not create a return
+	value for call to a function that is noreturn.
+
+2015-03-23  Yvan Roux  <yvan.roux@linaro.org>
+
+	Backport from trunk r216841.
+	2014-10-29  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/63587
+	* cgraphunit.c (cgraph_node::expand_thunk): Only VAR_DECLs are put
+	to local declarations.
+	* function.c (add_local_decl): Implementation moved from header file,
+	assert introduced for tree type.
+	* function.h: Likewise.
+
+2015-03-19  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2015-03-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/65235
+	* simplify-rtx.c (simplify_binary_operation_1, VEC_SELECT case):
+	When first element of vec_concat is const_int, calculate its size
+	using second element.
+
+2015-03-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/65409
+	* expr.c (store_field): Do not do a direct block copy if the source is
+	a PARALLEL with BLKmode.
+
+2015-03-12  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	* config/s390/s390.c (s390_reorg): Move code to output nops after label
+	to s390_reorg ().
+	(s390_asm_output_function_label): Likewise.
+	* config/s390/s390.c (s390_asm_output_function_label):
+	Fix function label alignment with -mhtopatch.
+	* config/s390/s390.md ("unspecv"): New values UNSPECV_NOP_2_BYTE,
+	UNSPECV_NOP_4_BYTE and UNSPECV_NOP_6_BYTE
+	("nop_2_byte"): New define_insn.
+	("nop_4_byte"): Likewise.
+	("nop_6_byte"): Likewise.
+	* doc/extend.texi (hotpatch): hotpatch attribute doc fixes.
+	* doc/invoke.texi (-mhotpatch): -mhotpatch doc fixes.
+
+2015-03-12  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2015-03-11  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/65388
+	* tree-ssa-tail-merge.c (same_succ_def::equal): Fix typo in comparison.
+
+2015-03-11  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/65296
+	* configure.ac [avr]: Check as for option -mrmw.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/avr/driver-avr.c (avr_device_to_as): Don't add -mrmw to
+	assembler options if not HAVE_AS_AVR_MRMW_OPTION.
+
+2015-03-11  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2014-12-04  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/56917
+	* fold-const.c (fold_unary_loc): Perform the negation in A's type
+	when transforming ~ (A - 1) or ~ (A + -1) to -A.
+
+2015-03-10  Yvan Roux  <yvan.roux@linaro.org>
+
+	Backport from trunk r220489.
+	2015-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ipa/64896
+	* cgraphunit.c (cgraph_node::expand_thunk): If
+	restype is not is_gimple_reg_type nor the thunk_fndecl
+	returns aggregate_value_p, set restmp to a temporary variable
+	instead of resdecl.
+
+2015-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/65286
+	* config/rs6000/t-linux: For powerpc64* target set
+	MULTILIB_OSDIRNAMES instead of MULTIARCH_DIRNAME.
+
+2015-03-10  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/53988
+	* config/sh/sh.md (*tst<mode>_t_zero): Remove insns.
+
+2015-03-10  Alan Modra  <amodra@gmail.com>
+
+	PR target/65286
+	* config.gcc (powerpc*-*-linux*): Arrange for powerpc64le-linux
+	to be single-arch by default.  Set cpu_is_64bit for powerpc64
+	given --with-cpu=native.
+	* config/rs6000/t-fprules: Do not set default MULTILIB vars.
+	* config/rs6000/t-linux (MULTIARCH_DIRNAME): Support powerpc64
+	and powerpc64le.
+	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Test
+	rs6000_isa_flags rather than TARGET_64BIT.
+
+2015-03-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from trunk
+	2015-03-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR 65138/target
+	* config/rs6000/rs6000-cpus.def (powerpc64le): Add new generic
+	processor type for 64-bit little endian PowerPC.
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): If
+	-mdebug=reg, print TARGET_DEFAULT.  Fix logic to use
+	TARGET_DEFAULT if there is no default cpu.  Fix -mdebug=reg
+	printing built-in mask so it does not pass NULL pointers.
+
+	* config/rs6000/rs6000-tables.opt: Regenerate.
+
+	* doc/invoke.texi (IBM RS/6000 and PowerPC options): Document
+	-mcpu=powerpc64le.
+
+	Backport from trunk
+	2015-01-19  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/default64.h: Include rs6000-cpus.def.
+	(TARGET_DEFAULT) [LITTLE_ENDIAN]: Use ISA 2.7 (POWER8).
+	(TARGET_DEFAULT) [BIG_ENDIAN]: Use POWER4.
+	* config/rs6000/driver-rs6000.c (detect_processor_aix): Add POWER7
+	and POWER8.
+	* config/rs6000/linux64.h (PROCESSOR_DEFAULT64): Always default to
+	POWER8.
+	* config/rs6000/rs6000.c (rs6000_file_start): Emit .machine
+	pseudo-op to specify assembler dialect.
+
+2015-03-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2014-11-27  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR target/59593
+	* config/arm/arm.c (dump_minipool): dispatch to consttable pattern
+	based on mode size.
+	* config/arm/arm.md (consttable_1): Make it TARGET_EITHER.
+	(consttable_2): Make it TARGET_EITHER and move HFmode handling from
+	consttable_4 to it.
+	(consttable_4): Move HFmode handling to consttable_2 pattern.
+
+2015-03-03  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/65249
+	* config/sh/sh.md (symGOT_load): Use R0 reg for operands[2] when
+	called for __stack_chk_guard symbol.
+
+2015-03-03  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/64331
+	* config/avr/avr.c (context.h, tree-pass.h): Include them.
+	(avr_pass_data_recompute_notes): New static variable.
+	(avr_pass_recompute_notes): New class.
+	(avr_register_passes): New static function.
+	(avr_option_override): Call it.
+
+2015-03-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/ia64/ia64.c (expand_vec_perm_interleave_2): Use gen_raw_REG
+	to create a register in testing mode.
+
 2015-03-03  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	Backport from mainline
@@ -18,7 +655,7 @@
 
 2015-02-27  Andrew Pinski  <apinski@cavium.com>
 	    Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
- 
+
 	* config/aarch64/aarch64.c (*aarch64_load_symref_appropriately):
 	Check whether the destination of SYMBOL_SMALL_TPREL is Pmode.
 
@@ -27,7 +664,7 @@
 	PR lto/65193
 	Backport from mainline
 	2014-07-24  Jan Hubicka  <hubicka@ucw.cz>
- 
+
 	* lto-streamer-out.c (tree_is_indexable): Consider IMPORTED_DECL
 	as non-indexable.
 
@@ -112,7 +749,7 @@
 
 	2015-01-17  Jan Kratochvil  <jan.kratochvil@redhat.com>
 
-        * dwarf2out.c (gen_producer_string): Ignore also OPT_fpreprocessed.
+	* dwarf2out.c (gen_producer_string): Ignore also OPT_fpreprocessed.
 
 2015-02-23  Oleg Endo  <olegendo@gcc.gnu.org>
 
@@ -284,32 +921,32 @@
 
 2015-02-09  Dominik Vogt  <vogt@linux.vnet.ibm.com>
 
-        * doc/extend.texi: s/390: Update documentation of hotpatch attribute.
-        * doc/invoke.texi (-mhotpatch): s/390: Update documentation of
-        -mhotpatch= option.
-        * config/s390/s390.opt (mhotpatch): s/390: Remove -mhotpatch and
-        -mno-hotpatch options.  Change syntax of -mhotpatch= option.
-        * config/s390/s390.c (s390_hotpatch_trampoline_halfwords_default):
-        Renamed.
-        (s390_hotpatch_trampoline_halfwords_max): Renamed.
-        (s390_hotpatch_hw_max): New name.
-        (s390_hotpatch_trampoline_halfwords): Renamed.
-        (s390_hotpatch_hw_before_label): New name.
-        (get_hotpatch_attribute): Removed.
-        (s390_hotpatch_hw_after_label): New name.
-        (s390_handle_hotpatch_attribute): Add second parameter to hotpatch
-        attribute.
-        (s390_attribute_table): Ditto.
-        (s390_function_num_hotpatch_trampoline_halfwords): Renamed.
-        (s390_function_num_hotpatch_hw): New name.
-        Remove special handling of inline functions and hotpatching.
-        Return number of nops before and after the function label.
-        (s390_can_inline_p): Removed.
-        (s390_asm_output_function_label): Emit a configurable number of nops
-        after the function label.
-        (s390_option_override): Update -mhotpatch= syntax and remove -mhotpatch.
-        (TARGET_CAN_INLINE_P) Removed.
-        (TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P): New.
+	* doc/extend.texi: s/390: Update documentation of hotpatch attribute.
+	* doc/invoke.texi (-mhotpatch): s/390: Update documentation of
+	-mhotpatch= option.
+	* config/s390/s390.opt (mhotpatch): s/390: Remove -mhotpatch and
+	-mno-hotpatch options.  Change syntax of -mhotpatch= option.
+	* config/s390/s390.c (s390_hotpatch_trampoline_halfwords_default):
+	Renamed.
+	(s390_hotpatch_trampoline_halfwords_max): Renamed.
+	(s390_hotpatch_hw_max): New name.
+	(s390_hotpatch_trampoline_halfwords): Renamed.
+	(s390_hotpatch_hw_before_label): New name.
+	(get_hotpatch_attribute): Removed.
+	(s390_hotpatch_hw_after_label): New name.
+	(s390_handle_hotpatch_attribute): Add second parameter to hotpatch
+	attribute.
+	(s390_attribute_table): Ditto.
+	(s390_function_num_hotpatch_trampoline_halfwords): Renamed.
+	(s390_function_num_hotpatch_hw): New name.
+	Remove special handling of inline functions and hotpatching.
+	Return number of nops before and after the function label.
+	(s390_can_inline_p): Removed.
+	(s390_asm_output_function_label): Emit a configurable number of nops
+	after the function label.
+	(s390_option_override): Update -mhotpatch= syntax and remove -mhotpatch.
+	(TARGET_CAN_INLINE_P) Removed.
+	(TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P): New.
 
 2015-02-05  Segher Boessenkool  <segher@kernel.crashing.org>
 
@@ -337,7 +974,7 @@
 	Backport from mainline
 	2015-01-31  Uros Bizjak  <ubizjak@gmail.com>
 
-        PR target/64882
+	PR target/64882
 	* config/i386/predicates.md (address_no_seg_operand): Reject
 	non-CONST_INT_P operands in invalid mode.
 
@@ -466,9 +1103,11 @@
 	PR ipa/63970
 	* ipa.c (symbol_table::remove_unreachable_nodes): Mark all inline clones
 	as having abstract origin used.
-	* ipa-inline-transform.c (can_remove_node_now_p_1): Drop abstract origin check.
+	* ipa-inline-transform.c (can_remove_node_now_p_1): Drop abstract
+	origin check.
 	(clone_inlined_nodes): Copy abstract originflag.
-	* lto-cgraph.c (compute_ltrans_boundary): Use get_create to get abstract origin node.
+	* lto-cgraph.c (compute_ltrans_boundary): Use get_create to get
+	abstract origin node.
 
 2015-01-20  Chung-Lin Tang  <cltang@codesourcery.com>
 
@@ -748,7 +1387,7 @@
 	(vec_mul): Likewise.
 
 	Backport from mainline
-        2014-08-28  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	2014-08-28  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	* config/rs6000/altivec.h (vec_xl): New #define.
 	(vec_xst): Likewise.
@@ -771,7 +1410,7 @@
 	(vsx_xxspltd_<mode>): New insn.
 
 	Backport from mainline
-        2014-08-20  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	2014-08-20  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	* config/rs6000/altivec.h (vec_cpsgn): New #define.
 	(vec_mergee): Likewise.
@@ -789,7 +1428,7 @@
 	vec_any_ne, vec_mergee, vec_mergeo, vec_packsu, and vec_cntlz.
 
 	Backport from mainline
-        2014-07-20  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	2014-07-20  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	* config/rs6000/altivec.md (unspec enum):  Fix typo in UNSPEC_VSLDOI.
 	(altivec_vsldoi_<mode>): Likewise.
@@ -989,9 +1628,10 @@
 2014-11-28  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
 	Backport from mainline.
-        2014-11-28  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
-        * config/arm/t-aprofile (MULTILIB_MATCHES): New entry for
-        -march=armv8-a+crc.
+	2014-11-28  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* config/arm/t-aprofile (MULTILIB_MATCHES): New entry for
+	-march=armv8-a+crc.
 
 2014-11-26  Richard Biener  <rguenther@suse.de>
 
@@ -1576,7 +2216,7 @@
 
 	Backport from mainline
 	2014-10-10  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
-	            Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+		    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
 	* config/aarch64/aarch64.h (FINAL_PRESCAN_INSN): Define.
 	(ADJUST_INSN_LENGTH): Define.
@@ -1911,7 +2551,7 @@
 	* cgraphunit.c: (analyze_function): Remove forward declaration,
 	rename to cgraph_analyze_function, made external.
 	* cgraphclones.c (duplicate_thunk_for_node): Copy arguments of the
-        new decl properly.  Analyze the new thunk if it is expanded.
+	new decl properly.  Analyze the new thunk if it is expanded.
 
 2014-09-11  H.J. Lu  <hongjiu.lu@intel.com>
 
@@ -2099,8 +2739,8 @@
 	Backport from mainline
 	2014-08-27  Kaz Kojima  <kkojima@gcc.gnu.org>
 
-        PR target/62261
-        * config/sh/sh.md (ashlsi3): Handle negative shift count for
+	PR target/62261
+	* config/sh/sh.md (ashlsi3): Handle negative shift count for
 	TARGET_SHMEDIA.
 	(ashldi3, ashrsi3, ashrdi3, lshrsi3, lshrdi3): Likewise.
 
@@ -2493,16 +3133,16 @@
 2014-08-12  Ganesh Gopalasubramanian <Ganesh.Gopalasubramanian@amd.com>
 
 	Backport from mainline
-	2014-08-04  Ganesh Gopalasubramanian 
+	2014-08-04  Ganesh Gopalasubramanian
 		    <Ganesh.Gopalasubramanian@amd.com>
 
-	* config/i386/driver-i386.c (host_detect_local_cpu): Handle AMD's extended
-	family information. Handle BTVER2 cpu with cpuid family value.
+	* config/i386/driver-i386.c (host_detect_local_cpu): Handle AMD's
+	extended family information. Handle BTVER2 cpu with cpuid family value.
 
 2014-08-12  Ganesh Gopalasubramanian <Ganesh.Gopalasubramanian@amd.com>
 
 	Backport from mainline
-	2014-06-16  Ganesh Gopalasubramanian 
+	2014-06-16  Ganesh Gopalasubramanian
 		    <Ganesh.Gopalasubramanian@amd.com>
 
 	* config/i386/i386.c (ix86_expand_sse2_mulvxdi3): Issue
@@ -2605,7 +3245,7 @@
 
 2014-07-24  Kyle McMartin  <kyle@redhat.com>
 
-        * config/aarch64/aarch64-linux.h (TARGET_ASM_FILE_END): Define.
+	* config/aarch64/aarch64-linux.h (TARGET_ASM_FILE_END): Define.
 
 2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
@@ -3206,7 +3846,7 @@
 	Backport from mainline
 
 	2014-06-20  Julian Brown  <julian@codesourcery.com>
-	            Chung-Lin Tang  <cltang@codesourcery.com>
+		    Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* config/arm/arm.c (arm_output_mi_thunk): Fix offset for
 	TARGET_THUMB1_ONLY. Add comments.
@@ -3332,7 +3972,7 @@
 
 	PR tree-optimization/61289
 	* tree-ssa-threadedge.c (invalidate_equivalences): Remove SRC_MAP and
-	DST_MAP parameters.   Invalidate by walking all the SSA_NAME_VALUES
+	DST_MAP parameters.  Invalidate by walking all the SSA_NAME_VALUES
 	looking for those which match LHS.  All callers changed.
 	(record_temporary_equivalences_from_phis): Remove SRC_MAP and DST_MAP
 	parameters and code which manipulated them.  All callers changed.
@@ -4336,10 +4976,10 @@
 	* tree-ssa-propagate.c (valid_gimple_rhs_p): Only allow effective
 	boolean results for comparisons.
 
-2014-04-22   Richard Biener  <rguenther@suse.de>
+2014-04-22  Richard Biener  <rguenther@suse.de>
 
 	Backport from mainline
-	2014-04-17   Richard Biener  <rguenther@suse.de>
+	2014-04-17  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/60841
 	* tree-vect-data-refs.c (vect_analyze_data_refs): Count stmts.
@@ -6340,7 +6980,7 @@
 	PR ipa/60306
 
 	Revert:
-	2013-12-14   Jan Hubicka  <jh@suse.cz>
+	2013-12-14  Jan Hubicka  <jh@suse.cz>
 	PR middle-end/58477
 	* ipa-prop.c (stmt_may_be_vtbl_ptr_store): Skip clobbers.
 
@@ -9232,7 +9872,7 @@
 	* Makefile.in: Add vec.o to OBJS-libcommon
 
 2014-01-23  Kirill Yukhin  <kirill.yukhin@intel.com>
-	    Ilya Tocar     <ilya.tocar@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
 
 	* config/i386/avx512fintrin.h (_mm512_kmov): New.
 	* config/i386/i386.c (IX86_BUILTIN_KMOV16): Ditto.
