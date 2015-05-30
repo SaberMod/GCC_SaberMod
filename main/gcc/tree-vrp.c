@@ -8966,9 +8966,9 @@ simplify_truth_ops_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
   /* For A != B we substitute A ^ B.  Either with conversion.  */
   else if (need_conversion)
     {
-      tree tem = make_ssa_name (TREE_TYPE (op0), NULL);
+      tree tem = make_ssa_name (TREE_TYPE (op0));
       gassign *newop
-	= gimple_build_assign_with_ops (BIT_XOR_EXPR, tem, op0, op1);
+	= gimple_build_assign (tem, BIT_XOR_EXPR, op0, op1);
       gsi_insert_before (gsi, newop, GSI_SAME_STMT);
       gimple_assign_set_rhs_with_ops (gsi, NOP_EXPR, tem);
     }
@@ -9734,8 +9734,8 @@ simplify_float_conversion_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
   /* It works, insert a truncation or sign-change before the
      float conversion.  */
   tem = make_ssa_name (build_nonstandard_integer_type
-			  (GET_MODE_PRECISION (mode), 0), NULL);
-  conv = gimple_build_assign_with_ops (NOP_EXPR, tem, rhs1);
+			  (GET_MODE_PRECISION (mode), 0));
+  conv = gimple_build_assign (tem, NOP_EXPR, rhs1);
   gsi_insert_before (gsi, conv, GSI_SAME_STMT);
   gimple_assign_set_rhs1 (stmt, tem);
   update_stmt (stmt);
@@ -9794,8 +9794,7 @@ simplify_internal_call_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
   gimple g;
   location_t loc = gimple_location (stmt);
   if (is_ubsan)
-    g = gimple_build_assign_with_ops (subcode, gimple_call_lhs (stmt),
-				      op0, op1);
+    g = gimple_build_assign (gimple_call_lhs (stmt), subcode, op0, op1);
   else
     {
       int prec = TYPE_PRECISION (type);
@@ -9808,8 +9807,7 @@ simplify_internal_call_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
 	op0 = fold_convert (utype, op0);
       else if (!useless_type_conversion_p (utype, TREE_TYPE (op0)))
 	{
-	  g = gimple_build_assign_with_ops (NOP_EXPR,
-					    make_ssa_name (utype, NULL), op0);
+	  g = gimple_build_assign (make_ssa_name (utype), NOP_EXPR, op0);
 	  gimple_set_location (g, loc);
 	  gsi_insert_before (gsi, g, GSI_SAME_STMT);
 	  op0 = gimple_assign_lhs (g);
@@ -9818,27 +9816,24 @@ simplify_internal_call_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
 	op1 = fold_convert (utype, op1);
       else if (!useless_type_conversion_p (utype, TREE_TYPE (op1)))
 	{
-	  g = gimple_build_assign_with_ops (NOP_EXPR,
-					    make_ssa_name (utype, NULL), op1);
+	  g = gimple_build_assign (make_ssa_name (utype), NOP_EXPR, op1);
 	  gimple_set_location (g, loc);
 	  gsi_insert_before (gsi, g, GSI_SAME_STMT);
 	  op1 = gimple_assign_lhs (g);
 	}
-      g = gimple_build_assign_with_ops (subcode, make_ssa_name (utype, NULL),
-					op0, op1);
+      g = gimple_build_assign (make_ssa_name (utype), subcode, op0, op1);
       gimple_set_location (g, loc);
       gsi_insert_before (gsi, g, GSI_SAME_STMT);
       if (utype != type)
 	{
-	  g = gimple_build_assign_with_ops (NOP_EXPR,
-					    make_ssa_name (type, NULL),
-					    gimple_assign_lhs (g));
+	  g = gimple_build_assign (make_ssa_name (type), NOP_EXPR,
+				   gimple_assign_lhs (g));
 	  gimple_set_location (g, loc);
 	  gsi_insert_before (gsi, g, GSI_SAME_STMT);
 	}
-      g = gimple_build_assign_with_ops (COMPLEX_EXPR, gimple_call_lhs (stmt),
-					gimple_assign_lhs (g),
-					build_int_cst (type, ovf));
+      g = gimple_build_assign (gimple_call_lhs (stmt), COMPLEX_EXPR,
+			       gimple_assign_lhs (g),
+			       build_int_cst (type, ovf));
     }
   gimple_set_location (g, loc);
   gsi_replace (gsi, g, false);

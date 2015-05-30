@@ -45,12 +45,22 @@ playback_string (string *str);
 playback::block *
 playback_block (block *b);
 
+/* A recording of a call to gcc_jit_context_enable_dump.  */
+struct requested_dump
+{
+  const char *m_dumpname;
+  char **m_out_ptr;
+};
+
 /* A JIT-compilation context.  */
 class context
 {
 public:
   context (context *parent_ctxt);
   ~context ();
+
+  builtins_manager *
+  get_builtins_manager ();
 
   void record (memento *m);
   void replay_into (replayer *r);
@@ -87,6 +97,12 @@ public:
   union_ *
   new_union_type (location *loc,
 		  const char *name);
+
+  function_type *
+  new_function_type (type *return_type,
+		     int num_params,
+		     type **param_types,
+		     int is_variadic);
 
   type *
   new_function_ptr_type (location *loc,
@@ -182,6 +198,10 @@ public:
   set_bool_option (enum gcc_jit_bool_option opt,
 		   int value);
 
+  void
+  enable_dump (const char *dumpname,
+	       char **out_ptr);
+
   const char *
   get_str_option (enum gcc_jit_str_option opt) const
   {
@@ -226,6 +246,9 @@ public:
 
   void dump_to_file (const char *path, bool update_locations);
 
+  void
+  get_all_requested_dumps (vec <recording::requested_dump> *out);
+
 private:
   void validate ();
 
@@ -237,9 +260,12 @@ private:
   char *m_first_error_str;
   bool m_owns_first_error_str;
 
-  const char *m_str_options[GCC_JIT_NUM_STR_OPTIONS];
+  char *m_str_options[GCC_JIT_NUM_STR_OPTIONS];
   int m_int_options[GCC_JIT_NUM_INT_OPTIONS];
   bool m_bool_options[GCC_JIT_NUM_BOOL_OPTIONS];
+
+  /* Dumpfiles that were requested via gcc_jit_context_enable_dump.  */
+  auto_vec<requested_dump> m_requested_dumps;
 
   /* Recorded API usage.  */
   auto_vec<memento *> m_mementos;
@@ -1570,24 +1596,8 @@ private:
 
 } // namespace gcc::jit::recording
 
-/* The result of JIT-compilation.  */
-class result
-{
-public:
-  result(void *dso_handle);
-
-  virtual ~result();
-
-  void *
-  get_code (const char *funcname);
-
-private:
-  void *m_dso_handle;
-};
-
 } // namespace gcc::jit
 
 } // namespace gcc
 
 #endif /* JIT_RECORDING_H */
-

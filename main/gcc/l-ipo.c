@@ -57,14 +57,34 @@ along with GCC; see the file COPYING3.  If not see
 
 unsigned ggc_total_memory; /* in KB */
 
-struct GTY(()) saved_module_scope
+typedef struct GTY((for_user)) saved_module_scope
 {
   vec<tree, va_gc> *module_decls;
   unsigned module_id;
+} saved_module_scope;
+
+struct saved_module_scope_hasher : ggc_hasher <saved_module_scope *>
+{
+  static hashval_t hash (saved_module_scope *);
+  static bool equal (saved_module_scope *, saved_module_scope *);
 };
 
-static GTY (()) struct saved_module_scope *current_module_scope;
-static GTY ((param_is (saved_module_scope))) htab_t saved_module_scope_map;
+hashval_t
+saved_module_scope_hasher::hash (saved_module_scope * entry)
+{
+  return (hashval_t) entry->module_id;
+}
+
+/* Module scope equality function.  */
+
+bool
+saved_module_scope_hasher::equal (saved_module_scope *entry1, saved_module_scope *entry2)
+{
+  return entry1->module_id == entry2->module_id;
+}
+
+static GTY(()) saved_module_scope *current_module_scope;
+static GTY(()) hash_table<saved_module_scope_hasher> *saved_module_scope_map;
 static int primary_module_last_funcdef_no = 0;
 /* Function id space for each module are qualified by the module id. After all the files
    are parsed, we need to reset the funcdef_no to the max value from all module so that
@@ -82,44 +102,21 @@ int at_eof;
 static int aggr_has_equiv_id (tree t1, tree t2);
 static hash_set <void *> *type_set = NULL;
 
-/* Module scope hash function.  */
-
-static hashval_t
-htab_module_scope_hash (const void *ent)
-{
-  const struct saved_module_scope *const entry
-      = (const struct saved_module_scope *) ent;
-  return (hashval_t) entry->module_id;
-}
-
-/* Module scope equality function.  */
-
-static int
-htab_module_scope_eq (const void *ent1, const void *ent2)
-{
-  const struct saved_module_scope *const entry1
-      = (const struct saved_module_scope *) ent1;
-  const struct saved_module_scope *const entry2
-      = (const struct saved_module_scope *) ent2;
-
-  return entry1->module_id == entry2->module_id;
-}
 
 /* Returns the module scope given a module id MOD_ID.  */
 
-static struct saved_module_scope *
+static saved_module_scope *
 get_module_scope (unsigned mod_id)
 {
-  struct saved_module_scope **slot, key, *module_scope;
+  saved_module_scope **slot, key, *module_scope;
 
   gcc_assert (mod_id);
 
   if (saved_module_scope_map == NULL)
-    saved_module_scope_map = htab_create_ggc (10, htab_module_scope_hash,
-                                              htab_module_scope_eq, NULL);
+    saved_module_scope_map = hash_table<saved_module_scope_hasher>::create_ggc (20);
   key.module_id = mod_id;
-  slot = (struct saved_module_scope **)
-      htab_find_slot (saved_module_scope_map, &key, INSERT);
+  slot = (saved_module_scope **)
+      saved_module_scope_map->find_slot (&key, INSERT);
   module_scope = *slot;
   if (!module_scope)
     {
@@ -262,7 +259,7 @@ get_type_or_decl_name (tree td)
 void
 add_decl_to_current_module_scope (tree decl, void *scope)
 {
-  struct saved_module_scope *module_scope;
+  saved_module_scope *module_scope;
   tree id;
 
   if (!flag_dyn_ipa)
@@ -297,7 +294,7 @@ add_decl_to_current_module_scope (tree decl, void *scope)
 /* Clear name bindings for all decls created in MODULE_SCOPE.  */
 
 static void
-clear_module_scope_bindings (struct saved_module_scope *module_scope)
+clear_module_scope_bindings (saved_module_scope *module_scope)
 {
   size_t i;
   tree decl;
@@ -361,7 +358,7 @@ restore_assembler_name_reference_bit (void)
 void
 push_module_scope (void)
 {
-  struct saved_module_scope *prev_module_scope;
+  saved_module_scope *prev_module_scope;
 
   if (!flag_dyn_ipa || !L_IPO_COMP_MODE)
     {
@@ -475,6 +472,7 @@ struct type_ec
 static vec<tree> *pending_types = NULL;
 static htab_t type_hash_tab = NULL;
 
+
 /* Hash function for the type table.  */
 
 static hashval_t
@@ -521,36 +519,37 @@ type_hash_del (void *ent)
   free (entry);
 }
 
-struct GTY(()) type_ent
+typedef struct GTY((for_user)) type_ent
 {
   tree type;
   unsigned eq_id;
+} type_ent;
+
+struct type_ent_hasher : ggc_hasher <type_ent *> 
+{
+  static hashval_t hash (type_ent *);
+  static bool equal (type_ent *, type_ent *);
 };
 
-static GTY ((param_is (type_ent))) htab_t l_ipo_type_tab = 0;
-static unsigned l_ipo_eq_id = 0;
 
 /* Address hash function for struct type_ent.  */
 
-static hashval_t
-type_addr_hash (const void *ent)
+hashval_t
+type_ent_hasher::hash (type_ent *entry)
 {
-  const struct type_ent *const entry
-      = (const struct type_ent *) ent;
   return (hashval_t) (long) entry->type;
 }
 
 /* Address equality function for type_ent.  */
 
-static int
-type_addr_eq (const void *ent1, const void *ent2)
+bool
+type_ent_hasher::equal (type_ent *entry1, type_ent *entry2)
 {
-  const struct type_ent *const entry1
-      = (const struct type_ent *) ent1;
-  const struct type_ent *const entry2
-      = (const struct type_ent *) ent2;
   return entry1->type == entry2->type;
 }
+
+static hash_table<type_ent_hasher> *GTY(()) l_ipo_type_tab = 0;
+static unsigned l_ipo_eq_id = 0;
 
 /* Returns 1 if NS1 and NS2 refer to the same namespace.  */
 
@@ -866,14 +865,14 @@ equivalent_struct_types_for_tbaa (const_tree t1, const_tree t2)
 
   key.type = (tree) (long) t1;
   slot = (struct type_ent **)
-      htab_find_slot (l_ipo_type_tab, &key, NO_INSERT);
+      l_ipo_type_tab->find_slot (&key, NO_INSERT);
   if (!slot || !*slot)
     return -1;
   tent1 = *slot;
 
   key.type = (tree) (long) t2;
   slot = (struct type_ent **)
-      htab_find_slot (l_ipo_type_tab, &key, NO_INSERT);
+      l_ipo_type_tab->find_slot (&key, NO_INSERT);
   if (!slot || !*slot)
     return -1;
   tent2 = *slot;
@@ -1039,7 +1038,7 @@ type_eq_process (void **slot, void *data ATTRIBUTE_UNUSED)
     {
       key.type = type;
       slot2 = (struct type_ent **)
-          htab_find_slot (l_ipo_type_tab, &key, INSERT);
+          l_ipo_type_tab->find_slot (&key, INSERT);
       tent = *slot2;
       gcc_assert (!tent);
       tent = ggc_cleared_alloc <type_ent> ();
@@ -1092,8 +1091,7 @@ cgraph_unify_type_alias_sets (void)
   vec_alloc (pending_types, 100);
   type_hash_tab = htab_create (10, type_hash_hash,
                                type_hash_eq, type_hash_del);
-  l_ipo_type_tab = htab_create_ggc (10, type_addr_hash,
-                                    type_addr_eq, NULL);
+  l_ipo_type_tab = hash_table<type_ent_hasher>::create_ggc (10);
 
   FOR_EACH_DEFINED_FUNCTION (node)
     {
@@ -1157,8 +1155,33 @@ cgraph_is_aux_decl_external (struct cgraph_node *node)
   return true;
 }
 
+struct cgraph_sym_hasher : ggc_hasher <cgraph_sym *>
+{
+  typedef const_tree compare_type;
+  static hashval_t hash (cgraph_sym *);
+  static bool equal (cgraph_sym *, const_tree);
+};
+
+/* Return the hash value for cgraph_sym pointed to by P. The
+   hash value is computed using function's assembler name.  */
+
+hashval_t
+cgraph_sym_hasher::hash (cgraph_sym *n)
+{
+  return (hashval_t) symbol_table::decl_assembler_name_hash (n->assembler_name);
+}
+
+/* Return nonzero if P1 and P2 are equal.  */
+
+bool
+cgraph_sym_hasher::equal (cgraph_sym *n1, const_tree name)
+{
+  return symbol_table::decl_assembler_name_equal (n1->rep_decl, name);
+}
+
+
 /* Linked function symbol (cgraph node)  table.  */
-static GTY((param_is (cgraph_sym))) htab_t cgraph_symtab;
+static hash_table<cgraph_sym_hasher> *GTY(()) cgraph_symtab;
 
 /* This is true when global linking is needed and performed (for C++).
    For C, symbol linking is performed on the fly during parsing, and
@@ -1190,26 +1213,6 @@ cgraph_is_auxiliary (tree decl)
   return (cgraph_get_module_id (decl) != primary_module_id);
 }
 
-/* Return the hash value for cgraph_sym pointed to by P. The
-   hash value is computed using function's assembler name.  */
-
-static hashval_t
-hash_sym_by_assembler_name (const void *p)
-{
-  const struct cgraph_sym *n = (const struct cgraph_sym *) p;
-  return (hashval_t) symbol_table::decl_assembler_name_hash (n->assembler_name);
-}
-
-/* Return nonzero if P1 and P2 are equal.  */
-
-static int
-eq_assembler_name_for_cgraph_sym (const void *p1, const void *p2)
-{
-  const struct cgraph_sym *n1 = (const struct cgraph_sym *) p1;
-  const_tree name = (const_tree) p2;
-  return symbol_table::decl_assembler_name_equal (n1->rep_decl, name);
-}
-
 /* Return the cgraph_sym for function declaration DECL.  */
 
 static struct cgraph_sym **
@@ -1226,9 +1229,9 @@ get_cgraph_sym (tree decl)
 
   name = DECL_ASSEMBLER_NAME (decl);
   slot = (struct cgraph_sym **)
-      htab_find_slot_with_hash (cgraph_symtab, name,
-                                symbol_table::decl_assembler_name_hash (name),
-                                NO_INSERT);
+      cgraph_symtab->find_slot_with_hash (name,
+					  symbol_table::decl_assembler_name_hash (name),
+					  NO_INSERT);
   return slot;
 }
 
@@ -1245,9 +1248,9 @@ cgraph_find_decl (tree asm_name)
     return NULL;
 
   slot = (struct cgraph_sym **)
-      htab_find_slot_with_hash (cgraph_symtab, asm_name,
-                                symbol_table::decl_assembler_name_hash (asm_name),
-                                NO_INSERT);
+      cgraph_symtab->find_slot_with_hash (asm_name,
+					  symbol_table::decl_assembler_name_hash (asm_name),
+					  NO_INSERT);
   if (!slot || !*slot)
     return NULL;
 
@@ -1274,29 +1277,6 @@ cgraph_is_promoted_static_func (tree decl)
   return (*sym)->is_promoted_static;
 }
 
-/* Hash function for module information table. ENT
-   is a pointer to a cgraph_module_info.  */
-
-static hashval_t
-htab_sym_hash (const void *ent)
-{
-  const struct cgraph_mod_info * const mi
-      = (const struct cgraph_mod_info * const ) ent;
-  return (hashval_t) mi->module_id;
-}
-
-/* Hash equality function for module information table.  */
-
-static int
-htab_sym_eq (const void *ent1, const void *ent2)
-{
-  const struct cgraph_mod_info * const mi1
-      = (const struct cgraph_mod_info * const ) ent1;
-  const struct cgraph_mod_info * const mi2
-      = (const struct cgraph_mod_info * const ) ent2;
-  return (mi1->module_id == mi2->module_id);
-}
-
 /* cgraph_sym SYM may be defined in more than one source modules.
    Add declaration DECL's definiting module to SYM.  */
 
@@ -1314,11 +1294,10 @@ add_define_module (struct cgraph_sym *sym, tree decl)
 
   if (!sym->def_module_hash)
     sym->def_module_hash
-        = htab_create_ggc (10, htab_sym_hash, htab_sym_eq, NULL);
+      = hash_table<cgraph_mod_info_hasher>::create_ggc (10);
 
   mi.module_id = module_id;
-  slot = (struct cgraph_mod_info **)htab_find_slot (sym->def_module_hash,
-                                                    &mi, INSERT);
+  slot = (struct cgraph_mod_info **)sym->def_module_hash->find_slot (&mi, INSERT);
   if (!*slot)
     {
       *slot = ggc_cleared_alloc <cgraph_mod_info> ();
@@ -1328,14 +1307,13 @@ add_define_module (struct cgraph_sym *sym, tree decl)
     gcc_assert ((*slot)->module_id == module_id);
 }
 
-static int
-add_def_module (void **slot, void *data)
+int
+add_def_module (cgraph_mod_info **m, 
+		hash_table<cgraph_mod_info_hasher> *mod_set)
 {
-  struct cgraph_mod_info **m = (struct cgraph_mod_info **)slot;
-  htab_t mod_set = (htab_t) data;
   struct cgraph_mod_info **new_slot;
 
-  new_slot = (struct cgraph_mod_info **)htab_find_slot (mod_set, *m, INSERT);
+  new_slot = (struct cgraph_mod_info **)mod_set->find_slot (*m, INSERT);
   if (!*new_slot)
     {
       *new_slot = ggc_cleared_alloc <cgraph_mod_info> ();
@@ -1359,8 +1337,9 @@ copy_defined_module_set (tree clone, tree orig)
     return;
   if (!(*clone_sym)->def_module_hash)
     (*clone_sym)->def_module_hash
-      = htab_create_ggc (10, htab_sym_hash, htab_sym_eq, NULL);
-  htab_traverse ((*orig_sym)->def_module_hash, add_def_module, (*clone_sym)->def_module_hash);
+      = hash_table<cgraph_mod_info_hasher>::create_ggc (10);
+  (*orig_sym)->def_module_hash->traverse<hash_table<cgraph_mod_info_hasher> *,
+    &add_def_module>((*clone_sym)->def_module_hash);
 }
 
 /* Return true if the symbol associated with DECL is defined in module
@@ -1371,7 +1350,7 @@ bool
 cgraph_is_inline_body_available_in_module (tree decl, unsigned module_id)
 {
   struct cgraph_sym **sym;
-  void **slot;
+  cgraph_mod_info **slot;
   struct cgraph_mod_info mi;
 
   gcc_assert (L_IPO_COMP_MODE);
@@ -1393,7 +1372,7 @@ cgraph_is_inline_body_available_in_module (tree decl, unsigned module_id)
     return false;
 
   mi.module_id = module_id;
-  slot = htab_find_slot ((*sym)->def_module_hash, &mi, NO_INSERT);
+  slot = (*sym)->def_module_hash->find_slot (&mi, NO_INSERT);
   if (slot)
     {
       gcc_assert (((struct cgraph_mod_info*)*slot)->module_id == module_id);
@@ -1499,8 +1478,8 @@ cgraph_remove_link_node (struct cgraph_node *node)
     return;
 
   name = DECL_ASSEMBLER_NAME (decl);
-  htab_remove_elt_with_hash (cgraph_symtab, name,
-                             symbol_table::decl_assembler_name_hash (name));
+  cgraph_symtab->remove_elt_with_hash (name,
+				       symbol_table::decl_assembler_name_hash (name));
 }
 
 /* Return true if the function body for DECL has profile information.  */
@@ -1601,7 +1580,7 @@ resolve_cgraph_node (struct cgraph_sym **slot, struct cgraph_node *node)
 struct cgraph_sym *
 cgraph_link_node (struct cgraph_node *node)
 {
-  void **slot;
+  cgraph_sym **slot;
   tree name;
 
   if (!L_IPO_COMP_MODE)
@@ -1616,9 +1595,8 @@ cgraph_link_node (struct cgraph_node *node)
     return NULL;
 
   name = DECL_ASSEMBLER_NAME (node->decl);
-  slot = htab_find_slot_with_hash (cgraph_symtab, name,
-                                   symbol_table::decl_assembler_name_hash (name),
-                                   INSERT);
+  slot = cgraph_symtab->find_slot_with_hash (name, symbol_table::decl_assembler_name_hash (name),
+					     INSERT);
   if (*slot)
     resolve_cgraph_node ((struct cgraph_sym **) slot, node);
   else
@@ -1648,8 +1626,7 @@ cgraph_do_link (void)
 
   if (!cgraph_symtab)
     cgraph_symtab
-        = htab_create_ggc (10, hash_sym_by_assembler_name,
-                           eq_assembler_name_for_cgraph_sym, NULL);
+      = hash_table<cgraph_sym_hasher>::create_ggc (10);
 
   FOR_EACH_FUNCTION (node)
     {
@@ -2114,9 +2091,7 @@ varpool_remove_duplicate_weak_decls (void)
   htab_delete (promo_ent_hash_tab);
 }
 
-static GTY((param_is (symtab_node))) htab_t varpool_symtab;
-
-
+static GTY (()) hash_table<asmname_hasher> *varpool_symtab;
 
 /* Return true if NODE's decl is declared in an auxiliary module.  */
 
@@ -2133,7 +2108,7 @@ varpool_is_auxiliary (struct varpool_node *node)
 static struct varpool_node *
 real_varpool_node_1 (tree decl, bool assert)
 {
-  void **slot;
+  symtab_node **slot;
   tree name;
 
   if (!L_IPO_COMP_MODE || !varpool_symtab)
@@ -2143,9 +2118,9 @@ real_varpool_node_1 (tree decl, bool assert)
     return varpool_node::get (decl);
 
   name = DECL_ASSEMBLER_NAME (decl);
-  slot = htab_find_slot_with_hash (varpool_symtab, name,
-                                   symbol_table::decl_assembler_name_hash (name),
-                                   NO_INSERT);
+  slot = varpool_symtab->find_slot_with_hash (name,
+					      symbol_table::decl_assembler_name_hash (name),
+					      NO_INSERT);
   if (!slot)
     {
       gcc_assert (!assert);
@@ -2182,8 +2157,8 @@ varpool_remove_link_node (struct varpool_node *node)
     return;
 
   name = DECL_ASSEMBLER_NAME (decl);
-  htab_remove_elt_with_hash (varpool_symtab, name,
-                             symbol_table::decl_assembler_name_hash (name));
+  varpool_symtab->remove_elt_with_hash (name,
+					symbol_table::decl_assembler_name_hash (name));
 }
 
 /* Merge the addressable attribute from DECL2 to DECL1.  */
@@ -2258,7 +2233,7 @@ void
 varpool_link_node (struct varpool_node *node)
 {
   tree name;
-  void **slot;
+  symtab_node **slot;
 
   if (!L_IPO_COMP_MODE || !varpool_symtab)
     return;
@@ -2267,9 +2242,10 @@ varpool_link_node (struct varpool_node *node)
     return;
 
   name = DECL_ASSEMBLER_NAME (node->decl);
-  slot = htab_find_slot_with_hash (varpool_symtab, name,
-                                   symbol_table::decl_assembler_name_hash (name),
-                                   INSERT);
+  slot = 
+    varpool_symtab->find_slot_with_hash (name,
+					 symbol_table::decl_assembler_name_hash (name),
+					 INSERT);
   if (*slot)
     resolve_varpool_node ((struct varpool_node **) slot, node);
   else
@@ -2323,8 +2299,8 @@ varpool_do_link (void)
     return;
 
   varpool_symtab
-    = htab_create_ggc (10, symbol_table::hash_node_by_assembler_name,
-		       symbol_table::eq_node_assembler_name, NULL);
+    = hash_table<asmname_hasher>::create_ggc (10);
+
   FOR_EACH_VARIABLE (node)
     varpool_link_node (node);
 

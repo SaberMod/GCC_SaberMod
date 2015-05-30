@@ -1,3 +1,41 @@
+2014-12-09  Michael Haubenwallner <michael.haubenwallner@ssi-schaefer.com>
+
+	* Makefile.in (with_aix_soname): Define.
+	* config/rs6000/t-slibgcc-aix: Act upon --with-aix-soname option.
+	* configure.ac: Accept --with-aix-soname=aix|svr4|both option.
+	* configure: Recreate.
+
+2014-12-05  Olivier Hainque  <hainque@adacore.com>
+
+	* unwind-dw2.c (DWARF_REG_TO_UNWIND_COLUMN): Remove default def,
+	now provided by defaults.h.
+
+2014-11-30  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/55351
+	* config/sh/lib1funcs.S: Check value of __SHMEDIA__ instead of checking
+	whether it's defined.
+
+2014-11-27  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* config/i386/cpuinfo.c (processor_features): Add FEATURE_AVX512F.
+	* config/i386/cpuinfo.c (get_available_features): Detect it.
+
+2014-11-27  Tony Wang  <tony.wang@arm.com>
+
+	* config/arm/lib1funcs.S (FUNC_START): Add conditional section
+	redefine for macro L_arm_muldivsf3 and L_arm_muldivdf3.
+	(SYM_END, ARM_SYM_START): Add macros used to expose function Symbols.
+
+2014-11-25  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* crtstuff.c (__do_glbal_ctors_1): Add missing semicolon.
+
+2014-11-24  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/linux-atomic.c (ABORT_INSTRUCTION): Use __builtin_trap()
+	instead.
+
 2014-11-21  Guy Martin  <gmsoft@tuxicoman.be>
 	    John David Anglin  <danglin@gcc.gnu.org>
 

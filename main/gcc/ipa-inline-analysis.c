@@ -379,9 +379,8 @@ add_clause (conditions conditions, struct predicate *p, clause_t clause)
 		&& cc1->val == cc2->val
 		&& cc2->code != IS_NOT_CONSTANT
 		&& cc2->code != CHANGED
-		&& cc1->code == invert_tree_comparison
-				(cc2->code,
-				 HONOR_NANS (TYPE_MODE (TREE_TYPE (cc1->val)))))
+		&& cc1->code == invert_tree_comparison (cc2->code,
+							HONOR_NANS (cc1->val)))
 	      return;
 	  }
     }
@@ -880,9 +879,19 @@ evaluate_conditions_for_known_args (struct cgraph_node *node,
 	}
       if (c->code == IS_NOT_CONSTANT || c->code == CHANGED)
 	continue;
-      res = fold_binary_to_constant (c->code, boolean_type_node, val, c->val);
-      if (res && integer_zerop (res))
-	continue;
+
+      if (operand_equal_p (TYPE_SIZE (TREE_TYPE (c->val)),
+			   TYPE_SIZE (TREE_TYPE (val)), 0))
+	{
+	  val = fold_unary (VIEW_CONVERT_EXPR, TREE_TYPE (c->val), val);
+
+	  res = val
+	    ? fold_binary_to_constant (c->code, boolean_type_node, val, c->val)
+	    : NULL;
+
+	  if (res && integer_zerop (res))
+	    continue;
+	}
       clause |= 1 << (i + predicate_first_dynamic_condition);
     }
   return clause;
@@ -1750,9 +1759,7 @@ set_cond_stmt_execution_predicate (struct ipa_node_params *info,
   if (unmodified_parm_or_parm_agg_item (info, last, op, &index, &aggpos))
     {
       code = gimple_cond_code (last);
-      inverted_code
-	= invert_tree_comparison (code,
-				  HONOR_NANS (TYPE_MODE (TREE_TYPE (op))));
+      inverted_code = invert_tree_comparison (code, HONOR_NANS (op));
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
@@ -4024,7 +4031,7 @@ inline_generate_summary (void)
 
   /* When not optimizing, do not bother to analyze.  Inlining is still done
      because edge redirection needs to happen there.  */
-  if (!optimize && !flag_generate_lto && !flag_wpa)
+  if (!optimize && !flag_generate_lto && !flag_generate_offload && !flag_wpa)
     return;
 
   function_insertion_hook_holder =

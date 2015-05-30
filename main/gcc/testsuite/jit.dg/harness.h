@@ -81,6 +81,12 @@ static char test[1024];
 #define CHECK_STRING_VALUE(ACTUAL, EXPECTED) \
   check_string_value ((ACTUAL), (EXPECTED));
 
+#define CHECK_STRING_STARTS_WITH(ACTUAL, EXPECTED_PREFIX) \
+  check_string_starts_with ((ACTUAL), (EXPECTED_PREFIX));
+
+#define CHECK_STRING_CONTAINS(ACTUAL, EXPECTED_SUBSTRING) \
+  check_string_contains (#ACTUAL, (ACTUAL), (EXPECTED_SUBSTRING));
+
 #define CHECK(COND) \
   do {					\
     if (COND)				\
@@ -102,6 +108,15 @@ extern void
 verify_code (gcc_jit_context *ctxt, gcc_jit_result *result);
 
 extern void check_string_value (const char *actual, const char *expected);
+
+extern void
+check_string_starts_with (const char *actual,
+			  const char *expected_prefix);
+
+extern void
+check_string_contains (const char *name,
+		       const char *actual,
+		       const char *expected_substring);
 
 /* Implement framework needed for turning the testcase hooks into an
    executable.  test-combination.c and test-threads.c each combine multiple
@@ -135,6 +150,55 @@ void check_string_value (const char *actual, const char *expected)
       }
     else
       pass ("%s: actual: NULL == expected: NULL");
+}
+
+void
+check_string_starts_with (const char *actual,
+			  const char *expected_prefix)
+{
+  if (!actual)
+    {
+      fail ("%s: actual: NULL != expected prefix: \"%s\"",
+	    test, expected_prefix);
+      fprintf (stderr, "incorrect value\n");
+      abort ();
+    }
+
+  if (strncmp (actual, expected_prefix, strlen (expected_prefix)))
+    {
+      fail ("%s: actual: \"%s\" did not begin with expected prefix: \"%s\"",
+	    test, actual, expected_prefix);
+      fprintf (stderr, "incorrect value\n");
+      abort ();
+    }
+
+  pass ("%s: actual: \"%s\" begins with expected prefix: \"%s\"",
+	test, actual, expected_prefix);
+}
+
+void
+check_string_contains (const char *name,
+		       const char *actual,
+		       const char *expected_substring)
+{
+  if (!actual)
+    {
+      fail ("%s: %s: actual: NULL does not contain expected substring: \"%s\"",
+	    test, name, expected_substring);
+      fprintf (stderr, "incorrect value\n");
+      abort ();
+    }
+
+  if (!strstr (actual, expected_substring))
+    {
+      fail ("%s: %s: actual: \"%s\" did not contain expected substring: \"%s\"",
+	    test, name, actual, expected_substring);
+      fprintf (stderr, "incorrect value\n");
+      abort ();
+    }
+
+  pass ("%s: %s: found substring: \"%s\"",
+	test, name, expected_substring);
 }
 
 static void set_options (gcc_jit_context *ctxt, const char *argv0)

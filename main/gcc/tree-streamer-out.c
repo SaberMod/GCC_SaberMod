@@ -300,7 +300,7 @@ pack_ts_function_decl_value_fields (struct bitpack_d *bp, tree expr)
   bp_pack_value (bp, DECL_PURE_P (expr), 1);
   bp_pack_value (bp, DECL_LOOPING_CONST_OR_PURE_P (expr), 1);
   if (DECL_BUILT_IN_CLASS (expr) != NOT_BUILT_IN)
-    bp_pack_value (bp, DECL_FUNCTION_CODE (expr), 11);
+    bp_pack_value (bp, DECL_FUNCTION_CODE (expr), 12);
 }
 
 
@@ -446,7 +446,16 @@ streamer_pack_tree_bitfields (struct output_block *ob,
     pack_ts_type_common_value_fields (bp, expr);
 
   if (CODE_CONTAINS_STRUCT (code, TS_EXP))
-    stream_output_location (ob, bp, EXPR_LOCATION (expr));
+    {
+      stream_output_location (ob, bp, EXPR_LOCATION (expr));
+      if (code == MEM_REF
+	  || code == TARGET_MEM_REF)
+	{
+	  bp_pack_value (bp, MR_DEPENDENCE_CLIQUE (expr), sizeof (short) * 8);
+	  if (MR_DEPENDENCE_CLIQUE (expr) != 0)
+	    bp_pack_value (bp, MR_DEPENDENCE_BASE (expr), sizeof (short) * 8);
+	}
+    }
 
   if (CODE_CONTAINS_STRUCT (code, TS_BLOCK))
     pack_ts_block_value_fields (ob, bp, expr);

@@ -2041,6 +2041,7 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_CORE_ALL (m_CORE2 | m_NEHALEM  | m_SANDYBRIDGE | m_HASWELL)
 #define m_BONNELL (1<<PROCESSOR_BONNELL)
 #define m_SILVERMONT (1<<PROCESSOR_SILVERMONT)
+#define m_KNL (1<<PROCESSOR_KNL)
 #define m_INTEL (1<<PROCESSOR_INTEL)
 
 #define m_GEODE (1<<PROCESSOR_GEODE)
@@ -2506,6 +2507,7 @@ static const struct ptt processor_target_table[PROCESSOR_max] =
   {"haswell", &core_cost, 16, 10, 16, 10, 16},
   {"bonnell", &atom_cost, 16, 15, 16, 7, 16},
   {"silvermont", &slm_cost, 16, 15, 16, 7, 16},
+  {"knl", &slm_cost, 16, 15, 16, 7, 16},
   {"intel", &intel_cost, 16, 15, 16, 7, 16},
   {"geode", &geode_cost, 0, 0, 0, 0, 0},
   {"k6", &k6_cost, 32, 7, 32, 7, 32},
@@ -3179,6 +3181,8 @@ ix86_option_override_internal (bool main_args_p,
    | PTA_FMA | PTA_MOVBE | PTA_HLE)
 #define PTA_BROADWELL \
   (PTA_HASWELL | PTA_ADX | PTA_PRFCHW | PTA_RDSEED)
+#define PTA_KNL \
+  (PTA_BROADWELL | PTA_AVX512PF | PTA_AVX512ER | PTA_AVX512F | PTA_AVX512CD)
 #define PTA_BONNELL \
   (PTA_CORE2 | PTA_MOVBE)
 #define PTA_SILVERMONT \
@@ -3242,6 +3246,7 @@ ix86_option_override_internal (bool main_args_p,
       {"atom", PROCESSOR_BONNELL, CPU_ATOM, PTA_BONNELL},
       {"silvermont", PROCESSOR_SILVERMONT, CPU_SLM, PTA_SILVERMONT},
       {"slm", PROCESSOR_SILVERMONT, CPU_SLM, PTA_SILVERMONT},
+      {"knl", PROCESSOR_KNL, CPU_KNL, PTA_KNL},
       {"intel", PROCESSOR_INTEL, CPU_SLM, PTA_NEHALEM},
       {"geode", PROCESSOR_GEODE, CPU_GEODE,
 	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE | PTA_PRFCHW},
@@ -13353,7 +13358,11 @@ legitimate_pic_address_disp_p (rtx disp)
 		return true;
 	    }
 	  else if (!SYMBOL_REF_FAR_ADDR_P (op0)
-		   && SYMBOL_REF_LOCAL_P (op0)
+		   && (SYMBOL_REF_LOCAL_P (op0)
+		       || (HAVE_LD_PIE_COPYRELOC
+			   && flag_pie
+			   && !SYMBOL_REF_WEAK (op0)
+			   && !SYMBOL_REF_FUNCTION_P (op0)))
 		   && ix86_cmodel != CM_LARGE_PIC)
 	    return true;
 	  break;
@@ -22071,6 +22080,10 @@ ix86_expand_vec_perm_vpermi2 (rtx target, rtx op0, rtx mask, rtx op1,
       if (TARGET_AVX512VL && TARGET_AVX512BW)
 	gen = gen_avx512vl_vpermi2varv16hi3;
       break;
+    case V64QImode:
+      if (TARGET_AVX512VBMI)
+	gen = gen_avx512bw_vpermi2varv64qi3;
+      break;
     case V32HImode:
       if (TARGET_AVX512BW)
 	gen = gen_avx512bw_vpermi2varv32hi3;
@@ -24704,7 +24717,8 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
 		      *noalign = alg_noalign;
 		      return alg;
 		    }
-		  break;
+		  else if (!any_alg_usable_p)
+		    break;
 		}
 	      else if (alg_usable_p (candidate, memset))
 		{
@@ -24742,9 +24756,10 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
       alg = decide_alg (count, max / 2, min_size, max_size, memset,
 			zero_memset, dynamic_check, noalign);
       gcc_assert (*dynamic_check == -1);
-      gcc_assert (alg != libcall);
       if (TARGET_INLINE_STRINGOPS_DYNAMICALLY)
 	*dynamic_check = max;
+      else
+	gcc_assert (alg != libcall);
       return alg;
     }
   return (alg_usable_p (algs->unknown_size, memset)
@@ -26173,6 +26188,7 @@ ix86_issue_rate (void)
     case PROCESSOR_PENTIUM:
     case PROCESSOR_BONNELL:
     case PROCESSOR_SILVERMONT:
+    case PROCESSOR_KNL:
     case PROCESSOR_INTEL:
     case PROCESSOR_K6:
     case PROCESSOR_BTVER2:
@@ -26515,6 +26531,7 @@ ix86_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
       break;
 
     case PROCESSOR_SILVERMONT:
+    case PROCESSOR_KNL:
     case PROCESSOR_INTEL:
       if (!reload_completed)
 	return cost;
@@ -26584,6 +26601,7 @@ ia32_multipass_dfa_lookahead (void)
     case PROCESSOR_HASWELL:
     case PROCESSOR_BONNELL:
     case PROCESSOR_SILVERMONT:
+    case PROCESSOR_KNL:
     case PROCESSOR_INTEL:
       /* Generally, we want haifa-sched:max_issue() to look ahead as far
 	 as many instructions can be executed on a cycle, i.e.,
@@ -29062,7 +29080,6 @@ enum ix86_builtins
   IX86_BUILTIN_PBROADCASTMW512,
   IX86_BUILTIN_PBROADCASTQ512,
   IX86_BUILTIN_PBROADCASTQ512_GPR,
-  IX86_BUILTIN_PBROADCASTQ512_MEM,
   IX86_BUILTIN_PCMPEQD512_MASK,
   IX86_BUILTIN_PCMPEQQ512_MASK,
   IX86_BUILTIN_PCMPGTD512_MASK,
@@ -29500,10 +29517,8 @@ enum ix86_builtins
   IX86_BUILTIN_PBROADCASTD128_GPR_MASK,
   IX86_BUILTIN_PBROADCASTQ256_MASK,
   IX86_BUILTIN_PBROADCASTQ256_GPR_MASK,
-  IX86_BUILTIN_PBROADCASTQ256_MEM_MASK,
   IX86_BUILTIN_PBROADCASTQ128_MASK,
   IX86_BUILTIN_PBROADCASTQ128_GPR_MASK,
-  IX86_BUILTIN_PBROADCASTQ128_MEM_MASK,
   IX86_BUILTIN_BROADCASTSS256,
   IX86_BUILTIN_BROADCASTSS128,
   IX86_BUILTIN_BROADCASTSD256,
@@ -32043,8 +32058,7 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX512CD, CODE_FOR_avx512cd_maskb_vec_dupv8di, "__builtin_ia32_broadcastmb512", IX86_BUILTIN_PBROADCASTMB512, UNKNOWN, (int) V8DI_FTYPE_QI },
   { OPTION_MASK_ISA_AVX512CD, CODE_FOR_avx512cd_maskw_vec_dupv16si, "__builtin_ia32_broadcastmw512", IX86_BUILTIN_PBROADCASTMW512, UNKNOWN, (int) V16SI_FTYPE_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_vec_dupv8di_mask, "__builtin_ia32_pbroadcastq512", IX86_BUILTIN_PBROADCASTQ512, UNKNOWN, (int) V8DI_FTYPE_V2DI_V8DI_QI },
-  { OPTION_MASK_ISA_AVX512F | OPTION_MASK_ISA_64BIT, CODE_FOR_avx512f_vec_dup_gprv8di_mask, "__builtin_ia32_pbroadcastq512_gpr_mask", IX86_BUILTIN_PBROADCASTQ512_GPR, UNKNOWN, (int) V8DI_FTYPE_DI_V8DI_QI },
-  { OPTION_MASK_ISA_AVX512F & ~OPTION_MASK_ISA_64BIT, CODE_FOR_avx512f_vec_dup_memv8di_mask, "__builtin_ia32_pbroadcastq512_mem_mask", IX86_BUILTIN_PBROADCASTQ512_MEM, UNKNOWN, (int) V8DI_FTYPE_DI_V8DI_QI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_vec_dup_gprv8di_mask, "__builtin_ia32_pbroadcastq512_gpr_mask", IX86_BUILTIN_PBROADCASTQ512_GPR, UNKNOWN, (int) V8DI_FTYPE_DI_V8DI_QI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_eqv16si3_mask, "__builtin_ia32_pcmpeqd512_mask", IX86_BUILTIN_PCMPEQD512_MASK, UNKNOWN, (int) HI_FTYPE_V16SI_V16SI_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_eqv8di3_mask, "__builtin_ia32_pcmpeqq512_mask", IX86_BUILTIN_PCMPEQQ512_MASK, UNKNOWN, (int) QI_FTYPE_V8DI_V8DI_QI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_gtv16si3_mask, "__builtin_ia32_pcmpgtd512_mask", IX86_BUILTIN_PCMPGTD512_MASK, UNKNOWN, (int) HI_FTYPE_V16SI_V16SI_HI },
@@ -32318,11 +32332,9 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vec_dupv4si_mask, "__builtin_ia32_pbroadcastd128_mask", IX86_BUILTIN_PBROADCASTD128_MASK, UNKNOWN, (int) V4SI_FTYPE_V4SI_V4SI_QI },
   { OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vec_dup_gprv4si_mask, "__builtin_ia32_pbroadcastd128_gpr_mask", IX86_BUILTIN_PBROADCASTD128_GPR_MASK, UNKNOWN, (int) V4SI_FTYPE_SI_V4SI_QI },
   { OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vec_dupv4di_mask, "__builtin_ia32_pbroadcastq256_mask", IX86_BUILTIN_PBROADCASTQ256_MASK, UNKNOWN, (int) V4DI_FTYPE_V2DI_V4DI_QI },
-  { OPTION_MASK_ISA_AVX512VL | OPTION_MASK_ISA_64BIT, CODE_FOR_avx512vl_vec_dup_gprv4di_mask, "__builtin_ia32_pbroadcastq256_gpr_mask", IX86_BUILTIN_PBROADCASTQ256_GPR_MASK, UNKNOWN, (int) V4DI_FTYPE_DI_V4DI_QI },
-  { OPTION_MASK_ISA_AVX512VL & ~OPTION_MASK_ISA_64BIT, CODE_FOR_avx512vl_vec_dup_memv4di_mask, "__builtin_ia32_pbroadcastq256_mem_mask", IX86_BUILTIN_PBROADCASTQ256_MEM_MASK, UNKNOWN, (int) V4DI_FTYPE_DI_V4DI_QI },
+  { OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vec_dup_gprv4di_mask, "__builtin_ia32_pbroadcastq256_gpr_mask", IX86_BUILTIN_PBROADCASTQ256_GPR_MASK, UNKNOWN, (int) V4DI_FTYPE_DI_V4DI_QI },
   { OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vec_dupv2di_mask, "__builtin_ia32_pbroadcastq128_mask", IX86_BUILTIN_PBROADCASTQ128_MASK, UNKNOWN, (int) V2DI_FTYPE_V2DI_V2DI_QI },
-  { OPTION_MASK_ISA_AVX512VL | OPTION_MASK_ISA_64BIT, CODE_FOR_avx512vl_vec_dup_gprv2di_mask, "__builtin_ia32_pbroadcastq128_gpr_mask", IX86_BUILTIN_PBROADCASTQ128_GPR_MASK, UNKNOWN, (int) V2DI_FTYPE_DI_V2DI_QI },
-  { OPTION_MASK_ISA_AVX512VL & ~OPTION_MASK_ISA_64BIT, CODE_FOR_avx512vl_vec_dup_memv2di_mask, "__builtin_ia32_pbroadcastq128_mem_mask", IX86_BUILTIN_PBROADCASTQ128_MEM_MASK, UNKNOWN, (int) V2DI_FTYPE_DI_V2DI_QI },
+  { OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vec_dup_gprv2di_mask, "__builtin_ia32_pbroadcastq128_gpr_mask", IX86_BUILTIN_PBROADCASTQ128_GPR_MASK, UNKNOWN, (int) V2DI_FTYPE_DI_V2DI_QI },
   { OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vec_dupv8sf_mask, "__builtin_ia32_broadcastss256_mask", IX86_BUILTIN_BROADCASTSS256, UNKNOWN, (int) V8SF_FTYPE_V4SF_V8SF_QI },
   { OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vec_dupv4sf_mask, "__builtin_ia32_broadcastss128_mask", IX86_BUILTIN_BROADCASTSS128, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SF_QI },
   { OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vec_dupv4df_mask, "__builtin_ia32_broadcastsd256_mask", IX86_BUILTIN_BROADCASTSD256, UNKNOWN, (int) V4DF_FTYPE_V2DF_V4DF_QI },
@@ -34361,7 +34373,7 @@ add_condition_to_bb (tree function_decl, tree version_decl,
 
   convert_expr = build1 (CONVERT_EXPR, ptr_type_node,
 	     		 build_fold_addr_expr (version_decl));
-  result_var = create_tmp_var (ptr_type_node, NULL);
+  result_var = create_tmp_var (ptr_type_node);
   convert_stmt = gimple_build_assign (result_var, convert_expr); 
   return_stmt = gimple_build_return (result_var);
 
@@ -34378,7 +34390,7 @@ add_condition_to_bb (tree function_decl, tree version_decl,
 
   while (predicate_chain != NULL)
     {
-      cond_var = create_tmp_var (integer_type_node, NULL);
+      cond_var = create_tmp_var (integer_type_node);
       predicate_decl = TREE_PURPOSE (predicate_chain);
       predicate_arg = TREE_VALUE (predicate_chain);
       call_cond_stmt = gimple_build_call (predicate_decl, 1, predicate_arg);
@@ -34485,7 +34497,9 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
     P_FMA,    
     P_PROC_FMA,
     P_AVX2,
-    P_PROC_AVX2
+    P_PROC_AVX2,
+    P_AVX512F,
+    P_PROC_AVX512F
   };
 
  enum feature_priority priority = P_ZERO;
@@ -34513,7 +34527,8 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
       {"fma4", P_FMA4},
       {"xop", P_XOP},
       {"fma", P_FMA},
-      {"avx2", P_AVX2}
+      {"avx2", P_AVX2},
+      {"avx512f", P_AVX512F}
     };
 
 
@@ -34587,6 +34602,10 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
 	    case PROCESSOR_BONNELL:
 	      arg_str = "bonnell";
 	      priority = P_PROC_SSSE3;
+	      break;
+	    case PROCESSOR_KNL:
+	      arg_str = "knl";
+	      priority = P_PROC_AVX512F;
 	      break;
 	    case PROCESSOR_SILVERMONT:
 	      arg_str = "silvermont";
@@ -35488,6 +35507,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
     F_FMA4,
     F_XOP,
     F_FMA,
+    F_AVX512F,
     F_MAX
   };
 
@@ -35505,6 +35525,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
     M_AMDFAM10H,
     M_AMDFAM15H,
     M_INTEL_SILVERMONT,
+    M_INTEL_KNL,
     M_AMD_BTVER1,
     M_AMD_BTVER2,    
     M_CPU_SUBTYPE_START,
@@ -35542,6 +35563,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
       {"haswell", M_INTEL_COREI7_HASWELL},
       {"bonnell", M_INTEL_BONNELL},
       {"silvermont", M_INTEL_SILVERMONT},
+      {"knl", M_INTEL_KNL},
       {"amdfam10h", M_AMDFAM10H},
       {"barcelona", M_AMDFAM10H_BARCELONA},
       {"shanghai", M_AMDFAM10H_SHANGHAI},
@@ -35576,7 +35598,8 @@ fold_builtin_cpu (tree fndecl, tree *args)
       {"fma4",   F_FMA4},
       {"xop",    F_XOP},
       {"fma",    F_FMA},
-      {"avx2",   F_AVX2}
+      {"avx2",   F_AVX2},
+      {"avx512f",F_AVX512F}
     };
 
   tree __processor_model_type = build_processor_model_struct ();
@@ -47796,6 +47819,8 @@ expand_vec_perm_pblendv (struct expand_vec_perm_d *d)
     dcopy.op0 = dcopy.op1 = d->op1;
   else
     dcopy.op0 = dcopy.op1 = d->op0;
+  if (!d->testing_p)
+    dcopy.target = gen_reg_rtx (vmode);
   dcopy.one_operand_p = true;
 
   for (i = 0; i < nelt; ++i)
@@ -49122,6 +49147,7 @@ expand_vec_perm_broadcast_1 (struct expand_vec_perm_d *d)
 	emit_move_insn (d->target, gen_lowpart (d->vmode, dest));
       return true;
 
+    case V64QImode:
     case V32QImode:
     case V16HImode:
     case V8SImode:
@@ -49153,6 +49179,78 @@ expand_vec_perm_broadcast (struct expand_vec_perm_d *d)
       return false;
 
   return expand_vec_perm_broadcast_1 (d);
+}
+
+/* Implement arbitrary permutations of two V64QImode operands
+   will 2 vpermi2w, 2 vpshufb and one vpor instruction.  */
+static bool
+expand_vec_perm_vpermi2_vpshub2 (struct expand_vec_perm_d *d)
+{
+  if (!TARGET_AVX512BW || !(d->vmode == V64QImode))
+    return false;
+
+  if (d->testing_p)
+    return true;
+
+  struct expand_vec_perm_d ds[2];
+  rtx rperm[128], vperm, target0, target1;
+  unsigned int i, nelt;
+  machine_mode vmode;
+
+  nelt = d->nelt;
+  vmode = V64QImode;
+
+  for (i = 0; i < 2; i++)
+    {
+      ds[i] = *d;
+      ds[i].vmode = V32HImode;
+      ds[i].nelt = 32;
+      ds[i].target = gen_reg_rtx (V32HImode);
+      ds[i].op0 = gen_lowpart (V32HImode, d->op0);
+      ds[i].op1 = gen_lowpart (V32HImode, d->op1);
+    }
+
+  /* Prepare permutations such that the first one takes care of
+     putting the even bytes into the right positions or one higher
+     positions (ds[0]) and the second one takes care of
+     putting the odd bytes into the right positions or one below
+     (ds[1]).  */
+
+  for (i = 0; i < nelt; i++)
+    {
+      ds[i & 1].perm[i / 2] = d->perm[i] / 2;
+      if (i & 1)
+	{
+	  rperm[i] = constm1_rtx;
+	  rperm[i + 64] = GEN_INT ((i & 14) + (d->perm[i] & 1));
+	}
+      else
+	{
+	  rperm[i] = GEN_INT ((i & 14) + (d->perm[i] & 1));
+	  rperm[i + 64] = constm1_rtx;
+	}
+    }
+
+  bool ok = expand_vec_perm_1 (&ds[0]);
+  gcc_assert (ok);
+  ds[0].target = gen_lowpart (V64QImode, ds[0].target);
+
+  ok = expand_vec_perm_1 (&ds[1]);
+  gcc_assert (ok);
+  ds[1].target = gen_lowpart (V64QImode, ds[1].target);
+
+  vperm = gen_rtx_CONST_VECTOR (V64QImode, gen_rtvec_v (64, rperm));
+  vperm = force_reg (vmode, vperm);
+  target0 = gen_reg_rtx (V64QImode);
+  emit_insn (gen_avx512bw_pshufbv64qi3 (target0, ds[0].target, vperm));
+
+  vperm = gen_rtx_CONST_VECTOR (V64QImode, gen_rtvec_v (64, rperm + 64));
+  vperm = force_reg (vmode, vperm);
+  target1 = gen_reg_rtx (V64QImode);
+  emit_insn (gen_avx512bw_pshufbv64qi3 (target1, ds[1].target, vperm));
+
+  emit_insn (gen_iorv64qi3 (d->target, target0, target1));
+  return true;
 }
 
 /* Implement arbitrary permutation of two V32QImode and V16QImode operands
@@ -49329,6 +49427,9 @@ ix86_expand_vec_perm_const_1 (struct expand_vec_perm_d *d)
   if (expand_vec_perm_vpshufb2_vpermq_even_odd (d))
     return true;
 
+  if (expand_vec_perm_vpermi2_vpshub2 (d))
+    return true;
+
   /* ??? Look for narrow permutations whose element orderings would
      allow the promotion to a wider mode.  */
 
@@ -49471,6 +49572,11 @@ ix86_vectorize_vec_perm_const_ok (machine_mode vmode,
     case V32HImode:
       if (TARGET_AVX512BW)
 	/* All implementable with a single vpermi2 insn.  */
+	return true;
+      break;
+    case V64QImode:
+      if (TARGET_AVX512BW)
+	/* Implementable with 2 vpermi2, 2 vpshufb and 1 or insn.  */
 	return true;
       break;
     case V8SImode:
@@ -51583,12 +51689,12 @@ ix86_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 {
   if (!TARGET_80387 && !TARGET_SSE_MATH)
     return;
-  tree exceptions_var = create_tmp_var (integer_type_node, NULL);
+  tree exceptions_var = create_tmp_var (integer_type_node);
   if (TARGET_80387)
     {
       tree fenv_index_type = build_index_type (size_int (6));
       tree fenv_type = build_array_type (unsigned_type_node, fenv_index_type);
-      tree fenv_var = create_tmp_var (fenv_type, NULL);
+      tree fenv_var = create_tmp_var (fenv_type);
       mark_addressable (fenv_var);
       tree fenv_ptr = build_pointer_type (fenv_type);
       tree fenv_addr = build1 (ADDR_EXPR, fenv_ptr, fenv_var);
@@ -51602,7 +51708,7 @@ ix86_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
       *hold = build2 (COMPOUND_EXPR, void_type_node, hold_fnstenv,
 		      hold_fnclex);
       *clear = build_call_expr (fnclex, 0);
-      tree sw_var = create_tmp_var (short_unsigned_type_node, NULL);
+      tree sw_var = create_tmp_var (short_unsigned_type_node);
       tree fnstsw_call = build_call_expr (fnstsw, 0);
       tree sw_mod = build2 (MODIFY_EXPR, short_unsigned_type_node,
 			    sw_var, fnstsw_call);
@@ -51616,8 +51722,8 @@ ix86_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
     }
   if (TARGET_SSE_MATH)
     {
-      tree mxcsr_orig_var = create_tmp_var (unsigned_type_node, NULL);
-      tree mxcsr_mod_var = create_tmp_var (unsigned_type_node, NULL);
+      tree mxcsr_orig_var = create_tmp_var (unsigned_type_node);
+      tree mxcsr_mod_var = create_tmp_var (unsigned_type_node);
       tree stmxcsr = ix86_builtins[IX86_BUILTIN_STMXCSR];
       tree ldmxcsr = ix86_builtins[IX86_BUILTIN_LDMXCSR];
       tree stmxcsr_hold_call = build_call_expr (stmxcsr, 0);

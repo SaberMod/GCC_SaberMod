@@ -13,12 +13,12 @@
 !
 34 5   i=0 
 ! gfc_notify_std(GFC_STD_F95_DEL):
-       do r1 = 1, 2 ! { dg-warning "Deleted feature: Loop variable" }
+       do r1 = 1, 2 ! { dg-error "Deleted feature: Loop variable" }
          i = i+1
        end do
        call foo j bar
 ! gfc_warning:
-       r2(4) = 0 ! { dg-warning "is out of bounds" }
+       r2(4) = 0 ! { dg-error "is out of bounds" }
        
        goto 3 45
        end

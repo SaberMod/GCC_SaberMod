@@ -387,8 +387,8 @@
           (ior (eq_attr "tune" "fa526,fa626,fa606te,fa626te,fmp626,fa726te,\
                                 arm926ejs,arm1020e,arm1026ejs,arm1136js,\
                                 arm1136jfs,cortexa5,cortexa7,cortexa8,\
-                                cortexa9,cortexa12,cortexa15,cortexa53,\
-                                cortexm4,cortexm7,marvell_pj4")
+                                cortexa9,cortexa12,cortexa15,cortexa17,\
+                                cortexa53,cortexm4,cortexm7,marvell_pj4")
 	       (eq_attr "tune_cortexr4" "yes"))
           (const_string "no")
           (const_string "yes"))))
@@ -419,6 +419,7 @@
 (include "cortex-a8.md")
 (include "cortex-a9.md")
 (include "cortex-a15.md")
+(include "cortex-a17.md")
 (include "cortex-a53.md")
 (include "cortex-r4.md")
 (include "cortex-r4f.md")
@@ -10596,6 +10597,42 @@
   [(set_attr "type" "no_insn")]
 )
 
+(define_insn "consttable_1"
+  [(unspec_volatile [(match_operand 0 "" "")] VUNSPEC_POOL_1)]
+  "TARGET_EITHER"
+  "*
+  making_const_table = TRUE;
+  assemble_integer (operands[0], 1, BITS_PER_WORD, 1);
+  assemble_zeros (3);
+  return \"\";
+  "
+  [(set_attr "length" "4")
+   (set_attr "type" "no_insn")]
+)
+
+(define_insn "consttable_2"
+  [(unspec_volatile [(match_operand 0 "" "")] VUNSPEC_POOL_2)]
+  "TARGET_EITHER"
+  "*
+  {
+    rtx x = operands[0];
+    making_const_table = TRUE;
+    switch (GET_MODE_CLASS (GET_MODE (x)))
+      {
+      case MODE_FLOAT:
+	arm_emit_fp16_const (x);
+	break;
+      default:
+	assemble_integer (operands[0], 2, BITS_PER_WORD, 1);
+	assemble_zeros (2);
+	break;
+      }
+    return \"\";
+  }"
+  [(set_attr "length" "4")
+   (set_attr "type" "no_insn")]
+)
+
 (define_insn "consttable_4"
   [(unspec_volatile [(match_operand 0 "" "")] VUNSPEC_POOL_4)]
   "TARGET_EITHER"
@@ -10606,15 +10643,12 @@
     switch (GET_MODE_CLASS (GET_MODE (x)))
       {
       case MODE_FLOAT:
- 	if (GET_MODE (x) == HFmode)
- 	  arm_emit_fp16_const (x);
- 	else
- 	  {
- 	    REAL_VALUE_TYPE r;
- 	    REAL_VALUE_FROM_CONST_DOUBLE (r, x);
- 	    assemble_real (r, GET_MODE (x), BITS_PER_WORD);
- 	  }
- 	break;
+	{
+	  REAL_VALUE_TYPE r;
+	  REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+	  assemble_real (r, GET_MODE (x), BITS_PER_WORD);
+	  break;
+	}
       default:
 	/* XXX: Sometimes gcc does something really dumb and ends up with
 	   a HIGH in a constant pool entry, usually because it's trying to
@@ -11158,6 +11192,47 @@
   }
   "
   [(set_attr "predicable" "yes")]
+)
+
+(define_expand "copysignsf3"
+  [(match_operand:SF 0 "register_operand")
+   (match_operand:SF 1 "register_operand")
+   (match_operand:SF 2 "register_operand")]
+  "TARGET_SOFT_FLOAT && arm_arch_thumb2"
+  "{
+     emit_move_insn (operands[0], operands[2]);
+     emit_insn (gen_insv_t2 (simplify_gen_subreg (SImode, operands[0], SFmode, 0),
+		GEN_INT (31), GEN_INT (0),
+		simplify_gen_subreg (SImode, operands[1], SFmode, 0)));
+     DONE;
+  }"
+)
+
+(define_expand "copysigndf3"
+  [(match_operand:DF 0 "register_operand")
+   (match_operand:DF 1 "register_operand")
+   (match_operand:DF 2 "register_operand")]
+  "TARGET_SOFT_FLOAT && arm_arch_thumb2"
+  "{
+     rtx op0_low = gen_lowpart (SImode, operands[0]);
+     rtx op0_high = gen_highpart (SImode, operands[0]);
+     rtx op1_low = gen_lowpart (SImode, operands[1]);
+     rtx op1_high = gen_highpart (SImode, operands[1]);
+     rtx op2_high = gen_highpart (SImode, operands[2]);
+
+     rtx scratch1 = gen_reg_rtx (SImode);
+     rtx scratch2 = gen_reg_rtx (SImode);
+     emit_move_insn (scratch1, op2_high);
+     emit_move_insn (scratch2, op1_high);
+
+     emit_insn(gen_rtx_SET(SImode, scratch1,
+			   gen_rtx_LSHIFTRT (SImode, op2_high, GEN_INT(31))));
+     emit_insn(gen_insv_t2(scratch2, GEN_INT(1), GEN_INT(31), scratch1));
+     emit_move_insn (op0_low, op1_low);
+     emit_move_insn (op0_high, scratch2);
+
+     DONE;
+  }"
 )
 
 ;; Vector bits common to IWMMXT and Neon

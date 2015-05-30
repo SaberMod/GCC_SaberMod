@@ -2267,6 +2267,29 @@ process_alt_operands (int only_alternative)
 		  goto fail;
 		}
 
+	      /* Alternative loses if it required class pseudo can not
+		 hold value of required mode.  Such insns can be
+		 described by insn definitions with mode iterators.
+		 Don't use ira_prohibited_class_mode_regs here as it
+		 is common practice for constraints to use a class
+		 which does not have actually enough regs to hold the
+		 value (e.g. x86 AREG for mode requiring more one
+		 general reg).  */
+	      if (GET_MODE (*curr_id->operand_loc[nop]) != VOIDmode
+		  && ! hard_reg_set_empty_p (this_alternative_set)
+		  && ! HARD_REGNO_MODE_OK (ira_class_hard_regs
+					   [this_alternative][0],
+					   GET_MODE (*curr_id->operand_loc[nop])))
+		{
+		  if (lra_dump_file != NULL)
+		    fprintf
+		      (lra_dump_file,
+		       "            alt=%d: reload pseudo for op %d "
+		       " can not hold the mode value -- refuse\n",
+		       nalt, nop);
+		  goto fail;
+		}
+
 	      /* Check strong discouragement of reload of non-constant
 		 into class THIS_ALTERNATIVE.  */
 	      if (! CONSTANT_P (op) && ! no_regs_p
@@ -4644,7 +4667,7 @@ need_for_call_save_p (int regno)
   lra_assert (regno >= FIRST_PSEUDO_REGISTER && reg_renumber[regno] >= 0);
   return (usage_insns[regno].calls_num < calls_num
 	  && (overlaps_hard_reg_set_p
-	      ((flag_use_caller_save &&
+	      ((flag_ipa_ra &&
 		! hard_reg_set_empty_p (lra_reg_info[regno].actual_call_used_reg_set))
 	       ? lra_reg_info[regno].actual_call_used_reg_set
 	       : call_used_reg_set,

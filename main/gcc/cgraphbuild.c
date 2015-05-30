@@ -687,7 +687,7 @@ lipo_link_and_fixup ()
     }
 
   cgraph_add_fake_indirect_call_edges ();
-  symtab->remove_unreachable_nodes (true, dump_file);
+  symtab->remove_unreachable_nodes (dump_file);
 }
 
 

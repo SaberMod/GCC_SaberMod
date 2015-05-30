@@ -89,7 +89,7 @@ cleanup of such objects is done for you when the context is released.
 
 Thread-safety
 -------------
-Instances of :c:type:`gcc_jit_object *` created via
+Instances of :c:type:`gcc_jit_context *` created via
 :c:func:`gcc_jit_context_acquire` are independent from each other:
 only one thread may use a given context at once, but multiple threads
 could each have their own contexts without needing locks.
@@ -101,17 +101,29 @@ within a process may use a given "family tree" of such contexts at once,
 and if you're using multiple threads you should provide your own locking
 around entire such context partitions.
 
+.. _error-handling:
 
 Error-handling
 --------------
-You can only compile and get code from a context if no errors occur.
-
-In general, if an error occurs when using an API entrypoint, it returns
-NULL.  You don't have to check everywhere for NULL results, since the
-API gracefully handles a NULL being passed in for any argument.
+Various kinds of errors are possible when using the API, such as
+mismatched types in an assignment.  You can only compile and get code from
+a context if no errors occur.
 
 Errors are printed on stderr and can be queried using
 :c:func:`gcc_jit_context_get_first_error`.
+
+They typically contain the name of the API entrypoint where the error
+occurred, and pertinent information on the problem:
+
+.. code-block:: console
+
+  ./buggy-program: error: gcc_jit_block_add_assignment: mismatching types: assignment to i (type: int) from "hello world" (type: const char *)
+
+In general, if an error occurs when using an API entrypoint, the
+entrypoint returns NULL.  You don't have to check everywhere for NULL
+results, since the API handles a NULL being passed in for any
+argument by issuing another error.  This typically leads to a cascade of
+followup error messages, but is safe (albeit verbose).
 
 .. function:: const char *\
               gcc_jit_context_get_first_error (gcc_jit_context *ctxt)
@@ -140,6 +152,53 @@ Debugging
    :macro:`GCC_JIT_BOOL_OPTION_DEBUGINFO` to allow stepping through the
    code in a debugger.
 
+.. function:: void\
+              gcc_jit_context_enable_dump (gcc_jit_context *ctxt,\
+                                           const char *dumpname, \
+                                           char **out_ptr)
+
+   Enable the dumping of a specific set of internal state from the
+   compilation, capturing the result in-memory as a buffer.
+
+   Parameter "dumpname" corresponds to the equivalent gcc command-line
+   option, without the "-fdump-" prefix.
+   For example, to get the equivalent of :option:`-fdump-tree-vrp1`,
+   supply ``"tree-vrp1"``:
+
+   .. code-block:: c
+
+      static char *dump_vrp1;
+
+      void
+      create_code (gcc_jit_context *ctxt)
+      {
+         gcc_jit_context_enable_dump (ctxt, "tree-vrp1", &dump_vrp1);
+         /* (other API calls omitted for brevity) */
+      }
+
+   The context directly stores the dumpname as a ``(const char *)``, so
+   the passed string must outlive the context.
+
+   :func:`gcc_jit_context_compile` will capture the dump as a
+   dynamically-allocated buffer, writing it to ``*out_ptr``.
+
+   The caller becomes responsible for calling:
+
+   .. code-block:: c
+
+      free (*out_ptr)
+
+   each time that :func:`gcc_jit_context_compile` is called.
+   ``*out_ptr`` will be written to, either with the address of a buffer,
+   or with ``NULL`` if an error occurred.
+
+   .. warning::
+
+      This API entrypoint is likely to be less stable than the others.
+      In particular, both the precise dumpnames, and the format and content
+      of the dumps are subject to change.
+
+      It exists primarily for writing the library's own test suite.
 
 Options
 -------

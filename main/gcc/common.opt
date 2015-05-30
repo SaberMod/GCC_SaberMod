@@ -67,6 +67,10 @@ int *param_values
 Variable
 int flag_generate_lto
 
+; Nonzero if we should write GIMPLE bytecode for offload compilation.
+Variable
+int flag_generate_offload = 0
+
 ; True to warn about any objects definitions whose size is larger
 ; than N bytes.  Also want about function definitions whose returned
 ; values are larger than N bytes, where N is 'larger_than_size'.
@@ -1129,6 +1133,10 @@ fdelete-null-pointer-checks
 Common Report Var(flag_delete_null_pointer_checks) Init(1) Optimization
 Delete useless null pointer checks
 
+fdevirtualize-at-ltrans
+Common Report Var(flag_ltrans_devirtualize)
+Perofrm extra streaming to support more agressive devirtualization at LTO ltrans stage.
+
 fdevirtualize-speculatively
 Common Report Var(flag_devirtualize_speculatively) Optimization
 Perform speculative devirtualization
@@ -1163,7 +1171,7 @@ Common Alias(fdiagnostics-color=,always,never)
 ;
 
 fdiagnostics-color=
-Common Joined RejectNegative Var(flag_diagnostics_show_color) Enum(diagnostic_color_rule) Init(DIAGNOSTICS_COLOR_NO)
+Driver Common Joined RejectNegative Var(flag_diagnostics_show_color) Enum(diagnostic_color_rule) Init(DIAGNOSTICS_COLOR_NO)
 -fdiagnostics-color=[never|always|auto]	Colorize diagnostics
 
 ; Required for these enum values.
@@ -2997,8 +3005,8 @@ Create a position independent executable
 z
 Driver Joined Separate
 
-fuse-caller-save
-Common Report Var(flag_use_caller_save) Optimization
+fipa-ra
+Common Report Var(flag_ipa_ra) Optimization
 Use caller save register across calls if possible
 
 ; This comment is to ensure we retain the blank line above.

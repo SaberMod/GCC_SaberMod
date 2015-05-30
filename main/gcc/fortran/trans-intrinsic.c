@@ -856,8 +856,8 @@ gfc_conv_intrinsic_lib_function (gfc_se * se, gfc_expr * expr)
 
   if (m->id == GFC_ISYM_NONE)
     {
-      internal_error ("Intrinsic function %s(%d) not recognized",
-		      expr->value.function.name, id);
+      gfc_internal_error ("Intrinsic function %qs (%d) not recognized",
+			  expr->value.function.name, id);
     }
 
   /* Get the decl and generate the call.  */
@@ -1468,7 +1468,7 @@ trans_this_image (gfc_se * se, gfc_expr *expr)
 	{
 	  if (wi::ltu_p (dim_arg, 1)
 	      || wi::gtu_p (dim_arg, GFC_TYPE_ARRAY_CORANK (TREE_TYPE (desc))))
-	    gfc_error ("'dim' argument of %s intrinsic at %L is not a valid "
+	    gfc_error ("%<dim%> argument of %s intrinsic at %L is not a valid "
 		       "dimension index", expr->value.function.isym->name,
 		       &expr->where);
 	}
@@ -1854,7 +1854,7 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
       if (((!as || as->type != AS_ASSUMED_RANK)
 	   && wi::geu_p (bound, GFC_TYPE_ARRAY_RANK (TREE_TYPE (desc))))
 	  || wi::gtu_p (bound, GFC_MAX_DIMENSIONS))
-	gfc_error ("'dim' argument of %s intrinsic at %L is not a valid "
+	gfc_error ("%<dim%> argument of %s intrinsic at %L is not a valid "
 		   "dimension index", upper ? "UBOUND" : "LBOUND",
 		   &expr->where);
     }
@@ -2050,7 +2050,7 @@ conv_intrinsic_cobound (gfc_se * se, gfc_expr * expr)
 	{
 	  if (wi::ltu_p (bound, 1)
 	      || wi::gtu_p (bound, GFC_TYPE_ARRAY_CORANK (TREE_TYPE (desc))))
-	    gfc_error ("'dim' argument of %s intrinsic at %L is not a valid "
+	    gfc_error ("%<dim%> argument of %s intrinsic at %L is not a valid "
 		       "dimension index", expr->value.function.isym->name,
 		       &expr->where);
 	}
@@ -3729,9 +3729,9 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, enum tree_code op)
      possible value is HUGE in both cases.  */
   if (op == GT_EXPR)
     tmp = fold_build1_loc (input_location, NEGATE_EXPR, TREE_TYPE (tmp), tmp);
-  if (op == GT_EXPR && expr->ts.type == BT_INTEGER)
+  if (op == GT_EXPR && arrayexpr->ts.type == BT_INTEGER)
     tmp = fold_build2_loc (input_location, MINUS_EXPR, TREE_TYPE (tmp), tmp,
-			   build_int_cst (type, 1));
+			   build_int_cst (TREE_TYPE (tmp), 1));
 
   gfc_add_modify (&se->pre, limit, tmp);
 
@@ -6146,8 +6146,9 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
 	{
 	  tmp = gfc_build_addr_expr (NULL_TREE, argse.expr);
 
-	  if (gfc_option.warn_array_temp)
-	    gfc_warning ("Creating array temporary at %L", &expr->where);
+	  if (warn_array_temporaries)
+	    gfc_warning (OPT_Warray_temporaries,
+			 "Creating array temporary at %L", &expr->where);
 
 	  source = build_call_expr_loc (input_location,
 				    gfor_fndecl_in_pack, 1, tmp);

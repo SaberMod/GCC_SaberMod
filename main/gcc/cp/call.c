@@ -1194,7 +1194,8 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
      rvalue of type std::nullptr_t. */
   if ((tcode == POINTER_TYPE || TYPE_PTRMEM_P (to)
        || NULLPTR_TYPE_P (to))
-      && expr && null_ptr_cst_p (expr))
+      && ((expr && null_ptr_cst_p (expr))
+	  || NULLPTR_TYPE_P (from)))
     conv = build_conv (ck_std, to, conv);
   else if ((tcode == INTEGER_TYPE && fcode == POINTER_TYPE)
 	   || (tcode == POINTER_TYPE && fcode == INTEGER_TYPE))
@@ -9590,7 +9591,7 @@ set_up_extended_ref_temp (tree decl, tree expr, vec<tree, va_gc> **cleanups,
   else
     /* Create the INIT_EXPR that will initialize the temporary
        variable.  */
-    init = build2 (INIT_EXPR, type, var, expr);
+    init = split_nonconstant_init (var, expr);
   if (at_function_scope_p ())
     {
       add_decl_expr (var);

@@ -794,7 +794,7 @@ proper position among the other output files.  */
 %{!nostdlib:%{!nodefaultlibs:%{%:sanitize(address):" LIBASAN_SPEC "\
     %{static:%ecannot specify -static with -fsanitize=address}}\
     %{%:sanitize(thread):" LIBTSAN_SPEC "\
-    %{!pie:%{!shared:%e-fsanitize=thread linking must be done with -pie or -shared}}}\
+    %{static:%ecannot specify -static with -fsanitize=thread}}\
     %{%:sanitize(undefined):" LIBUBSAN_SPEC "}\
     %{%:sanitize(leak):" LIBLSAN_SPEC "}}}"
 #endif
@@ -3394,11 +3394,11 @@ handle_foffload_option (const char *arg)
     {
       next = strchr (cur, ',');
       if (next == NULL)
-	next = strchr (cur, '\0');
+	next = end;
       next = (next > end) ? end : next;
 
       target = XNEWVEC (char, next - cur + 1);
-      strncpy (target, cur, next - cur);
+      memcpy (target, cur, next - cur);
       target[next - cur] = '\0';
 
       /* If 'disable' is passed to the option, stop parsing the option and clean
@@ -3418,8 +3418,7 @@ handle_foffload_option (const char *arg)
 	  if (n == NULL)
 	    n = strchr (c, '\0');
 
-	  if (strlen (target) == (size_t) (n - c)
-	      && strncmp (target, c, n - c) == 0)
+	  if (next - cur == n - c && strncmp (target, c, n - c) == 0)
 	    break;
 
 	  c = *n ? n + 1 : NULL;
@@ -3430,7 +3429,10 @@ handle_foffload_option (const char *arg)
 		     target);
 
       if (!offload_targets)
-	offload_targets = xstrdup (target);
+	{
+	  offload_targets = target;
+	  target = NULL;
+	}
       else
 	{
 	  /* Check that the target hasn't already presented in the list.  */
@@ -3441,8 +3443,7 @@ handle_foffload_option (const char *arg)
 	      if (n == NULL)
 		n = strchr (c, '\0');
 
-	      if (strlen (target) == (size_t) (n - c)
-		  && strncmp (c, target, n - c) == 0)
+	      if (next - cur == n - c && strncmp (c, target, n - c) == 0)
 		break;
 
 	      c = n + 1;
@@ -3452,12 +3453,13 @@ handle_foffload_option (const char *arg)
 	  /* If duplicate is not found, append the target to the list.  */
 	  if (c > n)
 	    {
+	      size_t offload_targets_len = strlen (offload_targets);
 	      offload_targets
 		= XRESIZEVEC (char, offload_targets,
-			      strlen (offload_targets) + strlen (target) + 2);
-	      if (strlen (offload_targets) != 0)
-		strcat (offload_targets, ":");
-	      strcat (offload_targets, target);
+			      offload_targets_len + next - cur + 2);
+	      if (offload_targets_len)
+		offload_targets[offload_targets_len++] = ':';
+	      memcpy (offload_targets + offload_targets_len, target, next - cur);
 	    }
 	}
 
@@ -3615,6 +3617,10 @@ driver_handle_option (struct gcc_options *opts,
 	compare_debug_opt = arg;
       save_switch (compare_debug_replacement_opt, 0, NULL, validated, true);
       return true;
+
+    case OPT_fdiagnostics_color_:
+      diagnostic_color_init (dc, value);
+      break;
 
     case OPT_Wa_:
       {
@@ -7035,6 +7041,7 @@ driver::global_initializations ()
   gcc_init_libintl ();
 
   diagnostic_initialize (global_dc, 0);
+  diagnostic_color_init (global_dc);
 
 #ifdef GCC_DRIVER_HOST_INITIALIZATION
   /* Perform host dependent initialization when needed.  */

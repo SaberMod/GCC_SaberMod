@@ -65,8 +65,8 @@ build_assign (enum tree_code code, tree op1, int val, tree lhs)
 {
   tree op2 = build_int_cst (TREE_TYPE (op1), val);
   if (lhs == NULL_TREE)
-    lhs = make_ssa_name (get_expr_type (code, op1), NULL);
-  return gimple_build_assign_with_ops (code, lhs, op1, op2);
+    lhs = make_ssa_name (get_expr_type (code, op1));
+  return gimple_build_assign (lhs, code, op1, op2);
 }
 
 gassign *
@@ -88,8 +88,8 @@ gassign *
 build_assign (enum tree_code code, tree op1, tree op2, tree lhs)
 {
   if (lhs == NULL_TREE)
-    lhs = make_ssa_name (get_expr_type (code, op1), NULL);
-  return gimple_build_assign_with_ops (code, lhs, op1, op2);
+    lhs = make_ssa_name (get_expr_type (code, op1));
+  return gimple_build_assign (lhs, code, op1, op2);
 }
 
 gassign *
@@ -119,8 +119,8 @@ gassign *
 build_type_cast (tree to_type, tree op, tree lhs)
 {
   if (lhs == NULL_TREE)
-    lhs = make_ssa_name (to_type, NULL);
-  return gimple_build_assign_with_ops (NOP_EXPR, lhs, op);
+    lhs = make_ssa_name (to_type);
+  return gimple_build_assign (lhs, NOP_EXPR, op);
 }
 
 gassign *

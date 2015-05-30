@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "hash-table.h"
 #include "hash-map.h"
+#include "hash-set.h"
 #include "vec.h"
 #include "is-a.h"
 
@@ -102,6 +103,18 @@ fatal_at (const cpp_token *tk, const char *msg, ...)
   va_list ap;
   va_start (ap, msg);
   error_cb (NULL, CPP_DL_FATAL, 0, tk->src_loc, 0, msg, &ap);
+  va_end (ap);
+}
+
+static void
+#if GCC_VERSION >= 4001
+__attribute__((format (printf, 2, 3)))
+#endif
+fatal_at (source_location loc, const char *msg, ...)
+{
+  va_list ap;
+  va_start (ap, msg);
+  error_cb (NULL, CPP_DL_FATAL, 0, loc, 0, msg, &ap);
   va_end (ap);
 }
 
@@ -1098,6 +1111,9 @@ struct dt_node
   virtual void gen (FILE *, bool) {}
 
   void gen_kids (FILE *, bool);
+  void gen_kids_1 (FILE *, bool,
+		   vec<dt_operand *>, vec<dt_operand *>, vec<dt_operand *>,
+		   vec<dt_operand *>, vec<dt_operand *>, vec<dt_node *>);
 };
 
 /* Generic decision tree node used for DT_OPERAND and DT_MATCH.  */
@@ -1203,8 +1219,11 @@ decision_tree::cmp_node (dt_node *n1, dt_node *n2)
   if (!n1 || !n2 || n1->type != n2->type)
     return false;
 
-  if (n1 == n2 || n1->type == dt_node::DT_TRUE)
+  if (n1 == n2)
     return true;
+
+  if (n1->type == dt_node::DT_TRUE)
+    return false;
 
   if (n1->type == dt_node::DT_OPERAND)
     return cmp_operand ((as_a<dt_operand *> (n1))->op,
@@ -1220,10 +1239,21 @@ decision_tree::cmp_node (dt_node *n1, dt_node *n2)
 dt_node *
 decision_tree::find_node (vec<dt_node *>& ops, dt_node *p)
 {
-  for (unsigned i = 0; i < ops.length (); ++i)
-    if (decision_tree::cmp_node (ops[i], p))
-      return ops[i];
-
+  /* We can merge adjacent DT_TRUE.  */
+  if (p->type == dt_node::DT_TRUE
+      && !ops.is_empty ()
+      && ops.last ()->type == dt_node::DT_TRUE)
+    return ops.last ();
+  for (int i = ops.length () - 1; i >= 0; --i)
+    {
+      /* But we can't merge across DT_TRUE nodes as they serve as
+         pattern order barriers to make sure that patterns apply
+	 in order of appearance in case multiple matches are possible.  */
+      if (ops[i]->type == dt_node::DT_TRUE)
+	return NULL;
+      if (decision_tree::cmp_node (ops[i], p))
+	return ops[i];
+    }
   return NULL;
 }
 
@@ -1241,15 +1271,6 @@ dt_node::append_node (dt_node *n)
 
   kids.safe_push (n);
   n->level = this->level + 1;
-
-  unsigned len = kids.length ();
-
-  if (len > 1 && kids[len - 2]->type == dt_node::DT_TRUE)
-    {
-      dt_node *p = kids[len - 2];
-      kids[len - 2] = kids[len - 1];
-      kids[len - 1] = p;
-    }
 
   return n;
 }
@@ -2006,7 +2027,6 @@ dt_node::gen_kids (FILE *f, bool gimple)
   auto_vec<dt_operand *> generic_fns;
   auto_vec<dt_operand *> preds;
   auto_vec<dt_node *> others;
-  dt_node *true_operand = NULL;
 
   for (unsigned i = 0; i < kids.length (); ++i)
     {
@@ -2044,11 +2064,40 @@ dt_node::gen_kids (FILE *f, bool gimple)
 	       || kids[i]->type == dt_node::DT_SIMPLIFY)
 	others.safe_push (kids[i]);
       else if (kids[i]->type == dt_node::DT_TRUE)
-	true_operand = kids[i];
+	{
+	  /* A DT_TRUE operand serves as a barrier - generate code now
+	     for what we have collected sofar.  */
+	  gen_kids_1 (f, gimple, gimple_exprs, generic_exprs,
+		      fns, generic_fns, preds, others);
+	  /* And output the true operand itself.  */
+	  kids[i]->gen (f, gimple);
+	  gimple_exprs.truncate (0);
+	  generic_exprs.truncate (0);
+	  fns.truncate (0);
+	  generic_fns.truncate (0);
+	  preds.truncate (0);
+	  others.truncate (0);
+	}
       else
 	gcc_unreachable ();
     }
 
+  /* Generate code for the remains.  */
+  gen_kids_1 (f, gimple, gimple_exprs, generic_exprs,
+	      fns, generic_fns, preds, others);
+}
+
+/* Generate matching code for the children of the decision tree node.  */
+
+void
+dt_node::gen_kids_1 (FILE *f, bool gimple,
+		     vec<dt_operand *> gimple_exprs,
+		     vec<dt_operand *> generic_exprs,
+		     vec<dt_operand *> fns,
+		     vec<dt_operand *> generic_fns,
+		     vec<dt_operand *> preds,
+		     vec<dt_node *> others)
+{
   char buf[128];
   char *kid_opname = buf;
 
@@ -2200,9 +2249,6 @@ dt_node::gen_kids (FILE *f, bool gimple)
 
   for (unsigned i = 0; i < others.length (); ++i)
     others[i]->gen (f, gimple);
-
-  if (true_operand)
-    true_operand->gen (f, gimple);
 }
 
 /* Generate matching code for the decision tree operand.  */
@@ -2671,7 +2717,11 @@ private:
   c_expr *parse_c_expr (cpp_ttype);
   operand *parse_op ();
 
+  void record_operlist (source_location, user_id *);
+
   void parse_pattern ();
+  void push_simplify (vec<simplify *>&, operand *, source_location,
+		      operand *, source_location);
   void parse_simplify (source_location, vec<simplify *>&, predicate_id *,
 		       expr *);
   void parse_for (source_location);
@@ -2682,6 +2732,8 @@ private:
   cpp_reader *r;
   vec<if_or_with> active_ifs;
   vec<vec<user_id *> > active_fors;
+  hash_set<user_id *> *oper_lists_set;
+  vec<user_id *> oper_lists;
 
   cid_map_t *capture_ids;
 
@@ -2812,6 +2864,21 @@ parser::get_number ()
 }
 
 
+/* Record an operator-list use for transparent for handling.  */
+
+void
+parser::record_operlist (source_location loc, user_id *p)
+{
+  if (!oper_lists_set->add (p))
+    {
+      if (!oper_lists.is_empty ()
+	  && oper_lists[0]->substitutes.length () != p->substitutes.length ())
+	fatal_at (loc, "User-defined operator list does not have the "
+		  "same number of entries as others used in the pattern");
+      oper_lists.safe_push (p);
+    }
+}
+
 /* Parse the operator ID, special-casing convert?, convert1? and
    convert2?  */
 
@@ -2849,8 +2916,7 @@ parser::parse_operation ()
 
   user_id *p = dyn_cast<user_id *> (op);
   if (p && p->is_oper_list)
-    fatal_at (id_tok, "operator-list not allowed in expression");
-
+    record_operlist (id_tok->src_loc, p);
   return op;
 }
 
@@ -2987,8 +3053,13 @@ parser::parse_c_expr (cpp_ttype start)
 
       /* If this is possibly a user-defined identifier mark it used.  */
       if (token->type == CPP_NAME)
-	get_operator ((const char *)CPP_HASHNODE
-		        (token->val.node.node)->ident.str);
+	{
+	  id_base *idb = get_operator ((const char *)CPP_HASHNODE
+				      (token->val.node.node)->ident.str);
+	  user_id *p;
+	  if (idb && (p = dyn_cast<user_id *> (idb)) && p->is_oper_list)
+	    record_operlist (token->src_loc, p);
+	}
 
       /* Record the token.  */
       code.safe_push (*token);
@@ -3064,6 +3135,26 @@ parser::parse_op ()
   return op;
 }
 
+/* Create a new simplify from the current parsing state and MATCH,
+   MATCH_LOC, RESULT and RESULT_LOC and push it to SIMPLIFIERS.  */
+
+void
+parser::push_simplify (vec<simplify *>& simplifiers,
+		       operand *match, source_location match_loc,
+		       operand *result, source_location result_loc)
+{
+  /* Build and push a temporary for for operator list uses in expressions.  */
+  if (!oper_lists.is_empty ())
+    active_fors.safe_push (oper_lists);
+
+  simplifiers.safe_push
+    (new simplify (match, match_loc, result, result_loc,
+		   active_ifs.copy (), active_fors.copy (), capture_ids));
+
+  if (!oper_lists.is_empty ())
+    active_fors.pop ();
+}
+
 /* Parse
      simplify = 'simplify' <expr> <result-op>
    or
@@ -3081,6 +3172,10 @@ parser::parse_simplify (source_location match_location,
 {
   /* Reset the capture map.  */
   capture_ids = new cid_map_t;
+  /* Reset oper_lists and set.  */
+  hash_set <user_id *> olist;
+  oper_lists_set = &olist;
+  oper_lists = vNULL;
 
   const cpp_token *loc = peek ();
   parsing_match_operand = true;
@@ -3100,10 +3195,8 @@ parser::parse_simplify (source_location match_location,
     {
       if (!matcher)
 	fatal_at (token, "expected transform expression");
-      simplifiers.safe_push
-	(new simplify (match, match_location, result, token->src_loc,
-		       active_ifs.copy (), active_fors.copy (),
-		       capture_ids));
+      push_simplify (simplifiers, match, match_location,
+		     result, token->src_loc);
       return;
     }
 
@@ -3126,10 +3219,8 @@ parser::parse_simplify (source_location match_location,
 		{
 		  if (!matcher)
 		    fatal_at (token, "manual transform not implemented");
-		  simplifiers.safe_push
-		      (new simplify (match, match_location, result,
-				     paren_loc, active_ifs.copy (),
-				     active_fors.copy (), capture_ids));
+		  push_simplify (simplifiers, match, match_location,
+				 result, paren_loc);
 		}
 	    }
 	  else if (peek_ident ("with"))
@@ -3145,10 +3236,8 @@ parser::parse_simplify (source_location match_location,
 	      operand *op = result;
 	      if (!matcher)
 		op = parse_expr ();
-	      simplifiers.safe_push
-		  (new simplify (match, match_location, op,
-				 token->src_loc, active_ifs.copy (),
-				 active_fors.copy (), capture_ids));
+	      push_simplify (simplifiers, match, match_location,
+			     op, token->src_loc);
 	      eat_token (CPP_CLOSE_PAREN);
 	      /* A "default" result closes the enclosing scope.  */
 	      if (active_ifs.length () > active_ifs_len)
@@ -3176,11 +3265,8 @@ parser::parse_simplify (source_location match_location,
 	{
 	  if (matcher)
 	    fatal_at (token, "expected match operand expression");
-	  simplifiers.safe_push
-	      (new simplify (match, match_location,
-			     matcher ? result : parse_op (),
-			     token->src_loc, active_ifs.copy (),
-			     active_fors.copy (), capture_ids));
+	  push_simplify (simplifiers, match, match_location,
+			 matcher ? result : parse_op (), token->src_loc);
 	  /* A "default" result closes the enclosing scope.  */
 	  if (active_ifs.length () > active_ifs_len)
 	    {
@@ -3474,6 +3560,8 @@ parser::parser (cpp_reader *r_)
   active_ifs = vNULL;
   active_fors = vNULL;
   simplifiers = vNULL;
+  oper_lists_set = NULL;
+  oper_lists = vNULL;
   user_predicates = vNULL;
   parsing_match_operand = false;
 

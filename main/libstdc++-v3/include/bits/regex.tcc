@@ -62,6 +62,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	return false;
 
       typename match_results<_BiIter, _Alloc>::_Base_type& __res = __m;
+      __m._M_begin = __s;
       __res.resize(__re._M_automaton->_M_sub_count() + 2);
       for (auto& __it : __res)
 	__it.matched = false;
@@ -569,8 +570,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 				   | regex_constants::match_continuous))
 		    {
 		      _GLIBCXX_DEBUG_ASSERT(_M_match[0].matched);
-		      _M_match.at(_M_match.size()).first = __prefix_first;
-		      _M_match._M_in_iterator = true;
+		      auto& __prefix = _M_match.at(_M_match.size());
+		      __prefix.first = __prefix_first;
+		      __prefix.matched = __prefix.first != __prefix.second;
+		      // [28.12.1.4.5]
 		      _M_match._M_begin = _M_begin;
 		      return *this;
 		    }
@@ -582,8 +585,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  if (regex_search(__start, _M_end, _M_match, *_M_pregex, _M_flags))
 	    {
 	      _GLIBCXX_DEBUG_ASSERT(_M_match[0].matched);
-	      _M_match.at(_M_match.size()).first = __prefix_first;
-	      _M_match._M_in_iterator = true;
+	      auto& __prefix = _M_match.at(_M_match.size());
+	      __prefix.first = __prefix_first;
+	      __prefix.matched = __prefix.first != __prefix.second;
+	      // [28.12.1.4.5]
 	      _M_match._M_begin = _M_begin;
 	    }
 	  else

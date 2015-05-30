@@ -33,6 +33,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "diagnostic-color.h"
 
+#ifdef HAVE_TERMIOS_H
+# include <termios.h>
+#endif
+
+#ifdef GWINSZ_IN_SYS_IOCTL
+# include <sys/ioctl.h>
+#endif
+
 #include <new>                     // For placement new.
 
 #define pedantic_warning_kind(DC)			\
@@ -43,8 +51,6 @@ along with GCC; see the file COPYING3.  If not see
 /* Prototypes.  */
 static void error_recursion (diagnostic_context *) ATTRIBUTE_NORETURN;
 
-static void diagnostic_action_after_output (diagnostic_context *,
-					    diagnostic_info *);
 static void real_abort (void) ATTRIBUTE_NORETURN;
 
 /* Name of program invoked, sans directories.  */
@@ -83,9 +89,10 @@ file_name_as_prefix (diagnostic_context *context, const char *f)
 
 
 /* Return the value of the getenv("COLUMNS") as an integer. If the
-   value is not set to a positive integer, then return INT_MAX.  */
-static int
-getenv_columns (void)
+   value is not set to a positive integer, use ioctl to get the
+   terminal width. If it fails, return INT_MAX.  */
+int
+get_terminal_width (void)
 {
   const char * s = getenv ("COLUMNS");
   if (s != NULL) {
@@ -93,6 +100,14 @@ getenv_columns (void)
     if (n > 0)
       return n;
   }
+
+#ifdef TIOCGWINSZ
+  struct winsize w;
+  w.ws_col = 0;
+  if (ioctl (0, TIOCGWINSZ, &w) == 0 && w.ws_col > 0)
+    return w.ws_col;
+#endif
+
   return INT_MAX;
 }
 
@@ -103,7 +118,7 @@ diagnostic_set_caret_max_width (diagnostic_context *context, int value)
   /* One minus to account for the leading empty space.  */
   value = value ? value - 1 
     : (isatty (fileno (pp_buffer (context->printer)->stream))
-       ? getenv_columns () - 1: INT_MAX);
+       ? get_terminal_width () - 1: INT_MAX);
   
   if (value <= 0) 
     value = INT_MAX;
@@ -154,6 +169,34 @@ diagnostic_initialize (diagnostic_context *context, int n_opts)
   context->x_data = NULL;
   context->lock = 0;
   context->inhibit_notes_p = false;
+}
+
+/* Maybe initialize the color support. We require clients to do this
+   explicitly, since most clients don't want color.  When called
+   without a VALUE, it initializes with DIAGNOSTICS_COLOR_DEFAULT.  */
+
+void
+diagnostic_color_init (diagnostic_context *context, int value /*= -1 */)
+{
+  /* value == -1 is the default value.  */
+  if (value < 0)
+    {
+      /* If DIAGNOSTICS_COLOR_DEFAULT is -1, default to
+	 -fdiagnostics-color=auto if GCC_COLORS is in the environment,
+	 otherwise default to -fdiagnostics-color=never, for other
+	 values default to that
+	 -fdiagnostics-color={never,auto,always}.  */
+      if (DIAGNOSTICS_COLOR_DEFAULT == -1)
+	{
+	  if (!getenv ("GCC_COLORS"))
+	    return;
+	  value = DIAGNOSTICS_COLOR_AUTO;
+	}
+      else
+	value = DIAGNOSTICS_COLOR_DEFAULT;
+    }
+  pp_show_color (context->printer)
+    = colorize_init ((diagnostic_color_rule_t) value);
 }
 
 /* Do any cleaning up required after the last diagnostic is emitted.  */
@@ -233,6 +276,8 @@ diagnostic_build_prefix (diagnostic_context *context,
 #undef DEFINE_DIAGNOSTIC_KIND
     NULL
   };
+  gcc_assert (diagnostic->kind < DK_LAST_DIAGNOSTIC_KIND);
+
   const char *text = _(diagnostic_kind_text[diagnostic->kind]);
   const char *text_cs = "", *text_ce = "";
   const char *locus_cs, *locus_ce;
@@ -247,11 +292,7 @@ diagnostic_build_prefix (diagnostic_context *context,
   locus_cs = colorize_start (pp_show_color (pp), "locus");
   locus_ce = colorize_stop (pp_show_color (pp));
 
-  expanded_location s = expand_location_to_spelling_point (diagnostic->location);
-  if (diagnostic->override_column)
-    s.column = diagnostic->override_column;
-  gcc_assert (diagnostic->kind < DK_LAST_DIAGNOSTIC_KIND);
-
+  expanded_location s = diagnostic_expand_location (diagnostic);
   return
     (s.file == NULL
      ? build_message_string ("%s%s:%s %s%s%s", locus_cs, progname, locus_ce,
@@ -262,8 +303,8 @@ diagnostic_build_prefix (diagnostic_context *context,
      : context->show_column
      ? build_message_string ("%s%s:%d:%d:%s %s%s%s", locus_cs, s.file, s.line,
 			     s.column, locus_ce, text_cs, text, text_ce)
-     : build_message_string ("%s%s:%d:%s %s%s%s", locus_cs, s.file, s.line, locus_ce,
-			     text_cs, text, text_ce));
+     : build_message_string ("%s%s:%d:%s %s%s%s", locus_cs, s.file, s.line,
+			     locus_ce, text_cs, text, text_ce));
 }
 
 /* If LINE is longer than MAX_WIDTH, and COLUMN is not smaller than
@@ -310,7 +351,7 @@ diagnostic_show_locus (diagnostic_context * context,
     return;
 
   context->last_location = diagnostic->location;
-  s = expand_location_to_spelling_point (diagnostic->location);
+  s = diagnostic_expand_location (diagnostic);
   line = location_get_source_line (s, &line_width);
   if (line == NULL || s.column > line_width)
     return;
@@ -441,11 +482,11 @@ bt_err_callback (void *data ATTRIBUTE_UNUSED, const char *msg, int errnum)
 
 /* Take any action which is expected to happen after the diagnostic
    is written out.  This function does not always return.  */
-static void
+void
 diagnostic_action_after_output (diagnostic_context *context,
-				diagnostic_info *diagnostic)
+				diagnostic_t diag_kind)
 {
-  switch (diagnostic->kind)
+  switch (diag_kind)
     {
     case DK_DEBUG:
     case DK_NOTE:
@@ -465,7 +506,8 @@ diagnostic_action_after_output (diagnostic_context *context,
 	}
       if (context->max_errors != 0
 	  && ((unsigned) (diagnostic_kind_count (context, DK_ERROR)
-			  + diagnostic_kind_count (context, DK_SORRY))
+			  + diagnostic_kind_count (context, DK_SORRY)
+			  + diagnostic_kind_count (context, DK_WERROR))
 	      >= context->max_errors))
 	{
 	  fnotice (stderr,
@@ -825,7 +867,7 @@ diagnostic_report_diagnostic (diagnostic_context *context,
   (*diagnostic_starter (context)) (context, diagnostic);
   pp_output_formatted_text (context->printer);
   (*diagnostic_finalizer (context)) (context, diagnostic);
-  diagnostic_action_after_output (context, diagnostic);
+  diagnostic_action_after_output (context, diagnostic->kind);
   diagnostic->message.format_spec = saved_format_spec;
   diagnostic->x_data = NULL;
 
@@ -1225,8 +1267,6 @@ fnotice (FILE *file, const char *cmsgid, ...)
 static void
 error_recursion (diagnostic_context *context)
 {
-  diagnostic_info diagnostic;
-
   if (context->lock < 3)
     pp_newline_and_flush (context->printer);
 
@@ -1234,9 +1274,8 @@ error_recursion (diagnostic_context *context)
 	   "Internal compiler error: Error reporting routines re-entered.\n");
 
   /* Call diagnostic_action_after_output to get the "please submit a bug
-     report" message.  It only looks at the kind field of diagnostic_info.  */
-  diagnostic.kind = DK_ICE;
-  diagnostic_action_after_output (context, &diagnostic);
+     report" message.  */
+  diagnostic_action_after_output (context, DK_ICE);
 
   /* Do not use gcc_unreachable here; that goes through internal_error
      and therefore would cause infinite recursion.  */

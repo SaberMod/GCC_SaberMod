@@ -806,6 +806,8 @@ analyze_function (struct cgraph_node *fn, bool ipa)
     {
       /* Thunk gets propagated through, so nothing interesting happens.  */
       gcc_assert (ipa);
+      if (fn->thunk.thunk_p && fn->thunk.virtual_offset_p)
+	l->pure_const_state = IPA_NEITHER;
       return l;
     }
 
@@ -1158,10 +1160,21 @@ self_recursive_p (struct cgraph_node *node)
   return false;
 }
 
+/* Return true if N is cdtor that is not const or pure.  In this case we may
+   need to remove unreachable function if it is marked const/pure.  */
+
+static bool
+cdtor_p (cgraph_node *n, void *)
+{
+  if (DECL_STATIC_CONSTRUCTOR (n->decl) || DECL_STATIC_DESTRUCTOR (n->decl))
+    return !TREE_READONLY (n->decl) && !DECL_PURE_P (n->decl);
+  return false;
+}
+
 /* Produce transitive closure over the callgraph and compute pure/const
    attributes.  */
 
-static void
+static bool
 propagate_pure_const (void)
 {
   struct cgraph_node *node;
@@ -1171,6 +1184,7 @@ propagate_pure_const (void)
   int order_pos;
   int i;
   struct ipa_dfs_info * w_info;
+  bool remove_p = false;
 
   order_pos = ipa_reduced_postorder (order, true, false, NULL);
   if (dump_file)
@@ -1247,7 +1261,8 @@ propagate_pure_const (void)
 	  for (e = w->callees; e; e = e->next_callee)
 	    {
 	      enum availability avail;
-	      struct cgraph_node *y = e->callee->function_symbol (&avail);
+	      struct cgraph_node *y = e->callee->
+				function_or_virtual_thunk_symbol (&avail);
 	      enum pure_const_state_e edge_state = IPA_CONST;
 	      bool edge_looping = false;
 
@@ -1387,7 +1402,8 @@ propagate_pure_const (void)
 	  for (e = w->callees; e && !can_free; e = e->next_callee)
 	    {
 	      enum availability avail;
-	      struct cgraph_node *y = e->callee->function_symbol (&avail);
+	      struct cgraph_node *y = e->callee->
+				function_or_virtual_thunk_symbol (&avail);
 
 	      if (avail > AVAIL_INTERPOSABLE)
 		can_free = get_function_state (y)->can_free;
@@ -1443,6 +1459,8 @@ propagate_pure_const (void)
 			       this_looping ? "looping " : "",
 			       w->name ());
 		  }
+		remove_p |= w->call_for_symbol_and_aliases (cdtor_p,
+							    NULL, true);
 		w->set_const_flag (true, this_looping);
 		break;
 
@@ -1455,6 +1473,8 @@ propagate_pure_const (void)
 			       this_looping ? "looping " : "",
 			       w->name ());
 		  }
+		remove_p |= w->call_for_symbol_and_aliases (cdtor_p,
+							    NULL, true);
 		w->set_pure_flag (true, this_looping);
 		break;
 
@@ -1468,6 +1488,7 @@ propagate_pure_const (void)
 
   ipa_free_postorder_info ();
   free (order);
+  return remove_p;
 }
 
 /* Produce transitive closure over the callgraph and compute nothrow
@@ -1517,7 +1538,8 @@ propagate_nothrow (void)
 	  for (e = w->callees; e && !can_throw; e = e->next_callee)
 	    {
 	      enum availability avail;
-	      struct cgraph_node *y = e->callee->function_symbol (&avail);
+	      struct cgraph_node *y = e->callee->
+				function_or_virtual_thunk_symbol (&avail);
 
 	      if (avail > AVAIL_INTERPOSABLE)
 		{
@@ -1576,6 +1598,7 @@ pass_ipa_pure_const::
 execute (function *)
 {
   struct cgraph_node *node;
+  bool remove_p;
 
   symtab->remove_cgraph_insertion_hook (function_insertion_hook_holder);
   symtab->remove_cgraph_duplication_hook (node_duplication_hook_holder);
@@ -1584,14 +1607,14 @@ execute (function *)
   /* Nothrow makes more function to not lead to return and improve
      later analysis.  */
   propagate_nothrow ();
-  propagate_pure_const ();
+  remove_p = propagate_pure_const ();
 
   /* Cleanup. */
   FOR_EACH_FUNCTION (node)
     if (has_function_state (node))
       free (get_function_state (node));
   funct_state_vec.release ();
-  return 0;
+  return remove_p ? TODO_remove_functions : 0;
 }
 
 static bool

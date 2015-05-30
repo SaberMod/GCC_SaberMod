@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 #include "c-family/c-objc.h"
 #include "ubsan.h"
+#include "internal-fn.h"
 
 #include <new>                    // For placement-new.
 
@@ -1212,7 +1213,9 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
 	tree args = TREE_OPERAND (t, 1);
 
 	if (is_overloaded_fn (name))
-	  name = DECL_NAME (get_first_fn (name));
+	  name = get_first_fn (name);
+	if (DECL_P (name))
+	  name = DECL_NAME (name);
 	dump_decl (pp, name, flags);
 	pp_cxx_begin_template_argument_list (pp);
 	if (args == error_mark_node)
@@ -2036,6 +2039,14 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
       {
 	tree fn = CALL_EXPR_FN (t);
 	bool skipfirst = false;
+
+	/* Deal with internal functions.  */
+	if (fn == NULL_TREE)
+	  {
+	    pp_string (pp, internal_fn_name (CALL_EXPR_IFN (t)));
+	    dump_call_expr_args (pp, t, flags, skipfirst);
+	    break;
+	  }
 
 	if (TREE_CODE (fn) == ADDR_EXPR)
 	  fn = TREE_OPERAND (fn, 0);

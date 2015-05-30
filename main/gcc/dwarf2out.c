@@ -3265,8 +3265,8 @@ static void gen_subprogram_die (tree, dw_die_ref);
 static void gen_variable_die (tree, tree, dw_die_ref);
 static void gen_const_die (tree, dw_die_ref);
 static void gen_label_die (tree, dw_die_ref);
-static void gen_lexical_block_die (tree, dw_die_ref, int);
-static void gen_inlined_subroutine_die (tree, dw_die_ref, int);
+static void gen_lexical_block_die (tree, dw_die_ref);
+static void gen_inlined_subroutine_die (tree, dw_die_ref);
 static void gen_field_die (tree, dw_die_ref);
 static void gen_ptr_to_mbr_type_die (tree, dw_die_ref);
 static dw_die_ref gen_compile_unit_die (const char *);
@@ -3277,8 +3277,8 @@ static void gen_struct_or_union_type_die (tree, dw_die_ref,
 static void gen_subroutine_type_die (tree, dw_die_ref);
 static void gen_typedef_die (tree, dw_die_ref);
 static void gen_type_die (tree, dw_die_ref);
-static void gen_block_die (tree, dw_die_ref, int);
-static void decls_for_scope (tree, dw_die_ref, int);
+static void gen_block_die (tree, dw_die_ref);
+static void decls_for_scope (tree, dw_die_ref);
 static inline int is_redundant_typedef (const_tree);
 static bool is_naming_typedef_decl (const_tree);
 static inline dw_die_ref get_context_die (tree);
@@ -4686,7 +4686,8 @@ is_cxx (void)
 {
   unsigned int lang = get_AT_unsigned (comp_unit_die (), DW_AT_language);
 
-  return lang == DW_LANG_C_plus_plus || lang == DW_LANG_ObjC_plus_plus;
+  return (lang == DW_LANG_C_plus_plus || lang == DW_LANG_ObjC_plus_plus
+	  || lang == DW_LANG_C_plus_plus_11 || lang == DW_LANG_C_plus_plus_14);
 }
 
 /* Return TRUE if the language is Java.  */
@@ -8968,7 +8969,9 @@ output_die (dw_die_ref die)
 static void
 output_compilation_unit_header (void)
 {
-  int ver = dwarf_version;
+  /* We don't support actual DWARFv5 units yet, we just use some
+     DWARFv5 draft DIE tags in DWARFv4 format.  */
+  int ver = dwarf_version < 5 ? dwarf_version : 4;
 
   if (DWARF_INITIAL_LENGTH_SIZE - DWARF_OFFSET_SIZE == 4)
     dw2_asm_output_data (4, 0xffffffff,
@@ -9111,6 +9114,10 @@ add_top_level_skeleton_die_attrs (dw_die_ref die)
 static void
 output_skeleton_debug_sections (dw_die_ref comp_unit)
 {
+  /* We don't support actual DWARFv5 units yet, we just use some
+     DWARFv5 draft DIE tags in DWARFv4 format.  */
+  int ver = dwarf_version < 5 ? dwarf_version : 4;
+
   /* These attributes will be found in the full debug_info section.  */
   remove_AT (comp_unit, DW_AT_producer);
   remove_AT (comp_unit, DW_AT_language);
@@ -9130,7 +9137,7 @@ output_skeleton_debug_sections (dw_die_ref comp_unit)
                        - DWARF_INITIAL_LENGTH_SIZE
                        + size_of_die (comp_unit),
                       "Length of Compilation Unit Info");
-  dw2_asm_output_data (2, dwarf_version, "DWARF version number");
+  dw2_asm_output_data (2, ver, "DWARF version number");
   dw2_asm_output_offset (DWARF_OFFSET_SIZE, debug_skeleton_abbrev_section_label,
                          debug_abbrev_section,
                          "Offset Into Abbrev. Section");
@@ -9483,7 +9490,7 @@ output_aranges (unsigned long aranges_length)
       "Initial length escape value indicating 64-bit DWARF extension");
   dw2_asm_output_data (DWARF_OFFSET_SIZE, aranges_length,
 		       "Length of Address Ranges Info");
-  /* Version number for aranges is still 2, even in DWARF3.  */
+  /* Version number for aranges is still 2, even up to DWARF5.  */
   dw2_asm_output_data (2, 2, "DWARF Version");
   if (dwarf_split_debug_info)
     dw2_asm_output_offset (DWARF_OFFSET_SIZE, debug_skeleton_info_section_label,
@@ -10158,7 +10165,8 @@ static void
 output_line_info (bool prologue_only)
 {
   char l1[20], l2[20], p1[20], p2[20];
-  int ver = dwarf_version;
+  /* We don't support DWARFv5 line tables yet.  */
+  int ver = dwarf_version < 5 ? dwarf_version : 4;
   bool saw_one = false;
   int opc;
 
@@ -10545,7 +10553,7 @@ modified_type_die (tree type, int cv_quals, dw_die_ref context_die)
   dw_die_ref mod_scope;
   /* Only these cv-qualifiers are currently handled.  */
   const int cv_qual_mask = (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE
-			    | TYPE_QUAL_RESTRICT);
+			    | TYPE_QUAL_RESTRICT | TYPE_QUAL_ATOMIC);
 
   if (code == ERROR_MARK)
     return NULL;
@@ -10557,6 +10565,10 @@ modified_type_die (tree type, int cv_quals, dw_die_ref context_die)
      to handle it.  */
   if (dwarf_version < 3)
     cv_quals &= ~TYPE_QUAL_RESTRICT;
+
+  /* Likewise for DW_TAG_atomic_type for DWARFv5.  */
+  if (dwarf_version < 5)
+    cv_quals &= ~TYPE_QUAL_ATOMIC;
 
   /* See if we already have the appropriately qualified variant of
      this type.  */
@@ -10619,6 +10631,7 @@ modified_type_die (tree type, int cv_quals, dw_die_ref context_die)
       struct qual_info { int q; enum dwarf_tag t; };
       static const struct qual_info qual_info[] =
 	{
+	  { TYPE_QUAL_ATOMIC, DW_TAG_atomic_type },
 	  { TYPE_QUAL_RESTRICT, DW_TAG_restrict_type },
 	  { TYPE_QUAL_VOLATILE, DW_TAG_volatile_type },
 	  { TYPE_QUAL_CONST, DW_TAG_const_type },
@@ -16404,7 +16417,10 @@ lower_bound_default (void)
     case DW_LANG_C:
     case DW_LANG_C89:
     case DW_LANG_C99:
+    case DW_LANG_C11:
     case DW_LANG_C_plus_plus:
+    case DW_LANG_C_plus_plus_11:
+    case DW_LANG_C_plus_plus_14:
     case DW_LANG_ObjC:
     case DW_LANG_ObjC_plus_plus:
     case DW_LANG_Java:
@@ -16748,6 +16764,7 @@ add_prototyped_attribute (dw_die_ref die, tree func_type)
     case DW_LANG_C:
     case DW_LANG_C89:
     case DW_LANG_C99:
+    case DW_LANG_C11:
     case DW_LANG_ObjC:
       if (prototype_p (func_type))
 	add_AT_flag (die, DW_AT_prototyped, 1);
@@ -17930,8 +17947,11 @@ set_block_origin_self (tree stmt)
 	for (local_decl = BLOCK_VARS (stmt);
 	     local_decl != NULL_TREE;
 	     local_decl = DECL_CHAIN (local_decl))
-	  if (! DECL_EXTERNAL (local_decl))
-	    set_decl_origin_self (local_decl);	/* Potential recursion.  */
+	  /* Do not recurse on nested functions since the inlining status
+	     of parent and child can be different as per the DWARF spec.  */
+	  if (TREE_CODE (local_decl) != FUNCTION_DECL
+	      && !DECL_EXTERNAL (local_decl))
+	    set_decl_origin_self (local_decl);
       }
 
       {
@@ -18338,6 +18358,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       if (DECL_ARTIFICIAL (decl))
 	add_AT_flag (subr_die, DW_AT_artificial, 1);
 
+      if (TREE_THIS_VOLATILE (decl) && (dwarf_version >= 5 || !dwarf_strict))
+	add_AT_flag (subr_die, DW_AT_noreturn, 1);
+
       add_accessibility_attribute (subr_die, decl);
     }
 
@@ -18675,7 +18698,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       if (DECL_NAME (DECL_RESULT (decl)))
 	gen_decl_die (DECL_RESULT (decl), NULL, subr_die);
 
-      decls_for_scope (outer_scope, subr_die, 0);
+      decls_for_scope (outer_scope, subr_die);
 
       if (call_arg_locations && !dwarf_strict)
 	{
@@ -19273,7 +19296,7 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
 /* Generate a DIE for a lexical block.  */
 
 static void
-gen_lexical_block_die (tree stmt, dw_die_ref context_die, int depth)
+gen_lexical_block_die (tree stmt, dw_die_ref context_die)
 {
   dw_die_ref stmt_die = new_die (DW_TAG_lexical_block, context_die, stmt);
 
@@ -19287,13 +19310,13 @@ gen_lexical_block_die (tree stmt, dw_die_ref context_die, int depth)
   if (! BLOCK_ABSTRACT (stmt) && TREE_ASM_WRITTEN (stmt))
     add_high_low_attributes (stmt, stmt_die);
 
-  decls_for_scope (stmt, stmt_die, depth);
+  decls_for_scope (stmt, stmt_die);
 }
 
 /* Generate a DIE for an inlined subprogram.  */
 
 static void
-gen_inlined_subroutine_die (tree stmt, dw_die_ref context_die, int depth)
+gen_inlined_subroutine_die (tree stmt, dw_die_ref context_die)
 {
   tree decl;
 
@@ -19325,7 +19348,7 @@ gen_inlined_subroutine_die (tree stmt, dw_die_ref context_die, int depth)
         add_high_low_attributes (stmt, subr_die);
       add_call_src_coords_attributes (stmt, subr_die);
 
-      decls_for_scope (stmt, subr_die, depth);
+      decls_for_scope (stmt, subr_die);
     }
 }
 
@@ -19594,15 +19617,30 @@ gen_compile_unit_die (const char *filename)
 
   language = DW_LANG_C;
   if (strncmp (language_string, "GNU C", 5) == 0
-      && (language_string[5] == 0 || ISDIGIT (language_string[5])))
+      && ISDIGIT (language_string[5]))
     {
       language = DW_LANG_C89;
       if (dwarf_version >= 3 || !dwarf_strict)
-	if (strcmp (language_string, "GNU C99") == 0)
-	  language = DW_LANG_C99;
+	{
+	  if (strcmp (language_string, "GNU C89") != 0)
+	    language = DW_LANG_C99;
+
+	  if (dwarf_version >= 5 /* || !dwarf_strict */)
+	    if (strcmp (language_string, "GNU C11") == 0)
+	      language = DW_LANG_C11;
+	}
     }
   else if (strncmp (language_string, "GNU C++", 7) == 0)
-    language = DW_LANG_C_plus_plus;
+    {
+      language = DW_LANG_C_plus_plus;
+      if (dwarf_version >= 5 /* || !dwarf_strict */)
+	{
+	  if (strcmp (language_string, "GNU C++11") == 0)
+	    language = DW_LANG_C_plus_plus_11;
+	  else if (strcmp (language_string, "GNU C++14") == 0)
+	    language = DW_LANG_C_plus_plus_14;
+	}
+    }
   else if (strcmp (language_string, "GNU F77") == 0)
     language = DW_LANG_Fortran77;
   else if (strcmp (language_string, "GNU Pascal") == 0)
@@ -20204,7 +20242,7 @@ gen_type_die (tree type, dw_die_ref context_die)
    things which are local to the given block.  */
 
 static void
-gen_block_die (tree stmt, dw_die_ref context_die, int depth)
+gen_block_die (tree stmt, dw_die_ref context_die)
 {
   int must_output_die = 0;
   bool inlined_func;
@@ -20223,7 +20261,7 @@ gen_block_die (tree stmt, dw_die_ref context_die, int depth)
       tree sub;
 
       for (sub = BLOCK_SUBBLOCKS (stmt); sub; sub = BLOCK_CHAIN (sub))
-	gen_block_die (sub, context_die, depth + 1);
+	gen_block_die (sub, context_die);
 
       return;
     }
@@ -20278,13 +20316,13 @@ gen_block_die (tree stmt, dw_die_ref context_die, int depth)
 	     the concrete instance of STMT got inlined, the later will lead
 	     to the generation of a DW_TAG_inlined_subroutine DIE.  */
 	  if (! BLOCK_ABSTRACT (stmt))
-	    gen_inlined_subroutine_die (stmt, context_die, depth);
+	    gen_inlined_subroutine_die (stmt, context_die);
 	}
       else
-	gen_lexical_block_die (stmt, context_die, depth);
+	gen_lexical_block_die (stmt, context_die);
     }
   else
-    decls_for_scope (stmt, context_die, depth);
+    decls_for_scope (stmt, context_die);
 }
 
 /* Process variable DECL (or variable with origin ORIGIN) within
@@ -20316,7 +20354,7 @@ process_scope_var (tree stmt, tree decl, tree origin, dw_die_ref context_die)
    all of its sub-blocks.  */
 
 static void
-decls_for_scope (tree stmt, dw_die_ref context_die, int depth)
+decls_for_scope (tree stmt, dw_die_ref context_die)
 {
   tree decl;
   unsigned int i;
@@ -20348,7 +20386,7 @@ decls_for_scope (tree stmt, dw_die_ref context_die, int depth)
   for (subblocks = BLOCK_SUBBLOCKS (stmt);
        subblocks != NULL;
        subblocks = BLOCK_CHAIN (subblocks))
-    gen_block_die (subblocks, context_die, depth + 1);
+    gen_block_die (subblocks, context_die);
 }
 
 /* Is this a typedef we can avoid emitting?  */
@@ -24433,7 +24471,8 @@ dwarf2out_finish (const char *filename)
       /* When generating LTO bytecode we can not generate new assembler
          names at this point and all important decls got theirs via
 	 free-lang-data.  */
-      if ((!flag_generate_lto || DECL_ASSEMBLER_NAME_SET_P (decl))
+      if (((!flag_generate_lto && !flag_generate_offload)
+	   || DECL_ASSEMBLER_NAME_SET_P (decl))
 	  && DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl))
 	{
 	  add_linkage_attr (node->die, decl);

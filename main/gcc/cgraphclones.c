@@ -375,28 +375,47 @@ duplicate_thunk_for_node (cgraph_node *thunk, cgraph_node *node)
 						  CGRAPH_FREQ_BASE);
   e->call_stmt_cannot_inline_p = true;
   symtab->call_edge_duplication_hooks (thunk->callees, e);
-  if (new_thunk->expand_thunk (false, false))
-    {
-      new_thunk->thunk.thunk_p = false;
-      new_thunk->analyze ();
-    }
-
   symtab->call_cgraph_duplication_hooks (thunk, new_thunk);
   return new_thunk;
 }
 
 /* If E does not lead to a thunk, simply redirect it to N.  Otherwise create
    one or more equivalent thunks for N and redirect E to the first in the
-   chain.  */
+   chain.  Note that it is then necessary to call
+   n->expand_all_artificial_thunks once all callers are redirected.  */
 
 void
-redirect_edge_duplicating_thunks (cgraph_edge *e, cgraph_node *n)
+cgraph_edge::redirect_callee_duplicating_thunks (cgraph_node *n)
 {
-  cgraph_node *orig_to = e->callee->ultimate_alias_target ();
+  cgraph_node *orig_to = callee->ultimate_alias_target ();
   if (orig_to->thunk.thunk_p)
     n = duplicate_thunk_for_node (orig_to, n);
 
-  e->redirect_callee (n);
+  redirect_callee (n);
+}
+
+/* Call expand_thunk on all callers that are thunks and if analyze those nodes
+   that were expanded.  */
+
+void
+cgraph_node::expand_all_artificial_thunks ()
+{
+  cgraph_edge *e;
+  for (e = callers; e;)
+    if (e->caller->thunk.thunk_p)
+      {
+	cgraph_node *thunk = e->caller;
+
+	e = e->next_caller;
+	if (thunk->expand_thunk (false, false))
+	  {
+	    thunk->thunk.thunk_p = false;
+	    thunk->analyze ();
+	  }
+	thunk->expand_all_artificial_thunks ();
+      }
+    else
+      e = e->next_caller;
 }
 
 /* Create node representing clone of N executed COUNT times.  Decrease
@@ -495,8 +514,9 @@ cgraph_node::create_clone (tree decl, gcov_type gcov_count, int freq,
       if (!e->callee
 	  || DECL_BUILT_IN_CLASS (e->callee->decl) != BUILT_IN_NORMAL
 	  || DECL_FUNCTION_CODE (e->callee->decl) != BUILT_IN_UNREACHABLE)
-        redirect_edge_duplicating_thunks (e, new_node);
+        e->redirect_callee_duplicating_thunks (new_node);
     }
+  new_node->expand_all_artificial_thunks ();
 
   for (e = callees;e; e=e->next_callee)
     e->clone (new_node, e->call_stmt, e->lto_stmt_uid, count_scale,
@@ -1087,8 +1107,8 @@ symbol_table::materialize_all_clones (void)
 		  if (symtab->dump_file)
 		    {
 		      fprintf (symtab->dump_file, "cloning %s to %s\n",
-			       xstrdup (node->clone_of->name ()),
-			       xstrdup (node->name ()));
+			       xstrdup_for_dump (node->clone_of->name ()),
+			       xstrdup_for_dump (node->name ()));
 		      if (node->clone.tree_map)
 		        {
 			  unsigned int i;
@@ -1139,7 +1159,7 @@ symbol_table::materialize_all_clones (void)
 #ifdef ENABLE_CHECKING
   cgraph_node::verify_cgraph_nodes ();
 #endif
-  symtab->remove_unreachable_nodes (false, symtab->dump_file);
+  symtab->remove_unreachable_nodes (symtab->dump_file);
 }
 
 #include "gt-cgraphclones.h"

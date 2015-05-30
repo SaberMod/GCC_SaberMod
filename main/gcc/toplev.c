@@ -86,7 +86,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "gimple.h"
 #include "plugin.h"
-#include "diagnostic-color.h"
 #include "context.h"
 #include "pass_manager.h"
 #include "auto-profile.h"
@@ -655,7 +654,7 @@ compile_file (void)
      We used to emit an undefined reference here, but this produces
      link errors if an object file with IL is stored into a shared
      library without invoking lto1.  */
-  if (flag_generate_lto)
+  if (flag_generate_lto || flag_generate_offload)
     {
 #if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
       ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE,
@@ -669,23 +668,23 @@ compile_file (void)
 			 (unsigned HOST_WIDE_INT) 1,
 			 (unsigned HOST_WIDE_INT) 1);
 #endif
-      /* Let linker plugin know that this is a slim object and must be LTOed
-         even when user did not ask for it.  */
-      if (!flag_fat_lto_objects)
-        {
+    }
+
+  /* Let linker plugin know that this is a slim object and must be LTOed
+     even when user did not ask for it.  */
+  if (flag_generate_lto && !flag_fat_lto_objects)
+    {
 #if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
-	  ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE,
-					  "__gnu_lto_slim",
-					  (unsigned HOST_WIDE_INT) 1, 8);
+      ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE, "__gnu_lto_slim",
+				      (unsigned HOST_WIDE_INT) 1, 8);
 #elif defined ASM_OUTPUT_ALIGNED_COMMON
-	  ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__gnu_lto_slim",
-				     (unsigned HOST_WIDE_INT) 1, 8);
+      ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__gnu_lto_slim",
+				 (unsigned HOST_WIDE_INT) 1, 8);
 #else
-	  ASM_OUTPUT_COMMON (asm_out_file, "__gnu_lto_slim",
-			     (unsigned HOST_WIDE_INT) 1,
-			     (unsigned HOST_WIDE_INT) 1);
+      ASM_OUTPUT_COMMON (asm_out_file, "__gnu_lto_slim",
+			 (unsigned HOST_WIDE_INT) 1,
+			 (unsigned HOST_WIDE_INT) 1);
 #endif
-        }
     }
 
   /* Attach a special .ident directive to the end of the file to identify
@@ -1283,29 +1282,6 @@ process_options (void)
   debug_hooks = &do_nothing_debug_hooks;
 
   maximum_field_alignment = initial_max_fld_align * BITS_PER_UNIT;
-
-  /* If DIAGNOSTICS_COLOR_DEFAULT is -1, default to -fdiagnostics-color=auto
-     if GCC_COLORS is in the environment, otherwise default to
-     -fdiagnostics-color=never, for other values default to that
-     -fdiagnostics-color={never,auto,always}.  */
-  if (!global_options_set.x_flag_diagnostics_show_color)
-    switch ((int) DIAGNOSTICS_COLOR_DEFAULT)
-      {
-      case -1:
-	if (!getenv ("GCC_COLORS"))
-	  break;
-	/* FALLTHRU */
-      case DIAGNOSTICS_COLOR_AUTO:
-	pp_show_color (global_dc->printer)
-	  = colorize_init (DIAGNOSTICS_COLOR_AUTO);
-	break;
-      case DIAGNOSTICS_COLOR_YES:
-	pp_show_color (global_dc->printer)
-	  = colorize_init (DIAGNOSTICS_COLOR_YES);
-	break;
-      default:
-	break;
-      }
 
   /* Allow the front end to perform consistency checks and do further
      initialization based on the command line options.  This hook also
@@ -2179,12 +2155,14 @@ toplev::finalize (void)
   rtl_initialized = false;
   this_target_rtl->target_specific_initialized = false;
 
+  /* Needs to be called before cgraph_c_finalize since it uses symtab.  */
+  ipa_reference_c_finalize ();
+
   cgraph_c_finalize ();
   cgraphunit_c_finalize ();
   dwarf2out_c_finalize ();
   gcse_c_finalize ();
   ipa_cp_c_finalize ();
-  ipa_reference_c_finalize ();
   ira_costs_c_finalize ();
   params_c_finalize ();
 

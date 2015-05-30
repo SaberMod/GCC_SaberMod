@@ -1,3 +1,36 @@
+2014-12-11  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Enable C++14 __cpp_constexpr.
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __cpp_runtime_arrays if
+	we aren't complaining about VLAs.
+
+2014-12-06  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/64183
+	* c-gimplify.c (c_gimplify_expr): Don't convert the RHS of a
+	shift-expression if it is integer_type_node.  Use types_compatible_p.
+
+2014-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.c (convert_vector_to_pointer_for_subscript): Remove NULL
+	last argument from create_tmp_var_raw and create_tmp_var calls.
+	* cilk.c (gimplify_cilk_spawn): Likewise.
+	* c-omp.c (c_finish_omp_atomic): Likewise.
+
+2014-11-28  Marek Polacek  <polacek@redhat.com>
+
+	* c-ubsan.c (ubsan_instrument_shift): Use op1_utype for MINUS_EXPR
+	instead of unsigned_type_node.
+
+2014-11-28  Marek Polacek  <polacek@redhat.com>
+
+	PR c/63862
+	* c-ubsan.c (ubsan_instrument_shift): Change the type of a MINUS_EXPR
+	to op1_utype.
+	* c-gimplify.c (c_gimplify_expr): Convert right operand of a shift
+	expression to unsigned_type_node.
+
 2014-11-20  Mark Wielaard  <mjw@redhat.com>
 
 	PR debug/38757
@@ -14,7 +47,7 @@
 	PR target/63764
 	* c-common.h (convert_vector_to_pointer_for_subscript): Change
 	return type to bool.
-	* c-common.c: Include gimple-expr.c.
+	* c-common.c: Include gimple-expr.h.
 	(convert_vector_to_pointer_for_subscript): Change return type to
 	bool.  If *vecp is not lvalue_p and has VECTOR_TYPE, return true
 	and copy it into a TARGET_EXPR and use that instead of *vecp

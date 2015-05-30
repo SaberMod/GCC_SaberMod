@@ -1,3 +1,278 @@
+2014-12-13  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/64239
+	* include/bits/regex.h (match_results<>::match_results,
+	match_results<>::operator=, match_results<>::position,
+	match_results<>::swap): Remove match_results::_M_in_iterator.
+	Fix ctor/assign/swap.
+	* include/bits/regex.tcc: (__regex_algo_impl<>,
+	regex_iterator<>::operator++): Set match_results::_M_begin as
+	"start position".
+	* testsuite/28_regex/iterators/regex_iterator/char/
+	string_position_01.cc: Test cases.
+
+2014-12-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/experimental/any (any): Remove allocator support and update
+	feature-testing macro.
+	* include/experimental/functional: Update feature-testing macro.
+	* include/experimental/optional (optional::_M_get()): Add constexpr.
+	(optional::operator*(), optional::value()): Overload and add
+	ref-qualifiers. Update feature-testing macro.
+	* include/experimental/string_view (basic_string_view::clear): Remove
+	and update feature-testing macro.
+	* testsuite/experimental/any/cons/3.cc: Remove.
+	* testsuite/experimental/any/cons/4.cc: Remove.
+	* testsuite/experimental/any/misc/any_cast.cc: Remove allocator tests.
+	* testsuite/experimental/any/misc/any_cast_neg.cc: Adjust dg-error.
+	* testsuite/experimental/string_view/capacity/1.cc: Don't test clear().
+
+2014-12-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/58594
+	* include/bits/shared_ptr_base.h: Real fix for cv-qualified types.
+
+2014-12-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64241
+	* libsupc++/exception_ptr.h: Return empty object when exceptions are
+	disabled.
+	* testsuite/18_support/exception_ptr/64241.cc: New.
+
+	PR libstdc++/64276
+	* doc/doxygen/user.cfg.in: Define __cpp_exceptions and __cpp_rtti.
+	* doc/html/manual/using_exceptions.html: Regenerate.
+	* doc/xml/manual/using_exceptions.xml: Use SD-6 feature-testing
+	macros, __cpp_exceptions and __cpp_rtti, instead of __EXCEPTIONS and
+	__GXX_RTTI.
+	* include/bits/c++config: Likewise.
+	* include/bits/locale_classes.tcc: Likewise.
+	* include/bits/shared_ptr.h: Likewise.
+	* include/bits/shared_ptr_base.h: Likewise.
+	* include/debug/formatter.h: Likewise.
+	* include/experimental/any: Likewise.
+	* include/ext/rope: Likewise.
+	* include/ext/ropeimpl.h: Likewise.
+	* include/std/functional: Likewise.
+	* include/tr1/functional: Likewise.
+	* include/tr1/shared_ptr.h: Likewise.
+	* libsupc++/eh_call.cc: Likewise.
+	* libsupc++/eh_personality.cc: Likewise.
+	* libsupc++/exception_defines.h: Likewise.
+	* libsupc++/exception_ptr.h: Likewise.
+	* libsupc++/guard.cc: Likewise.
+	* libsupc++/pbase_type_info.cc: Likewise.
+	* libsupc++/pointer_type_info.cc: Likewise.
+	* libsupc++/vterminate.cc: Likewise.
+	* src/c++11/thread.cc: Likewise.
+
+	PR libstdc++/58594
+	* include/bits/shared_ptr_base.h: Cast away cv-quals.
+	* testsuite/20_util/shared_ptr/creation/58594-no-rtti.cc: New.
+	* testsuite/20_util/shared_ptr/creation/private.cc: Make allocator
+	rebindable so test passes with -fno-rtti.
+
+2014-12-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/stl_iterator.h (make_reverse_iterator): LWG DR 2285.
+	* include/std/tuple: Add feature-test macro.
+	* testsuite/24_iterators/reverse_iterator/make.cc: New.
+
+2014-12-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* testsuite/lib/libstdc++.exp: Include target-utils.exp.
+	(v3_target_compile): Check if test is unsupported.
+	(v3_target_compile_as_c): Likewise.
+
+2014-12-11  Jason Merrill  <jason@redhat.com>
+
+	* libsupc++/new (bad_array_length): Move...
+	* bad_array_length.cc: ...here.
+	* cxxabi.h, eh_aux_runtime.cc (__cxa_throw_bad_array_new_length): Also
+	move to bad_array_length.cc.
+
+2014-12-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/30_threads/condition_variable/members/3.cc: Only use
+	a thread_local when __cxa_thread_atexit_impl is available.
+
+2014-12-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/locale_facets.tcc (numpunct::_M_cache): Avoid calling
+	virtual functions twice. Only update _M_allocated after all
+	allocations have succeeded.
+	* include/bits/locale_facets_nonio.tcc (moneypunct::_M_cache):
+	Likewise.
+	* include/bits/locale_facets_nonio.h (__timepunct::_M_cache): Remove
+	unused declaration.
+
+	* include/std/future (__future_base::_Setter::operator(),
+	__future_base::_Task_setter::operator()): Make call operators const.
+
+	* include/bits/regex.h (regex_match, regex_search): LWG DR 2329,
+	add deleted overloads for rvalue strings.
+	(regex_iterator, regex_token_iterator): LWG DR 2332, add deleted
+	constructors for rvalue regexes.
+	* testsuite/28_regex/algorithms/regex_match/dr2329_neg.cc: New.
+	* testsuite/28_regex/algorithms/regex_search/dr2329_neg.cc: New.
+	* testsuite/28_regex/iterators/regex_iterator/ctors/char/dr2332_neg.cc:
+	New.
+	* testsuite/28_regex/iterators/regex_token_iterator/ctors/char/
+	dr2332_neg.cc: New.
+
+2014-12-09  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64203
+	* include/std/shared_mutex: Fix preprocessor conditions.
+	* testsuite/experimental/feat-cxx14.cc: Check conditions.
+
+2014-12-05  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/hashtable_policy.h (_Map_base::operator[],
+	_Map_base::at): Simplify definitions with trailing return types.
+
+2014-12-04  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/64140
+	* include/bits/regex.tcc (regex_iterator<>::operator++): Update
+	prefix.matched after modifying prefix.first.
+	* testsuite/28_regex/iterators/regex_iterator/char/64140.cc: New
+	testcase.
+
+2014-12-03  François Dumont  <fdumont@gcc.gnu.org>
+
+	PR libstdc++/13631
+	* include/bits/codecvt.h (codecvt<char, char, mbstate_t>): friend class
+	std::messages<char>.
+	(codecvt<wchar_t, char, mbstate_t>): friend class
+	std::messages<wchar_t>.
+	* config/locale/gnu/messages_member.h
+	(messages<char>::do_open): Specialized.
+	(messages<char>::do_close): Likewise.
+	(messages<wchar_t>::do_open): Likewise.
+	(messages<wchar_t>::do_close): Likewise.
+	* config/locale/gnu/messages_member.cc:
+	(messages<char>::do_open): Implement. Use bind_textdomain_codeset based
+	on codecvt<char, char, mbstate_t>._M_c_locale_codecvt code set. Use
+	internal cache to keep opened domain name with locale information.
+	(messages<wchar_t>::do_open): Likewise with
+	codecvt<wchar_t, char, mbstate_t>.
+	(messages<char>::do_close): Implement. Clean cache information.
+	(messages<wchar_t>::do_close): Likewise.
+	(get_glibc_msg): New. Use dgettext rather than gettext using cached
+	domain name associated to catalog id.
+	(messages<char>::do_get): Use latter.
+	(messages<wchar_t>::do_get): Likewise and use also cached locale
+	codecvt<wchar_t, char, mbstate_t> facet to convert wchar_t default
+	value to char and the result back to wchar_t.
+	* testsuite/22_locale/messages/13631.cc: New.
+	* testsuite/22_locale/messages/members/char/2.cc: Use also fr_FR locale
+	for charset conversion to get the expected accented character.
+
+2014-12-03  Marek Polacek  <polacek@redhat.com>
+
+	* include/bits/regex_compiler.h (_S_cache_size): Multiply the
+	RHS of the shift-expression by _UseCache::value.
+
+2014-12-03  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64168
+	* include/std/future (_Deferred_state::_M_has_deferred): Fix return.
+
+2014-12-03  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/hashtable.h: Fix whitespace and simplify function
+	definitions with trailing return types.
+
+2014-12-03  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64161
+	* src/c++11/condition_variable.cc: Include <cstdlib>.
+
+2014-12-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	* config/abi/pre/gnu.ver: Add new exports.
+	* include/std/condition_variable (notify_all_at_thread_exit): Declare.
+	(__at_thread_exit_elt): New base class.
+	* include/std/future: Add comments documenting the implementation.
+	(__future_base::_State_baseV2::_State_baseV2()): Use brace-or-equal
+	initializers and define constructor as defaulted.
+	(__future_base::_State_baseV2::_M_ready): Replace member function
+	with member variable.
+	(__future_base::_State_baseV2::_M_set_result): Set _M_ready.
+	(__future_base::_State_baseV2::_M_set_delayed_result): Define.
+	(__future_base::_State_baseV2::_M_break_promise): Set _M_ready.
+	(__future_base::_State_baseV2::_Make_ready): New helper class.
+	(__future_base::_Deferred_state::_M_has_deferred): Remove requirement
+	for caller to own mutex.
+	(__future_base::_Async_state_impl::~_Async_state_impl): Call join
+	directly.
+	(__future_base::_Task_state_base::_M_run): Take arguments by
+	reference.
+	(__future_base::_Task_state_base::_M_run_delayed): Declare new pure
+	virtual function.
+	(__future_base::_Task_state::_M_run_delayed): Define override.
+	(promise::set_value_at_thread_exit): Define.
+	(promise::set_exception_at_thread_exit): Define.
+	(packaged_task::make_ready_at_thread_exit): Define.
+	* src/c++11/condition_variable.cc (notify_all_at_thread_exit): Define.
+	* src/c++11/future.cc
+	(__future_base::_State_baseV2::_Make_ready::_M_set): Define.
+	* testsuite/30_threads/condition_variable/members/3.cc: New.
+	* testsuite/30_threads/packaged_task/members/at_thread_exit.cc: New.
+	* testsuite/30_threads/promise/members/at_thread_exit.cc: New.
+
+	* doc/xml/manual/status_cxx2011.xml: Update.
+	* doc/xml/manual/status_cxx2014.xml: Update.
+	* doc/html/manual/status.html: Regenerate.
+
+2014-12-01  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/63840
+	* include/std/functional (function::function(const function&)): Set
+	_M_manager after operations that might throw.
+	* include/tr1/functional (function::function(const function&),
+	function::function(_Functor, _Useless)): Likewise.
+	* testsuite/20_util/function/63840.cc: New.
+	* testsuite/tr1/3_function_objects/function/63840.cc: New.
+
+2014-11-30  Jonathan Wakely  <jwakely@redhat.com>
+
+	* config/abi/pre/gnu.ver: Fix ios_base::failure exports.
+
+2014-11-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/locale_facets/nonio.h (__timepunct): Remove unused
+	typedef.
+	(time_get): Likewise. Fix comments.
+
+	* src/c++98/locale_init.cc (locale::_Impl::_Impl(size_t)): Use
+	new-initializer instead of loop.
+	* src/c++98/localename.cc (locale::_Impl::_Impl(const char*, size_t)):
+	Likewise.
+
+2014-11-26  Jonathan Wakely  <jwakely@redhat.com>
+	    Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR libstdc++/64054
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/hexfloat.cc:
+	XFAIL execution on *-*-solaris*.
+
+2014-11-25  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libstdc++-prettyprinters/prettyprinters.exp: Add missing
+	dg-finish.  Only print unsupported message once.
+
+2014-11-25  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/63920
+	* include/bits/regex_executor.h: Make _M_begin non const.
+	* include/bits/regex_executor.tcc (_Executor<>::_M_search): Increase
+	_M_begin in search algorithm, so that _M_begin is treated as
+	"current start position" for each search iteration.
+	* testsuite/28_regex/algorithms/regex_search/ecma/flags.cc: New
+	testcase.
+
 2014-11-21  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR bootstrap/63784
@@ -629,9 +904,9 @@
 2014-10-23  Tim Shen  <timshen@google.com>
 
 	PR libstdc++/63497
-	include/bits/regex_executor.h (_Executor::_M_word_boundary): Remove
+	* include/bits/regex_executor.h (_Executor::_M_word_boundary): Remove
 	unused parameter.
-	include/bits/regex_executor.tcc (_Executor::_M_dfs,
+	* include/bits/regex_executor.tcc (_Executor::_M_dfs,
 	_Executor::_M_word_boundary): Avoid dereferecing _M_current at _M_end
 	or other invalid position.
 

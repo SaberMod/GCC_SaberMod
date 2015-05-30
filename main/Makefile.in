@@ -829,7 +829,9 @@ EXTRA_TARGET_FLAGS = \
 	'AS=$(COMPILER_AS_FOR_TARGET)' \
 	'CC=$$(CC_FOR_TARGET) $$(XGCC_FLAGS_FOR_TARGET) $$(TFLAGS)' \
 	'CFLAGS=$$(CFLAGS_FOR_TARGET)' \
-	'CXX=$$(CXX_FOR_TARGET) $$(XGCC_FLAGS_FOR_TARGET) $$(TFLAGS)' \
+	'CXX=$$(CXX_FOR_TARGET) -B$$r/$$(TARGET_SUBDIR)/libstdc++-v3/src/.libs \
+	 -B$$r/$$(TARGET_SUBDIR)/libstdc++-v3/libsupc++/.libs \
+	 $$(XGCC_FLAGS_FOR_TARGET) $$(TFLAGS)' \
 	'CXXFLAGS=$$(CXXFLAGS_FOR_TARGET)' \
 	'DLLTOOL=$$(DLLTOOL_FOR_TARGET)' \
 	'GCJ=$$(GCJ_FOR_TARGET) $$(XGCC_FLAGS_FOR_TARGET) $$(TFLAGS)' \
@@ -847,6 +849,8 @@ EXTRA_TARGET_FLAGS = \
 	'WINDRES=$$(WINDRES_FOR_TARGET)' \
 	'WINDMC=$$(WINDMC_FOR_TARGET)' \
 	'XGCC_FLAGS_FOR_TARGET=$(XGCC_FLAGS_FOR_TARGET)' \
+	'STAGE1_LDFLAGS=$$(POSTSTAGE1_LDFLAGS)' \
+	'STAGE1_LIBS=$$(POSTSTAGE1_LIBS)' \
 	"TFLAGS=$$TFLAGS"
 
 TARGET_FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_TARGET_FLAGS)
@@ -2403,6 +2407,18 @@ mail-report-with-warnings.log: warning.log
 	$(srcdir)/contrib/test_summary -t -i warning.log >$@
 	chmod +x $@
 	echo If you really want to send e-mail, run ./$@ now
+
+# Local Vim config
+
+$(srcdir)/.local.vimrc:
+	$(LN_S) $(srcdir)/contrib/vimrc $@
+
+$(srcdir)/.lvimrc:
+	$(LN_S) $(srcdir)/contrib/vimrc $@
+
+vimrc: $(srcdir)/.local.vimrc $(srcdir)/.lvimrc
+
+.PHONY: vimrc
 
 # Installation targets.
 
@@ -11001,7 +11017,7 @@ configure-gmp:
 	  $$s/$$module_srcdir/configure \
 	  --srcdir=$${topdir}/$$module_srcdir \
 	  $(HOST_CONFIGARGS) --build=${build_alias} --host=none-${host_vendor}-${host_os} \
-	  --target=none-${host_vendor}-${host_os} --disable-shared \
+	  --target=none-${host_vendor}-${host_os} --disable-shared LEX="touch lex.yy.c" \
 	  || exit 1
 @endif gmp
 
@@ -11037,7 +11053,7 @@ configure-stage1-gmp:
 	  --target=none-${host_vendor}-${host_os} \
 	   \
 	  $(STAGE1_CONFIGURE_FLAGS) \
-	  --disable-shared
+	  --disable-shared LEX="touch lex.yy.c"
 @endif gmp-bootstrap
 
 .PHONY: configure-stage2-gmp maybe-configure-stage2-gmp
@@ -11071,7 +11087,7 @@ configure-stage2-gmp:
 	  --target=none-${host_vendor}-${host_os} \
 	   --with-build-libsubdir=$(HOST_SUBDIR)  \
 	  $(STAGE2_CONFIGURE_FLAGS) \
-	  --disable-shared
+	  --disable-shared LEX="touch lex.yy.c"
 @endif gmp-bootstrap
 
 .PHONY: configure-stage3-gmp maybe-configure-stage3-gmp
@@ -11105,7 +11121,7 @@ configure-stage3-gmp:
 	  --target=none-${host_vendor}-${host_os} \
 	   --with-build-libsubdir=$(HOST_SUBDIR)  \
 	  $(STAGE3_CONFIGURE_FLAGS) \
-	  --disable-shared
+	  --disable-shared LEX="touch lex.yy.c"
 @endif gmp-bootstrap
 
 .PHONY: configure-stage4-gmp maybe-configure-stage4-gmp
@@ -11139,7 +11155,7 @@ configure-stage4-gmp:
 	  --target=none-${host_vendor}-${host_os} \
 	   --with-build-libsubdir=$(HOST_SUBDIR)  \
 	  $(STAGE4_CONFIGURE_FLAGS) \
-	  --disable-shared
+	  --disable-shared LEX="touch lex.yy.c"
 @endif gmp-bootstrap
 
 .PHONY: configure-stageprofile-gmp maybe-configure-stageprofile-gmp
@@ -11173,7 +11189,7 @@ configure-stageprofile-gmp:
 	  --target=none-${host_vendor}-${host_os} \
 	   --with-build-libsubdir=$(HOST_SUBDIR)  \
 	  $(STAGEprofile_CONFIGURE_FLAGS) \
-	  --disable-shared
+	  --disable-shared LEX="touch lex.yy.c"
 @endif gmp-bootstrap
 
 .PHONY: configure-stagefeedback-gmp maybe-configure-stagefeedback-gmp
@@ -11207,7 +11223,7 @@ configure-stagefeedback-gmp:
 	  --target=none-${host_vendor}-${host_os} \
 	   --with-build-libsubdir=$(HOST_SUBDIR)  \
 	  $(STAGEfeedback_CONFIGURE_FLAGS) \
-	  --disable-shared
+	  --disable-shared LEX="touch lex.yy.c"
 @endif gmp-bootstrap
 
 
@@ -49057,6 +49073,30 @@ configure-stage3-gcc: maybe-all-stage3-gmp
 configure-stage4-gcc: maybe-all-stage4-gmp
 configure-stageprofile-gcc: maybe-all-stageprofile-gmp
 configure-stagefeedback-gcc: maybe-all-stagefeedback-gmp
+configure-gcc: maybe-all-mpfr
+
+configure-stage1-gcc: maybe-all-stage1-mpfr
+configure-stage2-gcc: maybe-all-stage2-mpfr
+configure-stage3-gcc: maybe-all-stage3-mpfr
+configure-stage4-gcc: maybe-all-stage4-mpfr
+configure-stageprofile-gcc: maybe-all-stageprofile-mpfr
+configure-stagefeedback-gcc: maybe-all-stagefeedback-mpfr
+configure-gcc: maybe-all-mpc
+
+configure-stage1-gcc: maybe-all-stage1-mpc
+configure-stage2-gcc: maybe-all-stage2-mpc
+configure-stage3-gcc: maybe-all-stage3-mpc
+configure-stage4-gcc: maybe-all-stage4-mpc
+configure-stageprofile-gcc: maybe-all-stageprofile-mpc
+configure-stagefeedback-gcc: maybe-all-stagefeedback-mpc
+configure-gcc: maybe-all-isl
+
+configure-stage1-gcc: maybe-all-stage1-isl
+configure-stage2-gcc: maybe-all-stage2-isl
+configure-stage3-gcc: maybe-all-stage3-isl
+configure-stage4-gcc: maybe-all-stage4-isl
+configure-stageprofile-gcc: maybe-all-stageprofile-isl
+configure-stagefeedback-gcc: maybe-all-stagefeedback-isl
 configure-gcc: maybe-all-lto-plugin
 
 configure-stage1-gcc: maybe-all-stage1-lto-plugin

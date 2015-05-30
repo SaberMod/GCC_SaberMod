@@ -255,9 +255,9 @@ public:
      body aliases.  */
   void fixup_same_cpp_alias_visibility (symtab_node *target);
 
-  /* Call calback on symtab node and aliases associated to this node.
+  /* Call callback on symtab node and aliases associated to this node.
      When INCLUDE_OVERWRITABLE is false, overwritable aliases and thunks are
-     skipped. */
+     skipped.  */
   bool call_for_symbol_and_aliases (bool (*callback) (symtab_node *, void *),
 				  void *data,
 				  bool include_overwrite);
@@ -332,6 +332,11 @@ public:
 
   /* Return true if symbol is known to be nonzero.  */
   bool nonzero_address ();
+
+  /* Return 0 if symbol is known to have different address than S2,
+     Return 1 if symbol is known to have same address as S2,
+     return 2 otherwise.   */
+  int equal_address_to (symtab_node *s2);
 
   /* Return symbol table node associated with DECL, if any,
      and NULL otherwise.  */
@@ -797,6 +802,13 @@ public:
      When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
   cgraph_node *function_symbol (enum availability *avail = NULL);
 
+  /* Walk the alias chain to return the function cgraph_node is alias of.
+     Walk through non virtual thunks, too.  Thus we return either a function
+     or a virtual thunk node.
+     When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
+  cgraph_node *function_or_virtual_thunk_symbol
+				(enum availability *avail = NULL);
+
   /* Create node representing clone of N executed COUNT times.  Decrease
      the execution counts from original node too.
      The new clone will have decl set to DECL that may or may not be the same
@@ -904,6 +916,10 @@ public:
      When OUTPUT_ASM_THUNK is true, also produce assembler for
      thunks that are not lowered.  */
   bool expand_thunk (bool output_asm_thunks, bool force_gimple_thunk);
+
+  /*  Call expand_thunk on all callers that are thunks and analyze those
+      nodes that were expanded.  */
+  void expand_all_artificial_thunks ();
 
   /* Assemble thunks and aliases associated to node.  */
   void assemble_thunks_and_aliases (void);
@@ -1019,7 +1035,7 @@ public:
      if any to PURE.  */
   void set_pure_flag (bool pure, bool looping);
 
-  /* Call calback on function and aliases associated to the function.
+  /* Call callback on function and aliases associated to the function.
      When INCLUDE_OVERWRITABLE is false, overwritable aliases and thunks are
      skipped. */
 
@@ -1027,13 +1043,15 @@ public:
 						      void *),
 				    void *data, bool include_overwritable);
 
-  /* Call calback on cgraph_node, thunks and aliases associated to NODE.
+  /* Call callback on cgraph_node, thunks and aliases associated to NODE.
      When INCLUDE_OVERWRITABLE is false, overwritable aliases and thunks are
+     skipped.  When EXCLUDE_VIRTUAL_THUNKS is true, virtual thunks are
      skipped.  */
   bool call_for_symbol_thunks_and_aliases (bool (*callback) (cgraph_node *node,
-							   void *data),
-					 void *data,
-					 bool include_overwritable);
+							     void *data),
+					   void *data,
+					   bool include_overwritable,
+					   bool exclude_virtual_thunks = false);
 
   /* Likewise indicate that a node is needed, i.e. reachable via some
      external means.  */
@@ -1476,6 +1494,12 @@ struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"),
      call expression.  */
   void redirect_callee (cgraph_node *n);
 
+  /* If the edge does not lead to a thunk, simply redirect it to N.  Otherwise
+     create one or more equivalent thunks for N and redirect E to the first in
+     the chain.  Note that it is then necessary to call
+     n->expand_all_artificial_thunks once all callers are redirected.  */
+  void redirect_callee_duplicating_thunks (cgraph_node *n);
+
   /* Make an indirect edge with an unknown callee an ordinary edge leading to
      CALLEE.  DELTA is an integer constant that is to be added to the this
      pointer (first parameter) to compensate for skipping
@@ -1787,12 +1811,15 @@ enum symtab_state
   PARSING,
   /* Callgraph is being constructed.  It is safe to add new functions.  */
   CONSTRUCTION,
-  /* Callgraph is being at LTO time.  */
+  /* Callgraph is being streamed-in at LTO time.  */
   LTO_STREAMING,
-  /* Callgraph is built and IPA passes are being run.  */
+  /* Callgraph is built and early IPA passes are being run.  */
   IPA,
   /* Callgraph is built and all functions are transformed to SSA form.  */
   IPA_SSA,
+  /* All inline decisions are done; it is now possible to remove extern inline
+     functions and virtual call targets.  */
+  IPA_SSA_AFTER_INLINING,
   /* Functions are now ordered and being passed to RTL expanders.  */
   EXPANSION,
   /* All cgraph expansion is done.  */
@@ -1899,7 +1926,7 @@ public:
   }
 
   /* Perform reachability analysis and reclaim all unreachable nodes.  */
-  bool remove_unreachable_nodes (bool before_inlining_p, FILE *file);
+  bool remove_unreachable_nodes (FILE *file);
 
   /* Optimization of function bodies might've rendered some variables as
      unnecessary so we want to avoid these from being compiled.  Re-do
@@ -2179,18 +2206,42 @@ cgraph_inline_failed_type_t cgraph_inline_failed_type (cgraph_inline_failed_t);
 
 bool resolution_used_from_other_file_p (enum ld_plugin_symbol_resolution);
 /* Module info structure.  */
-struct GTY (()) cgraph_mod_info
+struct GTY ((for_user)) cgraph_mod_info
 {
   unsigned module_id;
 };
 
 /* LIPO linker symbol table entry for function symbols.  */
-struct GTY (()) cgraph_sym
+
+struct cgraph_mod_info_hasher : ggc_hasher<cgraph_mod_info *> 
+{
+  static inline hashval_t hash (cgraph_mod_info *);
+  static inline bool equal (cgraph_mod_info *, cgraph_mod_info *);
+};
+/* Hash function for module information table. ENT
+   is a pointer to a cgraph_module_info.  */
+
+hashval_t 
+cgraph_mod_info_hasher::hash (cgraph_mod_info *mi)
+{
+  return (hashval_t) mi->module_id;
+}
+
+/* Hash equality function for module information table.  */
+
+bool 
+cgraph_mod_info_hasher::equal (cgraph_mod_info *mi1, cgraph_mod_info *mi2)
+{
+  return (mi1->module_id == mi2->module_id);
+}
+
+
+struct GTY ((for_user)) cgraph_sym
 {
   tree assembler_name;
   struct cgraph_node *rep_node;
   tree rep_decl;
-  htab_t GTY ((param_is (struct cgraph_mod_info))) def_module_hash;
+  hash_table <cgraph_mod_info_hasher> *GTY(()) def_module_hash;
   bool is_promoted_static;
 };
 
@@ -2940,6 +2991,34 @@ cgraph_local_p (cgraph_node *node)
     return node->local.local;
 
   return node->local.local && node->instrumented_version->local.local;
+}
+
+/* When using fprintf (or similar), problems can arise with
+   transient generated strings.  Many string-generation APIs
+   only support one result being alive at once (e.g. by
+   returning a pointer to a statically-allocated buffer).
+
+   If there is more than one generated string within one
+   fprintf call: the first string gets evicted or overwritten
+   by the second, before fprintf is fully evaluated.
+   See e.g. PR/53136.
+
+   This function provides a workaround for this, by providing
+   a simple way to create copies of these transient strings,
+   without the need to have explicit cleanup:
+
+       fprintf (dumpfile, "string 1: %s string 2:%s\n",
+                xstrdup_for_dump (EXPR_1),
+                xstrdup_for_dump (EXPR_2));
+
+   This is actually a simple wrapper around ggc_strdup, but
+   the name documents the intent.  We require that no GC can occur
+   within the fprintf call.  */
+
+static inline const char *
+xstrdup_for_dump (const char *transient_str)
+{
+  return ggc_strdup (transient_str);
 }
 
 #endif  /* GCC_CGRAPH_H  */

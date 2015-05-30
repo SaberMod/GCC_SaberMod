@@ -182,16 +182,16 @@ recording::context::context (context *parent_ctxt)
   if (parent_ctxt)
     {
       /* Inherit options from parent.
-         Note that the first memcpy means copying pointers to strings.  */
+	 Note that the first memcpy means copying pointers to strings.  */
       memcpy (m_str_options,
-              parent_ctxt->m_str_options,
-              sizeof (m_str_options));
+	      parent_ctxt->m_str_options,
+	      sizeof (m_str_options));
       memcpy (m_int_options,
-              parent_ctxt->m_int_options,
-              sizeof (m_int_options));
+	      parent_ctxt->m_int_options,
+	      sizeof (m_int_options));
       memcpy (m_bool_options,
-              parent_ctxt->m_bool_options,
-              sizeof (m_bool_options));
+	      parent_ctxt->m_bool_options,
+	      sizeof (m_bool_options));
     }
   else
     {
@@ -214,6 +214,9 @@ recording::context::~context ()
     {
       delete m;
     }
+
+  for (i = 0; i < GCC_JIT_NUM_STR_OPTIONS; ++i)
+    free (m_str_options[i]);
 
   if (m_builtins_manager)
     delete m_builtins_manager;
@@ -492,6 +495,27 @@ recording::context::new_union_type (recording::location *loc,
   return result;
 }
 
+/* Create a recording::function_type instance and add it to this context's
+   list of mementos.
+
+   Used by new_function_ptr_type and by builtins_manager::make_fn_type.  */
+
+recording::function_type *
+recording::context::new_function_type (recording::type *return_type,
+				       int num_params,
+				       recording::type **param_types,
+				       int is_variadic)
+{
+  recording::function_type *fn_type
+    = new function_type (this,
+			 return_type,
+			 num_params,
+			 param_types,
+			 is_variadic);
+  record (fn_type);
+  return fn_type;
+}
+
 /* Create a recording::type instance and add it to this context's list
    of mementos.
 
@@ -505,13 +529,11 @@ recording::context::new_function_ptr_type (recording::location *, /* unused loc 
 					   recording::type **param_types,
 					   int is_variadic)
 {
-  recording::function_type *fn_type =
-    new function_type (this,
-		       return_type,
-		       num_params,
-		       param_types,
-		       is_variadic);
-  record (fn_type);
+  recording::function_type *fn_type
+    = new_function_type (return_type,
+			 num_params,
+			 param_types,
+			 is_variadic);
 
   /* Return a pointer-type to the the function type.  */
   return fn_type->get_pointer ();
@@ -561,6 +583,25 @@ recording::context::new_function (recording::location *loc,
   return result;
 }
 
+/* Locate the builtins_manager (if any) for this family of contexts,
+   creating it if it doesn't exist already.
+
+   All of the recording contexts in a family share one builtins_manager:
+   if we have a child context, follow the parent links to get the
+   ultimate ancestor context, and look for it/store it there.  */
+
+builtins_manager *
+recording::context::get_builtins_manager ()
+{
+  if (m_parent_ctxt)
+    return m_parent_ctxt->get_builtins_manager ();
+
+  if (!m_builtins_manager)
+    m_builtins_manager = new builtins_manager (this);
+
+  return m_builtins_manager;
+}
+
 /* Get a recording::function instance, which is lazily-created and added
    to the context's lists of mementos.
 
@@ -570,9 +611,8 @@ recording::context::new_function (recording::location *loc,
 recording::function *
 recording::context::get_builtin_function (const char *name)
 {
-  if (!m_builtins_manager)
-    m_builtins_manager = new builtins_manager (this);
-  return m_builtins_manager->get_builtin_function (name);
+  builtins_manager *bm = get_builtins_manager ();
+  return bm->get_builtin_function (name);
 }
 
 /* Create a recording::global instance and add it to this context's list
@@ -790,7 +830,8 @@ recording::context::set_str_option (enum gcc_jit_str_option opt,
 		 "unrecognized (enum gcc_jit_str_option) value: %i", opt);
       return;
     }
-  m_str_options[opt] = value;
+  free (m_str_options[opt]);
+  m_str_options[opt] = xstrdup (value);
 }
 
 /* Set the given integer option for this context, or add an error if
@@ -831,10 +872,25 @@ recording::context::set_bool_option (enum gcc_jit_bool_option opt,
   m_bool_options[opt] = value ? true : false;
 }
 
-/* This mutex guards gcc::jit::recording::context::compile, so that only
-   one thread can be accessing the bulk of GCC's state at once.  */
+/* Add the given dumpname/out_ptr pair to this context's list of requested
+   dumps.
 
-static pthread_mutex_t jit_mutex = PTHREAD_MUTEX_INITIALIZER;
+   Implements the post-error-checking part of
+   gcc_jit_context_enable_dump.  */
+
+void
+recording::context::enable_dump (const char *dumpname,
+				 char **out_ptr)
+{
+  requested_dump d;
+  gcc_assert (dumpname);
+  gcc_assert (out_ptr);
+
+  d.m_dumpname = dumpname;
+  d.m_out_ptr = out_ptr;
+  *out_ptr = NULL;
+  m_requested_dumps.safe_push (d);
+}
 
 /* Validate this context, and if it passes, compile it within a
    mutex.
@@ -850,19 +906,11 @@ recording::context::compile ()
   if (errors_occurred ())
     return NULL;
 
-  /* Acquire the big GCC mutex. */
-  pthread_mutex_lock (&jit_mutex);
-  gcc_assert (NULL == ::gcc::jit::active_playback_ctxt);
-
   /* Set up a playback context.  */
   ::gcc::jit::playback::context replayer (this);
-  ::gcc::jit::active_playback_ctxt = &replayer;
 
+  /* Use it.  */
   result *result_obj = replayer.compile ();
-
-  /* Release the big GCC mutex. */
-  ::gcc::jit::active_playback_ctxt = NULL;
-  pthread_mutex_unlock (&jit_mutex);
 
   return result_obj;
 }
@@ -987,6 +1035,19 @@ recording::context::dump_to_file (const char *path, bool update_locations)
     {
       fn->write_to_dump (d);
     }
+}
+
+/* Copy the requested dumps within this context and all ancestors into
+   OUT. */
+
+void
+recording::context::get_all_requested_dumps (vec <recording::requested_dump> *out)
+{
+  if (m_parent_ctxt)
+    m_parent_ctxt->get_all_requested_dumps (out);
+
+  out->reserve (m_requested_dumps.length ());
+  out->splice (m_requested_dumps);
 }
 
 /* This is a pre-compilation check for the context (and any parents).
@@ -1229,6 +1290,9 @@ recording::memento_of_get_type::dereference ()
     case GCC_JIT_TYPE_FLOAT:
     case GCC_JIT_TYPE_DOUBLE:
     case GCC_JIT_TYPE_LONG_DOUBLE:
+    case GCC_JIT_TYPE_COMPLEX_FLOAT:
+    case GCC_JIT_TYPE_COMPLEX_DOUBLE:
+    case GCC_JIT_TYPE_COMPLEX_LONG_DOUBLE:
       /* Not a pointer: */
       return NULL;
 
@@ -1290,6 +1354,11 @@ recording::memento_of_get_type::is_int () const
 
     case GCC_JIT_TYPE_FILE_PTR:
       return false;
+
+    case GCC_JIT_TYPE_COMPLEX_FLOAT:
+    case GCC_JIT_TYPE_COMPLEX_DOUBLE:
+    case GCC_JIT_TYPE_COMPLEX_LONG_DOUBLE:
+      return false;
     }
 }
 
@@ -1338,6 +1407,11 @@ recording::memento_of_get_type::is_float () const
 
     case GCC_JIT_TYPE_FILE_PTR:
       return false;
+
+    case GCC_JIT_TYPE_COMPLEX_FLOAT:
+    case GCC_JIT_TYPE_COMPLEX_DOUBLE:
+    case GCC_JIT_TYPE_COMPLEX_LONG_DOUBLE:
+      return true;
     }
 }
 
@@ -1386,6 +1460,11 @@ recording::memento_of_get_type::is_bool () const
 
     case GCC_JIT_TYPE_FILE_PTR:
       return false;
+
+    case GCC_JIT_TYPE_COMPLEX_FLOAT:
+    case GCC_JIT_TYPE_COMPLEX_DOUBLE:
+    case GCC_JIT_TYPE_COMPLEX_LONG_DOUBLE:
+      return false;
     }
 }
 
@@ -1432,7 +1511,11 @@ static const char * const get_type_strings[] = {
 
   "size_t",  /* GCC_JIT_TYPE_SIZE_T */
 
-  "FILE *"  /* GCC_JIT_TYPE_FILE_PTR */
+  "FILE *",  /* GCC_JIT_TYPE_FILE_PTR */
+
+  "complex float", /* GCC_JIT_TYPE_COMPLEX_FLOAT */
+  "complex double", /* GCC_JIT_TYPE_COMPLEX_DOUBLE */
+  "complex long double"  /* GCC_JIT_TYPE_COMPLEX_LONG_DOUBLE */
 
 };
 
@@ -1871,10 +1954,10 @@ recording::fields::replay_into (replayer *)
    declaration of this form:
 
       struct/union NAME {
-        TYPE_1 NAME_1;
-        TYPE_2 NAME_2;
+	TYPE_1 NAME_1;
+	TYPE_2 NAME_2;
 	....
-        TYPE_N NAME_N;
+	TYPE_N NAME_N;
       };
 
     to the dump.  */

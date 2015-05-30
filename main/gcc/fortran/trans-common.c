@@ -397,7 +397,7 @@ build_common_decl (gfc_common_head *com, tree union_type, bool is_init)
 	 blank common blocks may be of different sizes.  */
       if (!tree_int_cst_equal (DECL_SIZE_UNIT (decl), size)
 	  && strcmp (com->name, BLANK_COMMON_NAME))
-	gfc_warning ("Named COMMON block '%s' at %L shall be of the "
+	gfc_warning ("Named COMMON block %qs at %L shall be of the "
 		     "same size as elsewhere (%lu vs %lu bytes)", com->name,
 		     &com->where,
 		     (unsigned long) TREE_INT_CST_LOW (size),
@@ -908,7 +908,7 @@ confirm_condition (segment_info *s1, gfc_equiv *eq1, segment_info *s2,
   offset2 = calculate_offset (eq2->expr);
 
   if (s1->offset + offset1 != s2->offset + offset2)
-    gfc_error ("Inconsistent equivalence rules involving '%s' at %L and "
+    gfc_error_1 ("Inconsistent equivalence rules involving '%s' at %L and "
 	       "'%s' at %L", s1->sym->name, &s1->sym->declared_at,
 	       s2->sym->name, &s2->sym->declared_at);
 }
@@ -1041,7 +1041,7 @@ align_segment (unsigned HOST_WIDE_INT *palign)
 	  if (this_offset & (max_align - 1))
 	    {
 	      /* Aligning this field would misalign a previous field.  */
-	      gfc_error ("The equivalence set for variable '%s' "
+	      gfc_error ("The equivalence set for variable %qs "
 			 "declared at %L violates alignment requirements",
 			 s->sym->name, &s->sym->declared_at);
 	    }
@@ -1106,8 +1106,8 @@ translate_common (gfc_common_head *common, gfc_symbol *var_list)
 	  /* Verify that it ended up where we expect it.  */
 	  if (s->offset != current_offset)
 	    {
-	      gfc_error ("Equivalence for '%s' does not match ordering of "
-			 "COMMON '%s' at %L", sym->name,
+	      gfc_error ("Equivalence for %qs does not match ordering of "
+			 "COMMON %qs at %L", sym->name,
 			 common->name, &common->where);
 	    }
 	}
@@ -1121,8 +1121,8 @@ translate_common (gfc_common_head *common, gfc_symbol *var_list)
 	  add_equivalences (&saw_equiv);
 
 	  if (current_segment->offset < 0)
-	    gfc_error ("The equivalence set for '%s' cause an invalid "
-		       "extension to COMMON '%s' at %L", sym->name,
+	    gfc_error ("The equivalence set for %qs cause an invalid "
+		       "extension to COMMON %qs at %L", sym->name,
 		       common->name, &common->where);
 
 	  if (gfc_option.flag_align_commons)
@@ -1133,15 +1133,15 @@ translate_common (gfc_common_head *common, gfc_symbol *var_list)
 	      /* The required offset conflicts with previous alignment
 		 requirements.  Insert padding immediately before this
 		 segment.  */
-	      if (gfc_option.warn_align_commons)
+	      if (warn_align_commons)
 		{
 		  if (strcmp (common->name, BLANK_COMMON_NAME))
-		    gfc_warning ("Padding of %d bytes required before '%s' in "
-				 "COMMON '%s' at %L; reorder elements or use "
+		    gfc_warning ("Padding of %d bytes required before %qs in "
+				 "COMMON %qs at %L; reorder elements or use "
 				 "-fno-align-commons", (int)offset,
 				 s->sym->name, common->name, &common->where);
 		  else
-		    gfc_warning ("Padding of %d bytes required before '%s' in "
+		    gfc_warning ("Padding of %d bytes required before %qs in "
 				 "COMMON at %L; reorder elements or use "
 				 "-fno-align-commons", (int)offset,
 				 s->sym->name, &common->where);
@@ -1167,15 +1167,17 @@ translate_common (gfc_common_head *common, gfc_symbol *var_list)
       return;
     }
 
-  if (common_segment->offset != 0 && gfc_option.warn_align_commons)
+  if (common_segment->offset != 0 && warn_align_commons)
     {
       if (strcmp (common->name, BLANK_COMMON_NAME))
-	gfc_warning ("COMMON '%s' at %L requires %d bytes of padding; "
-		     "reorder elements or use -fno-align-commons",
+	gfc_warning (OPT_Walign_commons,
+		     "COMMON %qs at %L requires %d bytes of padding; "
+		     "reorder elements or use %<-fno-align-commons%>",
 		     common->name, &common->where, (int)common_segment->offset);
       else
-	gfc_warning ("COMMON at %L requires %d bytes of padding; "
-		     "reorder elements or use -fno-align-commons",
+	gfc_warning (OPT_Walign_commons,
+		     "COMMON at %L requires %d bytes of padding; "
+		     "reorder elements or use %<-fno-align-commons%>",
 		     &common->where, (int)common_segment->offset);
     }
 

@@ -44,11 +44,10 @@
   BUILTIN_VDQF (UNOP, sqrt, 2)
   BUILTIN_VD_BHSI (BINOP, addp, 0)
   VAR1 (UNOP, addp, 0, di)
+  BUILTIN_VDQ_BHSI (UNOP, clrsb, 2)
   BUILTIN_VDQ_BHSI (UNOP, clz, 2)
   BUILTIN_VS (UNOP, ctz, 2)
-
-  /* be_checked_get_lane does its own lane swapping, so not a lane index.  */
-  BUILTIN_VALL (GETREG, be_checked_get_lane, 0)
+  BUILTIN_VB (UNOP, popcount, 2)
 
   /* Implemented by aarch64_<sur>q<r>shl<mode>.  */
   BUILTIN_VSDQ_I (BINOP, sqshl, 0)
@@ -114,26 +113,32 @@
   BUILTIN_VQW (BINOP, ssubw2, 0)
   BUILTIN_VQW (BINOP, usubw2, 0)
   /* Implemented by aarch64_<ANY_EXTEND:su><ADDSUB:optab>l<mode>.  */
-  BUILTIN_VDW (BINOP, saddl, 0)
-  BUILTIN_VDW (BINOP, uaddl, 0)
-  BUILTIN_VDW (BINOP, ssubl, 0)
-  BUILTIN_VDW (BINOP, usubl, 0)
+  BUILTIN_VD_BHSI (BINOP, saddl, 0)
+  BUILTIN_VD_BHSI (BINOP, uaddl, 0)
+  BUILTIN_VD_BHSI (BINOP, ssubl, 0)
+  BUILTIN_VD_BHSI (BINOP, usubl, 0)
   /* Implemented by aarch64_<ANY_EXTEND:su><ADDSUB:optab>w<mode>.  */
-  BUILTIN_VDW (BINOP, saddw, 0)
-  BUILTIN_VDW (BINOP, uaddw, 0)
-  BUILTIN_VDW (BINOP, ssubw, 0)
-  BUILTIN_VDW (BINOP, usubw, 0)
+  BUILTIN_VD_BHSI (BINOP, saddw, 0)
+  BUILTIN_VD_BHSI (BINOP, uaddw, 0)
+  BUILTIN_VD_BHSI (BINOP, ssubw, 0)
+  BUILTIN_VD_BHSI (BINOP, usubw, 0)
   /* Implemented by aarch64_<sur>h<addsub><mode>.  */
-  BUILTIN_VQ_S (BINOP, shadd, 0)
-  BUILTIN_VQ_S (BINOP, uhadd, 0)
-  BUILTIN_VQ_S (BINOP, srhadd, 0)
-  BUILTIN_VQ_S (BINOP, urhadd, 0)
+  BUILTIN_VDQ_BHSI (BINOP, shadd, 0)
+  BUILTIN_VDQ_BHSI (BINOP, shsub, 0)
+  BUILTIN_VDQ_BHSI (BINOP, uhadd, 0)
+  BUILTIN_VDQ_BHSI (BINOP, uhsub, 0)
+  BUILTIN_VDQ_BHSI (BINOP, srhadd, 0)
+  BUILTIN_VDQ_BHSI (BINOP, urhadd, 0)
   /* Implemented by aarch64_<sur><addsub>hn<mode>.  */
   BUILTIN_VQN (BINOP, addhn, 0)
+  BUILTIN_VQN (BINOP, subhn, 0)
   BUILTIN_VQN (BINOP, raddhn, 0)
+  BUILTIN_VQN (BINOP, rsubhn, 0)
   /* Implemented by aarch64_<sur><addsub>hn2<mode>.  */
   BUILTIN_VQN (TERNOP, addhn2, 0)
+  BUILTIN_VQN (TERNOP, subhn2, 0)
   BUILTIN_VQN (TERNOP, raddhn2, 0)
+  BUILTIN_VQN (TERNOP, rsubhn2, 0)
 
   BUILTIN_VSQN_HSDI (UNOP, sqmovun, 0)
   /* Implemented by aarch64_<sur>qmovn<mode>.  */
@@ -202,8 +207,8 @@
   BUILTIN_VSDQ_I_DI (SHIFTACC, srsra_n, 0)
   BUILTIN_VSDQ_I_DI (USHIFTACC, ursra_n, 0)
   /* Implemented by aarch64_<sur>shll_n<mode>.  */
-  BUILTIN_VDW (SHIFTIMM, sshll_n, 0)
-  BUILTIN_VDW (USHIFTIMM, ushll_n, 0)
+  BUILTIN_VD_BHSI (SHIFTIMM, sshll_n, 0)
+  BUILTIN_VD_BHSI (USHIFTIMM, ushll_n, 0)
   /* Implemented by aarch64_<sur>shll2_n<mode>.  */
   BUILTIN_VQW (SHIFTIMM, sshll2_n, 0)
   BUILTIN_VQW (SHIFTIMM, ushll2_n, 0)
@@ -317,7 +322,7 @@
   VAR1 (UNOP, floatunsv4si, 2, v4sf)
   VAR1 (UNOP, floatunsv2di, 2, v2df)
 
-  VAR5 (UNOPU, bswap, 10, v4hi, v8hi, v2si, v4si, v2di)
+  VAR5 (UNOPU, bswap, 2, v4hi, v8hi, v2si, v4si, v2di)
 
   BUILTIN_VB (UNOP, rbit, 0)
 
@@ -335,6 +340,8 @@
   BUILTIN_GPF (UNOP, frecpe, 0)
   BUILTIN_GPF (BINOP, frecps, 0)
   BUILTIN_GPF (UNOP, frecpx, 0)
+
+  BUILTIN_VDQ_SI (UNOP, urecpe, 0)
 
   BUILTIN_VDQF (UNOP, frecpe, 0)
   BUILTIN_VDQF (BINOP, frecps, 0)
@@ -387,5 +394,3 @@
   VAR1 (BINOPP, crypto_pmull, 0, di)
   VAR1 (BINOPP, crypto_pmull, 0, v2di)
 
-  /* Meta-op to check lane bounds of immediate in aarch64_expand_builtin.  */
-  VAR1 (BINOPV, im_lane_bound, 0, si)

@@ -27,15 +27,13 @@ along with GCC; see the file COPYING3.  If not see
 #include <isl/constraint.h>
 #include <isl/aff.h>
 #include <isl/val.h>
-/* For C++ linkage of C functions.
-   Missing from  isl/val_gmp.h in isl 0.12 versions.
-   Appearing in isl/val_gmp.h in isl 0.13.
-   To be removed when passing to isl 0.13. */
-#if defined(__cplusplus)
+
+/* Since ISL-0.13, the extern is in val_gmp.h.  */
+#if !defined(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE) && defined(__cplusplus)
 extern "C" {
 #endif
 #include <isl/val_gmp.h>
-#if defined(__cplusplus)
+#if !defined(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE) && defined(__cplusplus)
 }
 #endif
 #endif
@@ -2347,7 +2345,7 @@ rewrite_cross_bb_scalar_dependence (scop_p scop, tree zero_dim_array,
 
   gcc_assert (gimple_code (use_stmt) != GIMPLE_PHI);
 
-  name = copy_ssa_name (def, NULL);
+  name = copy_ssa_name (def);
   name_stmt = gimple_build_assign (name, zero_dim_array);
 
   gimple_assign_set_lhs (name_stmt, name);
@@ -2367,7 +2365,7 @@ rewrite_cross_bb_scalar_dependence (scop_p scop, tree zero_dim_array,
 static void
 handle_scalar_deps_crossing_scop_limits (scop_p scop, tree def, gimple stmt)
 {
-  tree var = create_tmp_reg (TREE_TYPE (def), NULL);
+  tree var = create_tmp_reg (TREE_TYPE (def));
   tree new_name = make_ssa_name (var, stmt);
   bool needs_copy = false;
   use_operand_p use_p;

@@ -538,11 +538,11 @@ cgraph_node::get_create (tree decl)
       if (dump_file)
 	fprintf (dump_file, "Introduced new external node "
 		 "(%s/%i) and turned into root of the clone tree.\n",
-		 xstrdup (node->name ()), node->order);
+		 xstrdup_for_dump (node->name ()), node->order);
     }
   else if (dump_file)
     fprintf (dump_file, "Introduced new external node "
-	     "(%s/%i).\n", xstrdup (node->name ()),
+	     "(%s/%i).\n", xstrdup_for_dump (node->name ()),
 	     node->order);
   return node;
 }
@@ -1095,8 +1095,8 @@ cgraph_edge::make_speculative (cgraph_node *n2, gcov_type direct_count,
     {
       fprintf (dump_file, "Indirect call -> speculative call"
 	       " %s/%i => %s/%i\n",
-	       xstrdup (n->name ()), n->order,
-	       xstrdup (n2->name ()), n2->order);
+	       xstrdup_for_dump (n->name ()), n->order,
+	       xstrdup_for_dump (n2->name ()), n2->order);
     }
   speculative = true;
   e2 = n->create_edge (n2, call_stmt, direct_count, direct_frequency);
@@ -1215,16 +1215,20 @@ cgraph_edge::resolve_speculation (tree callee_decl)
 	    {
 	      fprintf (dump_file, "Speculative indirect call %s/%i => %s/%i has "
 		       "turned out to have contradicting known target ",
-		       xstrdup (edge->caller->name ()), edge->caller->order,
-		       xstrdup (e2->callee->name ()), e2->callee->order);
+		       xstrdup_for_dump (edge->caller->name ()),
+		       edge->caller->order,
+		       xstrdup_for_dump (e2->callee->name ()),
+		       e2->callee->order);
 	      print_generic_expr (dump_file, callee_decl, 0);
 	      fprintf (dump_file, "\n");
 	    }
 	  else
 	    {
 	      fprintf (dump_file, "Removing speculative call %s/%i => %s/%i\n",
-		       xstrdup (edge->caller->name ()), edge->caller->order,
-		       xstrdup (e2->callee->name ()), e2->callee->order);
+		       xstrdup_for_dump (edge->caller->name ()),
+		       edge->caller->order,
+		       xstrdup_for_dump (e2->callee->name ()),
+		       e2->callee->order);
 	    }
 	}
     }
@@ -1344,9 +1348,9 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 	  if (dump_file)
 	    fprintf (dump_file, "Not expanding speculative call of %s/%i -> %s/%i\n"
 		     "Type mismatch.\n",
-		     xstrdup (e->caller->name ()),
+		     xstrdup_for_dump (e->caller->name ()),
 		     e->caller->order,
-		     xstrdup (e->callee->name ()),
+		     xstrdup_for_dump (e->callee->name ()),
 		     e->callee->order);
 	  e = e->resolve_speculation ();
 	  /* We are producing the final function body and will throw away the
@@ -1363,9 +1367,9 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 	    fprintf (dump_file,
 		     "Expanding speculative call of %s/%i -> %s/%i count:"
 		     "%"PRId64"\n",
-		     xstrdup (e->caller->name ()),
+		     xstrdup_for_dump (e->caller->name ()),
 		     e->caller->order,
-		     xstrdup (e->callee->name ()),
+		     xstrdup_for_dump (e->callee->name ()),
 		     e->callee->order,
 		     (int64_t)e->count);
 	  gcc_assert (e2->speculative);
@@ -1440,8 +1444,8 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
   if (symtab->dump_file)
     {
       fprintf (symtab->dump_file, "updating call of %s/%i -> %s/%i: ",
-	       xstrdup (e->caller->name ()), e->caller->order,
-	       xstrdup (e->callee->name ()), e->callee->order);
+	       xstrdup_for_dump (e->caller->name ()), e->caller->order,
+	       xstrdup_for_dump (e->callee->name ()), e->callee->order);
       print_gimple_stmt (symtab->dump_file, e->call_stmt, 0, dump_flags);
       if (e->callee->clone.combined_args_to_skip)
 	{
@@ -2002,9 +2006,9 @@ cgraph_node::dump (FILE *f)
 
   if (global.inlined_to)
     fprintf (f, "  Function %s/%i is inline copy in %s/%i\n",
-	     xstrdup (name ()),
+	     xstrdup_for_dump (name ()),
 	     order,
-	     xstrdup (global.inlined_to->name ()),
+	     xstrdup_for_dump (global.inlined_to->name ()),
 	     global.inlined_to->order);
   if (clone_of)
     fprintf (f, "  Clone of %s/%i\n",
@@ -2233,15 +2237,16 @@ cgraph_node::can_be_local_p (void)
 						NULL, true));
 }
 
-/* Call calback on cgraph_node, thunks and aliases associated to cgraph_node.
+/* Call callback on cgraph_node, thunks and aliases associated to cgraph_node.
    When INCLUDE_OVERWRITABLE is false, overwritable aliases and thunks are
-   skipped. */
-
+   skipped.  When EXCLUDE_VIRTUAL_THUNKS is true, virtual thunks are
+   skipped.  */
 bool
 cgraph_node::call_for_symbol_thunks_and_aliases (bool (*callback)
 						   (cgraph_node *, void *),
 						 void *data,
-						 bool include_overwritable)
+						 bool include_overwritable,
+						 bool exclude_virtual_thunks)
 {
   cgraph_edge *e;
   ipa_ref *ref;
@@ -2251,9 +2256,12 @@ cgraph_node::call_for_symbol_thunks_and_aliases (bool (*callback)
   for (e = callers; e; e = e->next_caller)
     if (e->caller->thunk.thunk_p
 	&& (include_overwritable
-	    || e->caller->get_availability () > AVAIL_INTERPOSABLE))
+	    || e->caller->get_availability () > AVAIL_INTERPOSABLE)
+	&& !(exclude_virtual_thunks
+	     && e->caller->thunk.virtual_offset_p))
       if (e->caller->call_for_symbol_thunks_and_aliases (callback, data,
-						       include_overwritable))
+						       include_overwritable,
+						       exclude_virtual_thunks))
 	return true;
 
   FOR_EACH_ALIAS (this, ref)
@@ -2262,15 +2270,16 @@ cgraph_node::call_for_symbol_thunks_and_aliases (bool (*callback)
       if (include_overwritable
 	  || alias->get_availability () > AVAIL_INTERPOSABLE)
 	if (alias->call_for_symbol_thunks_and_aliases (callback, data,
-						     include_overwritable))
+						     include_overwritable,
+						     exclude_virtual_thunks))
 	  return true;
     }
   return false;
 }
 
-/* Call calback on function and aliases associated to the function.
+/* Call callback on function and aliases associated to the function.
    When INCLUDE_OVERWRITABLE is false, overwritable aliases and thunks are
-   skipped. */
+   skipped.  */
 
 bool
 cgraph_node::call_for_symbol_and_aliases (bool (*callback) (cgraph_node *,
@@ -2378,7 +2387,7 @@ cgraph_node::set_const_flag (bool readonly, bool looping)
 {
   call_for_symbol_thunks_and_aliases (cgraph_set_const_flag_1,
 				    (void *)(size_t)(readonly + (int)looping * 2),
-				      false);
+				    false, true);
 }
 
 /* Worker to set pure flag.  */
@@ -2408,7 +2417,7 @@ cgraph_node::set_pure_flag (bool pure, bool looping)
 {
   call_for_symbol_thunks_and_aliases (cgraph_set_pure_flag_1,
 				    (void *)(size_t)(pure + (int)looping * 2),
-				    false);
+				    false, true);
 }
 
 /* Return true when cgraph_node can not return or throw and thus
@@ -3161,30 +3170,52 @@ cgraph_node::verify_cgraph_nodes (void)
 }
 
 /* Walk the alias chain to return the function cgraph_node is alias of.
-   Walk through thunk, too.
+   Walk through thunks, too.
    When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
 
 cgraph_node *
 cgraph_node::function_symbol (enum availability *availability)
 {
-  cgraph_node *node = this;
+  cgraph_node *node = ultimate_alias_target (availability);
 
-  do
+  while (node->thunk.thunk_p)
     {
-      node = node->ultimate_alias_target (availability);
-      if (node->thunk.thunk_p)
+      node = node->callees->callee;
+      if (availability)
 	{
-	  node = node->callees->callee;
-	  if (availability)
-	    {
-	      enum availability a;
-	      a = node->get_availability ();
-	      if (a < *availability)
-		*availability = a;
-	    }
-	  node = node->ultimate_alias_target (availability);
+	  enum availability a;
+	  a = node->get_availability ();
+	  if (a < *availability)
+	    *availability = a;
 	}
-    } while (node && node->thunk.thunk_p);
+      node = node->ultimate_alias_target (availability);
+    }
+  return node;
+}
+
+/* Walk the alias chain to return the function cgraph_node is alias of.
+   Walk through non virtual thunks, too.  Thus we return either a function
+   or a virtual thunk node.
+   When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
+
+cgraph_node *
+cgraph_node::function_or_virtual_thunk_symbol
+				(enum availability *availability)
+{
+  cgraph_node *node = ultimate_alias_target (availability);
+
+  while (node->thunk.thunk_p && !node->thunk.virtual_offset_p)
+    {
+      node = node->callees->callee;
+      if (availability)
+	{
+	  enum availability a;
+	  a = node->get_availability ();
+	  if (a < *availability)
+	    *availability = a;
+	}
+      node = node->ultimate_alias_target (availability);
+    }
   return node;
 }
 

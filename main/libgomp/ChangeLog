@@ -1,3 +1,47 @@
+2014-12-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* testsuite/lib/libgomp.exp: Load target-utils.exp.
+	Move load of target-supportes.exp earlier.
+
+2014-12-10  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* testsuite/libgomp.c/target-9.c: New test.
+
+2014-12-09  Varvara Rainchik  <varvara.rainchik@intel.com>
+
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* configure.ac: Add GCC_CHECK_EMUTLS.
+	* libgomp.h: Add check for USE_EMUTLS: this case
+	is equal to HAVE_TLS.
+	* team.c: Likewise.
+
+2014-12-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* configure.tgt (x86_64-*-linux*): Tune -m32 multilib to generic.
+
+2014-11-28  Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+
+	* testsuite/libgomp.c/target-critical-1.c: New test.
+
+2014-11-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/examples-4/e.53.4.c: Add -DITESTITERS=20
+	to dg-options unless expensive testing is on.
+	(TESTITERS): Define to N if not defined.
+	(main): Use TESTITERS instead of N.
+	* testsuite/libgomp.c/examples-4/e.55.1.c: Define CHUNKSZ from
+	dg-additional-options depending on whether expensive testing is on.
+	* testsuite/libgomp.fortran/examples-4/e.55.1.f90 (e_55_1_mod):
+	Decrease N to 100000 and CHUNKSZ to 10000.
+
+2014-11-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/63938
+	* testsuite/libgomp.fortran/pr63938-1.f90: New test.
+	* testsuite/libgomp.fortran/pr63938-2.f90: New test.
+
 2014-11-21  Steve Ellcey  <sellcey@imgtec.com>
 
 	* config/linux/mips/futex.h (SYS_futex): Define if not already done.

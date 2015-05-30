@@ -55,7 +55,6 @@ c-common.h, not after.
       NEW_EXPR_USE_GLOBAL (in NEW_EXPR).
       DELETE_EXPR_USE_GLOBAL (in DELETE_EXPR).
       COMPOUND_EXPR_OVERLOADED (in COMPOUND_EXPR).
-      TREE_INDIRECT_USING (in NAMESPACE_DECL).
       CLEANUP_P (in TRY_BLOCK)
       AGGR_INIT_VIA_CTOR_P (in AGGR_INIT_EXPR)
       PTRMEM_OK_P (in ADDR_EXPR, OFFSET_REF, SCOPE_REF)
@@ -71,6 +70,7 @@ c-common.h, not after.
       BASELINK_QUALIFIED_P (in BASELINK)
       TARGET_EXPR_IMPLICIT_P (in TARGET_EXPR)
       TEMPLATE_PARM_PARAMETER_PACK (in TEMPLATE_PARM_INDEX)
+      TREE_INDIRECT_USING (in a TREE_LIST of using-directives)
       ATTR_IS_DEPENDENT (in the TREE_LIST for an attribute)
       ABI_TAG_IMPLICIT (in the TREE_LIST for the argument of abi_tag)
       CONSTRUCTOR_IS_DIRECT_INIT (in CONSTRUCTOR)
@@ -83,7 +83,7 @@ c-common.h, not after.
       CONVERT_EXPR_VBASE_PATH (in CONVERT_EXPR)
       OVL_ARG_DEPENDENT (in OVERLOAD)
       PACK_EXPANSION_LOCAL_P (in *_PACK_EXPANSION)
-      TINFO_RECHECK_ACCESS_P (in TEMPLATE_INFO)
+      TINFO_HAS_ACCESS_ERRORS (in TEMPLATE_INFO)
       SIZEOF_EXPR_TYPE_P (in SIZEOF_EXPR)
    1: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
@@ -100,6 +100,7 @@ c-common.h, not after.
       QUALIFIED_NAME_IS_TEMPLATE (in SCOPE_REF)
       DECLTYPE_FOR_INIT_CAPTURE (in DECLTYPE_TYPE)
       CONSTRUCTOR_NO_IMPLICIT_ZERO (in CONSTRUCTOR)
+      TINFO_USED_TEMPLATE_ID (in TEMPLATE_INFO)
    2: IDENTIFIER_OPNAME_P (in IDENTIFIER_NODE)
       ICS_THIS_FLAG (in _CONV)
       DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (in VAR_DECL)
@@ -151,6 +152,7 @@ c-common.h, not after.
       DECL_MUTABLE_P (in FIELD_DECL)
       DECL_DEPENDENT_P (in USING_DECL)
       LABEL_DECL_BREAK (in LABEL_DECL)
+      NAMESPACE_ABI_TAG (in NAMESPACE_DECL)
    1: C_TYPEDEF_EXPLICITLY_SIGNED (in TYPE_DECL).
       DECL_TEMPLATE_INSTANTIATED (in a VAR_DECL or a FUNCTION_DECL)
       DECL_MEMBER_TEMPLATE_P (in TEMPLATE_DECL)
@@ -801,6 +803,12 @@ typedef struct qualified_typedef_usage_s qualified_typedef_usage_t;
   (TREE_LANG_FLAG_0 (TEMPLATE_INFO_CHECK (NODE)))
 #define FNDECL_HAS_ACCESS_ERRORS(NODE) \
   (TINFO_HAS_ACCESS_ERRORS (DECL_TEMPLATE_INFO (NODE)))
+
+/* Non-zero if this variable template specialization was specified using a
+   template-id, so it's a partial or full specialization and not a definition
+   of the member template of a particular class specialization.  */
+#define TINFO_USED_TEMPLATE_ID(NODE) \
+  (TREE_LANG_FLAG_1 (TEMPLATE_INFO_CHECK (NODE)))
 
 struct GTY(()) tree_template_info {
   struct tree_common common;
@@ -2052,8 +2060,6 @@ struct GTY(()) lang_decl_fn {
 
   unsigned global_ctor_p : 1;
   unsigned global_dtor_p : 1;
-  unsigned constructor_attr : 1;
-  unsigned destructor_attr : 1;
   unsigned assignment_operator_p : 1;
   unsigned static_function : 1;
   unsigned pure_virtual : 1;
@@ -2067,7 +2073,7 @@ struct GTY(()) lang_decl_fn {
   unsigned this_thunk_p : 1;
   unsigned hidden_friend_p : 1;
   unsigned omp_declare_reduction_p : 1;
-  /* No spare bits on 32-bit hosts, 32 on 64-bit hosts.  */
+  /* 2 spare bits on 32-bit hosts, 34 on 64-bit hosts.  */
 
   /* For a non-thunk function decl, this is a tree list of
      friendly classes. For a thunk function decl, it is the
@@ -2637,6 +2643,11 @@ struct GTY(()) lang_decl {
 /* 1 iff NODE is function-local, but for types.  */
 #define LOCAL_CLASS_P(NODE)				\
   (decl_function_context (TYPE_MAIN_DECL (NODE)) != NULL_TREE)
+
+/* 1 iff this NAMESPACE_DECL should also be treated as an ABI tag for
+   -Wabi-tag.  */
+#define NAMESPACE_ABI_TAG(NODE)				\
+  DECL_LANG_FLAG_0 (NAMESPACE_DECL_CHECK (NODE))
 
 /* For a NAMESPACE_DECL: the list of using namespace directives
    The PURPOSE is the used namespace, the value is the namespace
@@ -6293,6 +6304,7 @@ extern int abstract_virtuals_error_sfinae	(tree, tree, tsubst_flags_t);
 extern int abstract_virtuals_error_sfinae	(abstract_class_use, tree, tsubst_flags_t);
 
 extern tree store_init_value			(tree, tree, vec<tree, va_gc>**, int);
+extern tree split_nonconstant_init		(tree, tree);
 extern bool check_narrowing			(tree, tree, tsubst_flags_t);
 extern tree digest_init				(tree, tree, tsubst_flags_t);
 extern tree digest_init_flags			(tree, tree, int);

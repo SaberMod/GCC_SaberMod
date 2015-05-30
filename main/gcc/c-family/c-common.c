@@ -7797,7 +7797,12 @@ handle_weak_attribute (tree *node, tree name,
     }
   else if (TREE_CODE (*node) == FUNCTION_DECL
 	   || TREE_CODE (*node) == VAR_DECL)
-    declare_weak (*node);
+    {
+      struct symtab_node *n = symtab_node::get (*node);
+      if (n && n->refuse_visibility_changes)
+	error ("%+D declared weak after being used", *node);
+      declare_weak (*node);
+    }
   else
     warning (OPT_Wattributes, "%qE attribute ignored", name);
 
@@ -12134,7 +12139,7 @@ convert_vector_to_pointer_for_subscript (location_t loc,
 
       if (ret)
 	{
-	  tree tmp = create_tmp_var_raw (type, NULL);
+	  tree tmp = create_tmp_var_raw (type);
 	  DECL_SOURCE_LOCATION (tmp) = loc;
 	  *vecp = c_save_expr (*vecp);
 	  if (TREE_CODE (*vecp) == C_MAYBE_CONST_EXPR)

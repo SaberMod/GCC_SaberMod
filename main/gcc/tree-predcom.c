@@ -1402,8 +1402,8 @@ ref_at_iteration (data_reference_p dr, int iter, gimple_seq *stmts)
     off = size_binop (PLUS_EXPR, off,
 		      size_binop (MULT_EXPR, DR_STEP (dr), ssize_int (iter)));
   tree addr = fold_build_pointer_plus (DR_BASE_ADDRESS (dr), off);
-  addr = force_gimple_operand_1 (addr, stmts, is_gimple_mem_ref_addr,
-				 NULL_TREE);
+  addr = force_gimple_operand_1 (unshare_expr (addr), stmts,
+				 is_gimple_mem_ref_addr, NULL_TREE);
   tree alias_ptr = fold_convert (reference_alias_ptr_type (DR_REF (dr)), coff);
   /* While data-ref analysis punts on bit offsets it still handles
      bitfield accesses at byte boundaries.  Cope with that.  Note that
@@ -1491,7 +1491,7 @@ initialize_root_vars (struct loop *loop, chain_p chain, bitmap tmp_vars)
     chain->vars.quick_push (chain->vars[0]);
 
   FOR_EACH_VEC_ELT (chain->vars, i, var)
-    chain->vars[i] = make_ssa_name (var, NULL);
+    chain->vars[i] = make_ssa_name (var);
 
   for (i = 0; i < n; i++)
     {
@@ -1555,7 +1555,7 @@ initialize_root_vars_lm (struct loop *loop, dref root, bool written,
     vars->quick_push ((*vars)[0]);
 
   FOR_EACH_VEC_ELT (*vars, i, var)
-    (*vars)[i] = make_ssa_name (var, NULL);
+    (*vars)[i] = make_ssa_name (var);
 
   var = (*vars)[0];
 
@@ -1613,7 +1613,7 @@ execute_load_motion (struct loop *loop, chain_p chain, bitmap tmp_vars)
 	  if (n_writes)
 	    {
 	      var = vars[0];
-	      var = make_ssa_name (SSA_NAME_VAR (var), NULL);
+	      var = make_ssa_name (SSA_NAME_VAR (var));
 	      vars[0] = var;
 	    }
 	  else
@@ -2191,19 +2191,18 @@ reassociate_to_the_same_stmt (tree name1, tree name2)
   /* Insert the new statement combining NAME1 and NAME2 before S1, and
      combine it with the rhs of S1.  */
   var = create_tmp_reg (type, "predreastmp");
-  new_name = make_ssa_name (var, NULL);
-  new_stmt = gimple_build_assign_with_ops (code, new_name, name1, name2);
+  new_name = make_ssa_name (var);
+  new_stmt = gimple_build_assign (new_name, code, name1, name2);
 
   var = create_tmp_reg (type, "predreastmp");
-  tmp_name = make_ssa_name (var, NULL);
+  tmp_name = make_ssa_name (var);
 
   /* Rhs of S1 may now be either a binary expression with operation
      CODE, or gimple_val (in case that stmt1 == s1 or stmt2 == s1,
      so that name1 or name2 was removed from it).  */
-  tmp_stmt = gimple_build_assign_with_ops (gimple_assign_rhs_code (s1),
-					   tmp_name,
-					   gimple_assign_rhs1 (s1),
-					   gimple_assign_rhs2 (s1));
+  tmp_stmt = gimple_build_assign (tmp_name, gimple_assign_rhs_code (s1),
+				  gimple_assign_rhs1 (s1),
+				  gimple_assign_rhs2 (s1));
 
   bsi = gsi_for_stmt (s1);
   gimple_assign_set_rhs_with_ops (&bsi, code, new_name, tmp_name);
@@ -2354,7 +2353,6 @@ prepare_initializers_chain (struct loop *loop, chain_p chain)
   unsigned i, n = (chain->type == CT_INVARIANT) ? 1 : chain->length;
   struct data_reference *dr = get_chain_root (chain)->ref;
   tree init;
-  gimple_seq stmts;
   dref laref;
   edge entry = loop_preheader_edge (loop);
 
@@ -2378,12 +2376,17 @@ prepare_initializers_chain (struct loop *loop, chain_p chain)
 
   for (i = 0; i < n; i++)
     {
+      gimple_seq stmts = NULL;
+
       if (chain->inits[i] != NULL_TREE)
 	continue;
 
       init = ref_at_iteration (dr, (int) i - n, &stmts);
       if (!chain->all_always_accessed && tree_could_trap_p (init))
-	return false;
+	{
+	  gimple_seq_discard (stmts);
+	  return false;
+	}
 
       if (stmts)
 	gsi_insert_seq_on_edge_immediate (entry, stmts);

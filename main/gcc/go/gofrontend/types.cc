@@ -1805,6 +1805,7 @@ Type::write_specific_type_functions(Gogo* gogo, Named_type* name,
 
   Named_object* hash_fn = gogo->start_function(hash_name, hash_fntype, false,
 					       bloc);
+  hash_fn->func_value()->set_is_type_specific_function();
   gogo->start_block(bloc);
 
   if (name != NULL && name->real_type()->named_type() != NULL)
@@ -1825,6 +1826,7 @@ Type::write_specific_type_functions(Gogo* gogo, Named_type* name,
 
   Named_object *equal_fn = gogo->start_function(equal_name, equal_fntype,
 						false, bloc);
+  equal_fn->func_value()->set_is_type_specific_function();
   gogo->start_block(bloc);
 
   if (name != NULL && name->real_type()->named_type() != NULL)
@@ -6361,7 +6363,13 @@ Array_type::do_reflection(Gogo* gogo, std::string* ret) const
       unsigned long val;
       if (!this->length_->numeric_constant_value(&nc)
 	  || nc.to_unsigned_long(&val) != Numeric_constant::NC_UL_VALID)
-	error_at(this->length_->location(), "invalid array length");
+	{
+	  if (!this->issued_length_error_)
+	    {
+	      error_at(this->length_->location(), "invalid array length");
+	      this->issued_length_error_ = true;
+	    }
+	}
       else
 	{
 	  char buf[50];
@@ -6488,7 +6496,13 @@ Array_type::do_mangled_name(Gogo* gogo, std::string* ret) const
       unsigned long val;
       if (!this->length_->numeric_constant_value(&nc)
 	  || nc.to_unsigned_long(&val) != Numeric_constant::NC_UL_VALID)
-	error_at(this->length_->location(), "invalid array length");
+	{
+	  if (!this->issued_length_error_)
+	    {
+	      error_at(this->length_->location(), "invalid array length");
+	      this->issued_length_error_ = true;
+	    }
+	}
       else
 	{
 	  char buf[50];
@@ -10035,6 +10049,18 @@ Type::find_field_or_method(const Type* type,
 
   if (found_level == 0)
     return false;
+  else if (found_is_method
+	   && type->named_type() != NULL
+	   && type->points_to() != NULL)
+    {
+      // If this is a method inherited from a struct field in a named pointer
+      // type, it is invalid to automatically dereference the pointer to the
+      // struct to find this method.
+      if (level != NULL)
+	*level = found_level;
+      *is_method = true;
+      return false;
+    }
   else if (!found_ambig1.empty())
     {
       go_assert(!found_ambig1.empty());
@@ -10209,7 +10235,12 @@ Type*
 Forward_declaration_type::real_type()
 {
   if (this->is_defined())
-    return this->named_object()->type_value();
+    {
+      Named_type* nt = this->named_object()->type_value();
+      if (!nt->is_valid())
+	return Type::make_error_type();
+      return this->named_object()->type_value();
+    }
   else
     {
       this->warn();
@@ -10221,7 +10252,12 @@ const Type*
 Forward_declaration_type::real_type() const
 {
   if (this->is_defined())
-    return this->named_object()->type_value();
+    {
+      const Named_type* nt = this->named_object()->type_value();
+      if (!nt->is_valid())
+	return Type::make_error_type();
+      return this->named_object()->type_value();
+    }
   else
     {
       this->warn();

@@ -328,8 +328,8 @@ add_sampling_wrapper (gimple stmt_start, gimple stmt_end)
   /* Create all the new statements needed.  */
   stmt_inc_counter1 = gimple_build_assign (tmp1, gcov_sample_counter_decl);
   one = build_int_cst (get_gcov_unsigned_t (), 1);
-  stmt_inc_counter2 = gimple_build_assign_with_ops (
-      PLUS_EXPR, tmp2, tmp1, one);
+  stmt_inc_counter2 = gimple_build_assign (
+					   tmp2, PLUS_EXPR, tmp1, one);
   stmt_inc_counter3 = gimple_build_assign (gcov_sample_counter_decl, tmp2);
   zero = build_int_cst (get_gcov_unsigned_t (), 0);
   stmt_reset_counter = gimple_build_assign (gcov_sample_counter_decl, zero);
@@ -876,8 +876,8 @@ gimple_gen_edge_profiler (int edgeno, edge e)
       stmt1 = gimple_build_assign (gcov_type_tmp_var, ref);
       gcov_type_tmp_var = make_temp_ssa_name (gcov_type_node,
             				  NULL, "PROF_edge_counter");
-      stmt2 = gimple_build_assign_with_ops (PLUS_EXPR, gcov_type_tmp_var,
-            				gimple_assign_lhs (stmt1), one);
+      stmt2 = gimple_build_assign (gcov_type_tmp_var, PLUS_EXPR,
+				   gimple_assign_lhs (stmt1), one);
       stmt3 = gimple_build_assign (unshare_expr (ref), gimple_assign_lhs (stmt2));
    }
 

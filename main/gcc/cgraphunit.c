@@ -336,6 +336,7 @@ symbol_table::process_new_functions (void)
 
 	case IPA:
 	case IPA_SSA:
+	case IPA_SSA_AFTER_INLINING:
 	  /* When IPA optimization already started, do all essential
 	     transformations that has been already performed on the whole
 	     cgraph but not on this function.  */
@@ -344,7 +345,7 @@ symbol_table::process_new_functions (void)
 	  if (!node->analyzed)
 	    node->analyze ();
 	  push_cfun (DECL_STRUCT_FUNCTION (fndecl));
-	  if (state == IPA_SSA
+	  if ((state == IPA_SSA || state == IPA_SSA_AFTER_INLINING)
 	      && !gimple_in_ssa_p (DECL_STRUCT_FUNCTION (fndecl)))
 	    g->get_passes ()->execute_early_local_passes ();
 	  else if (inline_summary_vec != NULL)
@@ -516,6 +517,7 @@ cgraph_node::add_new_function (tree fndecl, bool lowered)
 
       case IPA:
       case IPA_SSA:
+      case IPA_SSA_AFTER_INLINING:
       case EXPANSION:
 	/* Bring the function into finalized state and enqueue for later
 	   analyzing and compilation.  */
@@ -1211,14 +1213,14 @@ symbol_table::eq_node_assembler_name (const void *p1, const void *p2)
    them to be output (even if it is defined in an auxiliary module). This
    in term may result in duplicate emission.  */
 
-static GTY((param_is (symtab_node))) htab_t output_node_hash = NULL;
+static hash_table<asmname_hasher> *output_node_hash = NULL;
 
 /* Add NODE that is expanded into the hashtable.  */
 
 static struct cgraph_node *
 cgraph_add_output_node (struct cgraph_node *node)
 {
-  void **aslot;
+  symtab_node **aslot;
   tree name;
 
   if (!L_IPO_COMP_MODE)
@@ -1234,14 +1236,13 @@ cgraph_add_output_node (struct cgraph_node *node)
 
   if (!output_node_hash)
       output_node_hash =
-	htab_create_ggc (10, symbol_table::hash_node_by_assembler_name,
-                         symbol_table::eq_node_assembler_name, NULL);
+	hash_table<asmname_hasher>::create_ggc (10);
 
   name = DECL_ASSEMBLER_NAME (node->decl);
 
-  aslot = htab_find_slot_with_hash (output_node_hash, name,
-                                    symbol_table::decl_assembler_name_hash (name),
-                                    INSERT);
+  aslot = output_node_hash->find_slot_with_hash (name,
+						 symbol_table::decl_assembler_name_hash (name),
+						 INSERT);
   if (*aslot == NULL)
     {
       *aslot = node;
@@ -1258,7 +1259,7 @@ cgraph_add_output_node (struct cgraph_node *node)
 static struct cgraph_node *
 cgraph_find_output_node (struct cgraph_node *node)
 {
-  void **aslot;
+  symtab_node**aslot;
   tree name;
 
   if (!L_IPO_COMP_MODE)
@@ -1274,9 +1275,9 @@ cgraph_find_output_node (struct cgraph_node *node)
 
   name = DECL_ASSEMBLER_NAME (node->decl);
 
-  aslot = htab_find_slot_with_hash (output_node_hash, name,
-                                    symbol_table::decl_assembler_name_hash (name),
-                                    NO_INSERT);
+  aslot = output_node_hash->find_slot_with_hash (name,
+						 symbol_table::decl_assembler_name_hash (name),
+						 NO_INSERT);
   if (!aslot)
     return NULL;
 
@@ -2192,7 +2193,7 @@ ipa_passes (void)
 
   /* This extra symtab_remove_unreachable_nodes pass tends to catch some
      devirtualization and other changes where removal iterate.  */
-  symtab->remove_unreachable_nodes (true, symtab->dump_file);
+  symtab->remove_unreachable_nodes (symtab->dump_file);
 
   /* If pass_all_early_optimizations was not scheduled, the state of
      the cgraph will not be properly updated.  Update it now.  */
@@ -2217,7 +2218,7 @@ ipa_passes (void)
     }
 
   /* Some targets need to handle LTO assembler output specially.  */
-  if (flag_generate_lto)
+  if (flag_generate_lto || flag_generate_offload)
     targetm.asm_out.lto_start ();
 
   if (!in_lto_p)
@@ -2234,7 +2235,7 @@ ipa_passes (void)
 	}
     }
 
-  if (flag_generate_lto)
+  if (flag_generate_lto || flag_generate_offload)
     targetm.asm_out.lto_end ();
 
   if (!flag_ltrans && (in_lto_p || !flag_lto || flag_fat_lto_objects))
@@ -2324,10 +2325,10 @@ symbol_table::compile (void)
 
   /* Offloading requires LTO infrastructure.  */
   if (!in_lto_p && g->have_offload)
-    flag_generate_lto = 1;
+    flag_generate_offload = 1;
 
   /* If LTO is enabled, initialize the streamer hooks needed by GIMPLE.  */
-  if (flag_generate_lto)
+  if (flag_generate_lto || flag_generate_offload)
     lto_streamer_hooks_init ();
 
   /* Don't run the IPA passes if there was any error or sorry messages.  */
@@ -2342,10 +2343,6 @@ symbol_table::compile (void)
       return;
     }
 
-  /* This pass remove bodies of extern inline functions we never inlined.
-     Do this later so other IPA passes see what is really going on.
-     FIXME: This should be run just after inlining by pasmanager.  */
-  remove_unreachable_nodes (false, dump_file);
   global_info_ready = true;
   if (dump_file)
     {

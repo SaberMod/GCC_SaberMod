@@ -262,7 +262,7 @@ remap_ssa_name (tree name, copy_body_data *id)
 	  && !DECL_NAME (var)))
     {
       struct ptr_info_def *pi;
-      new_tree = make_ssa_name (remap_type (TREE_TYPE (name), id), NULL);
+      new_tree = make_ssa_name (remap_type (TREE_TYPE (name), id));
       if (!var && SSA_NAME_IDENTIFIER (name))
 	SET_SSA_NAME_VAR_OR_IDENTIFIER (new_tree, SSA_NAME_IDENTIFIER (name));
       insert_decl_map (id, name, new_tree);
@@ -296,7 +296,7 @@ remap_ssa_name (tree name, copy_body_data *id)
 	  || !id->transform_return_to_modify))
     {
       struct ptr_info_def *pi;
-      new_tree = make_ssa_name (new_tree, NULL);
+      new_tree = make_ssa_name (new_tree);
       insert_decl_map (id, name, new_tree);
       SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new_tree)
 	= SSA_NAME_OCCURS_IN_ABNORMAL_PHI (name);
@@ -851,6 +851,24 @@ is_parm (tree decl)
   return (TREE_CODE (decl) == PARM_DECL);
 }
 
+/* Remap the dependence CLIQUE from the source to the destination function
+   as specified in ID.  */
+
+static unsigned short
+remap_dependence_clique (copy_body_data *id, unsigned short clique)
+{
+  if (clique == 0)
+    return 0;
+  if (!id->dependence_map)
+    id->dependence_map
+      = new hash_map<unsigned short, unsigned short, dependence_hasher>;
+  bool existed;
+  unsigned short &newc = id->dependence_map->get_or_insert (clique, &existed);
+  if (!existed)
+    newc = ++cfun->last_clique;
+  return newc;
+}
+
 /* Remap the GIMPLE operand pointed to by *TP.  DATA is really a
    'struct walk_stmt_info *'.  DATA->INFO is a 'copy_body_data *'.
    WALK_SUBTREES is used to indicate walk_gimple_op whether to keep
@@ -949,6 +967,12 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 	  TREE_THIS_VOLATILE (*tp) = TREE_THIS_VOLATILE (old);
 	  TREE_SIDE_EFFECTS (*tp) = TREE_SIDE_EFFECTS (old);
 	  TREE_NO_WARNING (*tp) = TREE_NO_WARNING (old);
+	  if (MR_DEPENDENCE_CLIQUE (old) != 0)
+	    {
+	      MR_DEPENDENCE_CLIQUE (*tp)
+	        = remap_dependence_clique (id, MR_DEPENDENCE_CLIQUE (old));
+	      MR_DEPENDENCE_BASE (*tp) = MR_DEPENDENCE_BASE (old);
+	    }
 	  /* We cannot propagate the TREE_THIS_NOTRAP flag if we have
 	     remapped a parameter as the property might be valid only
 	     for the parameter itself.  */
@@ -1200,6 +1224,12 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 	  TREE_THIS_VOLATILE (*tp) = TREE_THIS_VOLATILE (old);
 	  TREE_SIDE_EFFECTS (*tp) = TREE_SIDE_EFFECTS (old);
 	  TREE_NO_WARNING (*tp) = TREE_NO_WARNING (old);
+	  if (MR_DEPENDENCE_CLIQUE (old) != 0)
+	    {
+	      MR_DEPENDENCE_CLIQUE (*tp)
+		= remap_dependence_clique (id, MR_DEPENDENCE_CLIQUE (old));
+	      MR_DEPENDENCE_BASE (*tp) = MR_DEPENDENCE_BASE (old);
+	    }
 	  /* We cannot propagate the TREE_THIS_NOTRAP flag if we have
 	     remapped a parameter as the property might be valid only
 	     for the parameter itself.  */
@@ -2765,6 +2795,11 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
       delete id->eh_map;
       id->eh_map = NULL;
     }
+  if (id->dependence_map)
+    {
+      delete id->dependence_map;
+      id->dependence_map = NULL;
+    }
 
   return new_fndecl;
 }
@@ -3169,7 +3204,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 	    }
 	  else if (!optimize)
 	    {
-	      def = make_ssa_name (var, NULL);
+	      def = make_ssa_name (var);
 	      init_stmt = gimple_build_assign (def, rhs);
 	    }
 	}
@@ -3434,7 +3469,7 @@ declare_return_variable (copy_body_data *id, tree return_slot, tree modify_dest,
       if (gimple_in_ssa_p (id->src_cfun)
 	  && is_gimple_reg (result))
 	{
-	  temp = make_ssa_name (temp, NULL);
+	  temp = make_ssa_name (temp);
 	  insert_decl_map (id, ssa_default_def (id->src_cfun, result), temp);
 	}
       insert_init_stmt (id, entry_bb, gimple_build_assign (temp, var));
@@ -5189,6 +5224,11 @@ copy_gimple_seq_and_replace_locals (gimple_seq seq)
   delete id.decl_map;
   if (id.debug_map)
     delete id.debug_map;
+  if (id.dependence_map)
+    {
+      delete id.dependence_map;
+      id.dependence_map = NULL;
+    }
 
   return copy;
 }
@@ -5721,7 +5761,7 @@ tree_function_versioning (tree old_decl, tree new_decl,
 	  && DECL_BY_REFERENCE (DECL_RESULT (old_decl))
 	  && (old_name = ssa_default_def (id.src_cfun, DECL_RESULT (old_decl))))
 	{
-	  tree new_name = make_ssa_name (DECL_RESULT (new_decl), NULL);
+	  tree new_name = make_ssa_name (DECL_RESULT (new_decl));
 	  insert_decl_map (&id, old_name, new_name);
 	  SSA_NAME_DEF_STMT (new_name) = gimple_build_nop ();
 	  set_ssa_default_def (cfun, DECL_RESULT (new_decl), new_name);

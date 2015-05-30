@@ -1,5 +1,16 @@
 2014-11-24  Eric Botcazou  <ebotcazou@adacore.com>
 
+	* gcc-interface/Makefile.in (Cygwin/Mingw): Fix previous change.
+
+2014-11-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (build_return_expr): Use INIT_EXPR instead of
+	MODIFY_EXPR to assign to the return object.
+	(finalize_nrv_r): Adjust to above change.
+	(finalize_nrv_unc_r): Likewise.
+
+2014-11-24  Eric Botcazou  <ebotcazou@adacore.com>
+
 	* gcc-interface/trans.c (push_range_check_info): Replace early test
 	with assertion.
 	(Raise_Error_to_gnu): Do not call push_range_check_info if the loop
@@ -20,6 +31,19 @@
 	<case NULL_EXPR>: Deal with unconstrained array types and use 'type'.
 	<case ADDR_EXPR>: Use 'type'.
 	<case DECL_EXPR>: Likewise.
+
+2014-11-20  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* gcc-interface/decl.c (annotate_value_cache): Replace htab with
+	hash_table.
+	(annotate_value): Adjust.
+	(init_gnat_decl): Likewise.
+	(destroy_gnat_decl): Likewise.
+	* gcc-interface/utils.c (pad_type_hash_table): Replace htab with
+	hash_table.
+	(init_gnat_utils): Adjust.
+	(destroy_gnat_utils): Likewise.
+	(lookup_and_insert_pad_type): Likewise.
 
 2014-11-20  Arnaud Charlet  <charlet@adacore.com>
 

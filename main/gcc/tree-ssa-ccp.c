@@ -458,13 +458,13 @@ valid_lattice_transition (ccp_prop_value_t old_val, ccp_prop_value_t new_val)
      to non-NaN.  */
   tree type = TREE_TYPE (new_val.value);
   if (SCALAR_FLOAT_TYPE_P (type)
-      && !HONOR_NANS (TYPE_MODE (type)))
+      && !HONOR_NANS (type))
     {
       if (REAL_VALUE_ISNAN (TREE_REAL_CST (old_val.value)))
 	return true;
     }
   else if (VECTOR_FLOAT_TYPE_P (type)
-	   && !HONOR_NANS (TYPE_MODE (TREE_TYPE (type))))
+	   && !HONOR_NANS (type))
     {
       for (unsigned i = 0; i < VECTOR_CST_NELTS (old_val.value); ++i)
 	if (!REAL_VALUE_ISNAN
@@ -475,7 +475,7 @@ valid_lattice_transition (ccp_prop_value_t old_val, ccp_prop_value_t new_val)
       return true;
     }
   else if (COMPLEX_FLOAT_TYPE_P (type)
-	   && !HONOR_NANS (TYPE_MODE (TREE_TYPE (type))))
+	   && !HONOR_NANS (type))
     {
       if (!REAL_VALUE_ISNAN (TREE_REAL_CST (TREE_REALPART (old_val.value)))
 	  && !operand_equal_p (TREE_REALPART (old_val.value),
@@ -2065,7 +2065,7 @@ fold_builtin_alloca_with_align (gimple stmt)
   elem_type = build_nonstandard_integer_type (BITS_PER_UNIT, 1);
   n_elem = size * 8 / BITS_PER_UNIT;
   array_type = build_array_type_nelts (elem_type, n_elem);
-  var = create_tmp_var (array_type, NULL);
+  var = create_tmp_var (array_type);
   DECL_ALIGN (var) = TREE_INT_CST_LOW (gimple_call_arg (stmt, 1));
   {
     struct ptr_info_def *pi = SSA_NAME_PTR_INFO (lhs);

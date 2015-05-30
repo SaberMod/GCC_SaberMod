@@ -432,7 +432,7 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
       /** 1. Handle new-merge-point phis  **/
 
       /* 1.1. Generate new phi node in NEW_MERGE_BB:  */
-      new_res = copy_ssa_name (PHI_RESULT (orig_phi), NULL);
+      new_res = copy_ssa_name (PHI_RESULT (orig_phi));
       new_phi = create_phi_node (new_res, new_merge_bb);
 
       /* 1.2. NEW_MERGE_BB has two incoming edges: GUARD_EDGE and the exit-edge
@@ -462,7 +462,7 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
 	continue;
 
       /* 2.1. Generate new phi node in NEW_EXIT_BB:  */
-      new_res = copy_ssa_name (PHI_RESULT (orig_phi), NULL);
+      new_res = copy_ssa_name (PHI_RESULT (orig_phi));
       new_phi = create_phi_node (new_res, *new_exit_bb);
 
       /* 2.2. NEW_EXIT_BB has one incoming edge: the exit-edge of the loop.  */
@@ -576,7 +576,7 @@ slpeel_update_phi_nodes_for_guard2 (edge guard_edge, struct loop *loop,
       /** 1. Handle new-merge-point phis  **/
 
       /* 1.1. Generate new phi node in NEW_MERGE_BB:  */
-      new_res = copy_ssa_name (PHI_RESULT (orig_phi), NULL);
+      new_res = copy_ssa_name (PHI_RESULT (orig_phi));
       new_phi = create_phi_node (new_res, new_merge_bb);
 
       /* 1.2. NEW_MERGE_BB has two incoming edges: GUARD_EDGE and the exit-edge
@@ -618,7 +618,7 @@ slpeel_update_phi_nodes_for_guard2 (edge guard_edge, struct loop *loop,
       /** 2. Handle loop-closed-ssa-form phis  **/
 
       /* 2.1. Generate new phi node in NEW_EXIT_BB:  */
-      new_res = copy_ssa_name (PHI_RESULT (orig_phi), NULL);
+      new_res = copy_ssa_name (PHI_RESULT (orig_phi));
       new_phi = create_phi_node (new_res, *new_exit_bb);
 
       /* 2.2. NEW_EXIT_BB has one incoming edge: the exit-edge of the loop.  */
@@ -653,7 +653,7 @@ slpeel_update_phi_nodes_for_guard2 (edge guard_edge, struct loop *loop,
       arg = guard_arg;
 
       /* 3.2. Generate new phi node in GUARD_BB:  */
-      new_res = copy_ssa_name (PHI_RESULT (orig_phi), NULL);
+      new_res = copy_ssa_name (PHI_RESULT (orig_phi));
       new_phi = create_phi_node (new_res, guard_edge->src);
 
       /* 3.3. GUARD_BB has one incoming edge:  */
@@ -1224,7 +1224,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loop *scalar_loop,
 	    break;
 	if (gsi_end_p (gsi))
 	  {
-	    tree new_vop = copy_ssa_name (PHI_RESULT (phi), NULL);
+	    tree new_vop = copy_ssa_name (PHI_RESULT (phi));
 	    gphi *new_phi = create_phi_node (new_vop, exit_e->dest);
 	    tree vop = PHI_ARG_DEF_FROM_EDGE (phi, EDGE_SUCC (loop->latch, 0));
 	    imm_use_iterator imm_iter;
@@ -2157,8 +2157,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
 
       sprintf (tmp_name, "addr2int%d", i);
       addr_tmp_name = make_temp_ssa_name (int_ptrsize_type, NULL, tmp_name);
-      addr_stmt = gimple_build_assign_with_ops (NOP_EXPR, addr_tmp_name,
-						addr_base);
+      addr_stmt = gimple_build_assign (addr_tmp_name, NOP_EXPR, addr_base);
       gimple_seq_add_stmt (cond_expr_stmt_list, addr_stmt);
 
       /* The addresses are OR together.  */
@@ -2168,9 +2167,8 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
           /* create: or_tmp = or_tmp | addr_tmp */
           sprintf (tmp_name, "orptrs%d", i);
 	  new_or_tmp_name = make_temp_ssa_name (int_ptrsize_type, NULL, tmp_name);
-	  or_stmt = gimple_build_assign_with_ops (BIT_IOR_EXPR,
-						  new_or_tmp_name,
-						  or_tmp_name, addr_tmp_name);
+	  or_stmt = gimple_build_assign (new_or_tmp_name, BIT_IOR_EXPR,
+					 or_tmp_name, addr_tmp_name);
 	  gimple_seq_add_stmt (cond_expr_stmt_list, or_stmt);
           or_tmp_name = new_or_tmp_name;
         }
@@ -2184,8 +2182,8 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
   /* create: and_tmp = or_tmp & mask  */
   and_tmp_name = make_temp_ssa_name (int_ptrsize_type, NULL, "andmask");
 
-  and_stmt = gimple_build_assign_with_ops (BIT_AND_EXPR, and_tmp_name,
-					   or_tmp_name, mask_cst);
+  and_stmt = gimple_build_assign (and_tmp_name, BIT_AND_EXPR,
+				  or_tmp_name, mask_cst);
   gimple_seq_add_stmt (cond_expr_stmt_list, and_stmt);
 
   /* Make and_tmp the left operand of the conditional test against zero.
@@ -2439,7 +2437,7 @@ vect_loop_versioning (loop_vec_info loop_vinfo,
 	{
 	  tree new_res;
 	  orig_phi = gsi.phi ();
-	  new_res = copy_ssa_name (PHI_RESULT (orig_phi), NULL);
+	  new_res = copy_ssa_name (PHI_RESULT (orig_phi));
 	  new_phi = create_phi_node (new_res, new_exit_bb);
 	  arg = PHI_ARG_DEF_FROM_EDGE (orig_phi, e);
 	  add_phi_arg (new_phi, arg, new_exit_e,

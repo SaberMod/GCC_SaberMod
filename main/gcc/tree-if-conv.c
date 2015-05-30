@@ -311,7 +311,7 @@ parse_predicate (tree cond, tree *op0, tree *op1)
 	  enum tree_code code = parse_predicate (op, op0, op1);
 
 	  return code == ERROR_MARK ? ERROR_MARK
-	    : invert_tree_comparison (code, HONOR_NANS (TYPE_MODE (type)));
+	    : invert_tree_comparison (code, HONOR_NANS (type));
 	}
 
       return ERROR_MARK;
@@ -435,8 +435,10 @@ add_to_predicate_list (struct loop *loop, basic_block bb, tree nc)
     {
       gcc_assert (flow_bb_inside_loop_p (loop, dom_bb));
       bc = bb_predicate (dom_bb);
-      gcc_assert (!is_true_predicate (bc));
-      set_bb_predicate (bb, bc);
+      if (!is_true_predicate (bc))
+	set_bb_predicate (bb, bc);
+      else
+	gcc_assert (is_true_predicate (bb_predicate (bb)));
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Use predicate of bb#%d for bb#%d\n",
 		 dom_bb->index, bb->index);
@@ -2108,7 +2110,7 @@ static bool
 version_loop_for_if_conversion (struct loop *loop)
 {
   basic_block cond_bb;
-  tree cond = make_ssa_name (boolean_type_node, NULL);
+  tree cond = make_ssa_name (boolean_type_node);
   struct loop *new_loop;
   gimple g;
   gimple_stmt_iterator gsi;

@@ -104,6 +104,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-ref.h"
 #include "predict.h"
 #include "cgraph.h"
+#include "stringpool.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"
@@ -2330,6 +2331,17 @@ dbxout_type (tree type, int full)
       break;
 
     default:
+      /* A C++ function with deduced return type can have a TEMPLATE_TYPE_PARM
+	 named 'auto' in its type.
+	 No debug info for TEMPLATE_TYPE_PARM type supported yet.  */
+      if (lang_GNU_CXX ())
+	{
+	  tree name = TYPE_IDENTIFIER (type);
+	  if (name == get_identifier ("auto")
+	      || name == get_identifier ("decltype(auto)"))
+	    break;
+	}
+
       gcc_unreachable ();
     }
 }

@@ -693,8 +693,8 @@ update_alias_info_with_stack_vars (void)
          as base during alias-oracle queries on RTL for bases that
 	 have been partitioned.  */
       if (var == NULL_TREE)
-	var = create_tmp_var (ptr_type_node, NULL);
-      name = make_ssa_name (var, NULL);
+	var = create_tmp_var (ptr_type_node);
+      name = make_ssa_name (var);
 
       /* Create bitmaps representing partitions.  They will be used for
          points-to sets later, so use GGC alloc.  */
@@ -1741,7 +1741,7 @@ expand_used_vars (void)
 	{
 	  tree *slot = &ssa_name_decls.get_or_insert (TREE_TYPE (var));
 	  if (!*slot)
-	    *slot = create_tmp_reg (TREE_TYPE (var), NULL);
+	    *slot = create_tmp_reg (TREE_TYPE (var));
 	  replace_ssa_name_symbol (var, *slot);
 	}
 
@@ -2597,7 +2597,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
     }
 
   ninputs += ninout;
-  if (ninputs + noutputs > MAX_RECOG_OPERANDS)
+  if (ninputs + noutputs + nlabels > MAX_RECOG_OPERANDS)
     {
       error ("more than %d operands in %<asm%>", MAX_RECOG_OPERANDS);
       return;

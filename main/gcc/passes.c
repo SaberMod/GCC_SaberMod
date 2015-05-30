@@ -2017,7 +2017,7 @@ execute_todo (unsigned int flags)
   if (flags & TODO_remove_functions)
     {
       gcc_assert (!cfun);
-      symtab->remove_unreachable_nodes (true, dump_file);
+      symtab->remove_unreachable_nodes (dump_file);
     }
 
   if ((flags & TODO_dump_symtab) && dump_file && !current_function_decl)
@@ -2480,7 +2480,7 @@ ipa_write_summaries (bool offload_lto_mode)
   struct cgraph_node *node;
   struct cgraph_node **order;
 
-  if (!flag_generate_lto || seen_error ())
+  if ((!flag_generate_lto && !flag_generate_offload) || seen_error ())
     return;
 
   select_what_to_stream (offload_lto_mode);

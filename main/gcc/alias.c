@@ -417,17 +417,9 @@ get_alias_set_entry (alias_set_type alias_set)
 static inline int
 mems_in_disjoint_alias_sets_p (const_rtx mem1, const_rtx mem2)
 {
-/* Perform a basic sanity check.  Namely, that there are no alias sets
-   if we're not using strict aliasing.  This helps to catch bugs
-   whereby someone uses PUT_CODE, but doesn't clear MEM_ALIAS_SET, or
-   where a MEM is allocated in some way other than by the use of
-   gen_rtx_MEM, and the MEM_ALIAS_SET is not cleared.  If we begin to
-   use alias sets to indicate that spilled registers cannot alias each
-   other, we might need to remove this check.  */
-  gcc_assert (flag_strict_aliasing
-	      || (!MEM_ALIAS_SET (mem1) && !MEM_ALIAS_SET (mem2)));
-
-  return ! alias_sets_conflict_p (MEM_ALIAS_SET (mem1), MEM_ALIAS_SET (mem2));
+  return (flag_strict_aliasing
+	  && ! alias_sets_conflict_p (MEM_ALIAS_SET (mem1),
+				      MEM_ALIAS_SET (mem2)));
 }
 
 /* Return true if the first alias set is a subset of the second.  */
@@ -1756,11 +1748,11 @@ find_base_term (rtx x)
 	if (REG_P (tmp1) && REG_POINTER (tmp1))
 	  ;
 	else if (REG_P (tmp2) && REG_POINTER (tmp2))
-	  {
-	    rtx tem = tmp1;
-	    tmp1 = tmp2;
-	    tmp2 = tem;
-	  }
+	  std::swap (tmp1, tmp2);
+	/* If second argument is constant which has base term, prefer it
+	   over variable tmp1.  See PR64025.  */
+	else if (CONSTANT_P (tmp2) && !CONST_INT_P (tmp2))
+	  std::swap (tmp1, tmp2);
 
 	/* Go ahead and find the base term for both operands.  If either base
 	   term is from a pointer or is a named object or a special address

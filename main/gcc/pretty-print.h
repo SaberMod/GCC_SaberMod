@@ -100,7 +100,44 @@ struct output_buffer
   /* This must be large enough to hold any printed integer or
      floating-point value.  */
   char digit_buffer[128];
+
+  /* Nonzero means that text should be flushed when
+     appropriate. Otherwise, text is buffered until either
+     pp_really_flush or pp_clear_output_area are called.  */
+  bool flush_p;
 };
+
+/* Finishes constructing a NULL-terminated character string representing
+   the buffered text.  */
+static inline const char *
+output_buffer_formatted_text (output_buffer *buff)
+{
+  obstack_1grow (buff->obstack, '\0');
+  return (const char *) obstack_base (buff->obstack);
+}
+
+/* Append to the output buffer a string specified by its
+   STARTing character and LENGTH.  */
+static inline void
+output_buffer_append_r (output_buffer *buff, const char *start, int length)
+{
+  obstack_grow (buff->obstack, start, length);
+  buff->line_length += length;
+}
+
+/*  Return a pointer to the last character emitted in the
+    output_buffer.  A NULL pointer means no character available.  */
+static inline const char *
+output_buffer_last_position_in_text (const output_buffer *buff)
+{
+  const char *p = NULL;
+  struct obstack *text = buff->obstack;
+
+  if (obstack_base (text) != obstack_next_free (text))
+    p = ((const char *) obstack_next_free (text)) - 1;
+  return p;
+}
+
 
 /* The type of pretty-printer flags passed to clients.  */
 typedef unsigned int pp_flags;
@@ -314,6 +351,7 @@ extern void pp_printf (pretty_printer *, const char *, ...)
 extern void pp_verbatim (pretty_printer *, const char *, ...)
      ATTRIBUTE_GCC_PPDIAG(2,3);
 extern void pp_flush (pretty_printer *);
+extern void pp_really_flush (pretty_printer *);
 extern void pp_format (pretty_printer *, text_info *);
 extern void pp_output_formatted_text (pretty_printer *);
 extern void pp_format_verbatim (pretty_printer *, text_info *);

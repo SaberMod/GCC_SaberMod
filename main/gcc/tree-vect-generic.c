@@ -639,9 +639,9 @@ expand_vector_divmod (gimple_stmt_iterator *gsi, tree type, tree op0,
 					((unsigned HOST_WIDE_INT) 1
 					 << shifts[i]) - 1);
 	      cst = build_vector (type, vec);
-	      addend = make_ssa_name (type, NULL);
-	      stmt = gimple_build_assign_with_ops (VEC_COND_EXPR, addend,
-						   cond, cst, zero);
+	      addend = make_ssa_name (type);
+	      stmt = gimple_build_assign (addend, VEC_COND_EXPR, cond,
+					  cst, zero);
 	      gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
 	    }
 	}
@@ -926,14 +926,14 @@ expand_vector_operation (gimple_stmt_iterator *gsi, tree type, tree compute_type
       {
       case PLUS_EXPR:
       case MINUS_EXPR:
-        if (!TYPE_OVERFLOW_TRAPS (type))
+        if (ANY_INTEGRAL_TYPE_P (type) && !TYPE_OVERFLOW_TRAPS (type))
 	  return expand_vector_addition (gsi, do_binop, do_plus_minus, type,
 					 gimple_assign_rhs1 (assign),
 					 gimple_assign_rhs2 (assign), code);
 	break;
 
       case NEGATE_EXPR:
-        if (!TYPE_OVERFLOW_TRAPS (type))
+        if (ANY_INTEGRAL_TYPE_P (type) && !TYPE_OVERFLOW_TRAPS (type))
           return expand_vector_addition (gsi, do_unop, do_negate, type,
 		      		         gimple_assign_rhs1 (assign),
 					 NULL_TREE, code);
@@ -1080,10 +1080,10 @@ optimize_vector_constructor (gimple_stmt_iterator *gsi)
     }
   for (i = 0; i < nelts; i++)
     CONSTRUCTOR_ELT (rhs, i)->value = base;
-  g = gimple_build_assign (make_ssa_name (type, NULL), rhs);
+  g = gimple_build_assign (make_ssa_name (type), rhs);
   gsi_insert_before (gsi, g, GSI_SAME_STMT);
-  g = gimple_build_assign_with_ops (PLUS_EXPR, lhs, gimple_assign_lhs (g),
-				    build_vector (type, cst));
+  g = gimple_build_assign (lhs, PLUS_EXPR, gimple_assign_lhs (g),
+			   build_vector (type, cst));
   gsi_replace (gsi, g, false);
 }
 

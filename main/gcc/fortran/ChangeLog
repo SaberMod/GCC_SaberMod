@@ -1,3 +1,247 @@
+2014-12-13  Tobias Burnus  <burnus@net-b.de>
+	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* error.c (gfc_error): Add variant which takes a va_list.
+	(gfc_notify_std): Convert to common diagnostic.
+	* array.c: Use %qs, %<...%> in more gfc_error calls and
+	for gfc_notify_std.
+	* check.c: Ditto.
+	* data.c: Ditto.
+	* decl.c: Ditto.
+	* expr.c: Ditto.
+	* interface.c: Ditto.
+	* intrinsic.c: Ditto.
+	* io.c: Ditto.
+	* match.c: Ditto.
+	* matchexp.c: Ditto.
+	* module.c: Ditto.
+	* openmp.c: Ditto.
+	* parse.c: Ditto.
+	* primary.c: Ditto.
+	* resolve.c: Ditto.
+	* simplify.c: Ditto.
+	* symbol.c: Ditto.
+	* trans-common.c: Ditto.
+	* trans-intrinsic.c: Ditto.
+
+2014-12-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/42108
+	* trans-stmt.c (gfc_trans_do): Execute the division computing
+	countm1 before the loop entry check.
+
+2014-12-11  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* error.c (pp_error_buffer): New static variable.
+	(pp_warning_buffer): Make it a pointer.
+	(gfc_output_buffer_empty_p): New.
+	(gfc_error_init_1): Call gfc_buffer_error.
+	(gfc_buffer_error): Do not use pp_warning_buffer.flush_p as the
+	buffered_p flag.
+	(gfc_clear_warning): Likewise.
+	(gfc_warning_check): Call gfc_clear_warning. Only check the new
+	pp_warning_buffer if the old warning_buffer was empty. Call
+	diagnostic_action_after_output.
+	(gfc_error_1): Renamed from gfc_error.
+	(gfc_error): New.
+	(gfc_clear_error): Clear also pp_error_buffer.
+	(gfc_error_flag_test): Check also pp_error_buffer.
+	(gfc_error_check): Likewise. Only check the new pp_error_buffer
+	if the old error_buffer was empty.
+	(gfc_move_output_buffer_from_to): New.
+	(gfc_push_error): Use it here. Take also an output_buffer as argument.
+	(gfc_pop_error): Likewise.
+	(gfc_free_error): Likewise.
+	(gfc_diagnostics_init): Use XNEW and placement-new to init
+	pp_error_buffer and pp_warning_buffer. Set flush_p to false for
+	both pp_warning_buffer and pp_error_buffer.
+
+	* Update gfc_push_error, gfc_pop_error and gfc_free_error calls
+	according to the above changes.
+	* Use gfc_error_1 for all gfc_error calls that use multiple
+	locations.
+	* Use %qs instead of '%s' for many gfc_error calls.
+
+2014-12-11  Tobias Burnus  <burnus@net-b.de>
+	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* diagnostic.c (get_terminal_width): Renamed from getenv_columns,
+	removed static, and additionally use ioctl to get width.
+	(diagnostic_set_caret_max_width): Update call.
+	* diagnostic.h (get_terminal_width): Add prototype.
+	* opts.c (print_specific_help): Use it for x_help_columns.
+	* doc/invoke.texi (fdiagnostics-show-caret): Document how the
+	width is set.
+
+2014-12-10  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR fortran/60718
+	* trans-expr.c (gfc_conv_procedure_call): Fix a strict aliasing
+	violation when passing a class object to a formal parameter which has
+	different pointer or allocatable attributes.
+
+2014-12-06  Tobias Burnus  <burnus@net-b.de>
+
+	* error.c (gfc_error_check): Use bool not int.
+	* gfortran.h (gfc_error_check): Update prototype.
+	* match.c (gfc_match_if): Update call.
+	* parse.c (decode_statement, decode_omp_directive,
+	decode_gcc_attribute): Ditto.
+
+2014-12-06  Tobias Burnus  <burnus@net-b.de>
+	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* error.c (gfc_buffer_error, gfc_error_flag_test): Use bool not int.
+	(buffer_flag): Remove static variable.
+	(buffered_p): Add static variable.
+	(gfc_error_init_1): Call gfc_buffer_error.
+	(gfc_warning_1, gfc_warning, gfc_warning_now_1, gfc_error,
+	gfc_error_now_1): Update for static variable change.
+	* gfortran.h (gfc_buffer_error, gfc_error_flag_test): Update
+	prototype.
+	* parse.c (use_modules, decode_specification_statement,
+	next_fixed, next_statement, match_deferred_characteristics):
+	Update calls.
+	* decl.c (gfc_match_data_decl): Ditto.
+	* match.c (gfc_match_name): Ditto.
+
+2014-12-05  Andre Vehreschild  <vehre@gmx.de>
+
+	PR fortran/60414
+	* interface.c (compare_parameter): Remove class argument rank
+	check short circuit.
+
+2014-12-05  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* error.c (gfc_diagnostic_build_locus_prefix): Use
+	diagnostic_expand_location.
+
+2014-12-05  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* scanner.c (gfc_next_char_literal): Use gfc_warning_now.
+	(load_file): Use the line length as the column hint for
+	linemap_line_start. Reserve a location for the highest column of
+	the line.
+
+2014-12-03  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* gfortran.h (gfc_warning): Now returns bool. Add overload that
+	accepts opt.
+	(gfc_warning_1): Declare.
+	* error.c
+	(pp_warning_buffer,warningcount_buffered,werrorcount_buffered):	New.
+	(gfc_buffer_error): Set pp_warning_buffer.flush_p.
+	(gfc_clear_pp_buffer): New.
+	(gfc_warning_1): Renamed from gfc_warning.
+	(gfc_warning): Add three new overloads. One that takes just a
+	format string and ellipsis, another that takes also a warning
+	option, and another that takes also va_list instead of ellipsis.
+	(gfc_clear_warning): Clear pp_warning_buffer.
+	(gfc_warning_check): Flush pp_warning_buffer and update warning
+	and werror counters.
+	(gfc_diagnostics_init): Init pp_warning_buffer.
+
+	* Update all gfc_warning calls that do not use multiple
+	locations to use %qs and OPT_W*, otherwise use gfc_warning_1.
+
+2014-12-02  Tobias Burnus  <burnus@net-b.de>
+	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* error.c (warnings_not_errors): Use bool.
+	(gfc_clear_error): Update.
+	(gfc_get_errors): Ditto. Use bool argument.
+	* gfortran.h (gfc_get_errors): Update prototype.
+	* resolve.c (resolve_global_procedure): Update call.
+
+2014-12-02  Richard Biener  <rguenther@suse.de>
+
+	PR fortran/64137
+	* trans-intrinsic.c (gfc_conv_intrinsic_minmaxloc): Check
+	proper expressions type, use proper type for computing
+	-Huge - 1.
+
+2014-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (gfc_omp_finish_clause,
+	gfc_trans_omp_array_reduction_or_udr, gfc_trans_omp_atomic): Remove
+	NULL last argument from create_tmp_var_raw and create_tmp_var calls.
+
+2014-11-29  Tobias Burnus  <burnus@net-b.de>
+
+	* scanner.c (skip_free_comments, gfc_gobble_whitespace): Use
+	gfc_warning_now instead of ..._now_1.
+
+2014-11-29  Tobias Burnus  <burnus@net-b.de>
+	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* lang.opt (Wtabs): Combine duplicated item into a single
+	one using || for LangEnabledBy.
+
+2014-11-25  Tobias Burnus  <burnus@net-b.de>
+
+	* error.c (gfc_internal_error): Convert to common diagnostics.
+	* interface.c (gfc_find_sym_in_symtree): Use %qs.
+	* intrinsic.c (make_generic, gfc_check_intrinsic_standard,
+	gfc_convert_type_warn): Ditto.
+	* module.c (write_symbol): Ditto.
+	* symbol.c (gfc_get_default_type): Ditto; use fatal instead
+	of internal error.
+	* trans-array.c (gfc_walk_subexpr): Replace internal_error by
+	gfc_internal_error.
+	* trans-decl.c (gfc_get_symbol_decl,
+	(gfc_create_module_variable): Ditto. Use %qs.
+	* trans-intrinsic.c (gfc_conv_intrinsic_lib_function): Ditto.
+	* trans-io.c (transfer_expr): Ditto.
+	* trans-openmp.c (gfc_trans_omp_workshare): Ditto.
+	* trans.c (trans_code): Ditto.
+
+2014-11-25  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.h (gfc_option_t): Remove flags moved as Var to .opt.
+	(gfc_error_now_1): Renamed from gfc_error_now.
+	(gfc_error_now): Renamed from gfc_error_now_2.
+	(gfc_warning_now_1): Renamed from gfc_warning_now.
+	(gfc_warning_now): Renamed from gfc_warning_now_2.
+	* error.c (gfc_error_now_1): Renamed from gfc_error_now.
+	(gfc_error_now): Renamed from gfc_error_now_2.
+	(gfc_warning_now_1): Renamed from gfc_warning_now.
+	(gfc_warning_now): Renamed from gfc_warning_now_2.
+	(gfc_get_errors): Include common diagnostic in count.
+	* lang.opt (Wc-binding-type, Wconversion, Wconversion-extra,
+	Wintrinsics-std): Create a Var for those warnings.
+	* check.c (gfc_check_cmplx): Pass warning flag to
+	diagnostic function.
+	* decl.c (get_proc_name, gfc_verify_c_interop_param, build_sym
+	gfc_set_constant_character_len, verify_bind_c_sym): Ditto; use
+	_1 for old diagnostic, remove _2 for new diagnostic.
+	* expr.c (gfc_check_assign, gfc_check_vardef_context): Ditto.
+	* frontend-passes.c (doloop_code, do_function): Ditto.
+	* intrinsic.c (gfc_is_intrinsic, gfc_convert_type_warn): Ditto.
+	* match.c (gfc_match_common): Ditto.
+	* module.c (use_iso_fortran_env_module, gfc_use_module): Ditto.
+	* parse.c (decode_statement, decode_gcc_attribute, next_free,
+	next_fixed, gfc_check_do_variable): Ditto.
+	* resolve.c (resolve_common_vars, resolve_ordinary_assign):
+	Ditto.
+	* scanner.c (add_path_to_list, skip_free_comments,
+	gfc_next_char_literal, gfc_gobble_whitespace, load_line,
+	preprocessor_line, load_file): Ditto.
+	* symbol.c (gfc_set_default_type, verify_bind_c_derived_type):
+	Ditto.
+	* options.c (gfc_post_options): Ditto.
+	(gfc_init_options, set_Wall, gfc_handle_option): Ditto; remove
+	flags which now have a Var.
+	* invoke.texi (Wconversion-extra): Make clear that the flag
+	does not imply -Wconversion.
+
+2014-11-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/63938
+	* trans-openmp.c (gfc_trans_omp_atomic): Make sure lhsaddr is
+	simple enough for goa_lhs_expr_p.
+
 2014-11-24  Tobias Burnus  <burnus@net-b.de>
 
 	* error.c (gfc_fatal_error_1): Remove.
