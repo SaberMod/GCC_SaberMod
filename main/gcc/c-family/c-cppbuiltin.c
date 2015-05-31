@@ -800,11 +800,6 @@ c_cpp_builtins (cpp_reader *pfile)
   cpp_define (pfile, "__has_include(STR)=__has_include__(STR)");
   cpp_define (pfile, "__has_include_next(STR)=__has_include_next__(STR)");
 
-  /* Set attribute test macros for all C/C++ (not for just C++11 etc.)
-     The builtin __has_attribute__ is defined in libcpp.  */
-  cpp_define (pfile, "__has_attribute(STR)=__has_attribute__(STR)");
-  cpp_define (pfile, "__has_cpp_attribute(STR)=__has_attribute__(STR)");
-
   if (c_dialect_cxx ())
     {
       if (flag_weak && SUPPORTS_ONE_ONLY)
@@ -871,8 +866,9 @@ c_cpp_builtins (cpp_reader *pfile)
 	  cpp_define (pfile, "__cpp_aggregate_nsdmi=201304");
 	  cpp_define (pfile, "__cpp_variable_templates=201304");
 	  cpp_define (pfile, "__cpp_digit_separators=201309");
-	  //cpp_define (pfile, "__cpp_sized_deallocation=201309");
 	}
+      if (flag_sized_deallocation)
+	cpp_define (pfile, "__cpp_sized_deallocation=201309");
     }
   /* Note that we define this for C as well, so that we know if
      __attribute__((cleanup)) will interface with EH.  */

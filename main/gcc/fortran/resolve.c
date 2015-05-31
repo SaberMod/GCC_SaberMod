@@ -1558,7 +1558,7 @@ is_illegal_recursion (gfc_symbol* sym, gfc_namespace* context)
     proc_sym = sym;
 
   /* If sym is RECURSIVE, all is well of course.  */
-  if (proc_sym->attr.recursive || gfc_option.flag_recursive)
+  if (proc_sym->attr.recursive || flag_recursive)
     return false;
 
   /* Find the context procedure's "real" symbol if it has entries.
@@ -1740,6 +1740,7 @@ resolve_actual_arglist (gfc_actual_arglist *arg, procedure_type ptype,
   gfc_symbol *sym;
   gfc_symtree *parent_st;
   gfc_expr *e;
+  gfc_component *comp;
   int save_need_full_assumed_size;
   bool return_value = false;
   bool actual_arg_sav = actual_arg, first_actual_arg_sav = first_actual_arg;
@@ -1965,6 +1966,14 @@ resolve_actual_arglist (gfc_actual_arglist *arg, procedure_type ptype,
 		  goto cleanup;
 		}
 	    }
+	}
+
+      comp = gfc_get_proc_ptr_comp(e);
+      if (comp && comp->attr.elemental)
+	{
+	    gfc_error ("ELEMENTAL procedure pointer component %qs is not "
+		       "allowed as an actual argument at %L", comp->name,
+		       &e->where);
 	}
 
       /* Fortran 2008, C1237.  */
@@ -2746,6 +2755,7 @@ static int
 pure_function (gfc_expr *e, const char **name)
 {
   int pure;
+  gfc_component *comp;
 
   *name = NULL;
 
@@ -2754,7 +2764,13 @@ pure_function (gfc_expr *e, const char **name)
         && e->symtree->n.sym->attr.proc == PROC_ST_FUNCTION)
     return pure_stmt_function (e, e->symtree->n.sym);
 
-  if (e->value.function.esym)
+  comp = gfc_get_proc_ptr_comp (e);
+  if (comp)
+    {
+      pure = gfc_pure (comp->ts.interface);
+      *name = comp->name;
+    }
+  else if (e->value.function.esym)
     {
       pure = gfc_pure (e->value.function.esym);
       *name = e->value.function.esym->name;
@@ -2801,6 +2817,39 @@ pure_stmt_function (gfc_expr *e, gfc_symbol *sym)
 }
 
 
+/* Check if an impure function is allowed in the current context. */
+
+static bool check_pure_function (gfc_expr *e)
+{
+  const char *name = NULL;
+  if (!pure_function (e, &name) && name)
+    {
+      if (forall_flag)
+	{
+	  gfc_error ("Reference to impure function %qs at %L inside a "
+		     "FORALL %s", name, &e->where,
+		     forall_flag == 2 ? "mask" : "block");
+	  return false;
+	}
+      else if (gfc_do_concurrent_flag)
+	{
+	  gfc_error ("Reference to impure function %qs at %L inside a "
+		     "DO CONCURRENT %s", name, &e->where,
+		     gfc_do_concurrent_flag == 2 ? "mask" : "block");
+	  return false;
+	}
+      else if (gfc_pure (NULL))
+	{
+	  gfc_error ("Reference to impure function %qs at %L "
+		     "within a PURE procedure", name, &e->where);
+	  return false;
+	}
+      gfc_unset_implicit_pure (NULL);
+    }
+  return true;
+}
+
+
 /* Resolve a function call, which means resolving the arguments, then figuring
    out which entity the name refers to.  */
 
@@ -2809,7 +2858,6 @@ resolve_function (gfc_expr *expr)
 {
   gfc_actual_arglist *arg;
   gfc_symbol *sym;
-  const char *name;
   bool t;
   int temp;
   procedure_type p = PROC_INTRINSIC;
@@ -2982,33 +3030,9 @@ resolve_function (gfc_expr *expr)
 #undef GENERIC_ID
 
   need_full_assumed_size = temp;
-  name = NULL;
 
-  if (!pure_function (expr, &name) && name)
-    {
-      if (forall_flag)
-	{
-	  gfc_error ("Reference to non-PURE function %qs at %L inside a "
-		     "FORALL %s", name, &expr->where,
-		     forall_flag == 2 ? "mask" : "block");
-	  t = false;
-	}
-      else if (gfc_do_concurrent_flag)
-	{
-	  gfc_error ("Reference to non-PURE function %qs at %L inside a "
-		     "DO CONCURRENT %s", name, &expr->where,
-		     gfc_do_concurrent_flag == 2 ? "mask" : "block");
-	  t = false;
-	}
-      else if (gfc_pure (NULL))
-	{
-	  gfc_error ("Function reference to %qs at %L is to a non-PURE "
-		     "procedure within a PURE procedure", name, &expr->where);
-	  t = false;
-	}
-
-      gfc_unset_implicit_pure (NULL);
-    }
+  if (!check_pure_function(expr))
+    t = false;
 
   /* Functions without the RECURSIVE attribution are not allowed to
    * call themselves.  */
@@ -3056,23 +3080,32 @@ resolve_function (gfc_expr *expr)
 
 /************* Subroutine resolution *************/
 
-static void
-pure_subroutine (gfc_code *c, gfc_symbol *sym)
+static bool
+pure_subroutine (gfc_symbol *sym, const char *name, locus *loc)
 {
   if (gfc_pure (sym))
-    return;
+    return true;
 
   if (forall_flag)
-    gfc_error ("Subroutine call to %qs in FORALL block at %L is not PURE",
-	       sym->name, &c->loc);
+    {
+      gfc_error ("Subroutine call to %qs in FORALL block at %L is not PURE",
+		 name, loc);
+      return false;
+    }
   else if (gfc_do_concurrent_flag)
-    gfc_error ("Subroutine call to %qs in DO CONCURRENT block at %L is not "
-	       "PURE", sym->name, &c->loc);
+    {
+      gfc_error ("Subroutine call to %qs in DO CONCURRENT block at %L is not "
+		 "PURE", name, loc);
+      return false;
+    }
   else if (gfc_pure (NULL))
-    gfc_error ("Subroutine call to %qs at %L is not PURE", sym->name,
-	       &c->loc);
+    {
+      gfc_error ("Subroutine call to %qs at %L is not PURE", name, loc);
+      return false;
+    }
 
   gfc_unset_implicit_pure (NULL);
+  return true;
 }
 
 
@@ -3087,7 +3120,8 @@ resolve_generic_s0 (gfc_code *c, gfc_symbol *sym)
       if (s != NULL)
 	{
 	  c->resolved_sym = s;
-	  pure_subroutine (c, s);
+	  if (!pure_subroutine (s, s->name, &c->loc))
+	    return MATCH_ERROR;
 	  return MATCH_YES;
 	}
 
@@ -3190,7 +3224,8 @@ found:
   gfc_procedure_use (sym, &c->ext.actual, &c->loc);
 
   c->resolved_sym = sym;
-  pure_subroutine (c, sym);
+  if (!pure_subroutine (sym, sym->name, &c->loc))
+    return MATCH_ERROR;
 
   return MATCH_YES;
 }
@@ -3260,9 +3295,7 @@ found:
 
   c->resolved_sym = sym;
 
-  pure_subroutine (c, sym);
-
-  return true;
+  return pure_subroutine (sym, sym->name, &c->loc);
 }
 
 
@@ -5058,7 +5091,7 @@ resolve_procedure:
   if (t)
     expression_rank (e);
 
-  if (t && gfc_option.coarray == GFC_FCOARRAY_LIB && gfc_is_coindexed (e))
+  if (t && flag_coarray == GFC_FCOARRAY_LIB && gfc_is_coindexed (e))
     add_caf_get_intrinsic (e);
 
   return t;
@@ -5643,7 +5676,7 @@ success:
 /* Resolve a call to a type-bound subroutine.  */
 
 static bool
-resolve_typebound_call (gfc_code* c, const char **name)
+resolve_typebound_call (gfc_code* c, const char **name, bool *overridable)
 {
   gfc_actual_arglist* newactual;
   gfc_symtree* target;
@@ -5666,6 +5699,10 @@ resolve_typebound_call (gfc_code* c, const char **name)
 
   if (!resolve_typebound_generic_call (c->expr1, name))
     return false;
+
+  /* Pass along the NON_OVERRIDABLE attribute of the specific TBP. */
+  if (overridable)
+    *overridable = !c->expr1->value.compcall.tbp->non_overridable;
 
   /* Transform into an ordinary EXEC_CALL for now.  */
 
@@ -5926,7 +5963,7 @@ resolve_typebound_subroutine (gfc_code *code)
       if (c->ts.u.derived == NULL)
 	c->ts.u.derived = gfc_find_derived_vtab (declared);
 
-      if (!resolve_typebound_call (code, &name))
+      if (!resolve_typebound_call (code, &name, NULL))
 	return false;
 
       /* Use the generic name if it is there.  */
@@ -5958,7 +5995,7 @@ resolve_typebound_subroutine (gfc_code *code)
     }
 
   if (st == NULL)
-    return resolve_typebound_call (code, NULL);
+    return resolve_typebound_call (code, NULL, NULL);
 
   if (!resolve_ref (code->expr1))
     return false;
@@ -5971,10 +6008,10 @@ resolve_typebound_subroutine (gfc_code *code)
 	 || (!class_ref && st->n.sym->ts.type != BT_CLASS))
     {
       gfc_free_ref_list (new_ref);
-      return resolve_typebound_call (code, NULL);
+      return resolve_typebound_call (code, NULL, NULL);
     }
 
-  if (!resolve_typebound_call (code, &name))
+  if (!resolve_typebound_call (code, &name, &overridable))
     {
       gfc_free_ref_list (new_ref);
       return false;
@@ -6036,6 +6073,9 @@ resolve_ppc_call (gfc_code* c)
 				 && comp->ts.interface->formal)))
     return false;
 
+  if (!pure_subroutine (comp->ts.interface, comp->name, &c->expr1->where))
+    return false;
+
   gfc_ppc_use (comp, &c->expr1->value.compcall.actual, &c->expr1->where);
 
   return true;
@@ -6072,6 +6112,9 @@ resolve_expr_ppc (gfc_expr* e)
     return false;
 
   if (!update_ppc_arglist (e))
+    return false;
+
+  if (!check_pure_function(e))
     return false;
 
   gfc_ppc_use (comp, &e->value.compcall.actual, &e->where);
@@ -8483,7 +8526,7 @@ resolve_critical (gfc_code *code)
   char name[GFC_MAX_SYMBOL_LEN];
   static int serial = 0;
 
-  if (gfc_option.coarray != GFC_FCOARRAY_LIB)
+  if (flag_coarray != GFC_FCOARRAY_LIB)
     return;
 
   symtree = gfc_find_symtree (gfc_current_ns->sym_root,
@@ -9313,7 +9356,7 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
       if (!gfc_notify_std (GFC_STD_F2008, "Assignment to an allocatable "
 			   "polymorphic variable at %L", &lhs->where))
 	return false;
-      if (!gfc_option.flag_realloc_lhs)
+      if (!flag_realloc_lhs)
 	{
 	  gfc_error ("Assignment to an allocatable polymorphic variable at %L "
 		     "requires %<-frealloc-lhs%>", &lhs->where);
@@ -9355,7 +9398,7 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
      the LHS is (re)allocatable or has a vector subscript.  If the LHS is a
      noncoindexed array and the RHS is a coindexed scalar, use the normal code
      path.  */
-  if (gfc_option.coarray == GFC_FCOARRAY_LIB
+  if (flag_coarray == GFC_FCOARRAY_LIB
       && (lhs_coindexed
 	  || (code->expr2->expr_type == EXPR_FUNCTION
 	      && code->expr2->value.function.isym
@@ -10646,7 +10689,7 @@ build_default_init_expr (gfc_symbol *sym)
       break;
 
     case BT_REAL:
-      switch (gfc_option.flag_init_real)
+      switch (flag_init_real)
 	{
 	case GFC_INIT_REAL_SNAN:
 	  init_expr->is_snan = 1;
@@ -10675,7 +10718,7 @@ build_default_init_expr (gfc_symbol *sym)
       break;
 
     case BT_COMPLEX:
-      switch (gfc_option.flag_init_real)
+      switch (flag_init_real)
 	{
 	case GFC_INIT_REAL_SNAN:
 	  init_expr->is_snan = 1;
@@ -10738,7 +10781,7 @@ build_default_init_expr (gfc_symbol *sym)
 	  init_expr = NULL;
 	}
       if (!init_expr && gfc_option.flag_init_character == GFC_INIT_CHARACTER_ON
-	  && sym->ts.u.cl->length && gfc_option.flag_max_stack_var_size != 0)
+	  && sym->ts.u.cl->length && flag_max_stack_var_size != 0)
 	{
 	  gfc_actual_arglist *arg;
 	  init_expr = gfc_get_expr ();
@@ -10788,7 +10831,7 @@ apply_default_init_local (gfc_symbol *sym)
      are stack allocated even with -fno-automatic; we have also to exclude
      result variable, which are also nonstatic.  */
   if (sym->attr.save || sym->ns->save_all
-      || (gfc_option.flag_max_stack_var_size == 0 && !sym->attr.result
+      || (flag_max_stack_var_size == 0 && !sym->attr.result
 	  && !sym->ns->proc_name->attr.recursive
 	  && (!sym->attr.dimension || !is_non_constant_shape_array (sym))))
     {

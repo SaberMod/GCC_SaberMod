@@ -31,12 +31,14 @@
 namespace std _GLIBCXX_VISIBILITY(default)
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
+_GLIBCXX_BEGIN_NAMESPACE_CXX11
   template<typename, typename>
     class basic_regex;
 
   template<typename, typename>
     class match_results;
 
+_GLIBCXX_END_NAMESPACE_CXX11
 _GLIBCXX_END_NAMESPACE_VERSION
 
 namespace __detail
@@ -71,6 +73,7 @@ _GLIBCXX_END_NAMESPACE_VERSION
 }
 
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
+_GLIBCXX_BEGIN_NAMESPACE_CXX11
 
   /**
    * @addtogroup regex
@@ -1756,7 +1759,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        */
       const_iterator
       cbegin() const
-      { return _Base_type::cbegin() + 2; }
+      { return this->begin(); }
 
       /**
        * @brief Gets an iterator to one-past-the-end of the collection.
@@ -1770,7 +1773,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        */
       const_iterator
       cend() const
-      { return _Base_type::cend(); }
+      { return this->end(); }
 
       //@}
 
@@ -1938,6 +1941,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     swap(match_results<_Bi_iter, _Alloc>& __lhs,
 	 match_results<_Bi_iter, _Alloc>& __rhs)
     { __lhs.swap(__rhs); }
+
+_GLIBCXX_END_NAMESPACE_CXX11
 
   // [7.11.2] Function template regex_match
   /**
@@ -2407,6 +2412,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   //@}
 
+_GLIBCXX_BEGIN_NAMESPACE_CXX11
+
   // std [28.12] Class template regex_iterator
   /**
    * An iterator adaptor that will provide repeated calls of regex_search over
@@ -2632,7 +2639,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 			     regex_constants::match_flag_type __m
 			     = regex_constants::match_default)
       : _M_position(__a, __b, __re, __m),
-      _M_subs(__submatches, *(&__submatches+1)), _M_n(0)
+      _M_subs(__submatches, __submatches + _Nm), _M_n(0)
       { _M_init(__a, __b); }
 
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
@@ -2660,12 +2667,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        */
       regex_token_iterator(const regex_token_iterator& __rhs)
       : _M_position(__rhs._M_position), _M_subs(__rhs._M_subs),
-      _M_suffix(__rhs._M_suffix), _M_n(__rhs._M_n), _M_result(__rhs._M_result),
-      _M_has_m1(__rhs._M_has_m1)
-      {
-	if (__rhs._M_result == &__rhs._M_suffix)
-	  _M_result = &_M_suffix;
-      }
+      _M_suffix(__rhs._M_suffix), _M_n(__rhs._M_n), _M_has_m1(__rhs._M_has_m1)
+      { _M_normalize_result(); }
 
       /**
        * @brief Assigns a %regex_token_iterator to another.
@@ -2737,6 +2740,18 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _M_end_of_seq() const
       { return _M_result == nullptr; }
 
+      // [28.12.2.2.4]
+      void
+      _M_normalize_result()
+      {
+	if (_M_position != _Position())
+	  _M_result = &_M_current_match();
+	else if (_M_has_m1)
+	  _M_result = &_M_suffix;
+	else
+	  _M_result = nullptr;
+      }
+
       _Position         _M_position;
       std::vector<int>  _M_subs;
       value_type        _M_suffix;
@@ -2762,6 +2777,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 #endif
 
   //@} // group regex
+
+_GLIBCXX_END_NAMESPACE_CXX11
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace
 

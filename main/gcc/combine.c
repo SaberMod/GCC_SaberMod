@@ -1579,8 +1579,8 @@ setup_incoming_promotions (rtx_insn *first)
       uns3 = TYPE_UNSIGNED (DECL_ARG_TYPE (arg));
 
       /* The mode and signedness of the argument as it is actually passed,
-         after any TARGET_PROMOTE_FUNCTION_ARGS-driven ABI promotions.  */
-      mode3 = promote_function_mode (DECL_ARG_TYPE (arg), mode2, &uns3,
+         see assign_parm_setup_reg in function.c.  */
+      mode3 = promote_function_mode (TREE_TYPE (arg), mode1, &uns3,
 				     TREE_TYPE (cfun->decl), 0);
 
       /* The mode of the register in which the argument is being passed.  */
@@ -2587,6 +2587,11 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
   rtx other_pat = 0;
   rtx new_other_notes;
   int i;
+
+  /* Immediately return if any of I0,I1,I2 are the same insn (I3 can
+     never be).  */
+  if (i1 == i2 || i0 == i2 || (i0 && i0 == i1))
+    return 0;
 
   /* Only try four-insn combinations when there's high likelihood of
      success.  Look for simple insns, such as loads of constants or
