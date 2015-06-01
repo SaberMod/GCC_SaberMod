@@ -1,3 +1,343 @@
+2015-01-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/64688
+	* lra-constraints.c (original_subreg_reg_mode): New.
+	(simplify_operand_subreg): Try to simplify subreg of const.  Use
+	original_subreg_reg_mode for it.
+	(swap_operands): Update original_subreg_reg_mode.
+	(curr_insn_transform): Set up original_subreg_reg_mode.
+
+2015-01-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/64617
+	* lra-constraints.c (prohibited_class_reg_set_mode_p): New
+	function.
+	(process_alt_operands): Use it.
+	(curr_insn_transform): Check the optional reload pseudo class is
+	ok for the mode.
+
+2015-01-30  Joseph Myers  <joseph@codesourcery.com>
+
+	* diagnostic.c (fatal_error (const char *, ...)): Remove function.
+	* diagnostic-core.h (fatal_error (const char *, ...)): Remove
+	prototype.
+	* toplev.h (init_asm_output): Update comment on use of
+	UNKNOWN_LOCATION with fatal_error.
+	* cgraph.c, collect-utils.c, collect2.c, config/arc/arc.c,
+	config/arc/arc.md, config/avr/avr.c, config/c6x/c6x.h,
+	config/darwin.c, config/host-darwin.c, config/i386/host-cygwin.c,
+	config/i386/intelmic-mkoffload.c, config/nios2/nios2.c,
+	config/nvptx/mkoffload.c, config/nvptx/nvptx.h,
+	config/rs6000/host-darwin.c, config/rs6000/rs6000.c,
+	config/s390/s390.c, gcc.c, gcov-io.h, gcov-tool.c, ggc-common.c,
+	ggc-page.c, graph.c, ipa-inline-analysis.c, ipa-reference.c,
+	lto-cgraph.c, lto-section-in.c, lto-streamer-in.c, lto-streamer.c,
+	lto-wrapper.c, objc/objc-act.c, opts.c, passes.c, plugin.c,
+	tlink.c, toplev.c, tree-streamer-in.c, varpool.c: All callers of
+	fatal_error changed to pass input_location as first argument.
+
+2015-01-30  Martin Liska  <mliska@suse.cz>
+
+	* tree.h: Change GCC_VERSION >= 4004 to GCC_VERSION >= 4006
+	in #pragma GCC diagnostic guards.
+
+2015-01-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/64829
+	* tree-vect-patterns.c (vect_handle_widen_op_by_const): Do
+	not add a widening conversion pattern but hand off extra
+	widenings to callers.
+	(vect_recog_widen_mult_pattern): Handle extra widening produced
+	by vect_handle_widen_op_by_const.
+	(vect_recog_widen_shift_pattern): Likewise.
+	(vect_pattern_recog_1): Remove excess vertical space in dumping.
+	* tree-vect-stmts.c (vect_mark_stmts_to_be_vectorized): Likewise.
+	(vect_init_vector_1): Likewise.
+	(vect_get_vec_def_for_operand): Likewise.
+	(vect_finish_stmt_generation): Likewise.
+	(vectorizable_load): Likewise.
+	(vect_analyze_stmt): Likewise.
+	(vect_is_simple_use): Likewise.
+
+2015-01-29  Jeff Law  <law@redhat.com>
+
+	* combine.c (try_combine): Fix typo in comment.
+
+2015-01-29  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/64580
+	* config.rs6000/rs6000.c (compute_vrsave_mask): Reverse loop order.
+	(rs6000_stack_info): Add assert.
+	(rs6000_output_savres_externs): New function, split off from...
+	(rs6000_output_function_prologue): ... here.  Do not call it for
+	thunks.
+
+2015-01-29  Jeff Law  <law@redhat.com>
+
+	PR target/15184
+	* combine.c (try_combine): If I0 is a memory load and I3 a store
+	to a related address, increase the "goodness" of doing a 4-insn
+	combination with I0-I3.
+	(make_field_assignment): Handle SUBREGs in the ior+and case.
+
+2015-01-29  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/64746
+	* tree-if-conv.c (mask_exists): New function.
+	(predicate_mem_writes): Save created mask with given size for further
+	use.
+	(stmt_is_root_of_bool_pattern): Remove argument VAR and store to it.
+	(ifcvt_repair_bool_pattern): Collect all statements that are root
+	of bool pattern and use iterative algorithm to remove multiple uses
+	of predicates, display number of required iterations.
+
+2015-01-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/64853
+	* tree-vrp.c (vrp_valueize_1): Do not return anything if the
+	stmt will get simulated again.
+	* tree-ssa-ccp.c (valueize_op_1): Likewise.
+
+2015-01-29  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.c (arm_emit_multi_reg_pop): Simplify definition of
+	return_in_pc.  Remove redundant assignments.
+	(thumb2_emit_ldrd_pop): Simplify definition of return_in_pc.
+	(arm_expand_epilogue): Don't compare boolean with true in if condition.
+
+2015-01-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_mode_after): Make static.
+
+2015-01-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/64844
+	* tree-vect-loop.c (vect_estimate_min_profitable_iters): Always
+	dump cost model analysis.
+	* tree-vect-data-refs.c (vect_enhance_data_refs_alignment):
+	Do not register adjusted load/store costs here.
+
+2015-01-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386-protos.h (ix86_use_pseudo_pic_reg): New.
+	* config/i386/i386.h (PIC_OFFSET_TABLE_REGNUM): Simplify by
+	using x86_use_pseudo_pic_reg.
+	* config/i386/i386.c (ix86_conditional_register_usage): Remove
+	support for fixed PIC register.
+	(ix86_use_pseudo_pic_reg): Not static any more.
+
+2015-01-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/64805
+	* ipa-inline.c (early_inliner): Rebuild IPA_REF_CHKP reference
+	to avoid error in cgraph node verification.
+
+2015-01-29  Marek Polacek  <polacek@redhat.com>
+
+	* doc/standards.texi: Reflect that the default for C is gnu11.
+
+2015-01-29  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/64761
+	* reorg.c (switch_text_sections_between_p): New function.
+	(relax_delay_slots): Call it when testing if the jump insn
+	is removable.  Use targetm.can_follow_jump when testing if
+	the conditional branch can follow an unconditional jump.
+
+2015-01-27  Caroline Tice  <cmtice@google.com>
+
+	Committing VTV Cywin/Ming patch for Patrick Wollgast
+	* config/i386/cygwin.h (STARTFILE_SPEC): Add vtv_start.o,
+	if -fvtable-verify=preinit/std is used.
+	* config/i386/mingw-w64.h (STARTFILE_SPEC): Likewise.
+	* config/i386/mingw32.h (STARTFILE_SPEC): Likewise.
+	* config/i386/cygwin.h (ENDFILE_SPEC): Add vtv_end.o,
+	if -fvtable-verify=preinit/std is used.
+	* config/i386/mingw32.h (ENDFILE_SPEC): Likewise.
+	* config/i386/cygwin.h (LIB_SPEC): Pass -lvtv and -lpsapi,
+	if -fvtable-verify=preinit/std is used.
+	* config/i386/mingw-w64.h (LIB_SPEC): Likewise.
+	* config/i386/mingw32.h (LIB_SPEC): Likewise.
+	* varasm.c (assemble_variable): Add code to properly set the comdat
+	section and name for the .vtable_map_vars section in case the
+	target is PE or COFF.
+
+2015-01-29  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/64801
+	* cgraphunit.c (init_lowered_empty_function): Add CoUNT parameter;
+	make sane BB profile.
+	(cgraph_node::expand_thunk): Make sane BB profile.
+	(cgraph_node::create_wrapper): Do not set call_stmt_cannot_inline_p.
+	* cgraph.h (init_lowered_empty_function): Update prototype.
+	* config/i386/i386.c (make_resolver_func): Update call.
+	* predict.c (gate): Disable branch prediction pass if
+	profile is already there.
+
+2015-01-29  Jan Hubicka  <hubicka@ucw.cz>
+
+	* optc-save-gen.awk: flag_fp_contract_mode is no longer speical.
+	* opth-gen.awk: Likewise.
+	* common.opt: Mark flag_fp_contract_mode as Optimization.
+
+2015-01-29  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* config/i386/cygwin.h (LIBGCJ_SONAME): Set libgcj version to -16.
+	* config/i386/mingw32.h (LIBGCJ_SONAME): Set libgcj version to -16.
+
+2015-01-28  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/64659
+	* config/sh/predicates.md (atomic_arith_operand,
+	atomic_logical_operand): Remove.
+	* config/sh/sync.md (fetchop_predicate, fetchop_constraint): Remove.
+	(atomic_arith_operand_0): New predicate.
+	(atomic_compare_and_swap<mode>): Use arith_reg_dest for output values.
+	Use atomic_arith_operand_0 for input values.
+	(atomic_compare_and_swapsi_hard, atomic_compare_and_swap<mode>_hard,
+	atomic_compare_and_swap<mode>_soft_gusa,
+	atomic_compare_and_swap<mode>_soft_tcb,
+	atomic_compare_and_swap<mode>_soft_imask): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.
+	(atomic_exchange<mode>): Use arith_reg_dest for output value.  Use
+	atomic_arith_operand_0 for newval input.
+	(atomic_exchangesi_hard, atomic_exchange<mode>_hard,
+	atomic_exchange<mode>_soft_gusa, atomic_exchange<mode>_soft_tcb,
+	atomic_exchange<mode>_soft_imask): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.
+	(atomic_arith_operand_1, atomic_logical_operand_1): New predicates.
+	fetchop_predicate_1, fetchop_constraint_1_llcs,
+	fetchop_constraint_1_gusa, fetchop_constraint_1_tcb,
+	fetchop_constraint_1_imask): New code iterator attributes.
+	(atomic_fetch_<fetchop_name><mode>): Use arith_reg_dest instead of
+	register_operand.  Use fetchop_predicate_1.
+	(atomic_fetch_<fetchop_name>si_hard,
+	atomic_fetch_<fetchop_name><mode>_hard): Use arith_reg_dest instead of
+	register_operand.  Use fetchop_predicate_1, fetchop_constraint_1_llcs.
+	(atomic_fetch_<fetchop_name><mode>_soft_gusa): Use arith_reg_dest
+	and arith_reg_operand instead of register_operand.  Use
+	fetchop_predicate_1, fetchop_constraint_1_gusa.
+	(atomic_fetch_<fetchop_name><mode>_soft_tcb): Use arith_reg_dest
+	and arith_reg_operand instead of register_operand.  Use
+	fetchop_predicate_1, fetchop_constraint_1_tcb.  Adjust asm sequence
+	to allow R0 usage.
+	(atomic_fetch_<fetchop_name><mode>_soft_imask): Use arith_reg_dest
+	and arith_reg_operand instead of register_operand.  Use
+	fetchop_predicate_1, fetchop_constraint_1_imask.  Adjust asm sequence
+	to allow R0 usage.
+	(atomic_fetch_nand<mode>): Use arith_reg_dest instead of
+	register_operand.  Use atomic_logical_operand_1.
+	(atomic_fetch_nandsi_hard, atomic_fetch_nand<mode>_hard,
+	atomic_fetch_nand<mode>_soft_gusa): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.
+	(atomic_fetch_nand<mode>_soft_tcb, atomic_fetch_nand<mode>_soft_imask):
+	Use arith_reg_dest and arith_reg_operand instead of register_operand.
+	Use logical_operand and rK08.  Adjust asm sequence to allow R0 usage.
+	(atomic_<fetchop_name>_fetch<mode>): Use arith_reg_dest instead of
+	register_operand.  Use fetchop_predicate_1.
+	(atomic_<fetchop_name>_fetchsi_hard,
+	atomic_<fetchop_name>_fetch<mode>_hard): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.  Use fetchop_predicate_1,
+	fetchop_constraint_1_llcs.
+	(atomic_<fetchop_name>_fetch<mode>_soft_gusa): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.  Use fetchop_predicate_1,
+	fetchop_constraint_1_gusa.
+	(atomic_<fetchop_name>_fetch<mode>_soft_tcb): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.  Use fetchop_predicate_1,
+	fetchop_constraint_1_tcb.  Adjust asm sequence to allow R0 usage.
+	(atomic_<fetchop_name>_fetch<mode>_soft_imask): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.  Use fetchop_predicate_1,
+	fetchop_constraint_1_imask.  Adjust asm sequence to allow R0 usage.
+	(atomic_nand_fetch<mode>): Use arith_reg_dest instead of
+	register_operand.  Use atomic_logical_operand_1.
+	(atomic_nand_fetchsi_hard, atomic_nand_fetch<mode>_hard,
+	atomic_nand_fetch<mode>_soft_gusa): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.
+	(atomic_nand_fetch<mode>_soft_tcb): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.  Use logical_operand
+	and K08.  Adjust asm sequence to allow R0 usage.
+	(atomic_nand_fetch<mode>_soft_imask): Use arith_reg_dest and
+	arith_reg_operand instead of register_operand.  Use logical_operand
+	and K08.
+
+2015-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR other/63504
+	* dwarf2out.c (add_AT_wide, mem_loc_descriptor, loc_descriptor):
+	Use ggc_alloc<wide_int> instead of ggc_cleared_alloc<wide_int>.
+	(attr_checksum, attr_checksum_ordered, hash_loc_operands): Checksum
+	only get_full_len HOST_WIDE_INTs from get_val () array rather than
+	all bits in *val_wide.
+
+2015-01-28  Jan Hubicka  <hubicka@ucw.cz>
+
+	* varpool.c (tls_model_names): Fix names.
+	(varpool_node::dump): Dump tls- prefix for tls models.
+
+2015-01-28  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/mkoffload.c: New file.
+	* config/nvptx/t-nvptx: Add build rules for it.
+	* config.gcc <nvptx-*> [$enable_as_accelerator = yes]
+	(extra_programs): Add mkoffload.
+	* config/nvptx/nvptx.c (nvptx_record_offload_symbol): New
+	function.
+	(TARGET_RECORD_OFFLOAD_SYMBOL): Define macro to use it.
+
+2015-01-28  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR middle-end/64809
+	* cfgexpand.c (reorder_operands): Skip debug gimples.
+
+2015-01-28  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR tree-optimization/64277
+	* tree-ssa-loop-niter.c (record_nonwrapping_iv): Use base
+	range info when possible to refine estimation.
+
+2015-01-28  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/64718
+	* tree-ssa-math-opts.c (pass_optimize_bswap::execute): Make bswap_type
+	be a 16bit unsigned integer when n->range is 16.
+	(bswap_replace): Convert src to that type if necessary for all bswap
+	sizes.  Fix rotation right notation in nearby comment.  Use bswap_type
+	set in pass_optimize_bswap::execute ().
+
+2015-01-28  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64-simd.md (aarch64_abs<mode>): New.
+	* config/aarch64/aarch64-simd-builtins.def (abs): Split by
+	integer and floating point variants.
+	* config/aarch64/iterators.md (unspec): Add UNSPEC_ABS.
+
+2015-01-28  Robert Suchanek  <robert.suchanek@imgtec.com>
+
+	* config/mips/mips.c (mips_hard_regno_mode_ok_p): Prohibit accumulators
+	for all vector modes.
+
+2015-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/64612
+	* doc/sourcebuild.texi (comdat_group): Document.
+
+2015-01-28  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/thumb1.md (*thumb1_movpc_insn): New insn pattern.
+
+2015-01-27  David Malcolm  <dmalcolm@redhat.com>
+
+	* toplev.c (print_version): Add param "show_global_state", and
+	only print GGC and plugin information if it is true.
+	(init_asm_output): Pass in "true" for the new param when calling
+	print_version.
+	(process_options): Likewise.
+	(toplev::main): Likewise.
+	* toplev.h (print_version): Add new param to decl.
+
 2015-01-27  Jan Hubicka  <hubicka@ucw.cz>
 
 	PR ipa/60871
@@ -13,32 +353,32 @@
 
 2015-01-27  Dominik Vogt  <vogt@linux.vnet.ibm.com>
 
-        * doc/extend.texi: s/390: Update documentation of hotpatch attribute.
-        * doc/invoke.texi (-mhotpatch): s/390: Update documentation of
-        -mhotpatch= option.
-        * config/s390/s390.opt (mhotpatch): s/390: Remove -mhotpatch and
-        -mno-hotpatch options.  Change syntax of -mhotpatch= option.
-        * config/s390/s390.c (s390_hotpatch_trampoline_halfwords_default):
-        Renamed.
-        (s390_hotpatch_trampoline_halfwords_max): Renamed.
-        (s390_hotpatch_hw_max): New name.
-        (s390_hotpatch_trampoline_halfwords): Renamed.
-        (s390_hotpatch_hw_before_label): New name.
-        (get_hotpatch_attribute): Removed.
-        (s390_hotpatch_hw_after_label): New name.
-        (s390_handle_hotpatch_attribute): Add second parameter to hotpatch
-        attribute.
-        (s390_attribute_table): Ditto.
-        (s390_function_num_hotpatch_trampoline_halfwords): Renamed.
-        (s390_function_num_hotpatch_hw): New name.
-        Remove special handling of inline functions and hotpatching.
-        Return number of nops before and after the function label.
-        (s390_can_inline_p): Removed.
-        (s390_asm_output_function_label): Emit a configurable number of nops
-        after the function label.
-        (s390_option_override): Update -mhotpatch= syntax and remove -mhotpatch.
-        (TARGET_CAN_INLINE_P) Removed.
-        (TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P): New.
+	* doc/extend.texi: s/390: Update documentation of hotpatch attribute.
+	* doc/invoke.texi (-mhotpatch): s/390: Update documentation of
+	-mhotpatch= option.
+	* config/s390/s390.opt (mhotpatch): s/390: Remove -mhotpatch and
+	-mno-hotpatch options.  Change syntax of -mhotpatch= option.
+	* config/s390/s390.c (s390_hotpatch_trampoline_halfwords_default):
+	Renamed.
+	(s390_hotpatch_trampoline_halfwords_max): Renamed.
+	(s390_hotpatch_hw_max): New name.
+	(s390_hotpatch_trampoline_halfwords): Renamed.
+	(s390_hotpatch_hw_before_label): New name.
+	(get_hotpatch_attribute): Removed.
+	(s390_hotpatch_hw_after_label): New name.
+	(s390_handle_hotpatch_attribute): Add second parameter to hotpatch
+	attribute.
+	(s390_attribute_table): Ditto.
+	(s390_function_num_hotpatch_trampoline_halfwords): Renamed.
+	(s390_function_num_hotpatch_hw): New name.
+	Remove special handling of inline functions and hotpatching.
+	Return number of nops before and after the function label.
+	(s390_can_inline_p): Removed.
+	(s390_asm_output_function_label): Emit a configurable number of nops
+	after the function label.
+	(s390_option_override): Update -mhotpatch= syntax and remove -mhotpatch.
+	(TARGET_CAN_INLINE_P) Removed.
+	(TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P): New.
 
 2015-01-27  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 	    Jiong Wang  <jiong.wang@arm.com>
@@ -145,7 +485,7 @@
 
 2015-01-26  Uros Bizjak  <ubizjak@gmail.com>
 
-        PR target/64795
+	PR target/64795
 	* config/i386/i386.md (*movdi_internal): Also check operand 0
 	to determine TYPE_LEA operand.
 	(*movsi_internal): Ditto.
@@ -178,7 +518,7 @@
 	* config/arm/arm.c (arm_file_start): Update the assignment of
 	Tag_ABI_HardFP_use.
 
-2014-01-25  James Greenhalgh  <james.greenhalgh@arm.com>
+2015-01-25  James Greenhalgh  <james.greenhalgh@arm.com>
 
 	* config/arm/arm-cores.def (cortex-a57): Use the new Cortex-A57
 	pipeline model.
@@ -585,8 +925,7 @@
 
 2015-01-21  Alan Hayward  <alan.hayward@arm.com>
 
-	* rtlanal.c (subreg_get_info): Exit early for simple and common
-	cases.
+	* rtlanal.c (subreg_get_info): Exit early for simple and common cases.
 
 2015-01-21  Richard Henderson  <rth@redhat.com>
 
@@ -691,11 +1030,13 @@
 
 2015-01-20  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
 
-	* config/tilegx/mul-tables.c: Move symtab.h include after coretypes.h include.
-	* config/tilepro/mul-tables.c: Add includes hashtab.h, hash-set.h, vec.h,
-	machmode.h, tm.h, hard-reg-set.h, input.h, function.h, rtl.h, flags.h, statistics.h,
-	double-int.h, real.h, fixed-value.h, alias.h, wide-int.h, inchash.h, tree.h,
-	insn-config.h, expmed.h, dojump.h, explow.h, calls.h, emit-rtl.h, varasm.h, stmt.h.
+	* config/tilegx/mul-tables.c: Move symtab.h include after
+	coretypes.h include.
+	* config/tilepro/mul-tables.c: Add includes hashtab.h, hash-set.h,
+	vec.h, machmode.h, tm.h, hard-reg-set.h, input.h, function.h, rtl.h,
+	flags.h, statistics.h, double-int.h, real.h, fixed-value.h, alias.h,
+	wide-int.h, inchash.h, tree.h, insn-config.h, expmed.h, dojump.h,
+	explow.h, calls.h, emit-rtl.h, varasm.h, stmt.h.
 
 2015-01-20  Igor Zamyatin  <igor.zamyatin@intel.com>
 
@@ -917,8 +1258,8 @@
 	freciprocal-math, fvect-cost-model, fsimd-cost-model): Mark as
 	Optimization
 	(fauto-profile, fcommon, fdata-sections, fipa-icf-variables,
-        ftoplevel-reorder, funit-at-a-time, fwhole-program): Do not mark as
-        Optimization.
+	ftoplevel-reorder, funit-at-a-time, fwhole-program): Do not mark as
+	Optimization.
 	* ipa-icf.c (gate, sem_item_optimizer::filter_removed_items):
 	Fix for IPA.
 
@@ -1027,15 +1368,15 @@
 	(xorqi3): Likewise.
 	* config/rl78/rl78-protos.h (rl78_sfr_p): New.
 
-        * config/rl78/constrains (Qs8): New constraint.
-        * config/rl78/rl78.c (rl78_flags_already_set): New function.
-        * config/rl78/rl78-protos.h (rl78_flags_already_set): New prototype.
-        * config/rl78/rl78-real.md (update_Z): New attribute.
-        Update patterns to set it.
-        (cbranchqi4_real): Call rl78_flags_already_set() to determine if a
-        shorter compare and branch sequence can be used.
-        (cbranchhi4_real): Likewise.
-        (cbranchhi4_real_inverted): Likewise.
+	* config/rl78/constrains (Qs8): New constraint.
+	* config/rl78/rl78.c (rl78_flags_already_set): New function.
+	* config/rl78/rl78-protos.h (rl78_flags_already_set): New prototype.
+	* config/rl78/rl78-real.md (update_Z): New attribute.
+	Update patterns to set it.
+	(cbranchqi4_real): Call rl78_flags_already_set() to determine if a
+	shorter compare and branch sequence can be used.
+	(cbranchhi4_real): Likewise.
+	(cbranchhi4_real_inverted): Likewise.
 
 	* config/rl78/predicates.md (uword_operand): Allow symbol_refs.
 	* config/rl78/rl78-c.c (rl78_register_pragmas): Register __near
@@ -1059,7 +1400,8 @@
 	(rl78_asm_init_sections): Initialize it.
 	(rl78_select_section): Put __far readonly symbols in .frodata.
 	(rl78_make_type_far): New.
-	(rl78_insert_attributes): Force all readonly symbols to be __far when -mes0.
+	(rl78_insert_attributes): Force all readonly symbols to be
+	__far when -mes0.
 	(rl78_asm_out_integer): New.
 	* config/rl78/rl78.h (ADDR_SPACE_NEAR): New.
 	* config/rl78/rl78.opt (-mes0): New.
@@ -1201,7 +1543,7 @@
 	introduced in revision 219724.
 
 2015-01-16  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
-            Ramana Radhakrishnan <ramana.radhakrishnan@arm.com>
+	    Ramana Radhakrishnan <ramana.radhakrishnan@arm.com>
 
 	PR target/64263
 	* config/aarch64/aarch64.md (*movsi_aarch64): Don't split if the
@@ -1725,7 +2067,7 @@
 	* config/arm/aarch-cost-tables.h: Add cost tables for APM XGene-1
 	* doc/invoke.texi: Document -mcpu=xgene1.
 
-2015-10-15  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+2015-01-15  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
 
 	* dojump.h: New header file.
 	* explow.h: Likewise.
@@ -1750,20 +2092,22 @@
 	(tree_expr_size): Likewise.
 	Include calls.h dojump.h emit-rtl.h explow.h expmed.h
 	fixed-value.h hashtab.h statistics.h stmt.h varasm.h.
-	* genemit.c (main): Generate includes statistics.h, real.h, fixed-value.h,
-	insn-config.h, expmed.h, dojump.h, explow.h, emit-rtl.h, stmt.h.
-	* genopinit.c (main): Generate includes hashtab.h, hard-reg-set.h, function.h,
-	statistics.h, real.h, fixed-value.h, expmed.h, dojump.h, explow.h, emit-rtl.h,
+	* genemit.c (main): Generate includes statistics.h, real.h,
+	fixed-value.h, insn-config.h, expmed.h, dojump.h, explow.h, emit-rtl.h,
 	stmt.h.
+	* genopinit.c (main): Generate includes hashtab.h, hard-reg-set.h,
+	function.h, statistics.h, real.h, fixed-value.h, expmed.h, dojump.h,
+	explow.h, emit-rtl.h, stmt.h.
 	* genoutput.c (main): Generate includes hashtab.h, statistics.h, real.h,
 	fixed-value.h, expmed.h, dojump.h, explow.h, emit-rtl.h, stmt.h.
-	* genemit.c (open_base_files): Generate includes flags.h, statistics.h, real.h,
-	fixed-value.h, tree.h, expmed.h, dojump.h, explow.h, calls.h, emit-rtl.h, varasm.h,
-	stmt.h.
-	* config/tilepro/gen-mul-tables.cc: Generate includes hashtab.h, hash-set.h, vec.h,
-	machmode.h, tm.h, hard-reg-set.h, input.h, function.h, rtl.h, flags.h, statistics.h,
-	double-int.h, real.h, fixed-value.h, alias.h, wide-int.h, inchash.h, tree.h,
-	insn-config.h, expmed.h, dojump.h, explow.h, calls.h, emit-rtl.h, varasm.h, stmt.h.
+	* genemit.c (open_base_files): Generate includes flags.h, statistics.h,
+	real.h, fixed-value.h, tree.h, expmed.h, dojump.h, explow.h, calls.h,
+	emit-rtl.h, varasm.h, stmt.h.
+	* config/tilepro/gen-mul-tables.cc: Generate includes hashtab.h,
+	hash-set.h, vec.h, machmode.h, tm.h, hard-reg-set.h, input.h,
+	function.h, rtl.h, flags.h, statistics.h, double-int.h, real.h,
+	fixed-value.h, alias.h, wide-int.h, inchash.h, tree.h, insn-config.h,
+	expmed.h, dojump.h, explow.h, calls.h, emit-rtl.h, varasm.h, stmt.h.
 	* config/tilegx/mul-tables.c: Include alias.h calls.h dojump.h
 	double-int.h emit-rtl.h explow.h expmed.h fixed-value.h flags.h
 	function.h hard-reg-set.h hash-set.h hashtab.h inchash.h input.h
@@ -1773,12 +2117,12 @@
 	explow.h expmed.h fixed-value.h flags.h function.h hard-reg-set.h
 	hash-set.h hashtab.h inchash.h input.h insn-config.h machmode.h
 	real.h statistics.h stmt.h tree.h varasm.h vec.h wide-int.h.
-	* cfgloopanal.c: Include alias.h calls.h dojump.h double-int.h emit-rtl.h
-	explow.h expmed.h fixed-value.h flags.h inchash.h insn-config.h
-	real.h statistics.h stmt.h tree.h varasm.h wide-int.h.
+	* cfgloopanal.c: Include alias.h calls.h dojump.h double-int.h
+	emit-rtl.h explow.h expmed.h fixed-value.h flags.h inchash.h
+	insn-config.h real.h statistics.h stmt.h tree.h varasm.h wide-int.h.
 	* loop-iv.c: Likewise.
-	* lra-assigns.c: Include alias.h calls.h dojump.h double-int.h emit-rtl.h
-	explow.h expmed.h fixed-value.h flags.h inchash.h real.h
+	* lra-assigns.c: Include alias.h calls.h dojump.h double-int.h
+	emit-rtl.h explow.h expmed.h fixed-value.h flags.h inchash.h real.h
 	statistics.h stmt.h tree.h varasm.h wide-int.h.
 	* lra-constraints.c: Likewise.
 	* lra-eliminations.c: Likewise.
@@ -1795,9 +2139,9 @@
 	* reload.c: Include alias.h calls.h dojump.h double-int.h emit-rtl.h
 	explow.h expmed.h fixed-value.h inchash.h real.h rtl.h
 	statistics.h stmt.h tree.h varasm.h wide-int.h.
-	* caller-save.c: Include alias.h calls.h dojump.h double-int.h emit-rtl.h
-	explow.h expmed.h fixed-value.h inchash.h real.h statistics.h
-	stmt.h tree.h varasm.h wide-int.h.
+	* caller-save.c: Include alias.h calls.h dojump.h double-int.h
+	emit-rtl.h explow.h expmed.h fixed-value.h inchash.h real.h
+	statistics.h stmt.h tree.h varasm.h wide-int.h.
 	* combine-stack-adj.c: Likewise.
 	* cse.c: Likewise.
 	* ddg.c: Likewise.
@@ -1839,9 +2183,9 @@
 	insn-config.h real.h rtl.h statistics.h stmt.h tm.h varasm.h.
 	* rtl-chkp.c: Likewise.
 	* tree-chkp-opt.c: Likewise.
-	* config/arm/arm-builtins.c: Include calls.h dojump.h emit-rtl.h explow.h
-	expmed.h fixed-value.h flags.h function.h hard-reg-set.h hashtab.h
-	insn-config.h real.h statistics.h stmt.h varasm.h.
+	* config/arm/arm-builtins.c: Include calls.h dojump.h emit-rtl.h
+	explow.h expmed.h fixed-value.h flags.h function.h hard-reg-set.h
+	hashtab.h insn-config.h real.h statistics.h stmt.h varasm.h.
 	* ipa-icf.c: Include calls.h dojump.h emit-rtl.h explow.h expmed.h
 	fixed-value.h flags.h hashtab.h insn-config.h real.h rtl.h
 	statistics.h stmt.h.
@@ -2003,23 +2347,24 @@
 	* config/nvptx/nvptx.c: Include dojump.h emit-rtl.h explow.h expmed.h
 	fixed-value.h flags.h hard-reg-set.h insn-config.h real.h
 	statistics.h stmt.h varasm.h.
-	* gimplify.c: Include dojump.h emit-rtl.h explow.h expmed.h fixed-value.h
-	flags.h hashtab.h insn-config.h real.h rtl.h statistics.h.
+	* gimplify.c: Include dojump.h emit-rtl.h explow.h expmed.h
+	fixed-value.h flags.h hashtab.h insn-config.h real.h rtl.h statistics.h.
 	* asan.c: Include dojump.h emit-rtl.h explow.h expmed.h fixed-value.h
 	flags.h hashtab.h insn-config.h real.h rtl.h statistics.h stmt.h.
 	* ipa-devirt.c: Include dojump.h emit-rtl.h explow.h expmed.h
 	fixed-value.h flags.h hashtab.h insn-config.h real.h rtl.h
 	statistics.h stmt.h varasm.h.
 	* ipa-polymorphic-call.c: Likewise.
-	* config/aarch64/aarch64.c: Include dojump.h emit-rtl.h explow.h expmed.h
-	fixed-value.h flags.h hashtab.h insn-config.h real.h statistics.h
-	stmt.h.
-	* config/c6x/c6x.c: Likewise.
-	* config/aarch64/aarch64-builtins.c: Include dojump.h emit-rtl.h explow.h
+	* config/aarch64/aarch64.c: Include dojump.h emit-rtl.h explow.h
 	expmed.h fixed-value.h flags.h hashtab.h insn-config.h real.h
+	statistics.h stmt.h.
+	* config/c6x/c6x.c: Likewise.
+	* config/aarch64/aarch64-builtins.c: Include dojump.h emit-rtl.h
+	explow.h expmed.h fixed-value.h flags.h hashtab.h insn-config.h real.h
 	statistics.h stmt.h varasm.h.
-	* ipa-prop.c: Include dojump.h emit-rtl.h explow.h expmed.h fixed-value.h
-	hashtab.h insn-config.h real.h rtl.h statistics.h stmt.h varasm.h.
+	* ipa-prop.c: Include dojump.h emit-rtl.h explow.h expmed.h
+	fixed-value.h hashtab.h insn-config.h real.h rtl.h statistics.h
+	stmt.h varasm.h.
 	* ipa-split.c: Likewise.
 	* tree-eh.c: Likewise.
 	* tree-ssa-dce.c: Likewise.
@@ -2083,8 +2428,8 @@
 	fixed-value.h insn-config.h real.h statistics.h stmt.h varasm.h.
 	* tree-inline.c: Include dojump.h emit-rtl.h explow.h expmed.h
 	fixed-value.h real.h rtl.h statistics.h stmt.h varasm.h.
-	* builtins.c: Include dojump.h emit-rtl.h explow.h expmed.h fixed-value.h
-	real.h statistics.h stmt.h.
+	* builtins.c: Include dojump.h emit-rtl.h explow.h expmed.h
+	fixed-value.h real.h statistics.h stmt.h.
 	* config/arc/arc.c: Include dojump.h emit-rtl.h explow.h expmed.h
 	fixed-value.h statistics.h stmt.h.
 	* config/visium/visium.c: Include dojump.h emit-rtl.h explow.h expmed.h

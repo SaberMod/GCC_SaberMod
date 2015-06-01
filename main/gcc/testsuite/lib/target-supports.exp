@@ -3060,6 +3060,15 @@ proc check_effective_target_mips_loongson { } {
     }]
 }
 
+# Return 1 if this is a MIPS target that supports the legacy NAN.
+
+proc check_effective_target_mips_nanlegacy { } {
+    return [check_no_compiler_messages nanlegacy assembly {
+	#include <stdlib.h>
+	int main () { return 0; }
+    } "-mnan=legacy"]
+}
+
 # Return 1 if this is an ARM target that adheres to the ABI for the ARM
 # Architecture.
 
@@ -6222,4 +6231,14 @@ proc check_effective_target_pie_copyreloc { } {
     }
 
     return $pie_copyreloc_available_saved
+}
+
+# Return 1 if the target uses comdat groups.
+
+proc check_effective_target_comdat_group {} {
+    return [check_no_messages_and_pattern comdat_group "\.section\[^\n\r]*,comdat" assembly {
+	// C++
+	inline int foo () { return 1; }
+	int (*fn) () = foo;
+    }]
 }

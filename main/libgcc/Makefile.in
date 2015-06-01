@@ -1008,6 +1008,7 @@ crtoffloadbegin$(objext): $(srcdir)/offloadstuff.c
 
 crtoffloadend$(objext): $(srcdir)/offloadstuff.c
 	$(crt_compile) $(CRTSTUFF_T_CFLAGS) -c $< -DCRT_END
+endif
 
 ifeq ($(enable_vtable_verify),yes)
 # These are used in vtable verification; see comments in source files for
@@ -1023,7 +1024,6 @@ vtv_start_preinit$(objext): $(srcdir)/vtv_start_preinit.c
 
 vtv_end_preinit$(objext): $(srcdir)/vtv_end_preinit.c
 	$(crt_compile) $(CRTSTUFF_T_CFLAGS_S) -c $(srcdir)/vtv_end_preinit.c
-endif
 endif
 
 ifeq ($(CUSTOM_CRTIN),)

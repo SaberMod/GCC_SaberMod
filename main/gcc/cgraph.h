@@ -2340,7 +2340,7 @@ void cgraphunit_c_finalize (void);
 
 /*  Initialize datastructures so DECL is a function in lowered gimple form.
     IN_SSA is true if the gimple is in SSA.  */
-basic_block init_lowered_empty_function (tree, bool);
+basic_block init_lowered_empty_function (tree, bool, gcov_type);
 void cgraph_reset_node (struct cgraph_node *);
 void cgraph_enqueue_node (struct cgraph_node *);
 bool expand_thunk (struct cgraph_node *, bool, bool);
