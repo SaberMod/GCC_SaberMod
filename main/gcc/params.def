@@ -1,5 +1,5 @@
 /* params.def - Run-time parameters.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -217,7 +217,7 @@ DEFPARAM(PARAM_LARGE_UNIT_INSNS,
 DEFPARAM(PARAM_INLINE_UNIT_GROWTH,
 	 "inline-unit-growth",
 	 "How much can given compilation unit grow because of the inlining (in percent)",
-	 30, 0, 0)
+	 15, 0, 0)
 DEFPARAM(PARAM_IPCP_UNIT_GROWTH,
 	 "ipcp-unit-growth",
 	 "How much can given compilation unit grow because of the interprocedural constant propagation (in percent)",
@@ -225,7 +225,7 @@ DEFPARAM(PARAM_IPCP_UNIT_GROWTH,
 DEFPARAM(PARAM_EARLY_INLINING_INSNS,
 	 "early-inlining-insns",
 	 "Maximal estimated growth of function body caused by early inlining of single call",
-	 11, 0, 0)
+	 14, 0, 0)
 DEFPARAM(PARAM_EARLY_INLINING_INSNS_ANY,
 	 "early-inlining-insns-any",
 	 "Early inline calls if growth does not exceed this limit",
@@ -728,6 +728,11 @@ DEFPARAM (PARAM_SCHED_MEM_TRUE_DEP_COST,
 	  "sched-mem-true-dep-cost",
 	  "Minimal distance between possibly conflicting store and load",
 	  1, 0, 0)
+
+DEFPARAM (PARAM_SCHED_AUTOPREF_QUEUE_DEPTH,
+	  "sched-autopref-queue-depth",
+	  "Hardware autoprefetcher scheduler model control flag.  Number of lookahead cycles the model looks into; at '0' only enable instruction sorting heuristic.  Disabled by default.",
+	  -1, 0, 0)
 
 DEFPARAM(PARAM_MAX_LAST_VALUE_RTL,
 	 "max-last-value-rtl",
@@ -1310,7 +1315,7 @@ DEFPARAM (PARAM_MAX_TRACKED_STRLENS,
 	  "max-tracked-strlens",
 	  "Maximum number of strings for which strlen optimization pass will "
 	  "track string lengths",
-	  1000, 0, 0)
+	  10000, 0, 0)
 
 /* Keep this in sync with the sched_pressure_algorithm enum.  */
 DEFPARAM (PARAM_SCHED_PRESSURE_ALGORITHM,

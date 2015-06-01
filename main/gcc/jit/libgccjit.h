@@ -1,5 +1,5 @@
 /* A pure C API to enable client code to embed GCC as a JIT-compiler.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,6 +20,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef LIBGCCJIT_H
 #define LIBGCCJIT_H
 
+#include <stdio.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -29,19 +31,25 @@ extern "C" {
  **********************************************************************/
 /* All structs within the API are opaque. */
 
-/* A gcc_jit_context encapsulates the state of a compilation.  It goes
-   through two states:
+/* A gcc_jit_context encapsulates the state of a compilation.
+   You can set up options on it, and add types, functions and code, using
+   the API below.
 
-   (1) "initial", during which you can set up options on it, and add
-       types, functions and code, using the API below.
-       Invoking gcc_jit_context_compile on it transitions it to the
-       "after compilation" state.
+   Invoking gcc_jit_context_compile on it gives you a gcc_jit_result *
+   (or NULL), representing in-memory machine code.
 
-   (2) "after compilation", when you can call gcc_jit_context_release to
-       clean up.  */
+   You can call gcc_jit_context_compile repeatedly on one context, giving
+   multiple independent results.
+
+   Similarly, you can call gcc_jit_context_compile_to_file on a context
+   to compile to disk.
+
+   Eventually you can call gcc_jit_context_release to clean up the
+   context; any in-memory results created from it are still usable, and
+   should be cleaned up via gcc_jit_result_release.  */
 typedef struct gcc_jit_context gcc_jit_context;
 
-/* A gcc_jit_result encapsulates the result of a compilation.  */
+/* A gcc_jit_result encapsulates the result of an in-memory compilation.  */
 typedef struct gcc_jit_result gcc_jit_result;
 
 /* An object created within a context.  Such objects are automatically
@@ -235,11 +243,41 @@ gcc_jit_context_set_bool_option (gcc_jit_context *ctxt,
 				 enum gcc_jit_bool_option opt,
 				 int value);
 
-/* This actually calls into GCC and runs the build, all
-   in a mutex for now.  The result is a wrapper around a .so file.
-   It can only be called once on a given context.  */
+/* Compile the context to in-memory machine code.
+
+   This can be called more that once on a given context,
+   although any errors that occur will block further compilation.  */
+
 extern gcc_jit_result *
 gcc_jit_context_compile (gcc_jit_context *ctxt);
+
+/* Kinds of ahead-of-time compilation, for use with
+   gcc_jit_context_compile_to_file.  */
+
+enum gcc_jit_output_kind
+{
+  /* Compile the context to an assembler file.  */
+  GCC_JIT_OUTPUT_KIND_ASSEMBLER,
+
+  /* Compile the context to an object file.  */
+  GCC_JIT_OUTPUT_KIND_OBJECT_FILE,
+
+  /* Compile the context to a dynamic library.  */
+  GCC_JIT_OUTPUT_KIND_DYNAMIC_LIBRARY,
+
+  /* Compile the context to an executable.  */
+  GCC_JIT_OUTPUT_KIND_EXECUTABLE
+};
+
+/* Compile the context to a file of the given kind.
+
+   This can be called more that once on a given context,
+   although any errors that occur will block further compilation.  */
+
+extern void
+gcc_jit_context_compile_to_file (gcc_jit_context *ctxt,
+				 enum gcc_jit_output_kind output_kind,
+				 const char *output_path);
 
 /* To help with debugging: dump a C-like representation to the given path,
    describing what's been set up on the context.
@@ -254,6 +292,19 @@ gcc_jit_context_dump_to_file (gcc_jit_context *ctxt,
 			      const char *path,
 			      int update_locations);
 
+/* To help with debugging; enable ongoing logging of the context's
+   activity to the given FILE *.
+
+   The caller remains responsible for closing "logfile".
+
+   Params "flags" and "verbosity" are reserved for future use, and
+   must both be 0 for now.  */
+extern void
+gcc_jit_context_set_logfile (gcc_jit_context *ctxt,
+			     FILE *logfile,
+			     int flags,
+			     int verbosity);
+
 /* To be called after a compile, this gives the first error message
    that occurred on the context.
 
@@ -264,12 +315,29 @@ gcc_jit_context_dump_to_file (gcc_jit_context *ctxt,
 extern const char *
 gcc_jit_context_get_first_error (gcc_jit_context *ctxt);
 
+/* To be called after a compile, this gives the last error message
+   that occurred on the context.
+
+   The returned string is valid for the rest of the lifetime of the
+   context.
+
+   If no errors occurred, this will be NULL.  */
+extern const char *
+gcc_jit_context_get_last_error (gcc_jit_context *ctxt);
+
 /* Locate a given function within the built machine code.
    This will need to be cast to a function pointer of the
    correct type before it can be called. */
 extern void *
 gcc_jit_result_get_code (gcc_jit_result *result,
 			 const char *funcname);
+
+/* Locate a given global within the built machine code.
+   It must have been created using GCC_JIT_GLOBAL_EXPORTED.
+   This is a ptr to the global, so e.g. for an int this is an int *.  */
+extern void *
+gcc_jit_result_get_global (gcc_jit_result *result,
+			   const char *name);
 
 /* Once we're done with the code, this unloads the built .so file.
    This cleans up the result; after calling this, it's no longer
@@ -578,10 +646,26 @@ gcc_jit_block_get_function (gcc_jit_block *block);
 /**********************************************************************
  lvalues, rvalues and expressions.
  **********************************************************************/
+enum gcc_jit_global_kind
+{
+  /* Global is defined by the client code and visible
+     by name outside of this JIT context via gcc_jit_result_get_global.  */
+  GCC_JIT_GLOBAL_EXPORTED,
+
+  /* Global is defined by the client code, but is invisible
+     outside of this JIT context.  Analogous to a "static" global.  */
+  GCC_JIT_GLOBAL_INTERNAL,
+
+  /* Global is not defined by the client code; we're merely
+     referring to it.  Analogous to using an "extern" global from a
+     header file.  */
+  GCC_JIT_GLOBAL_IMPORTED
+};
 
 extern gcc_jit_lvalue *
 gcc_jit_context_new_global (gcc_jit_context *ctxt,
 			    gcc_jit_location *loc,
+			    enum gcc_jit_global_kind kind,
 			    gcc_jit_type *type,
 			    const char *name);
 
@@ -603,6 +687,11 @@ extern gcc_jit_rvalue *
 gcc_jit_context_new_rvalue_from_int (gcc_jit_context *ctxt,
 				     gcc_jit_type *numeric_type,
 				     int value);
+
+extern gcc_jit_rvalue *
+gcc_jit_context_new_rvalue_from_long (gcc_jit_context *ctxt,
+				      gcc_jit_type *numeric_type,
+				      long value);
 
 extern gcc_jit_rvalue *
 gcc_jit_context_zero (gcc_jit_context *ctxt,
@@ -649,7 +738,13 @@ enum gcc_jit_unary_op
   /* Logical negation of an arithmetic or pointer value; analogous to:
        !(EXPR)
      in C.  */
-  GCC_JIT_UNARY_OP_LOGICAL_NEGATE
+  GCC_JIT_UNARY_OP_LOGICAL_NEGATE,
+
+  /* Absolute value of an arithmetic expression; analogous to:
+       abs (EXPR)
+     in C.  */
+  GCC_JIT_UNARY_OP_ABS
+
 };
 
 extern gcc_jit_rvalue *
@@ -989,6 +1084,24 @@ gcc_jit_context_new_child_context (gcc_jit_context *parent_ctxt);
  Implementation support.
  **********************************************************************/
 
+/* Write C source code into "path" that can be compiled into a
+   self-contained executable (i.e. with libgccjit as the only dependency).
+   The generated code will attempt to replay the API calls that have been
+   made into the given context.
+
+   This may be useful when debugging the library or client code, for
+   reducing a complicated recipe for reproducing a bug into a simpler
+   form.
+
+   Typically you need to supply the option "-Wno-unused-variable" when
+   compiling the generated file (since the result of each API call is
+   assigned to a unique variable within the generated C source, and not
+   all are necessarily then used).  */
+
+extern void
+gcc_jit_context_dump_reproducer_to_file (gcc_jit_context *ctxt,
+					 const char *path);
+
 /* Enable the dumping of a specific set of internal state from the
    compilation, capturing the result in-memory as a buffer.
 
@@ -999,14 +1112,15 @@ gcc_jit_context_new_child_context (gcc_jit_context *parent_ctxt);
    The context directly stores the dumpname as a (const char *), so the
    passed string must outlive the context.
 
-   gcc_jit_context_compile will capture the dump as a
-   dynamically-allocated buffer, writing it to ``*out_ptr``.
+   gcc_jit_context_compile and gcc_jit_context_to_file
+   will capture the dump as a dynamically-allocated buffer, writing
+   it to ``*out_ptr``.
 
    The caller becomes responsible for calling
       free (*out_ptr)
-   each time that gcc_jit_context_compile is called.  *out_ptr will be
-   written to, either with the address of a buffer, or with NULL if an
-   error occurred.
+   each time that gcc_jit_context_compile or gcc_jit_context_to_file
+   are called.  *out_ptr will be written to, either with the address of a
+   buffer, or with NULL if an error occurred.
 
    This API entrypoint is likely to be less stable than the others.
    In particular, both the precise dumpnames, and the format and content

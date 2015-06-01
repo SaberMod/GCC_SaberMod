@@ -1,6 +1,6 @@
 // Algorithm implementation -*- C++ -*-
 
-// Copyright (C) 2001-2014 Free Software Foundation, Inc.
+// Copyright (C) 2001-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -1273,14 +1273,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /// This is a helper function for the rotate algorithm.
   template<typename _ForwardIterator>
-    void
+    _ForwardIterator
     __rotate(_ForwardIterator __first,
 	     _ForwardIterator __middle,
 	     _ForwardIterator __last,
 	     forward_iterator_tag)
     {
-      if (__first == __middle || __last  == __middle)
-	return;
+      if (__first == __middle)
+	return __last;
+      else if (__last  == __middle)
+	return __first;
 
       _ForwardIterator __first2 = __middle;
       do
@@ -1292,6 +1294,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    __middle = __first2;
 	}
       while (__first2 != __last);
+
+      _ForwardIterator __ret = __first;
 
       __first2 = __middle;
 
@@ -1305,11 +1309,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  else if (__first2 == __last)
 	    __first2 = __middle;
 	}
+      return __ret;
     }
 
    /// This is a helper function for the rotate algorithm.
   template<typename _BidirectionalIterator>
-    void
+    _BidirectionalIterator
     __rotate(_BidirectionalIterator __first,
 	     _BidirectionalIterator __middle,
 	     _BidirectionalIterator __last,
@@ -1319,8 +1324,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __glibcxx_function_requires(_Mutable_BidirectionalIteratorConcept<
 				  _BidirectionalIterator>)
 
-      if (__first == __middle || __last  == __middle)
-	return;
+      if (__first == __middle)
+	return __last;
+      else if (__last  == __middle)
+	return __first;
 
       std::__reverse(__first,  __middle, bidirectional_iterator_tag());
       std::__reverse(__middle, __last,   bidirectional_iterator_tag());
@@ -1332,14 +1339,20 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
 
       if (__first == __middle)
-	std::__reverse(__middle, __last,   bidirectional_iterator_tag());
+	{
+	  std::__reverse(__middle, __last,   bidirectional_iterator_tag());
+	  return __last;
+	}
       else
-	std::__reverse(__first,  __middle, bidirectional_iterator_tag());
+	{
+	  std::__reverse(__first,  __middle, bidirectional_iterator_tag());
+	  return __first;
+	}
     }
 
   /// This is a helper function for the rotate algorithm.
   template<typename _RandomAccessIterator>
-    void
+    _RandomAccessIterator
     __rotate(_RandomAccessIterator __first,
 	     _RandomAccessIterator __middle,
 	     _RandomAccessIterator __last,
@@ -1349,8 +1362,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __glibcxx_function_requires(_Mutable_RandomAccessIteratorConcept<
 				  _RandomAccessIterator>)
 
-      if (__first == __middle || __last  == __middle)
-	return;
+      if (__first == __middle)
+	return __last;
+      else if (__last  == __middle)
+	return __first;
 
       typedef typename iterator_traits<_RandomAccessIterator>::difference_type
 	_Distance;
@@ -1363,10 +1378,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       if (__k == __n - __k)
 	{
 	  std::swap_ranges(__first, __middle, __middle);
-	  return;
+	  return __middle;
 	}
 
       _RandomAccessIterator __p = __first;
+      _RandomAccessIterator __ret = __first + (__last - __middle);
 
       for (;;)
 	{
@@ -1377,7 +1393,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		  _ValueType __t = _GLIBCXX_MOVE(*__p);
 		  _GLIBCXX_MOVE3(__p + 1, __p + __n, __p);
 		  *(__p + __n - 1) = _GLIBCXX_MOVE(__t);
-		  return;
+		  return __ret;
 		}
 	      _RandomAccessIterator __q = __p + __k;
 	      for (_Distance __i = 0; __i < __n - __k; ++ __i)
@@ -1388,7 +1404,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		}
 	      __n %= __k;
 	      if (__n == 0)
-		return;
+		return __ret;
 	      std::swap(__n, __k);
 	      __k = __n - __k;
 	    }
@@ -1400,7 +1416,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		  _ValueType __t = _GLIBCXX_MOVE(*(__p + __n - 1));
 		  _GLIBCXX_MOVE_BACKWARD3(__p, __p + __n - 1, __p + __n);
 		  *__p = _GLIBCXX_MOVE(__t);
-		  return;
+		  return __ret;
 		}
 	      _RandomAccessIterator __q = __p + __n;
 	      __p = __q - __k;
@@ -1412,19 +1428,21 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		}
 	      __n %= __k;
 	      if (__n == 0)
-		return;
+		return __ret;
 	      std::swap(__n, __k);
 	    }
 	}
     }
 
+   // _GLIBCXX_RESOLVE_LIB_DEFECTS
+   // DR 488. rotate throws away useful information
   /**
    *  @brief Rotate the elements of a sequence.
    *  @ingroup mutating_algorithms
    *  @param  __first   A forward iterator.
    *  @param  __middle  A forward iterator.
    *  @param  __last    A forward iterator.
-   *  @return  Nothing.
+   *  @return  first + (last - middle).
    *
    *  Rotates the elements of the range @p [__first,__last) by 
    *  @p (__middle - __first) positions so that the element at @p __middle
@@ -1440,7 +1458,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *  for each @p n in the range @p [0,__last-__first).
   */
   template<typename _ForwardIterator>
-    inline void
+    inline _ForwardIterator
     rotate(_ForwardIterator __first, _ForwardIterator __middle,
 	   _ForwardIterator __last)
     {
@@ -1450,8 +1468,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __glibcxx_requires_valid_range(__first, __middle);
       __glibcxx_requires_valid_range(__middle, __last);
 
-      std::__rotate(__first, __middle, __last,
-		    std::__iterator_category(__first));
+      return std::__rotate(__first, __middle, __last,
+			   std::__iterator_category(__first));
     }
 
   /**
@@ -3305,6 +3323,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *  __b) otherwise.
   */
   template<typename _Tp>
+    _GLIBCXX14_CONSTEXPR
     inline pair<const _Tp&, const _Tp&>
     minmax(const _Tp& __a, const _Tp& __b)
     {
@@ -3325,6 +3344,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *  __b) otherwise.
   */
   template<typename _Tp, typename _Compare>
+    _GLIBCXX14_CONSTEXPR
     inline pair<const _Tp&, const _Tp&>
     minmax(const _Tp& __a, const _Tp& __b, _Compare __comp)
     {
@@ -3334,6 +3354,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 
   template<typename _ForwardIterator, typename _Compare>
+    _GLIBCXX14_CONSTEXPR
     pair<_ForwardIterator, _ForwardIterator>
     __minmax_element(_ForwardIterator __first, _ForwardIterator __last,
 		     _Compare __comp)
@@ -3343,7 +3364,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  || ++__next == __last)
 	return std::make_pair(__first, __first);
 
-      _ForwardIterator __min, __max;
+      _ForwardIterator __min{}, __max{};
       if (__comp(__next, __first))
 	{
 	  __min = __next;
@@ -3404,6 +3425,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *           such that no other element in the range is larger.
   */
   template<typename _ForwardIterator>
+    _GLIBCXX14_CONSTEXPR
     inline pair<_ForwardIterator, _ForwardIterator>
     minmax_element(_ForwardIterator __first, _ForwardIterator __last)
     {
@@ -3430,6 +3452,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *           such that no other element in the range is larger.
   */
   template<typename _ForwardIterator, typename _Compare>
+    _GLIBCXX14_CONSTEXPR
     inline pair<_ForwardIterator, _ForwardIterator>
     minmax_element(_ForwardIterator __first, _ForwardIterator __last,
 		   _Compare __comp)
@@ -3447,26 +3470,31 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // N2722 + DR 915.
   template<typename _Tp>
+    _GLIBCXX14_CONSTEXPR
     inline _Tp
     min(initializer_list<_Tp> __l)
     { return *std::min_element(__l.begin(), __l.end()); }
 
   template<typename _Tp, typename _Compare>
+    _GLIBCXX14_CONSTEXPR
     inline _Tp
     min(initializer_list<_Tp> __l, _Compare __comp)
     { return *std::min_element(__l.begin(), __l.end(), __comp); }
 
   template<typename _Tp>
+    _GLIBCXX14_CONSTEXPR
     inline _Tp
     max(initializer_list<_Tp> __l)
     { return *std::max_element(__l.begin(), __l.end()); }
 
   template<typename _Tp, typename _Compare>
+    _GLIBCXX14_CONSTEXPR
     inline _Tp
     max(initializer_list<_Tp> __l, _Compare __comp)
     { return *std::max_element(__l.begin(), __l.end(), __comp); }
 
   template<typename _Tp>
+    _GLIBCXX14_CONSTEXPR
     inline pair<_Tp, _Tp>
     minmax(initializer_list<_Tp> __l)
     {
@@ -3476,6 +3504,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 
   template<typename _Tp, typename _Compare>
+    _GLIBCXX14_CONSTEXPR
     inline pair<_Tp, _Tp>
     minmax(initializer_list<_Tp> __l, _Compare __comp)
     {
@@ -3607,7 +3636,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       // Efficiently compare identical prefixes:  O(N) if sequences
       // have the same elements in the same order.
-      for (; __first1 != __last1; ++__first1, ++__first2)
+      for (; __first1 != __last1 && __first2 != __last2;
+	  ++__first1, ++__first2)
 	if (!__pred(__first1, __first2))
 	  break;
 
@@ -5416,6 +5446,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
     }
 
   template<typename _ForwardIterator, typename _Compare>
+    _GLIBCXX14_CONSTEXPR
     _ForwardIterator
     __min_element(_ForwardIterator __first, _ForwardIterator __last,
 		  _Compare __comp)
@@ -5437,6 +5468,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
    *  @return  Iterator referencing the first instance of the smallest value.
   */
   template<typename _ForwardIterator>
+    _GLIBCXX14_CONSTEXPR
     _ForwardIterator
     inline min_element(_ForwardIterator __first, _ForwardIterator __last)
     {
@@ -5460,6 +5492,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
    *  according to __comp.
   */
   template<typename _ForwardIterator, typename _Compare>
+    _GLIBCXX14_CONSTEXPR
     inline _ForwardIterator
     min_element(_ForwardIterator __first, _ForwardIterator __last,
 		_Compare __comp)
@@ -5476,6 +5509,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
     }
 
   template<typename _ForwardIterator, typename _Compare>
+    _GLIBCXX14_CONSTEXPR
     _ForwardIterator
     __max_element(_ForwardIterator __first, _ForwardIterator __last,
 		  _Compare __comp)
@@ -5496,6 +5530,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
    *  @return  Iterator referencing the first instance of the largest value.
   */
   template<typename _ForwardIterator>
+    _GLIBCXX14_CONSTEXPR
     inline _ForwardIterator
     max_element(_ForwardIterator __first, _ForwardIterator __last)
     {
@@ -5519,6 +5554,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
    *  according to __comp.
   */
   template<typename _ForwardIterator, typename _Compare>
+    _GLIBCXX14_CONSTEXPR
     inline _ForwardIterator
     max_element(_ForwardIterator __first, _ForwardIterator __last,
 		_Compare __comp)

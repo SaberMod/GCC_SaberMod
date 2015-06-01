@@ -1,5 +1,5 @@
 ;; ARM Thumb-1 Machine Description
-;; Copyright (C) 2007-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2015 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -21,6 +21,27 @@
 ;;---------------------------------------------------------------------------
 ;; Insn patterns
 ;;
+
+;; Beware of splitting Thumb1 patterns that output multiple
+;; assembly instructions, in particular instruction such as SBC and
+;; ADC which consume flags.  For example, in the pattern thumb_subdi3
+;; below, the output SUB implicitly sets the flags (assembled to SUBS)
+;; and then the Carry flag is used by SBC to compute the correct
+;; result.  If we split thumb_subdi3 pattern into two separate RTL
+;; insns (using define_insn_and_split), the scheduler might place
+;; other RTL insns between SUB and SBC, possibly modifying the Carry
+;; flag used by SBC.  This might happen because most Thumb1 patterns
+;; for flag-setting instructions do not have explicit RTL for setting
+;; or clobbering the flags.  Instead, they have the attribute "conds"
+;; with value "set" or "clob".  However, this attribute is not used to
+;; identify dependencies and therefore the scheduler might reorder
+;; these instruction.  Currenly, this problem cannot happen because
+;; there are no separate Thumb1 patterns for individual instruction
+;; that consume flags (except conditional execution, which is treated
+;; differently).  In particular there is no Thumb1 armv6-m pattern for
+;; sbc or adc.
+
+
 
 (define_insn "*thumb1_adddi3"
   [(set (match_operand:DI          0 "register_operand" "=l")

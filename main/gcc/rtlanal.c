@@ -1,5 +1,5 @@
 /* Analyze RTL for GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -41,6 +41,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "predict.h"
 #include "basic-block.h"
 #include "df.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "emit-rtl.h"  /* FIXME: Can go away once crtl is moved to rtl.h.  */
 #include "addresses.h"
@@ -997,6 +1000,17 @@ reg_set_between_p (const_rtx reg, const rtx_insn *from_insn,
 int
 reg_set_p (const_rtx reg, const_rtx insn)
 {
+  /* After delay slot handling, call and branch insns might be in a
+     sequence.  Check all the elements there.  */
+  if (INSN_P (insn) && GET_CODE (PATTERN (insn)) == SEQUENCE)
+    {
+      for (int i = 0; i < XVECLEN (PATTERN (insn), 0); ++i)
+	if (reg_set_p (reg, XVECEXP (PATTERN (insn), 0, i)))
+	  return true;
+
+      return false;
+    }
+
   /* We can be passed an insn or part of one.  If we are passed an insn,
      check if a side-effect of the insn clobbers REG.  */
   if (INSN_P (insn)
@@ -1008,7 +1022,7 @@ reg_set_p (const_rtx reg, const_rtx insn)
 					       GET_MODE (reg), REGNO (reg)))
 		  || MEM_P (reg)
 		  || find_reg_fusage (insn, CLOBBER, reg)))))
-    return 1;
+    return true;
 
   return set_of (reg, insn) != NULL_RTX;
 }
@@ -1402,7 +1416,7 @@ noop_move_p (const_rtx insn)
    References contained within the substructure at LOC do not count.
    LOC may be zero, meaning don't ignore anything.  */
 
-int
+bool
 refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 		   rtx *loc)
 {
@@ -1415,7 +1429,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
   /* The contents of a REG_NONNEG note is always zero, so we must come here
      upon repeat in case the last REG_NOTE is a REG_NONNEG note.  */
   if (x == 0)
-    return 0;
+    return false;
 
   code = GET_CODE (x);
 
@@ -1433,7 +1447,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 #endif
 	   || x_regno == FRAME_POINTER_REGNUM)
 	  && regno >= FIRST_VIRTUAL_REGISTER && regno <= LAST_VIRTUAL_REGISTER)
-	return 1;
+	return true;
 
       return endregno > x_regno && regno < END_REGNO (x);
 
@@ -1466,10 +1480,10 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 				     SUBREG_REG (SET_DEST (x)), loc))
 	      || (!REG_P (SET_DEST (x))
 		  && refers_to_regno_p (regno, endregno, SET_DEST (x), loc))))
-	return 1;
+	return true;
 
       if (code == CLOBBER || loc == &SET_SRC (x))
-	return 0;
+	return false;
       x = SET_SRC (x);
       goto repeat;
 
@@ -1491,7 +1505,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 	    }
 	  else
 	    if (refers_to_regno_p (regno, endregno, XEXP (x, i), loc))
-	      return 1;
+	      return true;
 	}
       else if (fmt[i] == 'E')
 	{
@@ -1499,10 +1513,10 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, const_rtx x,
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	    if (loc != &XVECEXP (x, i, j)
 		&& refers_to_regno_p (regno, endregno, XVECEXP (x, i, j), loc))
-	      return 1;
+	      return true;
 	}
     }
-  return 0;
+  return false;
 }
 
 /* Nonzero if modifying X will affect IN.  If X is a register or a SUBREG,
@@ -3424,6 +3438,22 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
 	  info->nregs
 	    = (GET_MODE_SIZE (ymode) + regsize_xmode - 1) / regsize_xmode;
 	  info->offset = offset / regsize_xmode;
+	  return;
+	}
+      /* Quick exit for the simple and common case of extracting whole
+	 subregisters from a multiregister value.  */
+      /* ??? It would be better to integrate this into the code below,
+	 if we can generalize the concept enough and figure out how
+	 odd-sized modes can coexist with the other weird cases we support.  */
+      if (!rknown
+	  && WORDS_BIG_ENDIAN == REG_WORDS_BIG_ENDIAN
+	  && regsize_xmode == regsize_ymode
+	  && (offset % regsize_ymode) == 0)
+	{
+	  info->representable_p = true;
+	  info->nregs = nregs_ymode;
+	  info->offset = offset / regsize_ymode;
+	  gcc_assert (info->offset + info->nregs <= nregs_xmode);
 	  return;
 	}
     }
@@ -5674,7 +5704,8 @@ get_index_term (rtx *inner)
     inner = strip_address_mutations (&XEXP (*inner, 0));
   if (REG_P (*inner)
       || MEM_P (*inner)
-      || GET_CODE (*inner) == SUBREG)
+      || GET_CODE (*inner) == SUBREG
+      || GET_CODE (*inner) == SCRATCH)
     return inner;
   return 0;
 }

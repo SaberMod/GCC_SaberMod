@@ -1,5 +1,5 @@
 /* Check calls to formatted I/O functions (-Wformat).
-   Copyright (C) 1992-2014 Free Software Foundation, Inc.
+   Copyright (C) 1992-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,6 +21,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "flags.h"
@@ -1432,6 +1442,13 @@ check_format_arg (void *ctx, tree format_tree,
   tree array_size = 0;
   tree array_init;
   alloc_pool fwt_pool;
+
+  if (TREE_CODE (format_tree) == VAR_DECL)
+    {
+      /* Pull out a constant value if the front end didn't.  */
+      format_tree = decl_constant_value (format_tree);
+      STRIP_NOPS (format_tree);
+    }
 
   if (integer_zerop (format_tree))
     {

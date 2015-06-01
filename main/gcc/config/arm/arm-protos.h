@@ -1,5 +1,5 @@
 /* Prototypes for exported functions defined in arm.c and pe.c
-   Copyright (C) 1999-2014 Free Software Foundation, Inc.
+   Copyright (C) 1999-2015 Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rearnsha@arm.com)
    Minor hacks by Nick Clifton (nickc@cygnus.com)
 
@@ -257,6 +257,13 @@ struct cpu_vec_costs {
 
 struct cpu_cost_table;
 
+enum arm_sched_autopref
+  {
+    ARM_SCHED_AUTOPREF_OFF,
+    ARM_SCHED_AUTOPREF_RANK,
+    ARM_SCHED_AUTOPREF_FULL
+  };
+
 struct tune_params
 {
   bool (*rtx_costs) (rtx, RTX_CODE, RTX_CODE, int *, bool);
@@ -289,6 +296,10 @@ struct tune_params
   bool string_ops_prefer_neon;
   /* Maximum number of instructions to inline calls to memset.  */
   int max_insns_inline_memset;
+  /* Bitfield encoding the fuseable pairs of instructions.  */
+  unsigned int fuseable_ops;
+  /* Depth of scheduling queue to check for L2 autoprefetcher.  */
+  enum arm_sched_autopref sched_autopref;
 };
 
 extern const struct tune_params *current_tune;

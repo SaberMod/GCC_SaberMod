@@ -1,5 +1,5 @@
 /* Parse C expressions for cpplib.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994.
 
 This program is free software; you can redistribute it and/or modify it
@@ -696,9 +696,9 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token,
       && CPP_PEDANTIC (pfile))
     cpp_error_with_line (pfile, CPP_DL_PEDWARN, virtual_location, 0,
 			 CPP_OPTION (pfile, cplusplus)
-			 ? "binary constants are a C++14 feature "
-			   "or GCC extension"
-			 : "binary constants are a GCC extension");
+			 ? N_("binary constants are a C++14 feature "
+			      "or GCC extension")
+			 : N_("binary constants are a GCC extension"));
 
   if (radix == 10)
     result |= CPP_N_DECIMAL;

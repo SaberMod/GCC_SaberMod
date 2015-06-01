@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2014 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2015 Free Software Foundation, Inc.
 
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -1544,7 +1544,7 @@ struct bar @{ struct foo z; @};
 struct foo a = @{ 1, @{ 2, 3, 4 @} @};        // @r{Valid.}
 struct bar b = @{ @{ 1, @{ 2, 3, 4 @} @} @};    // @r{Invalid.}
 struct bar c = @{ @{ 1, @{ @} @} @};            // @r{Valid.}
-struct foo d[1] = @{ @{ 1 @{ 2, 3, 4 @} @} @};  // @r{Invalid.}
+struct foo d[1] = @{ @{ 1, @{ 2, 3, 4 @} @} @};  // @r{Invalid.}
 @end smallexample
 
 @node Empty Structures
@@ -2195,6 +2195,7 @@ attribute specification inside double parentheses.  The following
 attributes are currently defined for functions on all targets:
 @code{aligned}, @code{alloc_size}, @code{alloc_align}, @code{assume_aligned},
 @code{noreturn}, @code{returns_twice}, @code{noinline}, @code{noclone},
+@code{no_icf},
 @code{always_inline}, @code{flatten}, @code{pure}, @code{const},
 @code{nothrow}, @code{sentinel}, @code{format}, @code{format_arg},
 @code{no_instrument_function}, @code{no_split_stack},
@@ -2205,8 +2206,9 @@ attributes are currently defined for functions on all targets:
 @code{returns_nonnull}, @code{gnu_inline},
 @code{externally_visible}, @code{hot}, @code{cold}, @code{artificial},
 @code{no_sanitize_address}, @code{no_address_safety_analysis},
+@code{no_sanitize_thread},
 @code{no_sanitize_undefined}, @code{no_reorder}, @code{bnd_legacy},
-@code{bnd_instrument},
+@code{bnd_instrument}, @code{stack_protect},
 @code{error} and @code{warning}.
 Several other attributes are defined for functions on particular
 target systems.  Other attributes, including @code{section} are
@@ -2935,12 +2937,11 @@ least version 2.20.1), and GNU C library (at least version 2.11.1).
 @item interrupt
 @cindex interrupt handler functions
 Use this attribute on the ARC, ARM, AVR, CR16, Epiphany, M32C, M32R/D,
-m68k, MeP, MIPS, MSP430, RL78, RX and Xstormy16 ports to indicate that
-the specified function is an
-interrupt handler.  The compiler generates function entry and exit
-sequences suitable for use in an interrupt handler when this attribute
-is present.  With Epiphany targets it may also generate a special section with
-code to initialize the interrupt vector table.
+m68k, MeP, MIPS, MSP430, RL78, RX, Visium and Xstormy16 ports to indicate
+that the specified function is an interrupt handler.  The compiler generates
+function entry and exit sequences suitable for use in an interrupt handler
+when this attribute is present.  With Epiphany targets it may also generate
+a special section with code to initialize the interrupt vector table.
 
 Note, interrupt handlers for the Blackfin, H8/300, H8/300H, H8S, MicroBlaze,
 and SH processors can be specified via the @code{interrupt_handler} attribute.
@@ -3444,6 +3445,12 @@ prologue which decides whether to split the stack.  Functions with the
 @code{no_split_stack} attribute do not have that prologue, and thus
 may run with only a small amount of stack space available.
 
+@item stack_protect
+@cindex @code{stack_protect} function attribute
+This function attribute make a stack protection of the function if 
+flags @option{fstack-protector} or @option{fstack-protector-strong}
+or @option{fstack-protector-explicit} are set.
+
 @item noinline
 @cindex @code{noinline} function attribute
 This function attribute prevents a function from being considered for
@@ -3468,6 +3475,11 @@ This function attribute prevents a function from being considered for
 cloning---a mechanism that produces specialized copies of functions
 and which is (currently) performed by interprocedural constant
 propagation.
+
+@item no_icf
+@cindex @code{no_icf} function attribute
+This function attribute prevents a functions from being merged with another
+semantically equivalent function.
 
 @item nonnull (@var{arg-index}, @dots{})
 @cindex @code{nonnull} function attribute
@@ -3721,6 +3733,12 @@ in the function when compiling with the @option{-fsanitize=address} option.
 The @code{no_address_safety_analysis} is a deprecated alias of the
 @code{no_sanitize_address} attribute, new code should use
 @code{no_sanitize_address}.
+
+@item no_sanitize_thread
+@cindex @code{no_sanitize_thread} function attribute
+The @code{no_sanitize_thread} attribute on functions is used
+to inform the compiler that it should not instrument memory accesses
+in the function when compiling with the @option{-fsanitize=thread} option.
 
 @item no_sanitize_undefined
 @cindex @code{no_sanitize_undefined} function attribute

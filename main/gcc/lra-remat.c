@@ -1,5 +1,5 @@
 /* Rematerialize pseudos values.
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -71,6 +71,23 @@ along with GCC; see the file COPYING3.	If not see
 #include "machmode.h"
 #include "input.h"
 #include "function.h"
+#include "symtab.h"
+#include "flags.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "predict.h"
 #include "dominance.h"
@@ -81,7 +98,6 @@ along with GCC; see the file COPYING3.	If not see
 #include "ira.h"
 #include "sparseset.h"
 #include "params.h"
-#include "df.h"
 #include "lra-int.h"
 
 /* Number of candidates for rematerialization.  */
@@ -397,6 +413,9 @@ operand_to_remat (rtx_insn *insn)
   struct lra_static_insn_data *static_id = id->insn_static_data;
   struct lra_insn_reg *reg, *found_reg = NULL;
 
+  /* Don't rematerialize insns which can change PC.  */
+  if (JUMP_P (insn) || CALL_P (insn))
+    return -1;
   /* First find a pseudo which can be rematerialized.  */
   for (reg = id->regs; reg != NULL; reg = reg->next)
     /* True FRAME_POINTER_NEEDED might be because we can not follow

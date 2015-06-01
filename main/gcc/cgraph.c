@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -27,14 +27,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "varasm.h"
 #include "calls.h"
 #include "print-tree.h"
 #include "tree-inline.h"
 #include "langhooks.h"
 #include "hashtab.h"
-#include "hash-set.h"
 #include "toplev.h"
 #include "flags.h"
 #include "debug.h"
@@ -46,10 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -73,10 +79,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-streamer.h"
 #include "l-ipo.h"
 #include "alloc-pool.h"
+#include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "cfgloop.h"
 #include "gimple-pretty-print.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "profile.h"
@@ -497,7 +513,7 @@ cgraph_node::create (tree decl)
 
   node->decl = decl;
 
-  if (flag_openmp
+  if ((flag_openacc || flag_openmp)
       && lookup_attribute ("omp declare target", DECL_ATTRIBUTES (decl)))
     {
       node->offloadable = 1;
@@ -959,20 +975,6 @@ cgraph_node::create_indirect_edge (gcall *call_stmt, int ecf_flags,
   return edge;
 }
 
-/* Remove the edge from the list of the callers of the callee.  */
-
-void
-cgraph_edge::remove_callee (void)
-{
-  gcc_assert (!indirect_unknown_callee);
-  if (prev_caller)
-    prev_caller->next_caller = next_caller;
-  if (next_caller)
-    next_caller->prev_caller = prev_caller;
-  if (!prev_caller)
-    callee->callers = next_caller;
-}
-
 /* Remove the edge from the list of the callees of the caller.  */
 
 void
@@ -1179,19 +1181,6 @@ cgraph_edge::speculative_call_info (cgraph_edge *&direct,
   gcc_assert (e && e2 && ref);
 }
 
-/* Redirect callee of the edge to N.  The function does not update underlying
-   call expression.  */
-
-void
-cgraph_edge::redirect_callee (cgraph_node *n)
-{
-  /* Remove from callers list of the current callee.  */
-  remove_callee ();
-
-  /* Insert to callers list of the new callee.  */
-  cgraph_set_edge_callee (this, n);
-}
-
 /* Speculative call edge turned out to be direct call to CALLE_DECL.
    Remove the speculative call sequence and return edge representing the call.
    It is up to caller to redirect the call as appropriate. */
@@ -1298,7 +1287,7 @@ cgraph_edge::make_direct (cgraph_node *callee)
   caller->callees = edge;
 
   /* Insert to callers list of the new callee.  */
-  cgraph_set_edge_callee (edge, callee);
+  edge->set_callee (callee);
 
   if (call_stmt)
     call_stmt_cannot_inline_p
@@ -1974,24 +1963,22 @@ cgraph_inline_failed_type (cgraph_inline_failed_t reason)
 const char * const cgraph_availability_names[] =
   {"unset", "not_available", "overwritable", "available", "local"};
 
-/* Output flags of edge E.  */
+/* Output flags of edge to a file F.  */
 
-static void
-dump_edge_flags (FILE *f, struct cgraph_edge *edge)
+void
+cgraph_edge::dump_edge_flags (FILE *f)
 {
-  if (edge->speculative)
+  if (speculative)
     fprintf (f, "(speculative) ");
-  if (!edge->inline_failed)
+  if (!inline_failed)
     fprintf (f, "(inlined) ");
-  if (edge->indirect_inlining_edge)
+  if (indirect_inlining_edge)
     fprintf (f, "(indirect_inlining) ");
-  if (edge->count)
-    fprintf (f, "(%"PRId64"x) ",
-	     (int64_t)edge->count);
-  if (edge->frequency)
-    fprintf (f, "(%.2f per call) ",
-	     edge->frequency / (double)CGRAPH_FREQ_BASE);
-  if (edge->can_throw_external)
+  if (count)
+    fprintf (f, "(%"PRId64"x) ", (int64_t)count);
+  if (frequency)
+    fprintf (f, "(%.2f per call) ", frequency / (double)CGRAPH_FREQ_BASE);
+  if (can_throw_external)
     fprintf (f, "(can throw external) ");
 }
 
@@ -2053,6 +2040,18 @@ cgraph_node::dump (FILE *f)
     fprintf (f," static_constructor (priority:%i)", get_init_priority ());
   if (DECL_STATIC_DESTRUCTOR (decl))
     fprintf (f," static_destructor (priority:%i)", get_fini_priority ());
+  if (frequency == NODE_FREQUENCY_HOT)
+    fprintf (f, " hot");
+  if (frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED)
+    fprintf (f, " unlikely_executed");
+  if (frequency == NODE_FREQUENCY_EXECUTED_ONCE)
+    fprintf (f, " executed_once");
+  if (only_called_at_startup)
+    fprintf (f, " only_called_at_startup");
+  if (only_called_at_exit)
+    fprintf (f, " only_called_at_exit");
+  if (opt_for_fn (decl, optimize_size))
+    fprintf (f, " optimize_size");
 
   fprintf (f, "\n");
 
@@ -2086,7 +2085,7 @@ cgraph_node::dump (FILE *f)
     {
       fprintf (f, "%s/%i ", edge->caller->asm_name (),
 	       edge->caller->order);
-      dump_edge_flags (f, edge);
+      edge->dump_edge_flags (f);
     }
 
   fprintf (f, "\n  Calls: ");
@@ -2094,7 +2093,7 @@ cgraph_node::dump (FILE *f)
     {
       fprintf (f, "%s/%i ", edge->callee->asm_name (),
 	       edge->callee->order);
-      dump_edge_flags (f, edge);
+      edge->dump_edge_flags (f);
     }
   fprintf (f, "\n");
 
@@ -2108,7 +2107,7 @@ cgraph_node::dump (FILE *f)
 	}
       else
         fprintf (f, "   Indirect call");
-      dump_edge_flags (f, edge);
+      edge->dump_edge_flags (f);
       if (edge->indirect_info->param_index != -1)
 	{
 	  fprintf (f, " of param:%i", edge->indirect_info->param_index);
@@ -2667,45 +2666,45 @@ clone_of_p (cgraph_node *node, cgraph_node *node2)
   return node2 != NULL;
 }
 
-/* Verify edge E count and frequency.  */
+/* Verify edge count and frequency.  */
 
-static bool
-verify_edge_count_and_frequency (cgraph_edge *e)
+bool
+cgraph_edge::verify_count_and_frequency ()
 {
   bool error_found = false;
-  if (e->count < 0)
+  if (count < 0)
     {
       error ("caller edge count is negative");
       error_found = true;
     }
-  if (e->frequency < 0)
+  if (frequency < 0)
     {
       error ("caller edge frequency is negative");
       error_found = true;
     }
-  if (e->frequency > CGRAPH_FREQ_MAX)
+  if (frequency > CGRAPH_FREQ_MAX)
     {
       error ("caller edge frequency is too large");
       error_found = true;
     }
-  if (gimple_has_body_p (e->caller->decl)
-      && e->call_stmt
-      && !e->caller->global.inlined_to
-      && !e->speculative
+  if (gimple_has_body_p (caller->decl)
+      && this->call_stmt
+      && !caller->global.inlined_to
+      && !speculative
       /* FIXME: Inline-analysis sets frequency to 0 when edge is optimized out.
 	 Remove this once edges are actually removed from the function at that time.  */
-      && (e->frequency
+      && (frequency
 	  || (inline_edge_summary_vec.exists ()
-	      && ((inline_edge_summary_vec.length () <= (unsigned) e->uid)
-	          || !inline_edge_summary (e)->predicate)))
-      && (e->frequency
-	  != compute_call_stmt_bb_frequency (e->caller->decl,
-					     gimple_bb (e->call_stmt))))
+	      && ((inline_edge_summary_vec.length () <= (unsigned) uid)
+	          || !inline_edge_summary (this)->predicate)))
+      && (frequency
+	  != compute_call_stmt_bb_frequency (caller->decl,
+					     gimple_bb (call_stmt))))
     {
       error ("caller edge frequency %i does not match BB frequency %i",
-	     e->frequency,
-	     compute_call_stmt_bb_frequency (e->caller->decl,
-					     gimple_bb (e->call_stmt)));
+	     frequency,
+	     compute_call_stmt_bb_frequency (caller->decl,
+					     gimple_bb (call_stmt)));
       error_found = true;
     }
   return error_found;
@@ -2730,15 +2729,15 @@ cgraph_debug_gimple_stmt (function *this_cfun, gimple stmt)
     current_function_decl = NULL;
 }
 
-/* Verify that call graph edge E corresponds to DECL from the associated
+/* Verify that call graph edge corresponds to DECL from the associated
    statement.  Return true if the verification should fail.  */
 
-static bool
-verify_edge_corresponds_to_fndecl (cgraph_edge *e, tree decl)
+bool
+cgraph_edge::verify_corresponds_to_fndecl (tree decl)
 {
   cgraph_node *node;
 
-  if (!decl || e->callee->global.inlined_to)
+  if (!decl || callee->global.inlined_to)
     return false;
   if (symtab->state == LTO_STREAMING)
     return false;
@@ -2752,20 +2751,20 @@ verify_edge_corresponds_to_fndecl (cgraph_edge *e, tree decl)
       || node->body_removed
       || node->in_other_partition
       || node->icf_merged
-      || e->callee->in_other_partition)
+      || callee->in_other_partition)
     return false;
 
   node = node->ultimate_alias_target ();
 
   /* Optimizers can redirect unreachable calls or calls triggering undefined
      behaviour to builtin_unreachable.  */
-  if (DECL_BUILT_IN_CLASS (e->callee->decl) == BUILT_IN_NORMAL
-      && DECL_FUNCTION_CODE (e->callee->decl) == BUILT_IN_UNREACHABLE)
+  if (DECL_BUILT_IN_CLASS (callee->decl) == BUILT_IN_NORMAL
+      && DECL_FUNCTION_CODE (callee->decl) == BUILT_IN_UNREACHABLE)
     return false;
 
-  if (e->callee->former_clone_of != node->decl
-      && (node != e->callee->ultimate_alias_target ())
-      && !clone_of_p (node, e->callee))
+  if (callee->former_clone_of != node->decl
+      && (node != callee->ultimate_alias_target ())
+      && !clone_of_p (node, callee))
     return true;
   else
     return false;
@@ -2845,7 +2844,7 @@ cgraph_node::verify_node (void)
   bool check_comdat = comdat_local_p ();
   for (e = callers; e; e = e->next_caller)
     {
-      if (verify_edge_count_and_frequency (e))
+      if (e->verify_count_and_frequency ())
 	error_found = true;
       if (check_comdat
 	  && !in_same_comdat_group_p (e->caller))
@@ -2877,7 +2876,7 @@ cgraph_node::verify_node (void)
 	  }
     }
   for (e = indirect_calls; e; e = e->next_callee)
-    if (verify_edge_count_and_frequency (e))
+    if (e->verify_count_and_frequency ())
       error_found = true;
   if (!callers && global.inlined_to)
     {
@@ -3084,7 +3083,7 @@ cgraph_node::verify_node (void)
 			    }
 			  if (!e->indirect_unknown_callee)
 			    {
-			      if (verify_edge_corresponds_to_fndecl (e, decl))
+			      if (e->verify_corresponds_to_fndecl (decl))
 				{
 				  error ("edge points to wrong declaration:");
 				  debug_tree (e->callee->decl);

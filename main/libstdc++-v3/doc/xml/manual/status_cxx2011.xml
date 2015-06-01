@@ -75,11 +75,10 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>18.2</entry>
       <entry>Types</entry>
-      <entry>Partial</entry>
-      <entry>Missing offsetof</entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>18.3</entry>
@@ -270,11 +269,10 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>19.2</entry>
       <entry>Exception classes</entry>
-      <entry>Partial</entry>
-      <entry>Missing <code>const char*</code> constructors.</entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>19.3</entry>
@@ -319,11 +317,10 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>19.5.5</entry>
       <entry>Class <code>system_error</code></entry>
-      <entry>Partial</entry>
-      <entry>Missing <code>const char*</code> constructors.</entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>
@@ -664,10 +661,9 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>20.7.2.5</entry>
       <entry><code>shared_ptr</code> atomic access</entry>
-      <entry>Partial</entry>
+      <entry>Y</entry>
       <entry/>
     </row>
     <row>
@@ -948,11 +944,10 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>20.11.5</entry>
       <entry>Class template <code>duration</code></entry>
-      <entry>Partial</entry>
-      <entry>Missing constexpr for non-member arithmetic operations</entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>20.11.6</entry>
@@ -1072,18 +1067,16 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>21.2.3.1</entry>
       <entry>struct <code>char_traits&lt;char&gt;</code></entry>
-      <entry>Partial</entry>
-      <entry>Missing constexpr</entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>21.2.3.2</entry>
       <entry>struct <code>char_traits&lt;char16_t&gt;</code></entry>
-      <entry>Partial</entry>
-      <entry>Missing constexpr</entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>21.2.3.3</entry>
@@ -1104,11 +1097,10 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>21.4</entry>
       <entry>Class template <code>basic_string</code></entry>
-      <entry>Partial</entry>
-      <entry>Non-conforming Copy-On-Write implementation</entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>21.5</entry>
@@ -1194,17 +1186,15 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#C8B0B0" ?>
       <entry>22.3.3.2.2</entry>
       <entry><code>string</code> conversions</entry>
-      <entry>N</entry>
+      <entry>Y</entry>
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#C8B0B0" ?>
       <entry>22.3.3.2.3</entry>
       <entry>Buffer conversions</entry>
-      <entry>N</entry>
+      <entry>Y</entry>
       <entry/>
     </row>
     <row>
@@ -1214,12 +1204,10 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>22.4.1</entry>
       <entry>The <code>ctype</code> category</entry>
-      <entry>Partial</entry>
-      <entry>Missing <code>codecvt&lt;char16_t></code> and
-             <code>codecvt&lt;char32_t></code></entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>22.4.2</entry>
@@ -1258,18 +1246,16 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>22.4.5.1</entry>
       <entry>Class template <code>time_get</code></entry>
-      <entry>Partial</entry>
-      <entry>Missing <code>get</code> and <code>do_get</code></entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>22.4.5.2</entry>
       <entry>Class template <code>time_get_byname</code></entry>
-      <entry>Partial</entry>
-      <entry>Likewise</entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>22.4.5.3</entry>
@@ -1326,10 +1312,9 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#C8B0B0" ?>
       <entry>22.5</entry>
       <entry>Standard code conversion facets</entry>
-      <entry>N</entry>
+      <entry>Y</entry>
       <entry/>
     </row>
     <row>
@@ -1630,11 +1615,10 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>25.3</entry>
       <entry>Mutating sequence operations</entry>
-      <entry>Partial</entry>
-      <entry><code>rotate</code> returns <code>void</code>.</entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>25.4</entry>
@@ -1677,8 +1661,8 @@ particular release.
     <row>
       <entry>26.4</entry>
       <entry>Complex numbers</entry>
-      <entry>Partial</entry>
-      <entry>Missing constexpr</entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>26.5</entry>
@@ -1708,19 +1692,19 @@ particular release.
       <entry>26.5.3.1</entry>
       <entry>Class template <code>linear_congruential_engine</code></entry>
       <entry>Y</entry>
-      <entry>Missing constexpr</entry>
+      <entry/>
     </row>
     <row>
       <entry>26.5.3.2</entry>
       <entry>Class template <code>mersenne_twister_engine</code></entry>
       <entry>Y</entry>
-      <entry>Missing constexpr</entry>
+      <entry/>
     </row>
     <row>
       <entry>26.5.3.3</entry>
       <entry>Class template <code>subtract_with_carry_engine</code></entry>
       <entry>Y</entry>
-      <entry>Missing constexpr</entry>
+      <entry/>
     </row>
     <row>
       <entry>26.5.4</entry>
@@ -1732,19 +1716,19 @@ particular release.
       <entry>26.5.4.2</entry>
       <entry>Class template <code>discard_block_engine</code></entry>
       <entry>Y</entry>
-      <entry>Missing constexpr</entry>
+      <entry/>
     </row>
     <row>
       <entry>26.5.4.3</entry>
       <entry>Class template <code>independent_bits_engine</code></entry>
       <entry>Y</entry>
-      <entry>Missing constexpr</entry>
+      <entry/>
     </row>
     <row>
       <entry>26.5.4.4</entry>
       <entry>Class template <code>shuffle_order_engine</code></entry>
       <entry>Y</entry>
-      <entry>Missing constexpr</entry>
+      <entry/>
     </row>
     <row>
       <entry>26.5.5</entry>
@@ -1756,7 +1740,7 @@ particular release.
       <entry>26.5.6</entry>
       <entry>Class <code>random_device</code></entry>
       <entry>Y</entry>
-      <entry>Missing constexpr</entry>
+      <entry/>
     </row>
     <row>
       <entry>26.5.7</entry>
@@ -2116,14 +2100,10 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>27.5</entry>
       <entry>Iostreams base classes</entry>
-      <entry>Partial</entry>
-      <entry>
-        Missing <code>io_errc</code> and <code>iostream_category</code>.
-        <code>ios_base::failure</code> is not derived from <code>system_error</code>.
-      </entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>27.6</entry>
@@ -2132,13 +2112,10 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>27.7</entry>
       <entry>Formatting and manipulators</entry>
-      <entry>Partial</entry>
-      <entry>
-        Missing <code>get_time</code> manipulator.
-      </entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>27.8</entry>

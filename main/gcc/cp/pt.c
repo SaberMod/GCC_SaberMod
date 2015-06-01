@@ -1,5 +1,5 @@
 /* Handle parameterized types (templates) for GNU -*- C++ -*-.
-   Copyright (C) 1992-2014 Free Software Foundation, Inc.
+   Copyright (C) 1992-2015 Free Software Foundation, Inc.
    Written by Ken Raeburn (raeburn@cygnus.com) while at Watchmaker Computing.
    Rewritten by Jason Merrill (jason@cygnus.com).
 
@@ -28,6 +28,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "plugin-api.h"
 #include "is-a.h"
@@ -4590,13 +4599,8 @@ check_default_tmpl_args (tree decl, tree parms, bool is_primary,
 		     parameter pack, at the end of the template
 		     parameter list.  */
 
-		  if (TREE_CODE (TREE_VALUE (parm)) == PARM_DECL)
-		    error ("parameter pack %qE must be at the end of the"
-			   " template parameter list", TREE_VALUE (parm));
-		  else
-		    error ("parameter pack %qT must be at the end of the"
-			   " template parameter list", 
-			   TREE_TYPE (TREE_VALUE (parm)));
+		  error ("parameter pack %q+D must be at the end of the"
+			 " template parameter list", TREE_VALUE (parm));
 
 		  TREE_VALUE (TREE_VEC_ELT (inner_parms, i)) 
 		    = error_mark_node;
@@ -6536,6 +6540,9 @@ convert_template_argument (tree parm,
   tree val;
   int is_type, requires_type, is_tmpl_type, requires_tmpl_type;
 
+  if (parm == error_mark_node)
+    return error_mark_node;
+
   if (TREE_CODE (arg) == TREE_LIST
       && TREE_CODE (TREE_VALUE (arg)) == OFFSET_REF)
     {
@@ -6830,6 +6837,9 @@ coerce_template_parameter_pack (tree parms,
               if (invalid_nontype_parm_type_p (t, complain))
                 return error_mark_node;
             }
+	  /* We don't know how many args we have yet, just
+	     use the unconverted ones for now.  */
+	  return NULL_TREE;
         }
 
       packed_args = make_tree_vec (TREE_VEC_LENGTH (packed_parms));
@@ -17855,7 +17865,13 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
       if (TREE_CODE (parm) == ARRAY_TYPE)
 	elttype = TREE_TYPE (parm);
       else
-	elttype = TREE_VEC_ELT (CLASSTYPE_TI_ARGS (parm), 0);
+	{
+	  elttype = TREE_VEC_ELT (CLASSTYPE_TI_ARGS (parm), 0);
+	  /* Deduction is defined in terms of a single type, so just punt
+	     on the (bizarre) std::initializer_list<T...>.  */
+	  if (PACK_EXPANSION_P (elttype))
+	    return unify_success (explain_p);
+	}
 
       FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (arg), i, elt)
 	{
@@ -17867,6 +17883,8 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
 	  if (!BRACE_ENCLOSED_INITIALIZER_P (elt))
 	    {
 	      tree type = TREE_TYPE (elt);
+	      if (type == error_mark_node)
+		return unify_invalid (explain_p);
 	      /* It should only be possible to get here for a call.  */
 	      gcc_assert (elt_strict & UNIFY_ALLOW_OUTER_LEVEL);
 	      elt_strict |= maybe_adjust_types_for_deduction
@@ -21384,6 +21402,14 @@ type_dependent_expression_p (tree expression)
       && !TYPE_DOMAIN (TREE_TYPE (expression))
       && DECL_INITIAL (expression))
    return true;
+
+  /* A variable template specialization is type-dependent if it has any
+     dependent template arguments.  */
+  if (VAR_P (expression)
+      && DECL_LANG_SPECIFIC (expression)
+      && DECL_TEMPLATE_INFO (expression)
+      && variable_template_p (DECL_TI_TEMPLATE (expression)))
+    return any_dependent_template_arguments_p (DECL_TI_ARGS (expression));
 
   if (TREE_TYPE (expression) == unknown_type_node)
     {

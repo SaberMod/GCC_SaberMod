@@ -18,7 +18,6 @@
 #include "arch.h"
 #include "defs.h"
 #include "malloc.h"
-#include "race.h"
 #include "go-type.h"
 #include "go-defer.h"
 
@@ -51,7 +50,7 @@ extern void __splitstack_block_signals_context (void *context[10], int *,
 #if defined(USING_SPLIT_STACK) && defined(LINKER_SUPPORTS_SPLIT_STACK)
 # define StackMin PTHREAD_STACK_MIN
 #else
-# define StackMin 2 * 1024 * 1024
+# define StackMin ((sizeof(char *) < 8) ? 2 * 1024 * 1024 : 4 * 1024 * 1024)
 #endif
 
 uintptr runtime_stacks_sys;
@@ -125,6 +124,30 @@ static inline void
 fixcontext(ucontext_t* c)
 {
 	c->uc_mcontext._mc_tlsbase = tlsbase;
+}
+
+# elif defined(__sparc__)
+
+static inline void
+initcontext(void)
+{
+}
+
+static inline void
+fixcontext(ucontext_t *c)
+{
+	/* ??? Using 
+	     register unsigned long thread __asm__("%g7");
+	     c->uc_mcontext.gregs[REG_G7] = thread;
+	   results in
+	     error: variable ‘thread’ might be clobbered by \
+		‘longjmp’ or ‘vfork’ [-Werror=clobbered]
+	   which ought to be false, as %g7 is a fixed register.  */
+
+	if (sizeof (c->uc_mcontext.gregs[REG_G7]) == 8)
+		asm ("stx %%g7, %0" : "=m"(c->uc_mcontext.gregs[REG_G7]));
+	else
+		asm ("st %%g7, %0" : "=m"(c->uc_mcontext.gregs[REG_G7]));
 }
 
 # else
@@ -517,9 +540,6 @@ runtime_schedinit(void)
 
 	// Can not enable GC until all roots are registered.
 	// mstats.enablegc = 1;
-
-	// if(raceenabled)
-	//	g->racectx = runtime_raceinit();
 }
 
 extern void main_init(void) __asm__ (GOSYM_PREFIX "__go_init_main");
@@ -583,8 +603,6 @@ runtime_main(void* dummy __attribute__((unused)))
 	mstats.enablegc = 1;
 
 	main_main();
-	if(raceenabled)
-		runtime_racefini();
 
 	// Make racy client program work: if panicking on
 	// another goroutine at the same time as main returns,
@@ -1903,8 +1921,6 @@ runtime_goexit(void)
 {
 	if(g->status != Grunning)
 		runtime_throw("bad g status");
-	if(raceenabled)
-		runtime_racegoend();
 	runtime_mcall(goexit0);
 }
 
@@ -3371,26 +3387,6 @@ void
 runtime_proc_scan(struct Workbuf** wbufp, void (*enqueue1)(struct Workbuf**, Obj))
 {
 	enqueue1(wbufp, (Obj){(byte*)&runtime_sched, sizeof runtime_sched, 0});
-}
-
-// When a function calls a closure, it passes the closure value to
-// __go_set_closure immediately before the function call.  When a
-// function uses a closure, it calls __go_get_closure immediately on
-// function entry.  This is a hack, but it will work on any system.
-// It would be better to use the static chain register when there is
-// one.  It is also worth considering expanding these functions
-// directly in the compiler.
-
-void
-__go_set_closure(void* v)
-{
-	g->closure = v;
-}
-
-void *
-__go_get_closure(void)
-{
-	return g->closure;
 }
 
 // Return whether we are waiting for a GC.  This gc toolchain uses

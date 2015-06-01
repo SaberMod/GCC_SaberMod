@@ -1,5 +1,5 @@
 ;; GCC machine description for SSE instructions
-;; Copyright (C) 2005-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2015 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -5078,7 +5078,7 @@
 (define_expand "vec_unpacks_hi_v8sf"
   [(set (match_dup 2)
 	(vec_select:V4SF
-	  (match_operand:V8SF 1 "nonimmediate_operand")
+	  (match_operand:V8SF 1 "register_operand")
 	  (parallel [(const_int 4) (const_int 5)
 		     (const_int 6) (const_int 7)])))
    (set (match_operand:V4DF 0 "register_operand")
@@ -5090,7 +5090,7 @@
 (define_expand "vec_unpacks_hi_v16sf"
   [(set (match_dup 2)
 	(vec_select:V8SF
-	  (match_operand:V16SF 1 "nonimmediate_operand")
+	  (match_operand:V16SF 1 "register_operand")
 	  (parallel [(const_int 8) (const_int 9)
 		     (const_int 10) (const_int 11)
 		     (const_int 12) (const_int 13)
@@ -5434,7 +5434,7 @@
 {
   rtx tmp0, tmp1;
 
-  if (TARGET_AVX && !TARGET_PREFER_AVX128)
+  if (TARGET_AVX && !TARGET_PREFER_AVX128 && optimize_insn_for_speed_p ())
     {
       tmp0 = gen_reg_rtx (V4DFmode);
       tmp1 = force_reg (V2DFmode, operands[1]);
@@ -5496,7 +5496,7 @@
 {
   rtx tmp0, tmp1, tmp2;
 
-  if (TARGET_AVX && !TARGET_PREFER_AVX128)
+  if (TARGET_AVX && !TARGET_PREFER_AVX128 && optimize_insn_for_speed_p ())
     {
       tmp0 = gen_reg_rtx (V4DFmode);
       tmp1 = force_reg (V2DFmode, operands[1]);
@@ -5593,7 +5593,7 @@
 {
   rtx tmp0, tmp1, tmp2;
 
-  if (TARGET_AVX && !TARGET_PREFER_AVX128)
+  if (TARGET_AVX && !TARGET_PREFER_AVX128 && optimize_insn_for_speed_p ())
     {
       tmp0 = gen_reg_rtx (V4DFmode);
       tmp1 = force_reg (V2DFmode, operands[1]);
@@ -14472,7 +14472,7 @@
   rtx tmp0, tmp1;
 
   if (<MODE>mode == V2DFmode
-      && TARGET_AVX && !TARGET_PREFER_AVX128)
+      && TARGET_AVX && !TARGET_PREFER_AVX128 && optimize_insn_for_speed_p ())
     {
       rtx tmp2 = gen_reg_rtx (V4DFmode);
 
@@ -14579,7 +14579,7 @@
   rtx tmp0, tmp1;
 
   if (<MODE>mode == V2DFmode
-      && TARGET_AVX && !TARGET_PREFER_AVX128)
+      && TARGET_AVX && !TARGET_PREFER_AVX128 && optimize_insn_for_speed_p ())
     {
       rtx tmp2 = gen_reg_rtx (V4DFmode);
 
@@ -16713,7 +16713,7 @@
 (define_insn "*vec_dup<mode>"
   [(set (match_operand:AVX2_VEC_DUP_MODE 0 "register_operand" "=x,x,x")
 	(vec_duplicate:AVX2_VEC_DUP_MODE
-	  (match_operand:<ssescalarmode> 1 "nonimmediate_operand" "m,x,!r")))]
+	  (match_operand:<ssescalarmode> 1 "nonimmediate_operand" "m,x,$r")))]
   "TARGET_AVX2"
   "@
    v<sseintprefix>broadcast<bcstscalarsuff>\t{%1, %0|%0, %1}

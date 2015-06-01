@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on IBM RS/6000.
-   Copyright (C) 1991-2014 Free Software Foundation, Inc.
+   Copyright (C) 1991-2015 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
    This file is part of GCC.
@@ -31,22 +31,36 @@
 #include "flags.h"
 #include "recog.h"
 #include "obstack.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "print-tree.h"
 #include "varasm.h"
+#include "hashtab.h"
+#include "function.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "except.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
-#include "function.h"
 #include "output.h"
 #include "dbxout.h"
 #include "predict.h"
@@ -95,7 +109,6 @@
 #include "builtins.h"
 #include "context.h"
 #include "tree-pass.h"
-#include "real.h"
 #if TARGET_XCOFF
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
 #endif
@@ -1498,10 +1511,8 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_MEMBER_TYPE_FORCES_BLK
 #define TARGET_MEMBER_TYPE_FORCES_BLK rs6000_member_type_forces_blk
 
-/* On rs6000, function arguments are promoted, as are function return
-   values.  */
 #undef TARGET_PROMOTE_FUNCTION_MODE
-#define TARGET_PROMOTE_FUNCTION_MODE default_promote_function_mode_always_promote
+#define TARGET_PROMOTE_FUNCTION_MODE rs6000_promote_function_mode
 
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY rs6000_return_in_memory
@@ -1665,6 +1676,13 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_ATOMIC_ASSIGN_EXPAND_FENV
 #define TARGET_ATOMIC_ASSIGN_EXPAND_FENV rs6000_atomic_assign_expand_fenv
+
+#undef TARGET_LIBGCC_CMP_RETURN_MODE
+#define TARGET_LIBGCC_CMP_RETURN_MODE rs6000_abi_word_mode
+#undef TARGET_LIBGCC_SHIFT_COUNT_MODE
+#define TARGET_LIBGCC_SHIFT_COUNT_MODE rs6000_abi_word_mode
+#undef TARGET_UNWIND_WORD_MODE
+#define TARGET_UNWIND_WORD_MODE rs6000_abi_word_mode
 
 
 /* Processor table.  */
@@ -5058,6 +5076,28 @@ rs6000_file_start (void)
       if (*start == '\0')
 	putc ('\n', file);
     }
+
+#ifdef USING_ELFOS_H
+  if (rs6000_default_cpu == 0 || rs6000_default_cpu[0] == '\0'
+      || !global_options_set.x_rs6000_cpu_index)
+    {
+      fputs ("\t.machine ", asm_out_file);
+      if ((rs6000_isa_flags & OPTION_MASK_DIRECT_MOVE) != 0)
+	fputs ("power8\n", asm_out_file);
+      else if ((rs6000_isa_flags & OPTION_MASK_POPCNTD) != 0)
+	fputs ("power7\n", asm_out_file);
+      else if ((rs6000_isa_flags & OPTION_MASK_CMPB) != 0)
+	fputs ("power6\n", asm_out_file);
+      else if ((rs6000_isa_flags & OPTION_MASK_POPCNTB) != 0)
+	fputs ("power5\n", asm_out_file);
+      else if ((rs6000_isa_flags & OPTION_MASK_MFCRF) != 0)
+	fputs ("power4\n", asm_out_file);
+      else if ((rs6000_isa_flags & OPTION_MASK_POWERPC64) != 0)
+	fputs ("ppc64\n", asm_out_file);
+      else
+	fputs ("ppc\n", asm_out_file);
+    }
+#endif
 
   if (DEFAULT_ABI == ABI_ELFv2)
     fprintf (file, "\t.abiversion 2\n");
@@ -9295,6 +9335,29 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
     }
 }
 
+/* The mode the ABI uses for a word.  This is not the same as word_mode
+   for -m32 -mpowerpc64.  This is used to implement various target hooks.  */
+
+static machine_mode
+rs6000_abi_word_mode (void)
+{
+  return TARGET_32BIT ? SImode : DImode;
+}
+
+/* On rs6000, function arguments are promoted, as are function return
+   values.  */
+
+static machine_mode
+rs6000_promote_function_mode (const_tree type ATTRIBUTE_UNUSED,
+			      machine_mode mode,
+			      int *punsignedp ATTRIBUTE_UNUSED,
+			      const_tree, int)
+{
+  PROMOTE_MODE (mode, *punsignedp, type);
+
+  return mode;
+}
+
 /* Return true if TYPE must be passed on the stack and not in registers.  */
 
 static bool
@@ -11214,7 +11277,7 @@ rs6000_va_start (tree valist, rtx nextarg)
   /* Find the overflow area.  */
   t = make_tree (TREE_TYPE (ovf), virtual_incoming_args_rtx);
   if (words != 0)
-    t = fold_build_pointer_plus_hwi (t, words * UNITS_PER_WORD);
+    t = fold_build_pointer_plus_hwi (t, words * MIN_UNITS_PER_WORD);
   t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -11430,7 +11493,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 
       /* _Decimal32 varargs are located in the second word of the 64-bit
 	 FP register for 32-bit binaries.  */
-      if (!TARGET_POWERPC64
+      if (TARGET_32BIT
 	  && TARGET_HARD_FLOAT && TARGET_FPRS
 	  && TYPE_MODE (type) == SDmode)
 	t = fold_build_pointer_plus_hwi (t, size);
@@ -16087,8 +16150,7 @@ rs6000_output_load_multiple (rtx operands[3])
     return "lwz %2,0(%1)";
 
   for (i = 0; i < words; i++)
-    if (refers_to_regno_p (REGNO (operands[2]) + i,
-			   REGNO (operands[2]) + i + 1, operands[1], 0))
+    if (refers_to_regno_p (REGNO (operands[2]) + i, operands[1]))
       {
 	if (i == words-1)
 	  {
@@ -17081,10 +17143,13 @@ rs6000_secondary_reload (bool in_p,
 	      : (offset + 0x8000 < 0x10000 - extra /* legitimate_address_p */
 		 && (offset & 3) != 0))
 	    {
+	      /* -m32 -mpowerpc64 needs to use a 32-bit scratch register.  */
 	      if (in_p)
-		sri->icode = CODE_FOR_reload_di_load;
+		sri->icode = ((TARGET_32BIT) ? CODE_FOR_reload_si_load
+			      : CODE_FOR_reload_di_load);
 	      else
-		sri->icode = CODE_FOR_reload_di_store;
+		sri->icode = ((TARGET_32BIT) ? CODE_FOR_reload_si_store
+			      : CODE_FOR_reload_di_store);
 	      sri->extra_cost = 2;
 	      ret = NO_REGS;
 	      done_p = true;
@@ -31540,6 +31605,29 @@ rs6000_complex_function_value (machine_mode mode)
   return gen_rtx_PARALLEL (mode, gen_rtvec (2, r1, r2));
 }
 
+/* Return an rtx describing a return value of MODE as a PARALLEL
+   in N_ELTS registers, each of mode ELT_MODE, starting at REGNO,
+   stride REG_STRIDE.  */
+
+static rtx
+rs6000_parallel_return (machine_mode mode,
+			int n_elts, machine_mode elt_mode,
+			unsigned int regno, unsigned int reg_stride)
+{
+  rtx par = gen_rtx_PARALLEL (mode, rtvec_alloc (n_elts));
+
+  int i;
+  for (i = 0; i < n_elts; i++)
+    {
+      rtx r = gen_rtx_REG (elt_mode, regno);
+      rtx off = GEN_INT (i * GET_MODE_SIZE (elt_mode));
+      XVECEXP (par, 0, i) = gen_rtx_EXPR_LIST (VOIDmode, r, off);
+      regno += reg_stride;
+    }
+
+  return par;
+}
+
 /* Target hook for TARGET_FUNCTION_VALUE.
 
    On the SPE, both FPs and vectors are returned in r3.
@@ -31575,12 +31663,12 @@ rs6000_function_value (const_tree valtype,
       /* Otherwise fall through to standard ABI rules.  */
     }
 
+  mode = TYPE_MODE (valtype);
+
   /* The ELFv2 ABI returns homogeneous VFP aggregates in registers.  */
-  if (rs6000_discover_homogeneous_aggregate (TYPE_MODE (valtype), valtype,
-					     &elt_mode, &n_elts))
+  if (rs6000_discover_homogeneous_aggregate (mode, valtype, &elt_mode, &n_elts))
     {
-      int first_reg, n_regs, i;
-      rtx par;
+      int first_reg, n_regs;
 
       if (SCALAR_FLOAT_MODE_P (elt_mode))
 	{
@@ -31594,53 +31682,25 @@ rs6000_function_value (const_tree valtype,
 	  n_regs = 1;
 	}
 
-      par = gen_rtx_PARALLEL (TYPE_MODE (valtype), rtvec_alloc (n_elts));
-      for (i = 0; i < n_elts; i++)
-	{
-	  rtx r = gen_rtx_REG (elt_mode, first_reg + i * n_regs);
-	  rtx off = GEN_INT (i * GET_MODE_SIZE (elt_mode));
-	  XVECEXP (par, 0, i) = gen_rtx_EXPR_LIST (VOIDmode, r, off);
-	}
-
-      return par;
+      return rs6000_parallel_return (mode, n_elts, elt_mode, first_reg, n_regs);
     }
 
-  if (TARGET_32BIT && TARGET_POWERPC64 && TYPE_MODE (valtype) == DImode)
-    {
-      /* Long long return value need be split in -mpowerpc64, 32bit ABI.  */
-      return gen_rtx_PARALLEL (DImode,
-	gen_rtvec (2,
-		   gen_rtx_EXPR_LIST (VOIDmode,
-				      gen_rtx_REG (SImode, GP_ARG_RETURN),
-				      const0_rtx),
-		   gen_rtx_EXPR_LIST (VOIDmode,
-				      gen_rtx_REG (SImode,
-						   GP_ARG_RETURN + 1),
-				      GEN_INT (4))));
-    }
-  if (TARGET_32BIT && TARGET_POWERPC64 && TYPE_MODE (valtype) == DCmode)
-    {
-      return gen_rtx_PARALLEL (DCmode,
-	gen_rtvec (4,
-		   gen_rtx_EXPR_LIST (VOIDmode,
-				      gen_rtx_REG (SImode, GP_ARG_RETURN),
-				      const0_rtx),
-		   gen_rtx_EXPR_LIST (VOIDmode,
-				      gen_rtx_REG (SImode,
-						   GP_ARG_RETURN + 1),
-				      GEN_INT (4)),
-		   gen_rtx_EXPR_LIST (VOIDmode,
-				      gen_rtx_REG (SImode,
-						   GP_ARG_RETURN + 2),
-				      GEN_INT (8)),
-		   gen_rtx_EXPR_LIST (VOIDmode,
-				      gen_rtx_REG (SImode,
-						   GP_ARG_RETURN + 3),
-				      GEN_INT (12))));
-    }
+  /* Some return value types need be split in -mpowerpc64, 32bit ABI.  */
+  if (TARGET_32BIT && TARGET_POWERPC64)
+    switch (mode)
+      {
+      default:
+	break;
+      case DImode:
+      case SCmode:
+      case DCmode:
+      case TCmode:
+	int count = GET_MODE_SIZE (mode) / 4;
+	return rs6000_parallel_return (mode, count, SImode, GP_ARG_RETURN, 1);
+      }
 
-  mode = TYPE_MODE (valtype);
-  if ((INTEGRAL_TYPE_P (valtype) && GET_MODE_BITSIZE (mode) < BITS_PER_WORD)
+  if ((INTEGRAL_TYPE_P (valtype)
+       && GET_MODE_BITSIZE (mode) < (TARGET_32BIT ? 32 : 64))
       || POINTER_TYPE_P (valtype))
     mode = TARGET_32BIT ? SImode : DImode;
 
@@ -31677,19 +31737,9 @@ rs6000_libcall_value (machine_mode mode)
 {
   unsigned int regno;
 
+  /* Long long return value need be split in -mpowerpc64, 32bit ABI.  */
   if (TARGET_32BIT && TARGET_POWERPC64 && mode == DImode)
-    {
-      /* Long long return value need be split in -mpowerpc64, 32bit ABI.  */
-      return gen_rtx_PARALLEL (DImode,
-	gen_rtvec (2,
-		   gen_rtx_EXPR_LIST (VOIDmode,
-				      gen_rtx_REG (SImode, GP_ARG_RETURN),
-				      const0_rtx),
-		   gen_rtx_EXPR_LIST (VOIDmode,
-				      gen_rtx_REG (SImode,
-						   GP_ARG_RETURN + 1),
-				      GEN_INT (4))));
-    }
+    return rs6000_parallel_return (mode, 2, SImode, GP_ARG_RETURN, 1);
 
   if (DECIMAL_FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
     /* _Decimal128 must use an even/odd register pair.  */
@@ -31924,6 +31974,14 @@ rs6000_eh_return_filter_mode (void)
 static bool
 rs6000_scalar_mode_supported_p (machine_mode mode)
 {
+  /* -m32 does not support TImode.  This is the default, from
+     default_scalar_mode_supported_p.  For -m32 -mpowerpc64 we want the
+     same ABI as for -m32.  But default_scalar_mode_supported_p allows
+     integer modes of precision 2 * BITS_PER_WORD, which matches TImode
+     for -mpowerpc64.  */
+  if (TARGET_32BIT && mode == TImode)
+    return false;
+
   if (DECIMAL_FLOAT_MODE_P (mode))
     return default_decimal_float_supported_p ();
   else

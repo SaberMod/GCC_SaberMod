@@ -1,5 +1,5 @@
 # Top level -*- makefile -*- fragment for libgccjit.so.
-#   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+#   Copyright (C) 2013-2015 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -62,6 +62,7 @@ jit: $(LIBGCCJIT_FILENAME) \
 jit_OBJS = attribs.o \
 	jit/dummy-frontend.o \
 	jit/libgccjit.o \
+	jit/jit-logging.o \
 	jit/jit-recording.o \
 	jit/jit-playback.o \
 	jit/jit-result.o \
@@ -246,6 +247,11 @@ jit.man:
 jit.srcman:
 
 lang_checks += check-jit
+lang_checks_parallelized += check-jit
+# This number is somewhat arbitrary.  Two tests are much slower
+# than all the others (test-combination.c and test-threads.c) so
+# we want them to be placed in different "buckets".
+check_jit_parallelize = 10
 
 #
 # Install hooks:

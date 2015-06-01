@@ -1,5 +1,5 @@
 /* Backend function setup
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -25,7 +25,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "gfortran.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -36,10 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"	/* For internal_error.  */
 #include "toplev.h"	/* For announce_function.  */
 #include "target.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -87,6 +93,8 @@ static gfc_namespace *module_namespace;
 /* The currently processed procedure symbol.  */
 static gfc_symbol* current_procedure_symbol = NULL;
 
+/* The currently processed module.  */
+static struct module_htab_entry *cur_module;
 
 /* With -fcoarray=lib: For generating the registering call
    of static coarrays.  */
@@ -819,14 +827,44 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
       && GFC_TYPE_ARRAY_CAF_TOKEN (type) == NULL_TREE)
     {
       tree token;
+      tree token_type = build_qualified_type (pvoid_type_node,
+					      TYPE_QUAL_RESTRICT);
 
-      token = gfc_create_var_np (build_qualified_type (pvoid_type_node,
-						       TYPE_QUAL_RESTRICT),
-				 "caf_token");
+      if (sym->module && (sym->attr.use_assoc
+			  || sym->ns->proc_name->attr.flavor == FL_MODULE))
+	{
+	  tree token_name
+		= get_identifier (gfc_get_string (GFC_PREFIX ("caf_token%s"),
+			IDENTIFIER_POINTER (gfc_sym_mangled_identifier (sym))));
+	  token = build_decl (DECL_SOURCE_LOCATION (decl), VAR_DECL, token_name,
+			      token_type);
+	  if (sym->attr.use_assoc)
+	    DECL_EXTERNAL (token) = 1;
+	  else
+	    TREE_STATIC (token) = 1;
+
+	  if (sym->attr.use_assoc || sym->attr.access != ACCESS_PRIVATE ||
+	      sym->attr.public_used)
+	    TREE_PUBLIC (token) = 1;
+	}
+      else
+	{
+	  token = gfc_create_var_np (token_type, "caf_token");
+	  TREE_STATIC (token) = 1;
+	}
+
       GFC_TYPE_ARRAY_CAF_TOKEN (type) = token;
       DECL_ARTIFICIAL (token) = 1;
-      TREE_STATIC (token) = 1;
-      gfc_add_decl_to_function (token);
+      DECL_NONALIASED (token) = 1;
+
+      if (sym->module && !sym->attr.use_assoc)
+	{
+	  pushdecl (token);
+	  DECL_CONTEXT (token) = sym->ns->proc_name->backend_decl;
+	  gfc_module_add_decl (cur_module, token);
+	}
+      else
+	gfc_add_decl_to_function (token);
     }
 
   for (dim = 0; dim < GFC_TYPE_ARRAY_RANK (type); dim++)
@@ -1332,12 +1370,30 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	     (sym->ts.u.cl->passed_length == sym->ts.u.cl->backend_decl))
 	    sym->ts.u.cl->backend_decl = NULL_TREE;
 
-	  if (sym->ts.deferred && fun_or_res
-		&& sym->ts.u.cl->passed_length == NULL
-		&& sym->ts.u.cl->backend_decl)
+	  if (sym->ts.deferred && byref)
 	    {
-	      sym->ts.u.cl->passed_length = sym->ts.u.cl->backend_decl;
-	      sym->ts.u.cl->backend_decl = NULL_TREE;
+	      /* The string length of a deferred char array is stored in the
+		 parameter at sym->ts.u.cl->backend_decl as a reference and
+		 marked as a result.  Exempt this variable from generating a
+		 temporary for it.  */
+	      if (sym->attr.result)
+		{
+		  /* We need to insert a indirect ref for param decls.  */
+		  if (sym->ts.u.cl->backend_decl
+		      && TREE_CODE (sym->ts.u.cl->backend_decl) == PARM_DECL)
+		    sym->ts.u.cl->backend_decl =
+			build_fold_indirect_ref (sym->ts.u.cl->backend_decl);
+		}
+	      /* For all other parameters make sure, that they are copied so
+		 that the value and any modifications are local to the routine
+		 by generating a temporary variable.  */
+	      else if (sym->attr.function
+		       && sym->ts.u.cl->passed_length == NULL
+		       && sym->ts.u.cl->backend_decl)
+		{
+		  sym->ts.u.cl->passed_length = sym->ts.u.cl->backend_decl;
+		  sym->ts.u.cl->backend_decl = NULL_TREE;
+		}
 	    }
 
 	  if (sym->ts.u.cl->backend_decl == NULL_TREE)
@@ -1438,9 +1494,18 @@ gfc_get_symbol_decl (gfc_symbol * sym)
     gfc_internal_error ("intrinsic variable which isn't a procedure");
 
   /* Create string length decl first so that they can be used in the
-     type declaration.  */
+     type declaration.  For associate names, the target character
+     length is used. Set 'length' to a constant so that if the
+     string lenght is a variable, it is not finished a second time.  */
   if (sym->ts.type == BT_CHARACTER)
-    length = gfc_create_string_length (sym);
+    {
+      if (sym->attr.associate_var
+	  && sym->ts.u.cl->backend_decl
+	  && TREE_CODE (sym->ts.u.cl->backend_decl) == VAR_DECL)
+	length = gfc_index_zero_node;
+      else
+	length = gfc_create_string_length (sym);
+    }
 
   /* Create the decl for the variable.  */
   decl = build_decl (sym->declared_at.lb->location,
@@ -1502,6 +1567,8 @@ gfc_get_symbol_decl (gfc_symbol * sym)
       /* Character variables need special handling.  */
       gfc_allocate_lang_decl (decl);
 
+      /* Associate names can use the hidden string length variable
+	 of their associated target.  */
       if (TREE_CODE (length) != INTEGER_CST)
 	{
 	  gfc_finish_var_decl (length, sym);
@@ -1652,7 +1719,9 @@ get_proc_pointer_decl (gfc_symbol *sym)
   else if (sym->module && sym->ns->proc_name->attr.flavor == FL_MODULE)
     {
       /* This is the declaration of a module variable.  */
-      TREE_PUBLIC (decl) = 1;
+      if (sym->ns->proc_name->attr.flavor == FL_MODULE
+	  && (sym->attr.access != ACCESS_PRIVATE || sym->attr.public_used))
+	TREE_PUBLIC (decl) = 1;
       TREE_STATIC (decl) = 1;
     }
 
@@ -2287,8 +2356,9 @@ create_function_arglist (gfc_symbol * sym)
       /* Fill in arg stuff.  */
       DECL_CONTEXT (parm) = fndecl;
       DECL_ARG_TYPE (parm) = TREE_VALUE (typelist);
-      /* All implementation args are read-only.  */
-      TREE_READONLY (parm) = 1;
+      /* All implementation args except for VALUE are read-only.  */
+      if (!f->sym->attr.value)
+	TREE_READONLY (parm) = 1;
       if (POINTER_TYPE_P (type)
 	  && (!f->sym->attr.proc_pointer
 	      && f->sym->attr.flavor != FL_PROCEDURE))
@@ -4314,8 +4384,6 @@ gfc_module_add_decl (struct module_htab_entry *entry, tree decl)
     *slot = decl;
 }
 
-static struct module_htab_entry *cur_module;
-
 
 /* Generate debugging symbols for namelists. This function must come after
    generate_local_decl to ensure that the variables in the namelist are
@@ -5723,8 +5791,8 @@ gfc_generate_function_code (gfc_namespace * ns)
     {
       char * msg;
 
-      asprintf (&msg, "Recursive call to nonrecursive procedure '%s'",
-		sym->name);
+      msg = xasprintf ("Recursive call to nonrecursive procedure '%s'",
+		       sym->name);
       recurcheckvar = gfc_create_var (boolean_type_node, "is_recursive");
       TREE_STATIC (recurcheckvar) = 1;
       DECL_INITIAL (recurcheckvar) = boolean_false_node;
@@ -5764,6 +5832,13 @@ gfc_generate_function_code (gfc_namespace * ns)
      lengths).  */
   if ((gfc_option.rtcheck & GFC_RTCHECK_BOUNDS) && !sym->attr.is_bind_c)
     add_argument_checking (&body, sym);
+
+  /* Generate !$ACC DECLARE directive. */
+  if (ns->oacc_declare_clauses)
+    {
+      tree tmp = gfc_trans_oacc_declare (&body, ns);
+      gfc_add_expr_to_block (&body, tmp);
+    }
 
   tmp = gfc_trans_code (ns->code);
   gfc_add_expr_to_block (&body, tmp);

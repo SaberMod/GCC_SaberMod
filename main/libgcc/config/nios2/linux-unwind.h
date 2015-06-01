@@ -1,5 +1,5 @@
 /* DWARF2 EH unwinding support for Nios II Linux.
-   Copyright (C) 2008-2014 Free Software Foundation, Inc.
+   Copyright (C) 2008-2015 Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -67,10 +67,9 @@ nios2_fallback_frame_state (struct _Unwind_Context *context,
   if (pc[0] == (0x00800004 | (__NR_rt_sigreturn << 6)))
     {
       struct rt_sigframe {
-	char retcode[12];
 	siginfo_t info;
 	struct nios2_ucontext uc;
-      } *rt_ = context->ra;
+      } *rt_ = context->cfa;
       struct nios2_mcontext *regs = &rt_->uc.uc_mcontext;
       int i;
 

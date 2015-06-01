@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on IA-32.
-   Copyright (C) 1988-2014 Free Software Foundation, Inc.
+   Copyright (C) 1988-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,7 +22,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "attribs.h"
 #include "calls.h"
@@ -38,13 +48,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "except.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "recog.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "optabs.h"
 #include "diagnostic-core.h"
@@ -2566,7 +2580,9 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *)
     {
-      return TARGET_AVX && !TARGET_AVX512F && TARGET_VZEROUPPER;
+      return TARGET_AVX && !TARGET_AVX512F
+	     && TARGET_VZEROUPPER && flag_expensive_optimizations
+	     && !optimize_size;
     }
 
   virtual unsigned int execute (function *)
@@ -3862,6 +3878,8 @@ ix86_option_override_internal (bool main_args_p,
     }
 
   ix86_tune_cost = processor_target_table[ix86_tune].cost;
+  /* TODO: ix86_cost should be chosen at instruction or function granuality
+     so for cold code we use size_cost even in !optimize_size compilation.  */
   if (opts->x_optimize_size)
     ix86_cost = &ix86_size_cost;
   else
@@ -3903,7 +3921,7 @@ ix86_option_override_internal (bool main_args_p,
 
   /* Provide default for -mbranch-cost= value.  */
   if (!opts_set->x_ix86_branch_cost)
-    opts->x_ix86_branch_cost = ix86_cost->branch_cost;
+    opts->x_ix86_branch_cost = ix86_tune_cost->branch_cost;
 
   if (TARGET_64BIT_P (opts->x_ix86_isa_flags))
     {
@@ -4101,8 +4119,7 @@ ix86_option_override_internal (bool main_args_p,
       }
 
   if (ix86_tune_features [X86_TUNE_ACCUMULATE_OUTGOING_ARGS]
-      && !(opts_set->x_target_flags & MASK_ACCUMULATE_OUTGOING_ARGS)
-      && !opts->x_optimize_size)
+      && !(opts_set->x_target_flags & MASK_ACCUMULATE_OUTGOING_ARGS))
     opts->x_target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
 
   /* If stack probes are required, the space used for large function
@@ -4232,26 +4249,19 @@ ix86_option_override_internal (bool main_args_p,
 #endif
    }
 
-  /* When not opts->x_optimize for size, enable vzeroupper optimization for
-     TARGET_AVX with -fexpensive-optimizations and split 32-byte
-     AVX unaligned load/store.  */
-  if (!opts->x_optimize_size)
-    {
-      if (flag_expensive_optimizations
-	  && !(opts_set->x_target_flags & MASK_VZEROUPPER))
-	opts->x_target_flags |= MASK_VZEROUPPER;
-      if (!ix86_tune_features[X86_TUNE_AVX256_UNALIGNED_LOAD_OPTIMAL]
-	  && !(opts_set->x_target_flags & MASK_AVX256_SPLIT_UNALIGNED_LOAD))
-	opts->x_target_flags |= MASK_AVX256_SPLIT_UNALIGNED_LOAD;
-      if (!ix86_tune_features[X86_TUNE_AVX256_UNALIGNED_STORE_OPTIMAL]
-	  && !(opts_set->x_target_flags & MASK_AVX256_SPLIT_UNALIGNED_STORE))
-	opts->x_target_flags |= MASK_AVX256_SPLIT_UNALIGNED_STORE;
-      /* Enable 128-bit AVX instruction generation
-         for the auto-vectorizer.  */
-      if (TARGET_AVX128_OPTIMAL
-	  && !(opts_set->x_target_flags & MASK_PREFER_AVX128))
-	opts->x_target_flags |= MASK_PREFER_AVX128;
-    }
+  if (!(opts_set->x_target_flags & MASK_VZEROUPPER))
+    opts->x_target_flags |= MASK_VZEROUPPER;
+  if (!ix86_tune_features[X86_TUNE_AVX256_UNALIGNED_LOAD_OPTIMAL]
+      && !(opts_set->x_target_flags & MASK_AVX256_SPLIT_UNALIGNED_LOAD))
+    opts->x_target_flags |= MASK_AVX256_SPLIT_UNALIGNED_LOAD;
+  if (!ix86_tune_features[X86_TUNE_AVX256_UNALIGNED_STORE_OPTIMAL]
+      && !(opts_set->x_target_flags & MASK_AVX256_SPLIT_UNALIGNED_STORE))
+    opts->x_target_flags |= MASK_AVX256_SPLIT_UNALIGNED_STORE;
+  /* Enable 128-bit AVX instruction generation
+     for the auto-vectorizer.  */
+  if (TARGET_AVX128_OPTIMAL
+      && !(opts_set->x_target_flags & MASK_PREFER_AVX128))
+    opts->x_target_flags |= MASK_PREFER_AVX128;
 
   if (opts->x_ix86_recip_name)
     {
@@ -6117,7 +6127,18 @@ ix86_function_type_abi (const_tree fntype)
       if (abi == SYSV_ABI)
 	{
 	  if (lookup_attribute ("ms_abi", TYPE_ATTRIBUTES (fntype)))
-	    abi = MS_ABI;
+	    {
+	      if (TARGET_X32)
+		{
+		  static bool warned = false;
+		  if (!warned)
+		    {
+		      error ("X32 does not support ms_abi attribute");
+		      warned = true;
+		    }
+		}
+	      abi = MS_ABI;
+	    }
 	}
       else if (lookup_attribute ("sysv_abi", TYPE_ATTRIBUTES (fntype)))
 	abi = SYSV_ABI;
@@ -8999,7 +9020,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 		  rtx slot = XVECEXP (container, 0, i);
 		  if (REGNO (XEXP (slot, 0)) != FIRST_SSE_REG + (unsigned int) i
 		      || INTVAL (XEXP (slot, 1)) != i * 16)
-		    need_temp = 1;
+		    need_temp = true;
 		}
 	    }
 	  else
@@ -9011,7 +9032,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 		  rtx slot = XVECEXP (container, 0, i);
 		  if (REGNO (XEXP (slot, 0)) != (unsigned int) i
 		      || INTVAL (XEXP (slot, 1)) != i * 8)
-		    need_temp = 1;
+		    need_temp = true;
 		}
 	    }
 	}
@@ -11543,6 +11564,10 @@ ix86_expand_prologue (void)
 	      if (sp_is_cfa_reg)
 		m->fs.cfa_offset += UNITS_PER_WORD;
 	      RTX_FRAME_RELATED_P (insn) = 1;
+	      add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+			    gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+					 plus_constant (Pmode, stack_pointer_rtx,
+							-UNITS_PER_WORD)));
 	    }
 	}
 
@@ -11556,6 +11581,10 @@ ix86_expand_prologue (void)
 	      if (sp_is_cfa_reg)
 		m->fs.cfa_offset += UNITS_PER_WORD;
 	      RTX_FRAME_RELATED_P (insn) = 1;
+	      add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+			    gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+					 plus_constant (Pmode, stack_pointer_rtx,
+							-UNITS_PER_WORD)));
 	    }
 	}
 
@@ -14520,7 +14549,7 @@ legitimize_pe_coff_symbol (rtx addr, bool inreg)
 static rtx
 ix86_legitimize_address (rtx x, rtx, machine_mode mode)
 {
-  int changed = 0;
+  bool changed = false;
   unsigned log;
 
   log = GET_CODE (x) == SYMBOL_REF ? SYMBOL_REF_TLS_MODEL (x) : 0;
@@ -14556,7 +14585,7 @@ ix86_legitimize_address (rtx x, rtx, machine_mode mode)
       && CONST_INT_P (XEXP (x, 1))
       && (unsigned HOST_WIDE_INT) INTVAL (XEXP (x, 1)) < 4)
     {
-      changed = 1;
+      changed = true;
       log = INTVAL (XEXP (x, 1));
       x = gen_rtx_MULT (Pmode, force_reg (Pmode, XEXP (x, 0)),
 			GEN_INT (1 << log));
@@ -14570,7 +14599,7 @@ ix86_legitimize_address (rtx x, rtx, machine_mode mode)
 	  && CONST_INT_P (XEXP (XEXP (x, 0), 1))
 	  && (unsigned HOST_WIDE_INT) INTVAL (XEXP (XEXP (x, 0), 1)) < 4)
 	{
-	  changed = 1;
+	  changed = true;
 	  log = INTVAL (XEXP (XEXP (x, 0), 1));
 	  XEXP (x, 0) = gen_rtx_MULT (Pmode,
 				      force_reg (Pmode, XEXP (XEXP (x, 0), 0)),
@@ -14581,7 +14610,7 @@ ix86_legitimize_address (rtx x, rtx, machine_mode mode)
 	  && CONST_INT_P (XEXP (XEXP (x, 1), 1))
 	  && (unsigned HOST_WIDE_INT) INTVAL (XEXP (XEXP (x, 1), 1)) < 4)
 	{
-	  changed = 1;
+	  changed = true;
 	  log = INTVAL (XEXP (XEXP (x, 1), 1));
 	  XEXP (x, 1) = gen_rtx_MULT (Pmode,
 				      force_reg (Pmode, XEXP (XEXP (x, 1), 0)),
@@ -14591,10 +14620,8 @@ ix86_legitimize_address (rtx x, rtx, machine_mode mode)
       /* Put multiply first if it isn't already.  */
       if (GET_CODE (XEXP (x, 1)) == MULT)
 	{
-	  rtx tmp = XEXP (x, 0);
-	  XEXP (x, 0) = XEXP (x, 1);
-	  XEXP (x, 1) = tmp;
-	  changed = 1;
+	  std::swap (XEXP (x, 0), XEXP (x, 1));
+	  changed = true;
 	}
 
       /* Canonicalize (plus (mult (reg) (const)) (plus (reg) (const)))
@@ -14603,7 +14630,7 @@ ix86_legitimize_address (rtx x, rtx, machine_mode mode)
 	 similar optimizations.  */
       if (GET_CODE (XEXP (x, 0)) == MULT && GET_CODE (XEXP (x, 1)) == PLUS)
 	{
-	  changed = 1;
+	  changed = true;
 	  x = gen_rtx_PLUS (Pmode,
 			    gen_rtx_PLUS (Pmode, XEXP (x, 0),
 					  XEXP (XEXP (x, 1), 0)),
@@ -14636,7 +14663,7 @@ ix86_legitimize_address (rtx x, rtx, machine_mode mode)
 
 	  if (constant)
 	    {
-	      changed = 1;
+	      changed = true;
 	      x = gen_rtx_PLUS (Pmode,
 				gen_rtx_PLUS (Pmode, XEXP (XEXP (x, 0), 0),
 					      XEXP (XEXP (XEXP (x, 0), 1), 0)),
@@ -14650,13 +14677,13 @@ ix86_legitimize_address (rtx x, rtx, machine_mode mode)
 
       if (GET_CODE (XEXP (x, 0)) == MULT)
 	{
-	  changed = 1;
+	  changed = true;
 	  XEXP (x, 0) = copy_addr_to_reg (XEXP (x, 0));
 	}
 
       if (GET_CODE (XEXP (x, 1)) == MULT)
 	{
-	  changed = 1;
+	  changed = true;
 	  XEXP (x, 1) = copy_addr_to_reg (XEXP (x, 1));
 	}
 
@@ -14667,7 +14694,7 @@ ix86_legitimize_address (rtx x, rtx, machine_mode mode)
 
       if (flag_pic && SYMBOLIC_CONST (XEXP (x, 1)))
 	{
-	  changed = 1;
+	  changed = true;
 	  x = legitimize_pic_address (x, 0);
 	}
 
@@ -16645,11 +16672,7 @@ output_387_binary_op (rtx insn, rtx *operands)
     case MULT:
     case PLUS:
       if (REG_P (operands[2]) && REGNO (operands[0]) == REGNO (operands[2]))
-	{
-	  rtx temp = operands[2];
-	  operands[2] = operands[1];
-	  operands[1] = temp;
-	}
+	std::swap (operands[1], operands[2]);
 
       /* know operands[0] == operands[1].  */
 
@@ -17683,7 +17706,8 @@ ix86_avx256_split_vector_move_misalign (rtx op0, rtx op1)
 
   if (MEM_P (op1))
     {
-      if (TARGET_AVX256_SPLIT_UNALIGNED_LOAD)
+      if (TARGET_AVX256_SPLIT_UNALIGNED_LOAD
+	  && optimize_insn_for_speed_p ())
 	{
 	  rtx r = gen_reg_rtx (mode);
 	  m = adjust_address (op1, mode, 0);
@@ -17703,7 +17727,8 @@ ix86_avx256_split_vector_move_misalign (rtx op0, rtx op1)
     }
   else if (MEM_P (op0))
     {
-      if (TARGET_AVX256_SPLIT_UNALIGNED_STORE)
+      if (TARGET_AVX256_SPLIT_UNALIGNED_STORE
+	  && optimize_insn_for_speed_p ())
 	{
 	  m = adjust_address (op0, mode, 0);
 	  emit_insn (extract (m, op1, const0_rtx));
@@ -18299,7 +18324,7 @@ void
 ix86_expand_unary_operator (enum rtx_code code, machine_mode mode,
 			    rtx operands[])
 {
-  int matching_memory;
+  bool matching_memory = false;
   rtx src, dst, op, clob;
 
   dst = operands[0];
@@ -18307,11 +18332,10 @@ ix86_expand_unary_operator (enum rtx_code code, machine_mode mode,
 
   /* If the destination is memory, and we do not have matching source
      operands, do things in registers.  */
-  matching_memory = 0;
   if (MEM_P (dst))
     {
       if (rtx_equal_p (dst, src))
-	matching_memory = 1;
+	matching_memory = true;
       else
 	dst = gen_reg_rtx (mode);
     }
@@ -20726,10 +20750,8 @@ ix86_split_fp_branch (enum rtx_code code, rtx op1, rtx op2,
 
   if (target2 != pc_rtx)
     {
-      rtx tmp = target2;
+      std::swap (target1, target2);
       code = reverse_condition_maybe_unordered (code);
-      target2 = target1;
-      target1 = tmp;
     }
 
   condition = ix86_expand_fp_compare (code, op1, op2,
@@ -20844,7 +20866,7 @@ ix86_expand_carry_flag_compare (enum rtx_code code, rtx op0, rtx op1, rtx *pop)
 	}
       else
 	{
-	  std::swap (op1, op0);
+	  std::swap (op0, op1);
 	  code = (code == GTU ? LTU : GEU);
 	}
       break;
@@ -20949,9 +20971,7 @@ ix86_expand_int_movcc (rtx operands[])
 	      /* To simplify rest of code, restrict to the GEU case.  */
 	      if (compare_code == LTU)
 		{
-		  HOST_WIDE_INT tmp = ct;
-		  ct = cf;
-		  cf = tmp;
+		  std::swap (ct, cf);
 		  compare_code = reverse_condition (compare_code);
 		  code = reverse_condition (code);
 		}
@@ -20983,9 +21003,7 @@ ix86_expand_int_movcc (rtx operands[])
 		code = reverse_condition (code);
 	      else
 		{
-		  HOST_WIDE_INT tmp = ct;
-		  ct = cf;
-		  cf = tmp;
+		  std::swap (ct, cf);
 		  diff = ct - cf;
 		}
 	      tmp = emit_store_flag (tmp, code, op0, op1, VOIDmode, 0, -1);
@@ -21072,9 +21090,7 @@ ix86_expand_int_movcc (rtx operands[])
       if (diff < 0)
 	{
 	  machine_mode cmp_mode = GET_MODE (op0);
-
-	  std::swap (ct, cf);
-	  diff = -diff;
+	  enum rtx_code new_code;
 
 	  if (SCALAR_FLOAT_MODE_P (cmp_mode))
 	    {
@@ -21084,13 +21100,15 @@ ix86_expand_int_movcc (rtx operands[])
 		 is not valid in general (we may convert non-trapping condition
 		 to trapping one), however on i386 we currently emit all
 		 comparisons unordered.  */
-	      compare_code = reverse_condition_maybe_unordered (compare_code);
-	      code = reverse_condition_maybe_unordered (code);
+	      new_code = reverse_condition_maybe_unordered (code);
 	    }
 	  else
+	    new_code = ix86_reverse_condition (code, cmp_mode);
+	  if (new_code != UNKNOWN)
 	    {
-	      compare_code = reverse_condition (compare_code);
-	      code = reverse_condition (code);
+	      std::swap (ct, cf);
+	      diff = -diff;
+	      code = new_code;
 	    }
 	}
 
@@ -21228,9 +21246,7 @@ ix86_expand_int_movcc (rtx operands[])
 	  if (cf == 0)
 	    {
 	      machine_mode cmp_mode = GET_MODE (op0);
-
-	      cf = ct;
-	      ct = 0;
+	      enum rtx_code new_code;
 
 	      if (SCALAR_FLOAT_MODE_P (cmp_mode))
 		{
@@ -21240,13 +21256,20 @@ ix86_expand_int_movcc (rtx operands[])
 		     that is not valid in general (we may convert non-trapping
 		     condition to trapping one), however on i386 we currently
 		     emit all comparisons unordered.  */
-		  code = reverse_condition_maybe_unordered (code);
+		  new_code = reverse_condition_maybe_unordered (code);
 		}
 	      else
 		{
-		  code = reverse_condition (code);
-		  if (compare_code != UNKNOWN)
+		  new_code = ix86_reverse_condition (code, cmp_mode);
+		  if (compare_code != UNKNOWN && new_code != UNKNOWN)
 		    compare_code = reverse_condition (compare_code);
+		}
+
+	      if (new_code != UNKNOWN)
+		{
+		  cf = ct;
+		  ct = 0;
+		  code = new_code;
 		}
 	    }
 
@@ -21270,7 +21293,7 @@ ix86_expand_int_movcc (rtx operands[])
 		  compare_code = LT;
 		}
 	      else
-		std::swap (cf, ct);
+		std::swap (ct, cf);
 
 	      out = emit_store_flag (out, code, op0, op1, VOIDmode, 0, -1);
 	    }
@@ -21541,6 +21564,14 @@ ix86_expand_sse_cmp (rtx dest, enum rtx_code code, rtx cmp_op0, rtx cmp_op1,
 
       switch (cmp_ops_mode)
 	{
+	case V64QImode:
+	  gcc_assert (TARGET_AVX512BW);
+	  gen = code == GT ? gen_avx512bw_gtv64qi3 : gen_avx512bw_eqv64qi3_1;
+	  break;
+	case V32HImode:
+	  gcc_assert (TARGET_AVX512BW);
+	  gen = code == GT ? gen_avx512bw_gtv32hi3 : gen_avx512bw_eqv32hi3_1;
+	  break;
 	case V16SImode:
 	  gen = code == GT ? gen_avx512f_gtv16si3 : gen_avx512f_eqv16si3_1;
 	  break;
@@ -36275,12 +36306,7 @@ ix86_expand_sse_compare (const struct builtin_description *d,
   /* Swap operands if we have a comparison that isn't available in
      hardware.  */
   if (swap)
-    {
-      rtx tmp = gen_reg_rtx (mode1);
-      emit_move_insn (tmp, op1);
-      op1 = op0;
-      op0 = tmp;
-    }
+    std::swap (op0, op1);
 
   if (optimize || !target
       || GET_MODE (target) != tmode
@@ -36325,7 +36351,7 @@ ix86_expand_sse_comi (const struct builtin_description *d, tree exp,
   /* Swap operands if we have a comparison that isn't available in
      hardware.  */
   if (d->flag & BUILTIN_DESC_SWAP_OPERANDS)
-    std::swap (op1, op0);
+    std::swap (op0, op1);
 
   target = gen_reg_rtx (SImode);
   emit_move_insn (target, const0_rtx);
@@ -41907,7 +41933,7 @@ ix86_hard_regno_mode_ok (int regno, machine_mode mode)
     return VALID_FP_MODE_P (mode);
   if (MASK_REGNO_P (regno))
     return (VALID_MASK_REG_MODE (mode)
-	    || ((TARGET_AVX512BW || TARGET_AVX512VBMI)
+	    || (TARGET_AVX512BW
 		&& VALID_MASK_AVX512BW_MODE (mode)));
   if (BND_REGNO_P (regno))
     return VALID_BND_REG_MODE (mode);
@@ -43336,7 +43362,7 @@ ix86_avoid_jump_mispredicts (void)
 {
   rtx_insn *insn, *start = get_insns ();
   int nbytes = 0, njumps = 0;
-  int isjump = 0;
+  bool isjump = false;
 
   /* Look for all minimal intervals of instructions containing 4 jumps.
      The intervals are bounded by START and INSN.  NBYTES is the total
@@ -43379,9 +43405,9 @@ ix86_avoid_jump_mispredicts (void)
 		  start = NEXT_INSN (start);
 		  if ((JUMP_P (start) && asm_noperands (PATTERN (start)) < 0)
 		      || CALL_P (start))
-		    njumps--, isjump = 1;
+		    njumps--, isjump = true;
 		  else
-		    isjump = 0;
+		    isjump = false;
 		  nbytes -= min_insn_size (start);
 		}
 	    }
@@ -43404,9 +43430,9 @@ ix86_avoid_jump_mispredicts (void)
 	  start = NEXT_INSN (start);
 	  if ((JUMP_P (start) && asm_noperands (PATTERN (start)) < 0)
 	      || CALL_P (start))
-	    njumps--, isjump = 1;
+	    njumps--, isjump = true;
 	  else
-	    isjump = 0;
+	    isjump = false;
 	  nbytes -= min_insn_size (start);
 	}
       gcc_assert (njumps >= 0);
@@ -51266,8 +51292,6 @@ has_dispatch (rtx_insn *insn, int action)
 static int
 ix86_reassociation_width (unsigned int, machine_mode mode)
 {
-  int res = 1;
-
   /* Vector part.  */
   if (VECTOR_MODE_P (mode))
     {
@@ -51279,11 +51303,11 @@ ix86_reassociation_width (unsigned int, machine_mode mode)
 
   /* Scalar part.  */
   if (INTEGRAL_MODE_P (mode) && TARGET_REASSOC_INT_TO_PARALLEL)
-    res = 2;
+    return 2;
   else if (FLOAT_MODE_P (mode) && TARGET_REASSOC_FP_TO_PARALLEL)
-    res = 2;
-
-  return res;
+    return 2;
+  else
+    return 1;
 }
 
 /* ??? No autovectorization into MMX or 3DNOW until we can reliably

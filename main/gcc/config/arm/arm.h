@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for ARM.
-   Copyright (C) 1991-2014 Free Software Foundation, Inc.
+   Copyright (C) 1991-2015 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com)
@@ -766,6 +766,11 @@ extern int arm_arch_crc;
 #define PCC_BITFIELD_TYPE_MATTERS TARGET_AAPCS_BASED
 #endif
 
+/* The maximum size of the sync library functions supported.  */
+#ifndef MAX_SYNC_LIBFUNC_SIZE
+#define MAX_SYNC_LIBFUNC_SIZE (2 * UNITS_PER_WORD)
+#endif
+
 
 /* Standard register usage.  */
 
@@ -1282,14 +1287,10 @@ enum reg_class
 /* For the Thumb the high registers cannot be used as base registers
    when addressing quantities in QI or HI mode; if we don't know the
    mode, then we must be conservative.  */
-#define MODE_BASE_REG_CLASS(MODE)					\
-  (arm_lra_flag								\
-   ? (TARGET_32BIT ? CORE_REGS						\
-      : GET_MODE_SIZE (MODE) >= 4 ? BASE_REGS				\
-      : LO_REGS)							\
-   : ((TARGET_ARM || (TARGET_THUMB2 && !optimize_size)) ? CORE_REGS	\
-      : ((MODE) == SImode) ? BASE_REGS					\
-      : LO_REGS))
+#define MODE_BASE_REG_CLASS(MODE)				\
+  (TARGET_32BIT ? CORE_REGS					\
+   : GET_MODE_SIZE (MODE) >= 4 ? BASE_REGS			\
+   : LO_REGS)
 
 /* For Thumb we can not support SP+reg addressing, so we return LO_REGS
    instead of BASE_REGS.  */
@@ -2145,9 +2146,9 @@ extern int making_const_table;
    : reverse_condition (code))
 
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
-  ((VALUE) = GET_MODE_UNIT_BITSIZE (MODE))
+  ((VALUE) = GET_MODE_UNIT_BITSIZE (MODE), 2)
 #define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
-  ((VALUE) = GET_MODE_UNIT_BITSIZE (MODE))
+  ((VALUE) = GET_MODE_UNIT_BITSIZE (MODE), 2)
 
 #define CC_STATUS_INIT \
   do { cfun->machine->thumb1_cc_insn = NULL_RTX; } while (0)

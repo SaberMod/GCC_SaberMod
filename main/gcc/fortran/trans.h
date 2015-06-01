@@ -1,5 +1,5 @@
 /* Header for code translation functions
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -348,6 +348,7 @@ gfc_wrapped_block;
 /* Class API functions.  */
 tree gfc_class_data_get (tree);
 tree gfc_class_vptr_get (tree);
+tree gfc_class_len_get (tree);
 void gfc_reset_vptr (stmtblock_t *, gfc_expr *);
 tree gfc_class_set_static_fields (tree, tree, tree);
 tree gfc_vtable_hash_get (tree);

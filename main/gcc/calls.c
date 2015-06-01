@@ -1,5 +1,5 @@
 /* Convert function calls to rtl insns, for GNU C compiler.
-   Copyright (C) 1989-2014 Free Software Foundation, Inc.
+   Copyright (C) 1989-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,18 +22,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "stringpool.h"
 #include "attribs.h"
 #include "predict.h"
-#include "vec.h"
 #include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
@@ -42,6 +48,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "is-a.h"
 #include "gimple.h"
 #include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
@@ -3792,6 +3808,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   int reg_parm_stack_space = 0;
   int needed;
   rtx_insn *before_call;
+  bool have_push_fusage;
   tree tfom;			/* type_for_mode (outmode, 0) */
 
 #ifdef REG_PARM_STACK_SPACE
@@ -4149,6 +4166,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
   /* Push the args that need to be pushed.  */
 
+  have_push_fusage = false;
+
   /* ARGNUM indexes the ARGVEC array in the order in which the arguments
      are to be pushed.  */
   for (count = 0; count < nargs; count++, argnum--)
@@ -4240,14 +4259,19 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	  if (argblock)
 	    use = plus_constant (Pmode, argblock,
 				 argvec[argnum].locate.offset.constant);
+	  else if (have_push_fusage)
+	    continue;
 	  else
-	    /* When arguments are pushed, trying to tell alias.c where
-	       exactly this argument is won't work, because the
-	       auto-increment causes confusion.  So we merely indicate
-	       that we access something with a known mode somewhere on
-	       the stack.  */
-	    use = gen_rtx_PLUS (Pmode, virtual_outgoing_args_rtx,
-				gen_rtx_SCRATCH (Pmode));
+	    {
+	      /* When arguments are pushed, trying to tell alias.c where
+		 exactly this argument is won't work, because the
+		 auto-increment causes confusion.  So we merely indicate
+		 that we access something with a known mode somewhere on
+		 the stack.  */
+	      use = gen_rtx_PLUS (Pmode, stack_pointer_rtx,
+				  gen_rtx_SCRATCH (Pmode));
+	      have_push_fusage = true;
+	    }
 	  use = gen_rtx_MEM (argvec[argnum].mode, use);
 	  use = gen_rtx_USE (VOIDmode, use);
 	  call_fusage = gen_rtx_EXPR_LIST (VOIDmode, use, call_fusage);

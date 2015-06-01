@@ -1,5 +1,5 @@
 /* A C++ API for libgccjit, purely as inline wrapper functions.
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -99,8 +99,17 @@ namespace gccjit
 
     gcc_jit_result *compile ();
 
+    void compile_to_file (enum gcc_jit_output_kind output_kind,
+			  const char *output_path);
+
     void dump_to_file (const std::string &path,
 		       bool update_locations);
+
+    void set_logfile (FILE *logfile,
+		      int flags,
+		      int verbosity);
+
+    void dump_reproducer_to_file (const char *path);
 
     void set_str_option (enum gcc_jit_str_option opt,
 			 const char *value);
@@ -151,12 +160,15 @@ namespace gccjit
 
     function get_builtin_function (const std::string &name);
 
-    lvalue new_global (type type_,
+    lvalue new_global (enum gcc_jit_global_kind kind,
+		       type type_,
 		       const std::string &name,
 		       location loc = location ());
 
     rvalue new_rvalue (type numeric_type,
 		       int value) const;
+    rvalue new_rvalue (type numeric_type,
+		       long value) const;
     rvalue zero (type numeric_type) const;
     rvalue one (type numeric_type) const;
     rvalue new_rvalue (type numeric_type,
@@ -532,12 +544,39 @@ context::compile ()
 }
 
 inline void
+context::compile_to_file (enum gcc_jit_output_kind output_kind,
+			  const char *output_path)
+{
+  gcc_jit_context_compile_to_file (m_inner_ctxt,
+				   output_kind,
+				   output_path);
+}
+
+inline void
 context::dump_to_file (const std::string &path,
 		       bool update_locations)
 {
   gcc_jit_context_dump_to_file (m_inner_ctxt,
 				path.c_str (),
 				update_locations);
+}
+
+inline void
+context::set_logfile (FILE *logfile,
+		      int flags,
+		      int verbosity)
+{
+  gcc_jit_context_set_logfile (m_inner_ctxt,
+			       logfile,
+			       flags,
+			       verbosity);
+}
+
+inline void
+context::dump_reproducer_to_file (const char *path)
+{
+  gcc_jit_context_dump_reproducer_to_file (m_inner_ctxt,
+					   path);
 }
 
 inline void
@@ -690,12 +729,14 @@ context::get_builtin_function (const std::string &name)
 }
 
 inline lvalue
-context::new_global (type type_,
+context::new_global (enum gcc_jit_global_kind kind,
+		     type type_,
 		     const std::string &name,
 		     location loc)
 {
   return lvalue (gcc_jit_context_new_global (m_inner_ctxt,
 					     loc.get_inner_location (),
+					     kind,
 					     type_.get_inner_type (),
 					     name.c_str ()));
 }
@@ -708,6 +749,16 @@ context::new_rvalue (type numeric_type,
     gcc_jit_context_new_rvalue_from_int (m_inner_ctxt,
 					 numeric_type.get_inner_type (),
 					 value));
+}
+
+inline rvalue
+context::new_rvalue (type numeric_type,
+		     long value) const
+{
+  return rvalue (
+    gcc_jit_context_new_rvalue_from_long (m_inner_ctxt,
+					  numeric_type.get_inner_type (),
+					  value));
 }
 
 inline rvalue

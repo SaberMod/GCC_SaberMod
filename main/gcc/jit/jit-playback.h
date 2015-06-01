@@ -1,5 +1,5 @@
 /* Internals of libgccjit: classes for playing back recorded API calls.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
    Contributed by David Malcolm <dmalcolm@redhat.com>.
 
 This file is part of GCC.
@@ -23,6 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 
 #include <utility> // for std::pair
 
+#include "timevar.h"
+
 #include "jit-recording.h"
 
 namespace gcc {
@@ -35,7 +37,13 @@ namespace jit {
 
 namespace playback {
 
-class context
+/* playback::context is an abstract base class.
+
+   The two concrete subclasses are:
+   - playback::compile_to_memory
+   - playback::compile_to_file.  */
+
+class context : public log_user
 {
 public:
   context (::gcc::jit::recording::context *ctxt);
@@ -90,20 +98,14 @@ public:
 
   lvalue *
   new_global (location *loc,
+	      enum gcc_jit_global_kind kind,
 	      type *type,
 	      const char *name);
 
+  template <typename HOST_TYPE>
   rvalue *
-  new_rvalue_from_int (type *type,
-		       int value);
-
-  rvalue *
-  new_rvalue_from_double (type *type,
-			  double value);
-
-  rvalue *
-  new_rvalue_from_ptr (type *type,
-		       void *value);
+  new_rvalue_from_const (type *type,
+			 HOST_TYPE value);
 
   rvalue *
   new_string_literal (const char *value);
@@ -180,7 +182,7 @@ public:
     return m_recording_ctxt->get_builtins_manager ();
   }
 
-  result *
+  void
   compile ();
 
   void
@@ -212,6 +214,10 @@ public:
   {
     return m_recording_ctxt->errors_occurred ();
   }
+
+  /* For use by jit_langhook_write_globals.  */
+  void write_global_decls_1 ();
+  void write_global_decls_2 ();
 
 private:
   void dump_generated_code ();
@@ -254,8 +260,21 @@ private:
   char *
   read_dump_file (const char *path);
 
+  virtual void postprocess (const char *ctxt_progname) = 0;
+
+protected:
+  tempdir *get_tempdir () { return m_tempdir; }
+
   void
   convert_to_dso (const char *ctxt_progname);
+
+  void
+  invoke_driver (const char *ctxt_progname,
+		 const char *input_file,
+		 const char *output_file,
+		 timevar_id_t tv_id,
+		 bool shared,
+		 bool run_linker);
 
   result *
   dlopen_built_dso ();
@@ -266,6 +285,7 @@ private:
   tempdir *m_tempdir;
 
   auto_vec<function *> m_functions;
+  auto_vec<tree> m_globals;
   tree m_char_array_type_node;
   tree m_const_char_ptr;
 
@@ -274,6 +294,37 @@ private:
 
   auto_vec<std::pair<tree, location *> > m_cached_locations;
 };
+
+class compile_to_memory : public context
+{
+ public:
+  compile_to_memory (recording::context *ctxt);
+  void postprocess (const char *ctxt_progname);
+
+  result *get_result_obj () const { return m_result; }
+
+ private:
+  result *m_result;
+};
+
+class compile_to_file : public context
+{
+ public:
+  compile_to_file (recording::context *ctxt,
+		   enum gcc_jit_output_kind output_kind,
+		   const char *output_path);
+  void postprocess (const char *ctxt_progname);
+
+ private:
+  void
+  copy_file (const char *src_path,
+	     const char *dst_path);
+
+ private:
+  enum gcc_jit_output_kind m_output_kind;
+  const char *m_output_path;
+};
+
 
 /* A temporary wrapper object.
    These objects are (mostly) only valid during replay.

@@ -1,5 +1,5 @@
 /* Interprocedural constant propagation
-   Copyright (C) 2005-2014 Free Software Foundation, Inc.
+   Copyright (C) 2005-2015 Free Software Foundation, Inc.
 
    Contributed by Razya Ladelsky <RAZYA@il.ibm.com> and Martin Jambor
    <mjambor@suse.cz>
@@ -103,19 +103,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "hash-map.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "gimple-fold.h"
 #include "gimple-expr.h"
 #include "target.h"
 #include "predict.h"
 #include "basic-block.h"
-#include "vec.h"
-#include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
@@ -123,6 +130,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-ref.h"
 #include "cgraph.h"
 #include "alloc-pool.h"
+#include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "bitmap.h"
 #include "tree-pass.h"
@@ -599,7 +607,7 @@ ipcp_cloning_candidate_p (struct cgraph_node *node)
   init_caller_stats (&stats);
   node->call_for_symbol_thunks_and_aliases (gather_caller_stats, &stats, false);
 
-  if (inline_summary (node)->self_size < stats.n_calls)
+  if (inline_summaries->get (node)->self_size < stats.n_calls)
     {
       if (dump_file)
         fprintf (dump_file, "Considering %s for cloning; code might shrink.\n",
@@ -1971,8 +1979,13 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
 	}
     }
   else if (t)
-    context = ipa_polymorphic_call_context (t, ie->indirect_info->otr_type,
-					    anc_offset);
+    {
+      context = ipa_polymorphic_call_context (t, ie->indirect_info->otr_type,
+					      anc_offset);
+      if (ie->indirect_info->vptr_changed)
+	context.possible_dynamic_type_change (ie->in_polymorphic_cdtor,
+					      ie->indirect_info->otr_type);
+    }
   else
     return NULL_TREE;
 
@@ -2067,7 +2080,7 @@ devirtualization_time_bonus (struct cgraph_node *node,
       callee = callee->function_symbol (&avail);
       if (avail < AVAIL_AVAILABLE)
 	continue;
-      isummary = inline_summary (callee);
+      isummary = inline_summaries->get (callee);
       if (!isummary->inlinable)
 	continue;
 
@@ -2314,7 +2327,7 @@ estimate_local_effects (struct cgraph_node *node)
   vec<ipa_agg_jump_function> known_aggs;
   vec<ipa_agg_jump_function_p> known_aggs_ptrs;
   bool always_const;
-  int base_time = inline_summary (node)->time;
+  int base_time = inline_summaries->get (node)->time;
   int removable_params_cost;
 
   if (!count || !ipcp_versionable_function_p (node))
@@ -2731,7 +2744,7 @@ ipcp_propagate_stage (struct ipa_topo_info *topo)
 	initialize_node_lattices (node);
       }
     if (node->definition && !node->alias)
-      overall_size += inline_summary (node)->self_size;
+      overall_size += inline_summaries->get (node)->self_size;
     if (node->count > max_count)
       max_count = node->count;
   }

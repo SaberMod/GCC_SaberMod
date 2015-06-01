@@ -1,6 +1,6 @@
 // future -*- C++ -*-
 
-// Copyright (C) 2009-2014 Free Software Foundation, Inc.
+// Copyright (C) 2009-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -89,11 +89,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     unique_ptr<_Make_ready> mr{static_cast<_Make_ready*>(p)};
     if (auto state = mr->_M_shared_state.lock())
       {
-	{
-	  lock_guard<mutex> __lock{state->_M_mutex};
-	  state->_M_ready = true;
-	}
-	state->_M_cond.notify_all();
+	// Use release MO to synchronize with observers of the ready state.
+	state->_M_status._M_store_notify_all(_Status::__ready,
+	    memory_order_release);
       }
   }
 

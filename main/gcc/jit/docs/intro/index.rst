@@ -1,4 +1,4 @@
-.. Copyright (C) 2014 Free Software Foundation, Inc.
+.. Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Originally contributed by David Malcolm <dmalcolm@redhat.com>
 
    This is free software: you can redistribute it and/or modify it
@@ -25,3 +25,4 @@ Tutorial
    tutorial02.rst
    tutorial03.rst
    tutorial04.rst
+   tutorial05.rst

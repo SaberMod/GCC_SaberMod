@@ -22,7 +22,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "vec.h"
+#include "input.h"
+#include "hash-set.h"
 #include "hash-map.h"
+#include "alias.h"
+#include "double-int.h"
+#include "symtab.h"
+#include "inchash.h"
 #include "tree.h"
 #include "is-a.h"
 #include "rtl.h"
@@ -52,7 +59,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "gcov-io.h"
 #include "timevar.h"
-#include "vec.h"
 #include "params.h"
 
 unsigned ggc_total_memory; /* in KB */

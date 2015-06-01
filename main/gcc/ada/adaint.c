@@ -106,7 +106,7 @@
 extern "C" {
 #endif
 
-#if defined (__MINGW32__)
+#if defined (__MINGW32__) || defined (__CYGWIN__)
 
 #if defined (RTX)
 #include <windows.h>
@@ -2318,7 +2318,7 @@ static void SignalListChanged (void) {}
 #else
 
 CRITICAL_SECTION ProcListCS;
-HANDLE ProcListEvt;
+HANDLE ProcListEvt = NULL;
 
 static void EnterCS (void)
 {

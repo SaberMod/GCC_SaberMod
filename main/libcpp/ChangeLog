@@ -1,3 +1,12 @@
+2015-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* expr.c (cpp_classify_number): Add N_() around ?: string
+	literals used in cpp_error_with_line call as format string.
+
+2015-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
 2014-12-19  Jakub Jelinek  <jakub@redhat.com>
 
 	PR preprocessor/63831

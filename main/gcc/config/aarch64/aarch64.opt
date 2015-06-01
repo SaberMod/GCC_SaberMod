@@ -1,5 +1,5 @@
 ; Machine description for AArch64 architecture.
-; Copyright (C) 2009-2014 Free Software Foundation, Inc.
+; Copyright (C) 2009-2015 Free Software Foundation, Inc.
 ; Contributed by ARM Ltd.
 ;
 ; This file is part of GCC.
@@ -106,10 +106,6 @@ Target RejectNegative ToLower Joined Var(aarch64_tune_string)
 mabi=
 Target RejectNegative Joined Enum(aarch64_abi) Var(aarch64_abi) Init(AARCH64_ABI_DEFAULT)
 -mabi=ABI	Generate code that conforms to the specified ABI
-
-mlra
-Target Report Var(aarch64_lra_flag) Init(1) Save
-Use LRA instead of reload (transitional)
 
 Enum
 Name(aarch64_abi) Type(int)
