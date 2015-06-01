@@ -728,9 +728,12 @@ proper position among the other output files.  */
 
 #ifndef LINK_SSP_SPEC
 #ifdef TARGET_LIBC_PROVIDES_SSP
-#define LINK_SSP_SPEC "%{fstack-protector:}"
+#define LINK_SSP_SPEC "%{fstack-protector|fstack-protector-all" \
+		       "|fstack-protector-strong|fstack-protector-explicit:}"
 #else
-#define LINK_SSP_SPEC "%{fstack-protector|fstack-protector-strong|fstack-protector-all:-lssp_nonshared -lssp}"
+#define LINK_SSP_SPEC "%{fstack-protector|fstack-protector-all" \
+		       "|fstack-protector-strong|fstack-protector-explicit" \
+		       ":-lssp_nonshared -lssp}"
 #endif
 #endif
 
@@ -2918,8 +2921,9 @@ execute (void)
 	      }
 	    else
 #endif
-	      internal_error ("%s (program %s)",
-			      strsignal (WTERMSIG (status)), commands[i].prog);
+	      internal_error_no_backtrace ("%s (program %s)",
+					   strsignal (WTERMSIG (status)),
+					   commands[i].prog);
 	  }
 	else if (WIFEXITED (status)
 		 && WEXITSTATUS (status) >= MIN_FATAL_STATUS)
@@ -6343,10 +6347,10 @@ print_configuration (FILE *file)
 
   if (! strncmp (version_string, compiler_version, n)
       && compiler_version[n] == 0)
-    fnotice (file, "gcc version %s %s\n\n", version_string,
+    fnotice (file, "gcc version %s %s\n", version_string,
 	     pkgversion_string);
   else
-    fnotice (file, "gcc driver version %s %sexecuting gcc version %s\n\n",
+    fnotice (file, "gcc driver version %s %sexecuting gcc version %s\n",
 	     version_string, pkgversion_string, compiler_version);
 
 }
@@ -6450,6 +6454,7 @@ run_attempt (const char **new_argv, const char *out_temp,
     {
       FILE *file_out = fopen (err_temp, "a");
       print_configuration (file_out);
+      fputs ("\n", file_out);
       fclose (file_out);
     }
 

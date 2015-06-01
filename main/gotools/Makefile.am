@@ -38,7 +38,7 @@ endif
 GOCFLAGS = $(CFLAGS_FOR_TARGET)
 GOCOMPILE = $(GOCOMPILER) $(GOCFLAGS)
 
-AM_LDFLAGS = -L $(libgodir) -L $(libgodir)/.libs -static-libgo
+AM_LDFLAGS = -L $(libgodir) -L $(libgodir)/.libs
 GOLINK = $(GOCOMPILER) $(AM_GOCFLAGS) $(LDFLAGS) $(AM_LDFLAGS) -o $@
 
 cmdsrcdir = $(srcdir)/../libgo/go/cmd
@@ -106,6 +106,7 @@ if NATIVE
 
 bin_PROGRAMS = go$(EXEEXT) gofmt$(EXEEXT)
 noinst_PROGRAMS = cgo$(EXEEXT)
+man_MANS = go.1 gofmt.1
 
 go$(EXEEXT): $(go_cmd_go_files) zdefaultcc.go $(LIBGODEP)
 	$(GOLINK) $(go_cmd_go_files) zdefaultcc.go $(LIBS) $(NET_LIBS)

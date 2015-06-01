@@ -1,3 +1,69 @@
+2015-01-27  Nick Clifton  <nickc@redhat.com>
+
+	* config/rl78/cmpsi2.S: Use function start and end macros.
+	(__gcc_bcmp): New function.
+	* config/rl78/lshrsi3.S: Use function start and end macros.
+	* config/rl78/mulsi3.S: Add support for G10.
+	(__mulqi3): New function for G10.
+	* config/rl78/signbit.S: Use function start and end macros.
+	* config/rl78/t-rl78 (LIB2ADD): Add bit-count.S, fpbit-sf.S and
+	fpmath-sf.S.
+	(LIB2FUNCS_EXCLUDE): Define.
+	(LIB2FUNCS_ST): Define.
+	* config/rl78/trampoline.S: Use function start and end macros.
+	* config/rl78/vregs.h (START_FUNC): New macro.
+	(START_ANOTHER_FUNC): New macro.
+	(END_FUNC): New macro.
+	(END_ANOTHER_FUNC): New macro.
+	* config/rl78/bit-count.S: New file.  Contains assembler
+	implementations of the bit counting functions: ___clzhi2,
+	__clzsi2, ctzhi2, ctzsi2, ffshi2, ffssi2, __partityhi2,
+	__paritysi2, __popcounthi2 and __popcountsi2.
+	* config/rl78/fpbit-sf.S: New file.  Contains assembler
+	implementationas of the math functions: __negsf2, __cmpsf2,
+	__eqsf2, __nesf2, __lesf2, __ltsf2, __gesf2, gtsf2, __unordsf2,
+	__fixsfsi,  __fixunssfsi, __floatsisf and __floatunssisf.
+	* config/rl78/fpmath-sf.S: New file.  Contains assembler
+	implementations of the math functions: __subsf3, __addsf3,
+	__mulsf3 and __divsf3
+
+2015-01-27  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config.host (i[34567]86-*-solaris2*, x86_64-*-solaris2.1[0-9]*):
+	Add i386/elf-lib.h to tm_file.
+	* config/i386/elf-lib.h: Fix comment.
+	* unwind-dw2-fde-dip.c (_Unwind_IteratePhdrCallback) [__x86_64__
+	&& __sun__ && __svr4__]: Remove workaround.
+
+2015-01-25  Allan Sandfeld Jensen  <sandfeld@kde.org>
+
+	* config/i386/cpuinfo.c (enum processor_features): Add FEATURE_BMI and
+	FEATURE_BMI2.
+	(get_available_features): Detect FEATURE_BMI and FEATURE_BMI2.
+
+2015-01-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/cpuinfo.c (processor_subtypes): Add
+	INTEL_COREI7_BROADWELL.
+	(get_intel_cpu): Support new Silvermont, Haswell and Broadwell
+	model numbers.
+
+2015-01-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/elf-lib.h: New file.
+	(CRT_GET_RFIB_DATA): Move definition from gcc/config/i386/gnu-user.h.
+	Wrap definition in #ifdef __i386__.
+	* libgcc/config.host (i[34567]86-*-linux*, i[34567]86-*-kfreebsd*-gnu)
+	(i[34567]86-*-knetbsd*-gnu, i[34567]86-*-gnu*)
+	(i[34567]86-*-kopensolaris*-gnu, x86_64-*-linux*)
+	(x86_64-*-kfreebsd*-gnu, x86_64-*-knetbsd*-gnu): Add i386/elf-lib.h
+	to tm_file.
+
+2015-01-22  Chen Gang  <gang.chen.5i5j@gmail.com>
+
+	* unwind-dw2-fde.h (last_fde): Use "(const fde *)" instead of
+	"(char *)" to avoid qualifier warning by 'xgcc' compiling.
+
 2015-01-20  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* config/nios2/linux-unwind.h (nios2_fallback_frame_state):

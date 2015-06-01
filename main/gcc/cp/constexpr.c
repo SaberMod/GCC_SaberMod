@@ -2962,10 +2962,11 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       return (*ctx->values->get (t));
 
     case VAR_DECL:
+    case CONST_DECL:
+      /* We used to not check lval for CONST_DECL, but darwin.c uses
+	 CONST_DECL for aggregate constants.  */
       if (lval)
 	return t;
-      /* else fall through. */
-    case CONST_DECL:
       if (ctx->strict)
 	r = decl_really_constant_value (t);
       else
@@ -3460,8 +3461,18 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       break;
 
     default:
-      internal_error ("unexpected expression %qE of kind %s", t,
-		      get_tree_code_name (TREE_CODE (t)));
+      if (STATEMENT_CODE_P (TREE_CODE (t)))
+	{
+	  /* This function doesn't know how to deal with pre-genericize
+	     statements; this can only happen with statement-expressions,
+	     so for now just fail.  */
+	  if (!ctx->quiet)
+	    error_at (EXPR_LOCATION (t),
+		      "statement is not a constant-expression");
+	}
+      else
+	internal_error ("unexpected expression %qE of kind %s", t,
+			get_tree_code_name (TREE_CODE (t)));
       *non_constant_p = true;
       break;
     }
