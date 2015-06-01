@@ -1,3 +1,78 @@
+2015-05-31  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* configure.ac (NO_PIE_CFLAGS): Check CXXFLAGS instead of CFLAGS.
+	* configure: Regenerated.
+
+2015-05-31  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* config/cris/cris.h (CRIS_ARCH_CPP_DEFAULT): Fix C++11 compatibility
+	issue (add space between string literal and macro).
+	* config/i386/mingw32.h (REAL_LIBGCC_SPEC): Likewise.
+
+2015-05-30  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* config/m68k/m68k.h (ASM_PCREL_SPEC): Pass --pcrel also for
+	implict or explicit -fPIE or -fpie.
+
+2015-05-30  Mike Frysinger  <vapier@gentoo.org>
+
+	* gcc/config/alpha/elf.h (ASM_SPEC): Add %{mcpu=*:-m%*}.
+
+2015-05-28  DJ Delorie  <dj@redhat.com>
+
+	* expmed.c (extract_bit_field_1): Avoid clobbering a
+	yet-to-be-used base/index register.
+
+2015-05-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* alias.c (alias_set_entry_d): Add is_pointer and has_pointer.
+	(alias_stats): Add num_universal.
+	(alias_set_subset_of): Special case pointers; be ready for NULL
+	children.
+	(alias_sets_conflict_p): Special case pointers; be ready for NULL
+	children.
+	(init_alias_set_entry): Break out from ...
+	(record_alias_subset): ... here; propagate new fields;
+	allocate children only when really needed.
+	(get_alias_set): Do less generous pointer globbing.
+	(dump_alias_stats_in_alias_c): Update statistics.
+
+2015-05-30  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (split_stack_arg_pointer_used_p): Scan
+	correct block for use of r12.
+	(rs6000_expand_split_stack_prologue): Error on r29 asm global reg.
+
+2015-05-29  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR target/66215
+	* config/s390/s390.c (s390_reorg): Fix placement of post-label NOPs
+	with -mhotpatch=.
+
+2015-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/66142
+	* tree-if-conv.c (if_convertible_phi_p): Don't give up on
+	virtual phis that feed themselves.
+
+2015-05-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66314
+	* tree-ssa-threadupdate.c (create_block_for_threading): Add
+	parameter that says which loop the new block belongs to.
+	(ssa_create_duplicates): Blocks duplicated for the threaded
+	path belong to the loop of the thread destination.
+
+2015-05-29  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	* config/arm/neon-testgen.ml (emit_epilogue): Remove manual call
+	to cleanup-saved-temps.
+	* doc/sourcebuild.texi (Clean up generated test files): Expand
+	introduction.
+	(dg-keep-saved-temps): Document new proc.
+	(cleanup-ipa-dump, cleanup-rtl-dump, cleanup-tree-dump,
+	cleanup-saved-temps): Remove.
+
 2015-05-28  Andreas Tobler  <andreast@gcc.gnu.org>
 
 	* configure.ac: Move the atoll check from AC_CHECK_FUNCS to
