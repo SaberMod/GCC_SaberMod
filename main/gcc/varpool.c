@@ -199,7 +199,6 @@ varpool_node::remove (void)
 {
   symtab->call_varpool_removal_hooks (this);
   varpool_remove_link_node (this);
-  unregister ();
 
   /* When streaming we can have multiple nodes associated with decl.  */
   if (symtab->state == LTO_STREAMING)
@@ -209,6 +208,8 @@ varpool_node::remove (void)
   else if (DECL_INITIAL (decl) && DECL_INITIAL (decl) != error_mark_node
 	   && !ctor_useable_for_folding_p ())
     remove_initializer ();
+
+  unregister ();
   ggc_free (this);
 }
 

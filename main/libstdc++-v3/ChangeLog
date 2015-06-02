@@ -1,3 +1,23 @@
+2015-02-04  Matthew Wahab  <matthew.wahab@arm.com>
+
+	PR  libstdc++/64467
+	* testsuite/28_regex/traits/char/isctype.cc (test01):	Add newlib
+	special case for '\n'.
+	* testsuite/28_regex/traits/wchar_t/isctype.cc (test01): Likewise.
+
+2015-02-01  Jonathan Wakely  <jwakely@redhat.com>
+
+	* src/c++11/futex.cc: Do not define for gthr-single.h targets.
+
+2015-02-01  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64883
+	* include/c_global/cstdio (gets): Use __deprecated__ attribute instead
+	of deprecated.
+	* include/c_std/cstdio (gets): Likewise.
+	* testsuite/17_intro/headers/c++1998/all_attributes.cc: Avoid clashing
+	with attributes used in darwin headers.
+
 2015-01-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* acinclude.m4 (VTV_CYGMIN): Use x$vtv_cygmin = xyes instead of

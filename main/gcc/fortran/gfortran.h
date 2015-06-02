@@ -1969,6 +1969,9 @@ typedef struct gfc_expr
   /* Mark an expression as being a MOLD argument of ALLOCATE.  */
   unsigned int mold : 1;
 
+  /* Will require finalization after use.  */
+  unsigned int must_finalize : 1;
+
   /* If an expression comes from a Hollerith constant or compile-time
      evaluation of a transfer statement, it may have a prescribed target-
      memory representation, and these cannot always be backformed from
@@ -2646,10 +2649,8 @@ void gfc_buffer_error (bool);
 const char *gfc_print_wide_char (gfc_char_t);
 
 void gfc_warning_1 (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
-bool gfc_warning (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 bool gfc_warning (int opt, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
 void gfc_warning_now_1 (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
-bool gfc_warning_now (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 bool gfc_warning_now (int opt, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
 
 void gfc_clear_warning (void);
@@ -2990,6 +2991,8 @@ bool gfc_expr_check_typed (gfc_expr*, gfc_namespace*, bool);
 
 gfc_component * gfc_get_proc_ptr_comp (gfc_expr *);
 bool gfc_is_proc_ptr_comp (gfc_expr *);
+bool gfc_is_alloc_class_scalar_function (gfc_expr *);
+bool gfc_is_alloc_class_array_function (gfc_expr *);
 
 bool gfc_ref_this_image (gfc_ref *ref);
 bool gfc_is_coindexed (gfc_expr *);
