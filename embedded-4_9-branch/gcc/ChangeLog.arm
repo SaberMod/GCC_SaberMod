@@ -1,3 +1,13 @@
+2015-06-03  Hale Wang  <hale.wang@arm.com>
+
+	Backport from mainline r222306
+	2015-04-22  Hale Wang  <hale.wang@arm.com>
+		    Terry Guo  <terry.guo@arm.com>
+
+	PR rtl-optimization/64818
+	* combine.c (can_combine_p): Don't combine user-specified
+	register if it is in an asm input.
+
 2015-03-02  Terry Guo  <terry.guo@arm.com>
 
 	Backport from mainline r220999
