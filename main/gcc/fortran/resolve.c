@@ -2639,6 +2639,10 @@ found:
     expr->ts = sym->ts;
   expr->value.function.name = sym->name;
   expr->value.function.esym = sym;
+  /* Prevent crash when sym->ts.u.derived->components is not set due to previous
+     error(s).  */
+  if (sym->ts.type == BT_CLASS && !CLASS_DATA (sym))
+    return MATCH_ERROR;
   if (sym->ts.type == BT_CLASS && CLASS_DATA (sym)->as)
     expr->rank = CLASS_DATA (sym)->as->rank;
   else if (sym->as != NULL)
@@ -2859,6 +2863,32 @@ static bool check_pure_function (gfc_expr *e)
       gfc_unset_implicit_pure (NULL);
     }
   return true;
+}
+
+
+/* Update current procedure's array_outer_dependency flag, considering
+   a call to procedure SYM.  */
+
+static void
+update_current_proc_array_outer_dependency (gfc_symbol *sym)
+{
+  /* Check to see if this is a sibling function that has not yet
+     been resolved.  */
+  gfc_namespace *sibling = gfc_current_ns->sibling;
+  for (; sibling; sibling = sibling->sibling)
+    {
+      if (sibling->proc_name == sym)
+	{
+	  gfc_resolve (sibling);
+	  break;
+	}
+    }
+
+  /* If SYM has references to outer arrays, so has the procedure calling
+     SYM.  If SYM is a procedure pointer, we can assume the worst.  */
+  if (sym->attr.array_outer_dependency
+      || sym->attr.proc_pointer)
+    gfc_current_ns->proc_name->attr.array_outer_dependency = 1;
 }
 
 
@@ -3085,6 +3115,17 @@ resolve_function (gfc_expr *expr)
 	    && !expr->symtree->n.sym->result->attr.proc_pointer)
 	expr->ts = expr->symtree->n.sym->result->ts;
     }
+
+  if (!expr->ref && !expr->value.function.isym)
+    {
+      if (expr->value.function.esym)
+	update_current_proc_array_outer_dependency (expr->value.function.esym);
+      else
+	update_current_proc_array_outer_dependency (sym);
+    }
+  else if (expr->ref)
+    /* typebound procedure: Assume the worst.  */
+    gfc_current_ns->proc_name->attr.array_outer_dependency = 1;
 
   return t;
 }
@@ -3422,6 +3463,12 @@ resolve_call (gfc_code *c)
   /* Some checks of elemental subroutine actual arguments.  */
   if (!resolve_elemental_actual (NULL, c))
     return false;
+
+  if (!c->expr1)
+    update_current_proc_array_outer_dependency (csym);
+  else
+    /* Typebound procedure: Assume the worst.  */
+    gfc_current_ns->proc_name->attr.array_outer_dependency = 1;
 
   return t;
 }
@@ -3809,11 +3856,11 @@ bad_op:
 
 typedef enum
 { CMP_LT, CMP_EQ, CMP_GT, CMP_UNKNOWN }
-comparison;
+compare_result;
 
 /* Compare two integer expressions.  */
 
-static comparison
+static compare_result
 compare_bound (gfc_expr *a, gfc_expr *b)
 {
   int i;
@@ -3840,7 +3887,7 @@ compare_bound (gfc_expr *a, gfc_expr *b)
 
 /* Compare an integer expression with an integer.  */
 
-static comparison
+static compare_result
 compare_bound_int (gfc_expr *a, int b)
 {
   int i;
@@ -3863,7 +3910,7 @@ compare_bound_int (gfc_expr *a, int b)
 
 /* Compare an integer expression with a mpz_t.  */
 
-static comparison
+static compare_result
 compare_bound_mpz_t (gfc_expr *a, mpz_t b)
 {
   int i;
@@ -4002,7 +4049,7 @@ check_dimension (int i, gfc_array_ref *ar, gfc_array_spec *as)
 #define AR_START (ar->start[i] ? ar->start[i] : as->lower[i])
 #define AR_END (ar->end[i] ? ar->end[i] : as->upper[i])
 
-	comparison comp_start_end = compare_bound (AR_START, AR_END);
+	compare_result comp_start_end = compare_bound (AR_START, AR_END);
 
 	/* Check for zero stride, which is not allowed.  */
 	if (compare_bound_int (ar->stride[i], 0) == CMP_EQ)
@@ -5053,6 +5100,13 @@ resolve_variable (gfc_expr *e)
 	      || (gfc_current_ns->parent->parent
 		    && gfc_current_ns->parent->parent == sym->ns)))
     sym->attr.host_assoc = 1;
+
+  if (gfc_current_ns->proc_name
+      && sym->attr.dimension
+      && (sym->ns != gfc_current_ns
+	  || sym->attr.use_assoc
+	  || sym->attr.in_common))
+    gfc_current_ns->proc_name->attr.array_outer_dependency = 1;
 
 resolve_procedure:
   if (t && !resolve_procedure_expression (e))
@@ -11490,6 +11544,11 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 	}
     }
 
+  /* Assume that a procedure whose body is not known has references
+     to external arrays.  */
+  if (sym->attr.if_source != IFSRC_DECL)
+    sym->attr.array_outer_dependency = 1;
+
   return true;
 }
 
@@ -13125,10 +13184,13 @@ resolve_symbol (gfc_symbol *sym)
 	    {
 	      this_symtree = gfc_find_symtree (gfc_current_ns->sym_root,
 					       sym->name);
-	      gfc_release_symbol (sym);
-	      symtree->n.sym->refs++;
-	      this_symtree->n.sym = symtree->n.sym;
-	      return;
+	      if (this_symtree->n.sym == sym)
+		{
+		  symtree->n.sym->refs++;
+		  gfc_release_symbol (sym);
+		  this_symtree->n.sym = symtree->n.sym;
+		  return;
+		}
 	    }
 	}
 
@@ -14880,6 +14942,9 @@ resolve_types (gfc_namespace *ns)
   gfc_equiv *eq;
   gfc_namespace* old_ns = gfc_current_ns;
 
+  if (ns->types_resolved)
+    return;
+
   /* Check that all IMPLICIT types are ok.  */
   if (!ns->seen_implicit_none)
     {
@@ -14953,6 +15018,8 @@ resolve_types (gfc_namespace *ns)
   gfc_resolve_omp_declare_simd (ns);
 
   gfc_resolve_omp_udrs (ns->omp_udr_root);
+
+  ns->types_resolved = 1;
 
   gfc_current_ns = old_ns;
 }

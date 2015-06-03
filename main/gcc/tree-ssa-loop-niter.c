@@ -1563,10 +1563,11 @@ simplify_replace_tree (tree expr, tree old, tree new_tree)
 }
 
 /* Expand definitions of ssa names in EXPR as long as they are simple
-   enough, and return the new expression.  */
+   enough, and return the new expression.  If STOP is specified, stop
+   expanding if EXPR equals to it.  */
 
 tree
-expand_simple_operations (tree expr)
+expand_simple_operations (tree expr, tree stop)
 {
   unsigned i, n;
   tree ret = NULL_TREE, e, ee, e1;
@@ -1586,7 +1587,7 @@ expand_simple_operations (tree expr)
       for (i = 0; i < n; i++)
 	{
 	  e = TREE_OPERAND (expr, i);
-	  ee = expand_simple_operations (e);
+	  ee = expand_simple_operations (e, stop);
 	  if (e == ee)
 	    continue;
 
@@ -1605,7 +1606,8 @@ expand_simple_operations (tree expr)
       return ret;
     }
 
-  if (TREE_CODE (expr) != SSA_NAME)
+  /* Stop if it's not ssa name or the one we don't want to expand.  */
+  if (TREE_CODE (expr) != SSA_NAME || expr == stop)
     return expr;
 
   stmt = SSA_NAME_DEF_STMT (expr);
@@ -1625,7 +1627,7 @@ expand_simple_operations (tree expr)
 	  && src->loop_father != dest->loop_father)
 	return expr;
 
-      return expand_simple_operations (e);
+      return expand_simple_operations (e, stop);
     }
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return expr;
@@ -1645,7 +1647,7 @@ expand_simple_operations (tree expr)
 	return e;
 
       if (code == SSA_NAME)
-	return expand_simple_operations (e);
+	return expand_simple_operations (e, stop);
 
       return expr;
     }
@@ -1654,7 +1656,7 @@ expand_simple_operations (tree expr)
     {
     CASE_CONVERT:
       /* Casts are simple.  */
-      ee = expand_simple_operations (e);
+      ee = expand_simple_operations (e, stop);
       return fold_build1 (code, TREE_TYPE (expr), ee);
 
     case PLUS_EXPR:
@@ -1669,7 +1671,7 @@ expand_simple_operations (tree expr)
       if (!is_gimple_min_invariant (e1))
 	return expr;
 
-      ee = expand_simple_operations (e);
+      ee = expand_simple_operations (e, stop);
       return fold_build2 (code, TREE_TYPE (expr), ee, e1);
 
     default:
@@ -3327,7 +3329,6 @@ maybe_lower_iteration_bound (struct loop *loop)
   struct nb_iter_bound *elt;
   bool found_exit = false;
   vec<basic_block> queue = vNULL;
-  vec<gimple> problem_stmts = vNULL;
   bitmap visited;
 
   /* Collect all statements with interesting (i.e. lower than
@@ -3373,7 +3374,6 @@ maybe_lower_iteration_bound (struct loop *loop)
 	  if (not_executed_last_iteration->contains (stmt))
 	    {
 	      stmt_found = true;
-	      problem_stmts.safe_push (stmt);
 	      break;
 	    }
 	  if (gimple_has_side_effects (stmt))
@@ -3417,53 +3417,10 @@ maybe_lower_iteration_bound (struct loop *loop)
 		 "undefined statement must be executed at the last iteration.\n");
       record_niter_bound (loop, loop->nb_iterations_upper_bound - 1,
 			  false, true);
-
-      if (warn_aggressive_loop_optimizations)
-	{
-	  bool exit_warned = false;
-	  for (elt = loop->bounds; elt; elt = elt->next)
-	    {
-	      if (elt->is_exit
-		  && wi::gtu_p (elt->bound, loop->nb_iterations_upper_bound))
-		{
-		  basic_block bb = gimple_bb (elt->stmt);
-		  edge exit_edge = EDGE_SUCC (bb, 0);
-		  struct tree_niter_desc niter;
-
-		  if (!loop_exit_edge_p (loop, exit_edge))
-		    exit_edge = EDGE_SUCC (bb, 1);
-
-		  if(number_of_iterations_exit (loop, exit_edge,
-						&niter, false, false)
-		     && integer_onep (niter.assumptions)
-		     && integer_zerop (niter.may_be_zero)
-		     && niter.niter
-		     && TREE_CODE (niter.niter) == INTEGER_CST
-		     && wi::ltu_p (loop->nb_iterations_upper_bound,
-				   wi::to_widest (niter.niter)))
-		   {
-		     if (warning_at (gimple_location (elt->stmt),
-				     OPT_Waggressive_loop_optimizations,
-				     "loop exit may only be reached after undefined behavior"))
-		       exit_warned = true;
-		   }
-		}
-	    }
-
-	  if (exit_warned && !problem_stmts.is_empty ())
-	    {
-	      gimple stmt;
-	      int index;
-	      FOR_EACH_VEC_ELT (problem_stmts, index, stmt)
-		inform (gimple_location (stmt),
-			"possible undefined statement is here");
-	    }
-      }
     }
 
   BITMAP_FREE (visited);
   queue.release ();
-  problem_stmts.release ();
   delete not_executed_last_iteration;
 }
 

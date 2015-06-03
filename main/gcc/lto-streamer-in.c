@@ -172,47 +172,174 @@ canon_file_name (const char *string)
     }
 }
 
+/* Pointer to currently alive instance of lto_location_cache.  */
 
-/* Read a location bitpack from input block IB.  */
+lto_location_cache *lto_location_cache::current_cache;
 
-location_t
-lto_input_location (struct bitpack_d *bp, struct data_in *data_in)
+/* Sort locations in source order. Start with file from last application.  */
+
+int
+lto_location_cache::cmp_loc (const void *pa, const void *pb)
 {
-  static const char *current_file;
-  static int current_line;
-  static int current_col;
+  const cached_location *a = ((const cached_location *)pa);
+  const cached_location *b = ((const cached_location *)pb);
+  const char *current_file = current_cache->current_file;
+  int current_line = current_cache->current_line;
+
+  if (a->file == current_file && b->file != current_file)
+    return -1;
+  if (a->file != current_file && b->file == current_file)
+    return 1;
+  if (a->file == current_file && b->file == current_file)
+    {
+      if (a->line == current_line && b->line != current_line)
+	return -1;
+      if (a->line != current_line && b->line == current_line)
+	return 1;
+    }
+  if (a->file != b->file)
+    return strcmp (a->file, b->file);
+  if (a->line != b->line)
+    return a->line - b->line;
+  return a->col - b->col;
+}
+
+/* Apply all changes in location cache.  Add locations into linemap and patch
+   trees.  */
+
+bool
+lto_location_cache::apply_location_cache ()
+{
+  static const char *prev_file;
+  if (!loc_cache.length ())
+    return false;
+  if (loc_cache.length () > 1)
+    loc_cache.qsort (cmp_loc);
+
+  for (unsigned int i = 0; i < loc_cache.length (); i++)
+    {
+      struct cached_location loc = loc_cache[i];
+
+      if (current_file != loc.file)
+	linemap_add (line_table, prev_file ? LC_RENAME : LC_ENTER,
+		     false, loc.file, loc.line);
+      else if (current_line != loc.line)
+	{
+	  int max = loc.col;
+
+	  for (unsigned int j = i + 1; j < loc_cache.length (); j++)
+	    if (loc.file != loc_cache[j].file
+		|| loc.line != loc_cache[j].line)
+	      break;
+	    else if (max < loc_cache[j].col)
+	      max = loc_cache[j].col;
+	  linemap_line_start (line_table, loc.line, max + 1);
+	}
+      gcc_assert (*loc.loc == BUILTINS_LOCATION + 1);
+      if (current_file == loc.file && current_line == loc.line
+	  && current_col == loc.col)
+	*loc.loc = current_loc;
+      else
+        current_loc = *loc.loc = linemap_position_for_column (line_table,
+							      loc.col);
+      current_line = loc.line;
+      prev_file = current_file = loc.file;
+      current_col = loc.col;
+    }
+  loc_cache.truncate (0);
+  accepted_length = 0;
+  return true;
+}
+
+/* Tree merging did not suceed; mark all changes in the cache as accepted.  */
+
+void
+lto_location_cache::accept_location_cache ()
+{
+  gcc_assert (current_cache == this);
+  accepted_length = loc_cache.length ();
+}
+
+/* Tree merging did suceed; throw away recent changes.  */
+
+void
+lto_location_cache::revert_location_cache ()
+{
+  loc_cache.truncate (accepted_length);
+}
+
+/* Read a location bitpack from input block IB and either update *LOC directly
+   or add it to the location cache.
+   It is neccesary to call apply_location_cache to get *LOC updated.  */
+
+void
+lto_location_cache::input_location (location_t *loc, struct bitpack_d *bp,
+				    struct data_in *data_in)
+{
+  static const char *stream_file;
+  static int stream_line;
+  static int stream_col;
   bool file_change, line_change, column_change;
-  bool prev_file = current_file != NULL;
+
+  gcc_assert (current_cache == this);
 
   if (bp_unpack_value (bp, 1))
-    return UNKNOWN_LOCATION;
+    {
+      *loc = UNKNOWN_LOCATION;
+      return;
+    }
+  *loc = BUILTINS_LOCATION + 1;
 
   file_change = bp_unpack_value (bp, 1);
   line_change = bp_unpack_value (bp, 1);
   column_change = bp_unpack_value (bp, 1);
 
   if (file_change)
-    current_file = canon_file_name (bp_unpack_string (data_in, bp));
+    stream_file = canon_file_name (bp_unpack_string (data_in, bp));
 
   if (line_change)
-    current_line = bp_unpack_var_len_unsigned (bp);
+    stream_line = bp_unpack_var_len_unsigned (bp);
 
   if (column_change)
-    current_col = bp_unpack_var_len_unsigned (bp);
+    stream_col = bp_unpack_var_len_unsigned (bp);
 
-  if (file_change)
+  /* This optimization saves location cache operations druing gimple
+     streaming.  */
+     
+  if (current_file == stream_file && current_line == stream_line
+      && current_col == stream_col)
     {
-      if (prev_file)
-	linemap_add (line_table, LC_LEAVE, false, NULL, 0);
-
-      linemap_add (line_table, LC_ENTER, false, current_file, current_line);
+      *loc = current_loc;
+      return;
     }
-  else if (line_change)
-    linemap_line_start (line_table, current_line, current_col);
 
-  return linemap_position_for_column (line_table, current_col);
+  struct cached_location entry = {stream_file, loc, stream_line, stream_col};
+  loc_cache.safe_push (entry);
 }
 
+/* Read a location bitpack from input block IB and either update *LOC directly
+   or add it to the location cache.
+   It is neccesary to call apply_location_cache to get *LOC updated.  */
+
+void
+lto_input_location (location_t *loc, struct bitpack_d *bp,
+		    struct data_in *data_in)
+{
+  data_in->location_cache.input_location (loc, bp, data_in);
+}
+
+/* Read location and return it instead of going through location caching.
+   This should be used only when the resulting location is not going to be
+   discarded.  */
+
+location_t
+stream_input_location_now (struct bitpack_d *bp, struct data_in *data_in)
+{
+  location_t loc;
+  stream_input_location (&loc, bp, data_in);
+  data_in->location_cache.apply_location_cache ();
+  return loc;
+}
 
 /* Read a reference to a tree node from DATA_IN using input block IB.
    TAG is the expected node that should be found in IB, if TAG belongs
@@ -390,7 +517,7 @@ input_eh_region (struct lto_input_block *ib, struct data_in *data_in, int ix)
 	  r->u.must_not_throw.failure_decl = stream_read_tree (ib, data_in);
 	  bitpack_d bp = streamer_read_bitpack (ib);
 	  r->u.must_not_throw.failure_loc
-	   = stream_input_location (&bp, data_in);
+	   = stream_input_location_now (&bp, data_in);
 	}
 	break;
 
@@ -927,8 +1054,8 @@ input_struct_function_base (struct function *fn, struct data_in *data_in,
   fn->last_clique = bp_unpack_value (&bp, sizeof (short) * 8);
 
   /* Input the function start and end loci.  */
-  fn->function_start_locus = stream_input_location (&bp, data_in);
-  fn->function_end_locus = stream_input_location (&bp, data_in);
+  fn->function_start_locus = stream_input_location_now (&bp, data_in);
+  fn->function_end_locus = stream_input_location_now (&bp, data_in);
 }
 
 
@@ -1116,14 +1243,17 @@ lto_read_body_or_constructor (struct lto_file_decl_data *file_data, struct symta
 
       /* Set up the struct function.  */
       from = data_in->reader_cache->nodes.length ();
-      lto_input_block ib_main (data + main_offset, header->main_size);
+      lto_input_block ib_main (data + main_offset, header->main_size,
+			       file_data->mode_table);
       if (TREE_CODE (node->decl) == FUNCTION_DECL)
 	{
-	  lto_input_block ib_cfg (data + cfg_offset, header->cfg_size);
+	  lto_input_block ib_cfg (data + cfg_offset, header->cfg_size,
+				  file_data->mode_table);
 	  input_function (fn_decl, data_in, &ib_main, &ib_cfg);
 	}
       else
         input_constructor (fn_decl, data_in, &ib_main);
+      data_in->location_cache.apply_location_cache ();
       /* And fixup types we streamed locally.  */
 	{
 	  struct streamer_tree_cache_d *cache = data_in->reader_cache;
@@ -1384,7 +1514,8 @@ lto_input_toplevel_asms (struct lto_file_decl_data *file_data, int order_base)
 
   string_offset = sizeof (*header) + header->main_size;
 
-  lto_input_block ib (data + sizeof (*header), header->main_size);
+  lto_input_block ib (data + sizeof (*header), header->main_size,
+		      file_data->mode_table);
 
   data_in = lto_data_in_create (file_data, data + string_offset,
 			      header->string_size, vNULL);
@@ -1400,6 +1531,123 @@ lto_input_toplevel_asms (struct lto_file_decl_data *file_data, int order_base)
   lto_data_in_delete (data_in);
 
   lto_free_section_data (file_data, LTO_section_asm, NULL, data, len);
+}
+
+
+/* Input mode table.  */
+
+void
+lto_input_mode_table (struct lto_file_decl_data *file_data)
+{
+  size_t len;
+  const char *data = lto_get_section_data (file_data, LTO_section_mode_table,
+					   NULL, &len);
+  if (! data)
+    {
+      internal_error ("cannot read LTO mode table from %s",
+		      file_data->file_name);
+      return;
+    }
+
+  unsigned char *table = ggc_cleared_vec_alloc<unsigned char> (1 << 8);
+  file_data->mode_table = table;
+  const struct lto_simple_header_with_strings *header
+    = (const struct lto_simple_header_with_strings *) data;
+  int string_offset;
+  struct data_in *data_in;
+  string_offset = sizeof (*header) + header->main_size;
+
+  lto_input_block ib (data + sizeof (*header), header->main_size, NULL);
+  data_in = lto_data_in_create (file_data, data + string_offset,
+				header->string_size, vNULL);
+  bitpack_d bp = streamer_read_bitpack (&ib);
+
+  table[VOIDmode] = VOIDmode;
+  table[BLKmode] = BLKmode;
+  unsigned int m;
+  while ((m = bp_unpack_value (&bp, 8)) != VOIDmode)
+    {
+      enum mode_class mclass
+	= bp_unpack_enum (&bp, mode_class, MAX_MODE_CLASS);
+      unsigned int size = bp_unpack_value (&bp, 8);
+      unsigned int prec = bp_unpack_value (&bp, 16);
+      machine_mode inner = (machine_mode) table[bp_unpack_value (&bp, 8)];
+      unsigned int nunits = bp_unpack_value (&bp, 8);
+      unsigned int ibit = 0, fbit = 0;
+      unsigned int real_fmt_len = 0;
+      const char *real_fmt_name = NULL;
+      switch (mclass)
+	{
+	case MODE_FRACT:
+	case MODE_UFRACT:
+	case MODE_ACCUM:
+	case MODE_UACCUM:
+	  ibit = bp_unpack_value (&bp, 8);
+	  fbit = bp_unpack_value (&bp, 8);
+	  break;
+	case MODE_FLOAT:
+	case MODE_DECIMAL_FLOAT:
+	  real_fmt_name = bp_unpack_indexed_string (data_in, &bp,
+						    &real_fmt_len);
+	  break;
+	default:
+	  break;
+	}
+      /* First search just the GET_CLASS_NARROWEST_MODE to wider modes,
+	 if not found, fallback to all modes.  */
+      int pass;
+      for (pass = 0; pass < 2; pass++)
+	for (machine_mode mr = pass ? VOIDmode
+				    : GET_CLASS_NARROWEST_MODE (mclass);
+	     pass ? mr < MAX_MACHINE_MODE : mr != VOIDmode;
+	     pass ? mr = (machine_mode) (m + 1)
+		  : mr = GET_MODE_WIDER_MODE (mr))
+	  if (GET_MODE_CLASS (mr) != mclass
+	      || GET_MODE_SIZE (mr) != size
+	      || GET_MODE_PRECISION (mr) != prec
+	      || GET_MODE_INNER (mr) != inner
+	      || GET_MODE_IBIT (mr) != ibit
+	      || GET_MODE_FBIT (mr) != fbit
+	      || GET_MODE_NUNITS (mr) != nunits)
+	    continue;
+	  else if ((mclass == MODE_FLOAT || mclass == MODE_DECIMAL_FLOAT)
+		   && strcmp (REAL_MODE_FORMAT (mr)->name, real_fmt_name) != 0)
+	    continue;
+	  else
+	    {
+	      table[m] = mr;
+	      pass = 2;
+	      break;
+	    }
+      unsigned int mname_len;
+      const char *mname = bp_unpack_indexed_string (data_in, &bp, &mname_len);
+      if (pass == 2)
+	{
+	  switch (mclass)
+	    {
+	    case MODE_VECTOR_INT:
+	    case MODE_VECTOR_FLOAT:
+	    case MODE_VECTOR_FRACT:
+	    case MODE_VECTOR_UFRACT:
+	    case MODE_VECTOR_ACCUM:
+	    case MODE_VECTOR_UACCUM:
+	      /* For unsupported vector modes just use BLKmode,
+		 if the scalar mode is supported.  */
+	      if (inner != VOIDmode)
+		{
+		  table[m] = BLKmode;
+		  break;
+		}
+	      /* FALLTHRU */
+	    default:
+	      fatal_error (UNKNOWN_LOCATION, "unsupported mode %s\n", mname);
+	      break;
+	    }
+	}
+    }
+  lto_data_in_delete (data_in);
+
+  lto_free_section_data (file_data, LTO_section_mode_table, NULL, data, len);
 }
 
 
@@ -1423,7 +1671,7 @@ lto_data_in_create (struct lto_file_decl_data *file_data, const char *strings,
 		    unsigned len,
 		    vec<ld_plugin_symbol_resolution_t> resolutions)
 {
-  struct data_in *data_in = XCNEW (struct data_in);
+  struct data_in *data_in = new (struct data_in);
   data_in->file_data = file_data;
   data_in->strings = strings;
   data_in->strings_len = len;
@@ -1440,5 +1688,5 @@ lto_data_in_delete (struct data_in *data_in)
 {
   data_in->globals_resolution.release ();
   streamer_tree_cache_delete (data_in->reader_cache);
-  free (data_in);
+  delete data_in;
 }

@@ -727,7 +727,7 @@ fix = {
 fix = {
     hackname  = aix_pthread;
     files     = "pthread.h";
-    select    = "(#define [A-Za-z_0-9]+)(\\\\\n[^A-Za-z_0-9 \t\n(])";
+    select    = "(#define[\t ][A-Za-z_0-9]+)(\\\\\n[^A-Za-z_0-9 \t\n(])";
     c_fix     = format;
     c_fix_arg = "%1 %2";
     test_text = "#define PTHREAD_MUTEX_INITIALIZER\\\\\n"
@@ -839,6 +839,18 @@ fix = {
 		"#define UINT16_C(c)	c";
     test_text = "#define UINT8_C(c)	__CONCAT__(c,U)\n"
 		"#define UINT16_C(c)	__CONCAT__(c,U)";
+};
+
+/*
+ * stdlib.h on AIX 4.3 declares strtof() with a non-const first argument.
+ */
+fix = {
+    hackname  = aix_strtof_const;
+    files     = stdlib.h;
+    select    = "((extern[ \t]+)?float[ \t]+strtof)\\(char \\*, char \\*\\*\\);";
+    c_fix     = format;
+    c_fix_arg = "%1(const char *, char **);";
+    test_text = "extern float    strtof(char *, char **);";
 };
 
 /*
@@ -2059,6 +2071,19 @@ fix = {
     c_fix     = format;
     c_fix_arg = "if !defined(_MATH_INCLUDED) || defined(__GNUG__)";
     test_text = "#ifndef _MATH_INCLUDED";
+};
+
+/*
+ *  Fix hpux11 __LWP_RWLOCK_VALID define
+ */
+fix = {
+    hackname  = hpux11_lwp_rwlock_valid;
+    mach      = "*-hp-hpux11*";
+    files     = sys/pthread.h;
+    select    = "#define __LWP_RWLOCK_VALID[ \t]*0x8c91";
+    c_fix     = format;
+    c_fix_arg = "#define __LWP_RWLOCK_VALID              -29551";
+    test_text = "#define __LWP_RWLOCK_VALID 0x8c91";
 };
 
 /*
@@ -3546,6 +3571,58 @@ fix = {
     "#define	islessgreater(x, y)	((x) __builtin_islessgreater(y))\n"
     "#undef	isunordered\n"
     "#define	isunordered(x, y)	((x) __builtin_isunordered(y))";
+};
+
+/*
+ * Newer Solaris 10/11 GCC signbit implementations cause strict-aliasing
+ * warnings.
+ */
+fix = {
+    hackname = solaris_math_11;
+    select = '@\(#\)math_c99\.h' "[ \t]+1\\.[0-9]+[ \t]+[0-9/]+ ";
+    files = iso/math_c99.h;
+    c_fix = format;
+    c_fix_arg = << _EOArg_
+#undef	signbit
+#define	signbit(x)	(sizeof(x) == sizeof(float) \
+			   ? __builtin_signbitf(x) \
+			   : sizeof(x) == sizeof(long double) \
+			     ? __builtin_signbitl(x) \
+			     : __builtin_signbit(x))
+_EOArg_;
+    c_fix_arg = << _EOArg_
+^#undef[ 	]+signbit
+#if defined\(__sparc\)
+#define[ 	]+signbit\(x\)[ 	]+__extension__\( \\
+[ 	]+\{[ 	]*__typeof\(x\)[ 	]*__x_s[ 	]*=[ 	]*\(x\);[ 	]*\\
+[ 	]+\(int\)[ 	]*\(\*\(unsigned[ 	]*\*\)[ 	]*\&__x_s[ 	]*>>[ 	]*31\);[ 	]*\}\)
+#elif defined\(__i386\) \|\| defined\(__amd64\)
+#define[ 	]+signbit\(x\)[ 	]+__extension__\( \\
+[ 	]+\{ __typeof\(x\) __x_s = \(x\); \\
+[ 	]+\(sizeof \(__x_s\) == sizeof \(float\) \? \\
+[ 	]+\(int\) \(\*\(unsigned \*\) \&__x_s >> 31\) : \\
+[ 	]+sizeof \(__x_s\) == sizeof \(double\) \? \\
+[ 	]+\(int\) \(\(\(unsigned \*\) \&__x_s\)\[1\] >> 31\) : \\
+[ 	]+\(int\) \(\(\(unsigned short \*\) \&__x_s\)\[4\] >> 15\)\); \}\)
+#endif
+_EOArg_;
+    test_text = << _EOText_
+/* @(#)math_c99.h	1.14	13/03/27 */
+#undef	signbit
+#if defined(__sparc)
+#define	signbit(x)	__extension__( \\
+				{ __typeof(x) __x_s = (x); \\
+				(int) (*(unsigned *) &__x_s >> 31); })
+#elif defined(__i386) || defined(__amd64)
+#define	signbit(x)	__extension__( \\
+			{ __typeof(x) __x_s = (x); \\
+			(sizeof (__x_s) == sizeof (float) ? \\
+			(int) (*(unsigned *) &__x_s >> 31) : \\
+			sizeof (__x_s) == sizeof (double) ? \\
+			(int) (((unsigned *) &__x_s)[1] >> 31) : \\
+			(int) (((unsigned short *) &__x_s)[4] >> 15)); })
+#endif
+_EOText_;
 };
 
 /*

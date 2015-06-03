@@ -33,6 +33,10 @@
       builtin_define ("__nvptx__");		\
     } while (0)
 
+/* Avoid the default in ../../gcc.c, which adds "-pthread", which is not
+   supported for nvptx.  */
+#define GOMP_SELF_SPECS ""
+
 /* Storage Layout.  */
 
 #define BITS_BIG_ENDIAN 0
@@ -361,5 +365,9 @@ struct GTY(()) machine_function
 #define TRULY_NOOP_TRUNCATION(outprec, inprec) 1
 #define FUNCTION_MODE QImode
 #define HAS_INIT_SECTION 1
+
+/* The C++ front end insists to link against libstdc++ -- which we don't build.
+   Tell it to instead link against the innocuous libgcc.  */
+#define LIBSTDCXX "gcc"
 
 #endif /* GCC_NVPTX_H */

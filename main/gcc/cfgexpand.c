@@ -285,6 +285,15 @@ align_local_variable (tree decl)
   return align / BITS_PER_UNIT;
 }
 
+/* Align given offset BASE with ALIGN.  Truncate up if ALIGN_UP is true,
+   down otherwise.  Return truncated BASE value.  */
+
+static inline unsigned HOST_WIDE_INT
+align_base (HOST_WIDE_INT base, unsigned HOST_WIDE_INT align, bool align_up)
+{
+  return align_up ? (base + align - 1) & -align : base & -align;
+}
+
 /* Allocate SIZE bytes at byte alignment ALIGN from the stack frame.
    Return the frame offset.  */
 
@@ -293,20 +302,17 @@ alloc_stack_frame_space (HOST_WIDE_INT size, unsigned HOST_WIDE_INT align)
 {
   HOST_WIDE_INT offset, new_frame_offset;
 
-  new_frame_offset = frame_offset;
   if (FRAME_GROWS_DOWNWARD)
     {
-      new_frame_offset -= size + frame_phase;
-      new_frame_offset &= -align;
-      new_frame_offset += frame_phase;
+      new_frame_offset
+	= align_base (frame_offset - frame_phase - size,
+		      align, false) + frame_phase;
       offset = new_frame_offset;
     }
   else
     {
-      new_frame_offset -= frame_phase;
-      new_frame_offset += align - 1;
-      new_frame_offset &= -align;
-      new_frame_offset += frame_phase;
+      new_frame_offset
+	= align_base (frame_offset - frame_phase, align, true) + frame_phase;
       offset = new_frame_offset;
       new_frame_offset += size;
     }
@@ -976,6 +982,13 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 	  i = stack_vars_sorted[si];
 	  alignb = stack_vars[i].alignb;
 
+	  /* All "large" alignment decls come before all "small" alignment
+	     decls, but "large" alignment decls are not sorted based on
+	     their alignment.  Increase large_align to track the largest
+	     required alignment.  */
+	  if ((alignb * BITS_PER_UNIT) > large_align)
+	    large_align = alignb * BITS_PER_UNIT;
+
 	  /* Stop when we get to the first decl with "small" alignment.  */
 	  if (alignb * BITS_PER_UNIT <= MAX_SUPPORTED_STACK_ALIGNMENT)
 	    break;
@@ -1034,13 +1047,16 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 	  base = virtual_stack_vars_rtx;
 	  if ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK && pred)
 	    {
-	      HOST_WIDE_INT prev_offset = frame_offset;
+	      HOST_WIDE_INT prev_offset
+		= align_base (frame_offset,
+			      MAX (alignb, ASAN_RED_ZONE_SIZE),
+			      FRAME_GROWS_DOWNWARD);
 	      tree repr_decl = NULL_TREE;
-
 	      offset
 		= alloc_stack_frame_space (stack_vars[i].size
 					   + ASAN_RED_ZONE_SIZE,
 					   MAX (alignb, ASAN_RED_ZONE_SIZE));
+
 	      data->asan_vec.safe_push (prev_offset);
 	      data->asan_vec.safe_push (offset + stack_vars[i].size);
 	      /* Find best representative of the partition.
@@ -3918,6 +3934,31 @@ expand_debug_expr (tree exp)
       op1 = expand_debug_expr (TREE_OPERAND (exp, 1));
       if (!op1)
 	return NULL_RTX;
+      switch (TREE_CODE (exp))
+	{
+	case LSHIFT_EXPR:
+	case RSHIFT_EXPR:
+	case LROTATE_EXPR:
+	case RROTATE_EXPR:
+	case WIDEN_LSHIFT_EXPR:
+	  /* Ensure second operand isn't wider than the first one.  */
+	  inner_mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 1)));
+	  if (SCALAR_INT_MODE_P (inner_mode))
+	    {
+	      machine_mode opmode = mode;
+	      if (VECTOR_MODE_P (mode))
+		opmode = GET_MODE_INNER (mode);
+	      if (SCALAR_INT_MODE_P (opmode)
+		  && (GET_MODE_PRECISION (opmode)
+		      < GET_MODE_PRECISION (inner_mode)))
+		op1 = simplify_gen_subreg (opmode, op1, inner_mode,
+					   subreg_lowpart_offset (opmode,
+								  inner_mode));
+	    }
+	  break;
+	default:
+	  break;
+	}
       /* Fall through.  */
 
     unary:
@@ -5121,13 +5162,11 @@ reorder_operands (basic_block bb)
 	continue;
       /* Swap operands if the second one is more expensive.  */
       def0 = get_gimple_for_ssa_name (op0);
-      if (!def0)
-	continue;
       def1 = get_gimple_for_ssa_name (op1);
       if (!def1)
 	continue;
       swap = false;
-      if (lattice[gimple_uid (def1)] > lattice[gimple_uid (def0)])
+      if (!def0 || lattice[gimple_uid (def1)] > lattice[gimple_uid (def0)])
 	swap = true;
       if (swap)
 	{
@@ -5136,7 +5175,7 @@ reorder_operands (basic_block bb)
 	      fprintf (dump_file, "Swap operands in stmt:\n");
 	      print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
 	      fprintf (dump_file, "Cost left opnd=%d, right opnd=%d\n",
-		       lattice[gimple_uid (def0)],
+		       def0 ? lattice[gimple_uid (def0)] : 0,
 		       lattice[gimple_uid (def1)]);
 	    }
 	  swap_ssa_operands (stmt, gimple_assign_rhs1_ptr (stmt),

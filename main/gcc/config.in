@@ -253,6 +253,18 @@
 #endif
 
 
+/* Define if your avr assembler supports --mlink-relax option. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_AVR_MLINK_RELAX_OPTION
+#endif
+
+
+/* Define if your avr assembler supports -mrmw option. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_AVR_MRMW_OPTION
+#endif
+
+
 /* Define if your assembler supports cmpb. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_CMPB
@@ -1101,6 +1113,12 @@
 /* Define to 1 if you have the `fread_unlocked' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_FREAD_UNLOCKED
+#endif
+
+
+/* Define to 1 if you have the <ftw.h> header file. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_FTW_H
 #endif
 
 

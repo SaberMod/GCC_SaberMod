@@ -84,7 +84,7 @@ Simple expressions
                                                     gcc_jit_type *numeric_type)
 
    Given a numeric type (integer or floating point), get the rvalue for
-   zero.  Essentially this is just a shortcut for:
+   one.  Essentially this is just a shortcut for:
 
    .. code-block:: c
 
@@ -233,7 +233,7 @@ Binary Operation                          C equivalent
 
    For pointer addition, use :c:func:`gcc_jit_context_new_array_access`.
 
-.. c:macro:: GCC_JIT_BINARY_OP_MINUS`
+.. c:macro:: GCC_JIT_BINARY_OP_MINUS
 
    Subtraction of arithmetic values; analogous to:
 

@@ -149,6 +149,7 @@ static void pa_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static int pa_adjust_cost (rtx_insn *, rtx, rtx_insn *, int);
 static int pa_adjust_priority (rtx_insn *, int);
 static int pa_issue_rate (void);
+static int pa_reloc_rw_mask (void);
 static void pa_som_asm_init_sections (void) ATTRIBUTE_UNUSED;
 static section *pa_som_tm_clone_table_section (void) ATTRIBUTE_UNUSED;
 static section *pa_select_section (tree, int, unsigned HOST_WIDE_INT)
@@ -323,6 +324,9 @@ static size_t n_deferred_plabels = 0;
 #else
 #define TARGET_ASM_FILE_END output_deferred_plabels
 #endif
+
+#undef TARGET_ASM_RELOC_RW_MASK
+#define TARGET_ASM_RELOC_RW_MASK pa_reloc_rw_mask
 
 #undef TARGET_PRINT_OPERAND_PUNCT_VALID_P
 #define TARGET_PRINT_OPERAND_PUNCT_VALID_P pa_print_operand_punct_valid_p
@@ -2004,6 +2008,7 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 
 	  if (flag_pic)
 	    {
+	      rtx_insn *insn;
 	      rtx temp;
 
 	      if (reload_in_progress || reload_completed)
@@ -2017,29 +2022,31 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 	      else
 		temp = gen_reg_rtx (Pmode);
 
-	      /* (const (plus (symbol) (const_int))) must be forced to
-		 memory during/after reload if the const_int will not fit
-		 in 14 bits.  */
+	      /* Force (const (plus (symbol) (const_int))) to memory
+	         if the const_int will not fit in 14 bits.  Although
+		 this requires a relocation, the instruction sequence
+		 needed to load the value is shorter.  */
 	      if (GET_CODE (operand1) == CONST
 		       && GET_CODE (XEXP (operand1, 0)) == PLUS
 		       && GET_CODE (XEXP (XEXP (operand1, 0), 1)) == CONST_INT
-		       && !INT_14_BITS (XEXP (XEXP (operand1, 0), 1))
-		       && (reload_completed || reload_in_progress)
-		       && flag_pic)
+		       && !INT_14_BITS (XEXP (XEXP (operand1, 0), 1)))
 		{
-		  rtx const_mem = force_const_mem (mode, operand1);
-		  operands[1] = legitimize_pic_address (XEXP (const_mem, 0),
-							mode, temp);
-		  operands[1] = replace_equiv_address (const_mem, operands[1]);
-		  pa_emit_move_sequence (operands, mode, temp);
+		  rtx x, m = force_const_mem (mode, operand1);
+
+		  x = legitimize_pic_address (XEXP (m, 0), mode, temp);
+		  x = replace_equiv_address (m, x);
+		  insn = emit_move_insn (operand0, x);
 		}
 	      else
 		{
 		  operands[1] = legitimize_pic_address (operand1, mode, temp);
 		  if (REG_P (operand0) && REG_P (operands[1]))
 		    copy_reg_pointer (operand0, operands[1]);
-		  emit_insn (gen_rtx_SET (VOIDmode, operand0, operands[1]));
+		  insn = emit_move_insn (operand0, operands[1]);
 		}
+
+	      /* Put a REG_EQUAL note on this insn.  */
+	      set_unique_reg_note (insn, REG_EQUAL, operand1);
 	    }
 	  /* On the HPPA, references to data space are supposed to use dp,
 	     register 27, but showing it in the RTL inhibits various cse
@@ -2588,28 +2595,29 @@ pa_output_move_double (rtx *operands)
 	       && GET_CODE (XEXP (addr, 0)) == MULT)
 	{
 	  rtx xoperands[4];
-	  rtx high_reg = gen_rtx_SUBREG (SImode, operands[0], 0);
 
-	  if (!reg_overlap_mentioned_p (high_reg, addr))
-	    {
-	      xoperands[0] = high_reg;
-	      xoperands[1] = XEXP (addr, 1);
-	      xoperands[2] = XEXP (XEXP (addr, 0), 0);
-	      xoperands[3] = XEXP (XEXP (addr, 0), 1);
-	      output_asm_insn ("{sh%O3addl %2,%1,%0|shladd,l %2,%O3,%1,%0}",
-			       xoperands);
-	      return "ldw 4(%0),%R0\n\tldw 0(%0),%0";
-	    }
-	  else
-	    {
-	      xoperands[0] = high_reg;
-	      xoperands[1] = XEXP (addr, 1);
-	      xoperands[2] = XEXP (XEXP (addr, 0), 0);
-	      xoperands[3] = XEXP (XEXP (addr, 0), 1);
-	      output_asm_insn ("{sh%O3addl %2,%1,%R0|shladd,l %2,%O3,%1,%R0}",
-			       xoperands);
-	      return "ldw 0(%R0),%0\n\tldw 4(%R0),%R0";
-	    }
+	  /* Load address into left half of destination register.  */
+	  xoperands[0] = gen_rtx_SUBREG (SImode, operands[0], 0);
+	  xoperands[1] = XEXP (addr, 1);
+	  xoperands[2] = XEXP (XEXP (addr, 0), 0);
+	  xoperands[3] = XEXP (XEXP (addr, 0), 1);
+	  output_asm_insn ("{sh%O3addl %2,%1,%0|shladd,l %2,%O3,%1,%0}",
+			   xoperands);
+	  return "ldw 4(%0),%R0\n\tldw 0(%0),%0";
+	}
+      else if (GET_CODE (addr) == PLUS
+	       && REG_P (XEXP (addr, 0))
+	       && REG_P (XEXP (addr, 1)))
+	{
+	  rtx xoperands[3];
+
+	  /* Load address into left half of destination register.  */
+	  xoperands[0] = gen_rtx_SUBREG (SImode, operands[0], 0);
+	  xoperands[1] = XEXP (addr, 0);
+	  xoperands[2] = XEXP (addr, 1);
+	  output_asm_insn ("{addl|add,l} %1,%2,%0",
+			   xoperands);
+	  return "ldw 4(%0),%R0\n\tldw 0(%0),%0";
 	}
     }
 
@@ -6023,18 +6031,15 @@ pa_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
 	{
 	  x = XEXP (x, 0);
 
-	  /* We don't need an intermediate for indexed and LO_SUM DLT
-	     memory addresses.  When INT14_OK_STRICT is true, it might
-	     appear that we could directly allow register indirect
-	     memory addresses.  However, this doesn't work because we
-	     don't support SUBREGs in floating-point register copies
-	     and reload doesn't tell us when it's going to use a SUBREG.  */
-	  if (IS_INDEX_ADDR_P (x)
-	      || IS_LO_SUM_DLT_ADDR_P (x))
-	    return NO_REGS;
+	  /* We don't need a secondary reload for indexed memory addresses.
 
-	  /* Request intermediate general register.  */
-	  return GENERAL_REGS;
+	     When INT14_OK_STRICT is true, it might appear that we could
+	     directly allow register indirect memory addresses.  However,
+	     this doesn't work because we don't support SUBREGs in
+	     floating-point register copies and reload doesn't tell us
+	     when it's going to use a SUBREG.  */
+	  if (IS_INDEX_ADDR_P (x))
+	    return NO_REGS;
 	}
 
       /* Request a secondary reload with a general scratch register
@@ -9700,6 +9705,19 @@ pa_select_section (tree exp, int reloc,
     return som_one_only_data_section;
   else
     return data_section;
+}
+
+/* Implement pa_reloc_rw_mask.  */
+
+static int
+pa_reloc_rw_mask (void)
+{
+  /* We force (const (plus (symbol) (const_int))) to memory when the
+     const_int doesn't fit in a 14-bit integer.  The SOM linker can't
+     handle this construct in read-only memory and we want to avoid
+     this for ELF.  So, we always force an RTX needing relocation to
+     the data section.  */
+  return 3;
 }
 
 static void

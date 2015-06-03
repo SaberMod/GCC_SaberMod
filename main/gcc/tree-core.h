@@ -701,8 +701,9 @@ enum operand_equal_flag {
   OEP_ONLY_CONST = 1,
   OEP_PURE_SAME = 2,
   OEP_CONSTANT_ADDRESS_OF = 4,
-  OEP_ALLOW_NULL = 8,  /* Allow NULL operands to be passed in and compared.  */
-  OEP_ALLOW_NO_TYPE = 16  /* Allow operands both of which don't have a type
+  OEP_ADDRESS_OF = 8,
+  OEP_ALLOW_NULL = 16,  /* Allow NULL operands to be passed in and compared.  */
+  OEP_ALLOW_NO_TYPE = 32  /* Allow operands both of which don't have a type
                             to be compared.  */
 };
 

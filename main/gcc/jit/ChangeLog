@@ -1,3 +1,48 @@
+2015-04-09  David Malcolm  <dmalcolm@redhat.com>
+
+	PR jit/65691
+	* docs/cp/topics/expressions.rst (Simple expressions): Fix copy
+	and paste error in description of gccjit::context::one.
+	* docs/topics/expressions.rst (Simple expressions): Likewise in
+	description of gcc_jit_context_one.
+	* docs/_build/texinfo/libgccjit.texi: Regenerate.
+
+2015-03-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* jit-recording.c (dump::write): Also check vasprintf return value.
+	(recording::context::add_error_va): Ditto.
+	(recording::string::from_printf): Ditto.
+
+2015-03-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* docs/internals/index.rst (Packaging notes): New section.
+	* docs/_build/texinfo/libgccjit.texi: Regenerate.
+
+2015-03-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* docs/cp/intro/tutorial03.rst: Add missing arguments to
+	gccjit::block::end_with_conditional call.  Add on_true/on_false
+	comments.  Tweak the wording.
+	* docs/intro/tutorial03.rst: Add missing arguments to
+	gcc_jit_block_end_with_conditional call.  Add some clarifying
+	comments.
+	* docs/topics/compilation.rst: Tweak the wording to avoid an
+	ambiguous use of "this".
+	* docs/topics/contexts.rst: Fix a typo.
+	* docs/topics/expressions.rst (GCC_JIT_BINARY_OP_MINUS): Remove
+	a stray backtick.
+	* docs/_build/texinfo/libgccjit.texi: Regenerate.
+
+2015-02-24  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR libgomp/64625
+	* jit-builtins.c (DEF_FUNCTION_TYPE_VAR_8)
+	(DEF_FUNCTION_TYPE_VAR_12): Remove macros.
+	(DEF_FUNCTION_TYPE_VAR_7, DEF_FUNCTION_TYPE_VAR_11): New macros.
+	* jit-builtins.h (DEF_FUNCTION_TYPE_VAR_8)
+	(DEF_FUNCTION_TYPE_VAR_12): Remove macros.
+	(DEF_FUNCTION_TYPE_VAR_7, DEF_FUNCTION_TYPE_VAR_11): New macros.
+
 2015-02-04  David Malcolm  <dmalcolm@redhat.com>
 
 	PR jit/64257

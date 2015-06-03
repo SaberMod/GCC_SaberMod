@@ -1,3 +1,41 @@
+2015-03-27  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (lto_read_decls): Move code registering odr types out
+	of TYPE_CANONICAL conditional and also register polymorphic types.
+
+2015-03-26  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto-symtab.c (lto_symtab_merge_decls_2): Silence warning on
+	DECL_ARTIFICAL symbols.
+
+2015-03-26  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/65536
+	* lto.c (unify_scc): Revert location cache when unification
+	suceeded.
+	(lto_read_decls): Accept location cache after sucess;
+	apply location cache before calling debug hooks.
+
+2015-03-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (read_cgraph_and_symbols): Do not do merging
+	at ltrans stage.
+
+2015-02-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* lto.c (lto_mode_identity_table): New variable.
+	(lto_read_decls): Add mode_table argument to the lto_input_block
+	constructor.
+	(lto_file_finalize): Initialize mode_table.
+	(lto_init): Initialize lto_mode_identity_table.
+
+2015-02-24  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR libgomp/64625
+	* lto-lang.c (DEF_FUNCTION_TYPE_VAR_8, DEF_FUNCTION_TYPE_VAR_12):
+	Remove macros.
+	(DEF_FUNCTION_TYPE_VAR_7, DEF_FUNCTION_TYPE_VAR_11): New macros.
+
 2015-02-03  Jan Hubicka  <hubicka@ucw.cz>
 
 	* lto-symtab.c (lto_cgraph_replace_node): Maintain merged flag.

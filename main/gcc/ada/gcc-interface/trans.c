@@ -678,6 +678,11 @@ gigi (Node_Id gnat_root,
   if (No_Strict_Aliasing_CP)
     flag_strict_aliasing = 0;
 
+  /* Save the current optimization options again after the above possible
+     global_options changes.  */
+  optimization_default_node = build_optimization_node (&global_options);
+  optimization_current_node = optimization_default_node;
+
   /* Now translate the compilation unit proper.  */
   Compilation_Unit_to_gnu (gnat_root);
 
@@ -1439,7 +1444,8 @@ Pragma_to_gnu (Node_Id gnat_node)
 	      }
 
 	    /* Deal with optional pattern (but ignore Reason => "...").  */
-	    if (Present (Next (gnat_temp)) && No (Chars (Next (gnat_temp))))
+	    if (Present (Next (gnat_temp))
+		&& Chars (Next (gnat_temp)) != Name_Reason)
 	      {
 		/* pragma Warnings (On | Off, Name) is handled differently.  */
 		if (Nkind (Expression (Next (gnat_temp))) != N_String_Literal)
@@ -1580,8 +1586,9 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
   bool prefix_unused = false;
 
   /* ??? If this is an access attribute for a public subprogram to be used in
-     a dispatch table, do not translate its type as it's useless there and the
-     parameter types might be incomplete types coming from a limited with.  */
+     a dispatch table, do not translate its type as it's useless in this case
+     and the parameter types might be incomplete types coming from a limited
+     context in Ada 2012 (AI05-0151).  */
   if (Ekind (Etype (gnat_node)) == E_Access_Subprogram_Type
       && Is_Dispatch_Table_Entity (Etype (gnat_node))
       && Nkind (gnat_prefix) == N_Identifier
@@ -2461,6 +2468,18 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 				   build_component_ref (rec_val, NULL_TREE,
 							field, false));
 	}
+      break;
+
+    case Attr_Deref:
+      prefix_unused = true;
+      gnu_expr = gnat_to_gnu (First (Expressions (gnat_node)));
+      gnu_result_type = get_unpadded_type (Etype (gnat_node));
+      /* This can be a random address so build an alias-all pointer type.  */
+      gnu_expr
+	= convert (build_pointer_type_for_mode (gnu_result_type, ptr_mode,
+						true),
+		   gnu_expr);
+      gnu_result = build_unary_op (INDIRECT_REF, NULL_TREE, gnu_expr);
       break;
 
     default:

@@ -1,3 +1,50 @@
+2015-04-09  Richard Biener  <rguenther@suse.de>
+
+	PR pch/65550
+	* files.c (pch_open_file): Allow main and pre-included files
+	when trying to open a PCH.
+
+2015-04-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/61977
+	* lex.c (cpp_peek_token): If peektok is CPP_EOF, back it up
+	with all tokens peeked by the current function.
+
+2015-04-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/61977
+	* lex.c (cpp_peek_token): Temporarily clear pfile->cb.line_change.
+
+2015-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/65238
+	* internal.h (_cpp_scan_out_logical_line): Add third argument.
+	* directives.c (prepare_directive_trad): Pass false to it.
+	* traditional.c (_cpp_read_logical_line_trad,
+	_cpp_create_trad_definition): Likewise.
+	(struct fun_macro): Add paramc field.
+	(fun_like_macro): New function.
+	(maybe_start_funlike): Handle NODE_BUILTIN macros.  Initialize
+	macro->paramc field.
+	(save_argument): Use macro->paramc instead of
+	macro->node->value.macro->paramc.
+	(push_replacement_text): Formatting fix.
+	(recursive_macro): Use fun_like_macro helper.
+	(_cpp_scan_out_logical_line): Likewise.  Add BUILTIN_MACRO_ARG
+	argument.  Initialize fmacro.paramc field.  Handle builtin
+	function-like macros.
+
+2015-03-16  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR c++/64626
+	* lex.c (lex_number): If a number ends with digit-seps (') skip back
+	and let lex_string take them.
+
+2015-03-02  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR target/65261
+	* lex.c (search_line_fast): Silence ubsan errors.
+
 2015-02-03    <dodji@redhat.com>
 
 	PR preprocessor/64803

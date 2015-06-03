@@ -176,7 +176,7 @@ varpool_node::get_create (tree decl)
   node->module_id = current_module_id;
   node->decl = decl;
 
-  if ((flag_openacc || flag_openmp)
+  if ((flag_openacc || flag_openmp) && !DECL_EXTERNAL (decl)
       && lookup_attribute ("omp declare target", DECL_ATTRIBUTES (decl)))
     {
       node->offloadable = 1;
@@ -199,6 +199,11 @@ varpool_node::remove (void)
 {
   symtab->call_varpool_removal_hooks (this);
   varpool_remove_link_node (this);
+  if (lto_file_data)
+    {
+      lto_free_function_in_decl_state_for_node (this);
+      lto_file_data = NULL;
+    }
 
   /* When streaming we can have multiple nodes associated with decl.  */
   if (symtab->state == LTO_STREAMING)
@@ -307,7 +312,8 @@ varpool_node::get_constructor (void)
   size_t len;
 
   if (DECL_INITIAL (decl) != error_mark_node
-      || !in_lto_p)
+      || !in_lto_p
+      || !lto_file_data)
     return DECL_INITIAL (decl);
 
   timevar_push (TV_IPA_LTO_CTORS_IN);
@@ -326,6 +332,7 @@ varpool_node::get_constructor (void)
 		 name);
 
   lto_input_variable_constructor (file_data, this, data);
+  gcc_assert (DECL_INITIAL (decl) != error_mark_node);
   lto_stats.num_function_bodies++;
   lto_free_section_data (file_data, LTO_section_function_body, name,
 			 data, len);
@@ -734,7 +741,9 @@ symbol_table::output_variables (void)
   timevar_push (TV_VAROUT);
 
   FOR_EACH_VARIABLE (node)
-    if (!node->definition)
+    if (!node->definition
+	&& !DECL_HAS_VALUE_EXPR_P (node->decl)
+ 	&& !DECL_HARD_REGISTER (node->decl))
       assemble_undefined_decl (node->decl);
   FOR_EACH_DEFINED_VARIABLE (node)
     {
@@ -755,27 +764,6 @@ symbol_table::output_variables (void)
     }
   timevar_pop (TV_VAROUT);
   return changed;
-}
-
-/* Create a new global variable of type TYPE.  */
-tree
-add_new_static_var (tree type)
-{
-  tree new_decl;
-  varpool_node *new_node;
-
-  new_decl = create_tmp_var_raw (type);
-  DECL_NAME (new_decl) = create_tmp_var_name (NULL);
-  TREE_READONLY (new_decl) = 0;
-  TREE_STATIC (new_decl) = 1;
-  TREE_USED (new_decl) = 1;
-  DECL_CONTEXT (new_decl) = NULL_TREE;
-  DECL_ABSTRACT_P (new_decl) = false;
-  lang_hooks.dup_lang_specific_decl (new_decl);
-  new_node = varpool_node::get_create (new_decl);
-  varpool_node::finalize_decl (new_decl);
-
-  return new_node->decl;
 }
 
 /* Attempt to mark ALIAS as an alias to DECL.  Return TRUE if successful.
@@ -821,28 +809,23 @@ varpool_node::create_extra_name_alias (tree alias, tree decl)
   return alias_node;
 }
 
-/* Call calback on varpool symbol and aliases associated to varpool symbol.
-   When INCLUDE_OVERWRITABLE is false, overwritable aliases and thunks are
-   skipped. */
+/* Worker for call_for_symbol_and_aliases.  */
 
 bool
-varpool_node::call_for_node_and_aliases (bool (*callback) (varpool_node *,
-							   void *),
-					 void *data,
-					 bool include_overwritable)
+varpool_node::call_for_symbol_and_aliases_1 (bool (*callback) (varpool_node *,
+							       void *),
+					     void *data,
+					     bool include_overwritable)
 {
   ipa_ref *ref;
-
-  if (callback (this, data))
-    return true;
 
   FOR_EACH_ALIAS (this, ref)
     {
       varpool_node *alias = dyn_cast <varpool_node *> (ref->referring);
       if (include_overwritable
 	  || alias->get_availability () > AVAIL_INTERPOSABLE)
-	if (alias->call_for_node_and_aliases (callback, data,
-					      include_overwritable))
+	if (alias->call_for_symbol_and_aliases (callback, data,
+					        include_overwritable))
 	  return true;
     }
   return false;

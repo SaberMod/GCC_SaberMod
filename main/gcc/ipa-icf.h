@@ -63,6 +63,71 @@ enum sem_item_type
   VAR
 };
 
+/* Class is container for address references for a symtab_node.  */
+
+class symbol_compare_collection
+{
+public:
+  /* Constructor.  */
+  symbol_compare_collection (symtab_node *node);
+
+  /* Destructor.  */
+  ~symbol_compare_collection ()
+  {
+    m_references.release ();
+    m_interposables.release ();
+  }
+
+  /* Vector of address references.  */
+  vec<symtab_node *> m_references;
+
+  /* Vector of interposable references.  */
+  vec<symtab_node *> m_interposables;
+};
+
+/* Hash traits for symbol_compare_collection map.  */
+
+struct symbol_compare_hashmap_traits: default_hashmap_traits
+{
+  static hashval_t
+  hash (const symbol_compare_collection *v)
+  {
+    inchash::hash hstate;
+    hstate.add_int (v->m_references.length ());
+
+    for (unsigned i = 0; i < v->m_references.length (); i++)
+      hstate.add_int (v->m_references[i]->ultimate_alias_target ()->order);
+
+    hstate.add_int (v->m_interposables.length ());
+
+    for (unsigned i = 0; i < v->m_interposables.length (); i++)
+      hstate.add_int (v->m_interposables[i]->ultimate_alias_target ()->order);
+
+    return hstate.end ();
+  }
+
+  static bool
+  equal_keys (const symbol_compare_collection *a,
+	      const symbol_compare_collection *b)
+  {
+    if (a->m_references.length () != b->m_references.length ()
+	|| a->m_interposables.length () != b->m_interposables.length ())
+      return false;
+
+    for (unsigned i = 0; i < a->m_references.length (); i++)
+      if (a->m_references[i]->equal_address_to (b->m_references[i]) != 1)
+	return false;
+
+    for (unsigned i = 0; i < a->m_interposables.length (); i++)
+      if (!a->m_interposables[i]->semantically_equivalent_p
+	(b->m_interposables[i]))
+	return false;
+
+    return true;
+  }
+};
+
+
 /* Semantic item usage pair.  */
 class sem_usage_pair
 {
@@ -106,18 +171,6 @@ public:
   /* Add reference to a semantic TARGET.  */
   void add_reference (sem_item *target);
 
-  /* Gets symbol name of the item.  */
-  const char *name (void)
-  {
-    return node->name ();
-  }
-
-  /* Gets assembler name of the item.  */
-  const char *asm_name (void)
-  {
-    return node->asm_name ();
-  }
-
   /* Fast equality function based on knowledge known in WPA.  */
   virtual bool equals_wpa (sem_item *item,
 			   hash_map <symtab_node *, sem_item *> &ignored_nodes) = 0;
@@ -135,6 +188,15 @@ public:
 
   /* Dump symbol to FILE.  */
   virtual void dump_to_file (FILE *file) = 0;
+
+  /* Update hash by address sensitive references.  */
+  void update_hash_by_addr_refs (hash_map <symtab_node *,
+				 sem_item *> &m_symtab_node_map);
+
+  /* Update hash by computed local hash values taken from different
+     semantic items.  */
+  void update_hash_by_local_refs (hash_map <symtab_node *,
+				  sem_item *> &m_symtab_node_map);
 
   /* Return base tree that can be used for compatible_types_p and
      contains_polymorphic_type_p comparison.  */
@@ -173,9 +235,26 @@ public:
   /* A set with symbol table references.  */
   hash_set <symtab_node *> refs_set;
 
+  /* Hash of item.  */
+  hashval_t hash;
+
+  /* Temporary hash used where hash values of references are added.  */
+  hashval_t global_hash;
 protected:
   /* Cached, once calculated hash for the item.  */
-  hashval_t hash;
+
+  /* Accumulate to HSTATE a hash of expression EXP.  */
+  static void add_expr (const_tree exp, inchash::hash &hstate);
+  /* Accumulate to HSTATE a hash of type T.  */
+  static void add_type (const_tree t, inchash::hash &hstate);
+
+  /* For a given symbol table nodes N1 and N2, we check that FUNCTION_DECLs
+     point to a same function. Comparison can be skipped if IGNORED_NODES
+     contains these nodes.  ADDRESS indicate if address is taken.  */
+  bool compare_cgraph_references (hash_map <symtab_node *, sem_item *>
+				  &ignored_nodes,
+				  symtab_node *n1, symtab_node *n2,
+				  bool address);
 
 private:
   /* Initialize internal data structures. Bitmap STACK is used for
@@ -225,7 +304,7 @@ public:
   }
 
   /* Improve accumulated hash for HSTATE based on a gimple statement STMT.  */
-  void hash_stmt (inchash::hash *inchash, gimple stmt);
+  void hash_stmt (gimple stmt, inchash::hash &inchash);
 
   /* Return true if polymorphic comparison must be processed.  */
   bool compare_polymorphic_p (void);
@@ -275,23 +354,11 @@ private:
 
   /* Basic blocks dictionary BB_DICT returns true if SOURCE index BB
      corresponds to TARGET.  */
-  bool bb_dict_test (auto_vec<int> bb_dict, int source, int target);
-
-  /* Iterates all tree types in T1 and T2 and returns true if all types
-     are compatible. If COMPARE_POLYMORPHIC is set to true,
-     more strict comparison is executed.  */
-  bool compare_type_list (tree t1, tree t2, bool compare_polymorphic);
+  bool bb_dict_test (vec<int> *bb_dict, int source, int target);
 
   /* If cgraph edges E1 and E2 are indirect calls, verify that
      ICF flags are the same.  */
   bool compare_edge_flags (cgraph_edge *e1, cgraph_edge *e2);
-
-  /* For a given symbol table nodes N1 and N2, we check that FUNCTION_DECLs
-     point to a same function. Comparison can be skipped if IGNORED_NODES
-     contains these nodes.  */
-  bool compare_cgraph_references (hash_map <symtab_node *, sem_item *>
-				  &ignored_nodes,
-				  symtab_node *n1, symtab_node *n2);
 
   /* Processes function equality comparison.  */
   bool equals_private (sem_item *item,
@@ -324,7 +391,6 @@ public:
   inline virtual void init (void)
   {
     decl = get_node ()->decl;
-    ctor = ctor_for_folding (decl);
   }
 
   virtual hashval_t get_hash (void);
@@ -334,12 +400,8 @@ public:
 		       hash_map <symtab_node *, sem_item *> &ignored_nodes);
 
   /* Fast equality variable based on knowledge known in WPA.  */
-  inline virtual bool equals_wpa (sem_item *item,
-				  hash_map <symtab_node *, sem_item *> & ARG_UNUSED(ignored_nodes))
-  {
-    gcc_assert (item->type == VAR);
-    return true;
-  }
+  virtual bool equals_wpa (sem_item *item,
+			   hash_map <symtab_node *, sem_item *> &ignored_nodes);
 
   /* Returns varpool_node.  */
   inline varpool_node *get_node (void)
@@ -350,20 +412,9 @@ public:
   /* Parser function that visits a varpool NODE.  */
   static sem_variable *parse (varpool_node *node, bitmap_obstack *stack);
 
-  /* Variable constructor.  */
-  tree ctor;
-
 private:
-  /* Iterates though a constructor and identifies tree references
-     we are interested in semantic function equality.  */
-  void parse_tree_refs (tree t);
-
   /* Compares trees T1 and T2 for semantic equality.  */
   static bool equals (tree t1, tree t2);
-
-  /* Compare that symbol sections are either NULL or have same name.  */
-  bool compare_sections (sem_variable *alias);
-
 }; // class sem_variable
 
 class sem_item_optimizer;
@@ -410,8 +461,10 @@ public:
      read-only variables that can be merged.  */
   void parse_funcs_and_vars (void);
 
-  /* Optimizer entry point.  */
-  void execute (void);
+  /* Optimizer entry point which returns true in case it processes
+     a merge operation. True is returned if there's a merge operation
+     processed.  */
+  bool execute (void);
 
   /* Dump function. */
   void dump (void);
@@ -454,7 +507,12 @@ public:
   congruence_class_group *get_group_by_hash (hashval_t hash,
       sem_item_type type);
 
+  /* Because types can be arbitrarily large, avoid quadratic bottleneck.  */
+  hash_map<const_tree, hashval_t> m_type_hash_cache;
 private:
+
+  /* For each semantic item, append hash values of references.  */
+  void update_hash_by_addr_refs ();
 
   /* Congruence classes are built by hash value.  */
   void build_hash_based_classes (void);
@@ -467,6 +525,13 @@ private:
      classes. If IN_WPA, fast equality function is invoked.  */
   void subdivide_classes_by_equality (bool in_wpa = false);
 
+  /* Subdivide classes by address and interposable references
+     that members of the class reference.
+     Example can be a pair of functions that have an address
+     taken from a function. If these addresses are different the class
+     is split.  */
+  unsigned subdivide_classes_by_sensitive_refs();
+
   /* Debug function prints all informations about congruence classes.  */
   void dump_cong_classes (void);
 
@@ -478,8 +543,9 @@ private:
 
   /* After reduction is done, we can declare all items in a group
      to be equal. PREV_CLASS_COUNT is start number of classes
-     before reduction.  */
-  void merge_classes (unsigned int prev_class_count);
+     before reduction. True is returned if there's a merge operation
+     processed.  */
+  bool merge_classes (unsigned int prev_class_count);
 
   /* Adds a newly created congruence class CLS to worklist.  */
   void worklist_push (congruence_class *cls);

@@ -59,7 +59,6 @@ with Sem_Disp; use Sem_Disp;
 with Sem_Elab; use Sem_Elab;
 with Sem_Elim; use Sem_Elim;
 with Sem_Eval; use Sem_Eval;
-with Sem_Prag; use Sem_Prag;
 with Sem_Res;  use Sem_Res;
 with Sem_Type; use Sem_Type;
 with Sem_Util; use Sem_Util;
@@ -3073,9 +3072,8 @@ package body Sem_Ch12 is
       Start_Generic;
 
       Enter_Name (Id);
-      Set_Ekind    (Id, E_Generic_Package);
-      Set_Etype    (Id, Standard_Void_Type);
-      Set_Contract (Id, Make_Contract (Sloc (Id)));
+      Set_Ekind  (Id, E_Generic_Package);
+      Set_Etype  (Id, Standard_Void_Type);
 
       --  A generic package declared within a Ghost region is rendered Ghost
       --  (SPARK RM 6.9(2)).
@@ -3170,12 +3168,12 @@ package body Sem_Ch12 is
    --------------------------------------------
 
    procedure Analyze_Generic_Subprogram_Declaration (N : Node_Id) is
-      Spec        : Node_Id;
-      Id          : Entity_Id;
       Formals     : List_Id;
+      Id          : Entity_Id;
       New_N       : Node_Id;
       Result_Type : Entity_Id;
       Save_Parent : Node_Id;
+      Spec        : Node_Id;
       Typ         : Entity_Id;
 
    begin
@@ -3206,7 +3204,6 @@ package body Sem_Ch12 is
       Spec := Specification (N);
       Id := Defining_Entity (Spec);
       Generate_Definition (Id);
-      Set_Contract (Id, Make_Contract (Sloc (Id)));
 
       if Nkind (Id) = N_Defining_Operator_Symbol then
          Error_Msg_N
@@ -3311,16 +3308,13 @@ package body Sem_Ch12 is
       Set_Categorization_From_Pragmas (N);
       Validate_Categorization_Dependency (N, Id);
 
+      --  Capture all global references that occur within the profile of the
+      --  generic subprogram. Aspects are not part of this processing because
+      --  they must be delayed. If processed now, Save_Global_References will
+      --  destroy the Associated_Node links and prevent the capture of global
+      --  references when the contract of the generic subprogram is analyzed.
+
       Save_Global_References (Original_Node (N));
-
-      --  For ASIS purposes, convert any postcondition, precondition pragmas
-      --  into aspects, if N is not a compilation unit by itself, in order to
-      --  enable the analysis of expressions inside the corresponding PPC
-      --  pragmas.
-
-      if ASIS_Mode and then Is_List_Member (N) then
-         Make_Aspect_For_PPC_In_Gen_Sub_Decl (N);
-      end if;
 
       End_Generic;
       End_Scope;
@@ -4603,7 +4597,13 @@ package body Sem_Ch12 is
       Gen_Decl         : Node_Id;
       Pack_Id          : Entity_Id;
       Parent_Installed : Boolean := False;
-      Renaming_List    : List_Id;
+
+      Renaming_List : List_Id;
+      --  The list of declarations that link formals and actuals of the
+      --  instance. These are subtype declarations for formal types, and
+      --  renaming declarations for other formals. The subprogram declaration
+      --  for the instance is then appended to the list, and the last item on
+      --  the list is the renaming declaration for the instance.
 
       procedure Analyze_Instance_And_Renamings;
       --  The instance must be analyzed in a context that includes the mappings
@@ -4611,6 +4611,18 @@ package body Sem_Ch12 is
       --  for this purpose, and a subprogram with an internal name within the
       --  package. The subprogram instance is simply an alias for the internal
       --  subprogram, declared in the current scope.
+
+      procedure Build_Subprogram_Renaming;
+      --  If the subprogram is recursive, there are occurrences of the name of
+      --  the generic within the body, which must resolve to the current
+      --  instance. We add a renaming declaration after the declaration, which
+      --  is available in the instance body, as well as in the analysis of
+      --  aspects that appear in the generic. This renaming declaration is
+      --  inserted after the instance declaration which it renames.
+
+      procedure Instantiate_Contract (Subp_Id : Entity_Id);
+      --  Instantiate all source pragmas found in the contract of subprogram
+      --  Subp_Id. The instantiated pragmas are added to list Renaming_List.
 
       ------------------------------------
       -- Analyze_Instance_And_Renamings --
@@ -4644,11 +4656,12 @@ package body Sem_Ch12 is
                             Suffix_Index => Source_Offset (Sloc (Def_Ent))));
          end if;
 
-         Pack_Decl := Make_Package_Declaration (Loc,
-           Specification => Make_Package_Specification (Loc,
-             Defining_Unit_Name   => Pack_Id,
-             Visible_Declarations => Renaming_List,
-             End_Label            => Empty));
+         Pack_Decl :=
+           Make_Package_Declaration (Loc,
+             Specification => Make_Package_Specification (Loc,
+               Defining_Unit_Name   => Pack_Id,
+               Visible_Declarations => Renaming_List,
+               End_Label            => Empty));
 
          Set_Instance_Spec (N, Pack_Decl);
          Set_Is_Generic_Instance (Pack_Id);
@@ -4765,6 +4778,108 @@ package body Sem_Ch12 is
             Set_Body_Required (Parent (N), False);
          end if;
       end Analyze_Instance_And_Renamings;
+
+      -------------------------------
+      -- Build_Subprogram_Renaming --
+      -------------------------------
+
+      procedure Build_Subprogram_Renaming is
+         Renaming_Decl : Node_Id;
+         Unit_Renaming : Node_Id;
+
+      begin
+         Unit_Renaming :=
+           Make_Subprogram_Renaming_Declaration (Loc,
+             Specification =>
+               Copy_Generic_Node
+                 (Specification (Original_Node (Gen_Decl)),
+                  Empty,
+                  Instantiating => True),
+             Name          => New_Occurrence_Of (Anon_Id, Loc));
+
+         --  The generic may be a a child unit. The renaming needs an
+         --  identifier with the proper name.
+
+         Set_Defining_Unit_Name (Specification (Unit_Renaming),
+            Make_Defining_Identifier (Loc, Chars (Gen_Unit)));
+
+         --  If there is a formal subprogram with the same name as the unit
+         --  itself, do not add this renaming declaration, to prevent
+         --  ambiguities when there is a call with that name in the body.
+         --  This is a partial and ugly fix for one ACATS test. ???
+
+         Renaming_Decl := First (Renaming_List);
+         while Present (Renaming_Decl) loop
+            if Nkind (Renaming_Decl) = N_Subprogram_Renaming_Declaration
+              and then
+                Chars (Defining_Entity (Renaming_Decl)) = Chars (Gen_Unit)
+            then
+               exit;
+            end if;
+
+            Next (Renaming_Decl);
+         end loop;
+
+         if No (Renaming_Decl) then
+            Append  (Unit_Renaming, Renaming_List);
+         end if;
+      end Build_Subprogram_Renaming;
+
+      --------------------------
+      -- Instantiate_Contract --
+      --------------------------
+
+      procedure Instantiate_Contract (Subp_Id : Entity_Id) is
+         procedure Instantiate_Pragmas (First_Prag : Node_Id);
+         --  Instantiate all contract-related source pragmas found in the list
+         --  starting with pragma First_Prag. Each instantiated pragma is added
+         --  to list Renaming_List.
+
+         -------------------------
+         -- Instantiate_Pragmas --
+         -------------------------
+
+         procedure Instantiate_Pragmas (First_Prag : Node_Id) is
+            Inst_Prag : Node_Id;
+            Prag      : Node_Id;
+
+         begin
+            Prag := First_Prag;
+            while Present (Prag) loop
+               if Comes_From_Source (Prag)
+                 and then Nam_In (Pragma_Name (Prag), Name_Contract_Cases,
+                                                      Name_Depends,
+                                                      Name_Extensions_Visible,
+                                                      Name_Global,
+                                                      Name_Postcondition,
+                                                      Name_Precondition,
+                                                      Name_Test_Case)
+               then
+                  Inst_Prag :=
+                    Copy_Generic_Node
+                      (Original_Node (Prag), Empty, Instantiating => True);
+
+                  Set_Analyzed (Inst_Prag, False);
+                  Append_To (Renaming_List, Inst_Prag);
+               end if;
+
+               Prag := Next_Pragma (Prag);
+            end loop;
+         end Instantiate_Pragmas;
+
+         --  Local variables
+
+         Items : constant Node_Id := Contract (Subp_Id);
+
+      --  Start of processing for Instantiate_Contract
+
+      begin
+         if Present (Items) then
+            Instantiate_Pragmas (Pre_Post_Conditions (Items));
+            Instantiate_Pragmas (Contract_Test_Cases (Items));
+            Instantiate_Pragmas (Classifications     (Items));
+         end if;
+      end Instantiate_Contract;
 
       --  Local variables
 
@@ -4931,6 +5046,9 @@ package body Sem_Ch12 is
          end if;
 
          Append (Act_Decl, Renaming_List);
+         Instantiate_Contract (Gen_Unit);
+         Build_Subprogram_Renaming;
+
          Analyze_Instance_And_Renamings;
 
          --  If the generic is marked Import (Intrinsic), then so is the
@@ -4961,9 +5079,6 @@ package body Sem_Ch12 is
          end if;
 
          Generate_Definition (Act_Decl_Id);
-         --  Set_Contract (Anon_Id, Make_Contract (Sloc (Anon_Id)));
-         --  ??? needed?
-         Set_Contract (Act_Decl_Id, Make_Contract (Sloc (Act_Decl_Id)));
 
          --  Inherit all inlining-related flags which apply to the generic in
          --  the subprogram and its declaration.
@@ -5513,6 +5628,12 @@ package body Sem_Ch12 is
                                N_Formal_Package_Declaration)
            or else Kind in N_Formal_Subprogram_Declaration
          then
+            null;
+
+         --  Ada 2012: If both formal and actual are incomplete types they
+         --  are conformant.
+
+         elsif Is_Incomplete_Type (E1) and then Is_Incomplete_Type (E2) then
             null;
 
          elsif B then
@@ -10676,32 +10797,29 @@ package body Sem_Ch12 is
      (Body_Info     : Pending_Body_Info;
       Body_Optional : Boolean := False)
    is
-      Act_Decl      : constant Node_Id    := Body_Info.Act_Decl;
-      Inst_Node     : constant Node_Id    := Body_Info.Inst_Node;
-      Loc           : constant Source_Ptr := Sloc (Inst_Node);
-      Gen_Id        : constant Node_Id    := Name (Inst_Node);
-      Gen_Unit      : constant Entity_Id  := Get_Generic_Entity (Inst_Node);
-      Gen_Decl      : constant Node_Id    := Unit_Declaration_Node (Gen_Unit);
-      Anon_Id       : constant Entity_Id  :=
-                        Defining_Unit_Name (Specification (Act_Decl));
-      Pack_Id       : constant Entity_Id  :=
-                        Defining_Unit_Name (Parent (Act_Decl));
-      Decls         : List_Id;
-      Gen_Body      : Node_Id;
-      Gen_Body_Id   : Node_Id;
-      Act_Body      : Node_Id;
-      Pack_Body     : Node_Id;
-      Prev_Formal   : Entity_Id;
-      Ret_Expr      : Node_Id;
-      Unit_Renaming : Node_Id;
-
-      Parent_Installed : Boolean := False;
+      Act_Decl    : constant Node_Id    := Body_Info.Act_Decl;
+      Inst_Node   : constant Node_Id    := Body_Info.Inst_Node;
+      Loc         : constant Source_Ptr := Sloc (Inst_Node);
+      Gen_Id      : constant Node_Id    := Name (Inst_Node);
+      Gen_Unit    : constant Entity_Id  := Get_Generic_Entity (Inst_Node);
+      Gen_Decl    : constant Node_Id    := Unit_Declaration_Node (Gen_Unit);
+      Anon_Id     : constant Entity_Id  :=
+                      Defining_Unit_Name (Specification (Act_Decl));
+      Pack_Id     : constant Entity_Id  :=
+                      Defining_Unit_Name (Parent (Act_Decl));
 
       Saved_Style_Check : constant Boolean        := Style_Check;
       Saved_Warnings    : constant Warning_Record := Save_Warnings;
 
-      Par_Ent : Entity_Id := Empty;
-      Par_Vis : Boolean   := False;
+      Act_Body    : Node_Id;
+      Gen_Body    : Node_Id;
+      Gen_Body_Id : Node_Id;
+      Pack_Body   : Node_Id;
+      Par_Ent     : Entity_Id := Empty;
+      Par_Vis     : Boolean   := False;
+      Ret_Expr    : Node_Id;
+
+      Parent_Installed : Boolean := False;
 
    begin
       Gen_Body_Id := Corresponding_Body (Gen_Decl);
@@ -10823,47 +10941,14 @@ package body Sem_Ch12 is
             Parent_Installed := True;
          end if;
 
-         --  Inside its body, a reference to the generic unit is a reference
-         --  to the instance. The corresponding renaming is the first
-         --  declaration in the body.
+         --  Subprogram body is placed in the body of wrapper package,
+         --  whose spec contains the subprogram declaration as well as
+         --  the renaming declarations for the generic parameters.
 
-         Unit_Renaming :=
-           Make_Subprogram_Renaming_Declaration (Loc,
-             Specification =>
-               Copy_Generic_Node (
-                 Specification (Original_Node (Gen_Body)),
-                 Empty,
-                 Instantiating => True),
-             Name => New_Occurrence_Of (Anon_Id, Loc));
-
-         --  If there is a formal subprogram with the same name as the unit
-         --  itself, do not add this renaming declaration. This is a temporary
-         --  fix for one ACATS test. ???
-
-         Prev_Formal := First_Entity (Pack_Id);
-         while Present (Prev_Formal) loop
-            if Chars (Prev_Formal) = Chars (Gen_Unit)
-              and then Is_Overloadable (Prev_Formal)
-            then
-               exit;
-            end if;
-
-            Next_Entity (Prev_Formal);
-         end loop;
-
-         if Present (Prev_Formal) then
-            Decls :=  New_List (Act_Body);
-         else
-            Decls :=  New_List (Unit_Renaming, Act_Body);
-         end if;
-
-         --  The subprogram body is placed in the body of a dummy package body,
-         --  whose spec contains the subprogram declaration as well as the
-         --  renaming declarations for the generic parameters.
-
-         Pack_Body := Make_Package_Body (Loc,
-           Defining_Unit_Name => New_Copy (Pack_Id),
-           Declarations       => Decls);
+         Pack_Body :=
+           Make_Package_Body (Loc,
+             Defining_Unit_Name => New_Copy (Pack_Id),
+             Declarations       => New_List (Act_Body));
 
          Set_Corresponding_Spec (Pack_Body, Pack_Id);
 
@@ -11118,6 +11203,17 @@ package body Sem_Ch12 is
             Error_Msg_NE
               ("expect protected access type for formal &",
                Actual, Gen_T);
+         end if;
+
+         --  If the formal has a specified convention (which in most cases
+         --  will be StdCall) verify that the actual has the same convention.
+
+         if Has_Convention_Pragma (A_Gen_T)
+           and then Convention (A_Gen_T) /= Convention (Act_T)
+         then
+            Error_Msg_Name_1 := Get_Convention_Name (Convention (A_Gen_T));
+            Error_Msg_NE
+              ("actual for formal & must have convention %", Actual, Gen_T);
          end if;
       end Validate_Access_Subprogram_Instance;
 
@@ -12297,6 +12393,14 @@ package body Sem_Ch12 is
          Set_Has_Private_View (Subtype_Indication (Decl_Node));
       end if;
 
+      --  In Ada 2012 the actual may be a limited view. Indicate that
+      --  the local subtype must be treated as such.
+
+      if From_Limited_With (Act_T) then
+         Set_Ekind (Subt, E_Incomplete_Subtype);
+         Set_From_Limited_With (Subt);
+      end if;
+
       Decl_Nodes := New_List (Decl_Node);
 
       --  Flag actual derived types so their elaboration produces the
@@ -12361,6 +12465,14 @@ package body Sem_Ch12 is
             Set_Generic_Parent_Type (Corr_Decl, Ancestor);
             Set_Generic_Parent_Type (Decl_Node, Empty);
          end;
+      end if;
+
+      --  For a floating-point type, capture dimension info if any, because
+      --  the generated subtype declaration does not come from source and
+      --  will not process dimensions.
+
+      if Is_Floating_Point_Type (Act_T) then
+         Copy_Dimensions (Act_T, Subt);
       end if;
 
       return Decl_Nodes;
@@ -12666,14 +12778,24 @@ package body Sem_Ch12 is
                            --  Subprogram instance
 
                            else
-                              --  The instance_spec is the wrapper package,
-                              --  and the subprogram declaration is the last
-                              --  declaration in the wrapper.
+                              --  The instance_spec is in the wrapper package,
+                              --  usually followed by its local renaming
+                              --  declaration. See Build_Subprogram_Renaming
+                              --  for details.
 
-                              Info.Act_Decl :=
-                                Last
-                                  (Visible_Declarations
-                                    (Specification (Info.Act_Decl)));
+                              declare
+                                 Decl : Node_Id :=
+                                          (Last (Visible_Declarations
+                                            (Specification (Info.Act_Decl))));
+                              begin
+                                 if Nkind (Decl) =
+                                      N_Subprogram_Renaming_Declaration
+                                 then
+                                    Decl := Prev (Decl);
+                                 end if;
+
+                                 Info.Act_Decl := Decl;
+                              end;
 
                               Instantiate_Subprogram_Body
                                 (Info, Body_Optional => True);
@@ -14265,23 +14387,14 @@ package body Sem_Ch12 is
             end;
          end if;
 
-         --  If a node has aspects, references within their expressions must
-         --  be saved separately, given they are not directly in the tree.
+         --  Save all global references found within the aspects of the related
+         --  node. This is not done for generic subprograms because the aspects
+         --  must be delayed and analyzed at the end of the declarative part.
+         --  Only then can global references be saved. This action is performed
+         --  by the analysis of the generic subprogram contract.
 
-         if Has_Aspects (N) then
-            declare
-               Aspect : Node_Id;
-
-            begin
-               Aspect := First (Aspect_Specifications (N));
-               while Present (Aspect) loop
-                  if Present (Expression (Aspect)) then
-                     Save_Global_References (Expression (Aspect));
-                  end if;
-
-                  Next (Aspect);
-               end loop;
-            end;
+         if Nkind (N) /= N_Generic_Subprogram_Declaration then
+            Save_Global_References_In_Aspects (N);
          end if;
       end Save_References;
 
@@ -14302,6 +14415,29 @@ package body Sem_Ch12 is
 
       Save_References (N);
    end Save_Global_References;
+
+   ---------------------------------------
+   -- Save_Global_References_In_Aspects --
+   ---------------------------------------
+
+   procedure Save_Global_References_In_Aspects (N : Node_Id) is
+      Asp  : Node_Id;
+      Expr : Node_Id;
+
+   begin
+      if Permits_Aspect_Specifications (N) and then Has_Aspects (N) then
+         Asp := First (Aspect_Specifications (N));
+         while Present (Asp) loop
+            Expr := Expression (Asp);
+
+            if Present (Expr) then
+               Save_Global_References (Expr);
+            end if;
+
+            Next (Asp);
+         end loop;
+      end if;
+   end Save_Global_References_In_Aspects;
 
    --------------------------------------
    -- Set_Copied_Sloc_For_Inlined_Body --

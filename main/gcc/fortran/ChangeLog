@@ -1,3 +1,285 @@
+2015-04-10  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-stmt.c (gfc_trans_lock_unlock): Implement -fcoarray=lib
+	version; reject not-yet-implemented variants.
+	* trans-types.c (gfc_get_derived_type): For lock_type with
+	-fcoarray=lib, use a void pointer as type.
+	* trans.c (gfc_allocate_using_lib, gfc_allocate_allocatable):
+	Handle lock_type with -fcoarray=lib.
+
+2015-04-10  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/56674
+	PR fortran/58813
+	PR fortran/59016
+	PR fortran/59024
+	* symbol.c (save_symbol_data, gfc_save_symbol_data): Rename the
+	former to the latter and make it non-static.  Update callers.
+	* gfortran.h (gfc_save_symbol_data): New prototype.
+	* decl.c (gfc_match_decl_type_spec): Call 'gfc_save_symbol_data'
+	before modifying symbols 'sym' and 'dt_sym'.
+
+2013-04-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/56852
+	* primary.c (gfc_variable_attr): Avoid ICE on AR_UNKNOWN if any
+	of the index variables are untyped and errors are present.
+
+2015-04-07  Andre Vehreschild  <vehre@gmx.de>
+
+	PR fortran/65548
+	* trans-stmt.c (gfc_trans_allocate): For intrinsic functions
+	use conv_expr_descriptor() instead of conv_expr_reference().
+
+2015-03-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/65597
+	* trans-openmp.c (gfc_trans_omp_do): For !simple simd with explicit
+	linear clause for the iterator set OMP_CLAUSE_LINEAR_NO_COPYIN.
+	For implcitly added !simple OMP_CLAUSE_LINEAR set it too.  Use step 1
+	instead of the original step on the new iterator - count.
+
+2015-03-25  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/64952
+	PR fortran/65532
+	* gfortran.h (struct gfc_namespace): New field 'types_resolved'.
+	* resolve.c (resolve_types): Return early if field 'types_resolved'
+	is set.  Set 'types_resolved' at the end.
+
+2015-03-24  Andre Vehreschild  <vehre@gmx.de>
+
+	PR fortran/55901
+	* trans-expr.c (gfc_conv_structure): Fixed indendation.
+	Using integer_zero_node now instead of explicitly
+	constructing a integer constant zero node.
+	(gfc_conv_derived_to_class): Add handling of _len component,
+	i.e., when the rhs has a string_length then assign that to
+	class' _len, else assign 0.
+	(gfc_conv_intrinsic_to_class): Likewise.
+
+2015-03-24  Andre Vehreschild  <vehre@gmx.de>
+
+	PR fortran/64787
+	PR fortran/57456
+	PR fortran/63230
+	* class.c (gfc_add_component_ref):  Free no longer needed
+	ref-chains to prevent memory loss.
+	(find_intrinsic_vtab): For deferred length char arrays or
+	unlimited polymorphic objects, store the size in bytes of one
+	character in the size component of the vtab.
+	* gfortran.h: Added gfc_add_len_component () define.
+	* trans-array.c (gfc_trans_create_temp_array): Switched to new
+	function name for getting a class' vtab's field.
+	(build_class_array_ref): Likewise.
+	(gfc_array_init_size): Using the size information from allocate
+	more consequently now, i.e., the typespec of the entity to
+	allocate is no longer needed.  This is to address the last open
+	comment in PR fortran/57456.
+	(gfc_array_allocate): Likewise.
+	(structure_alloc_comps): gfc_copy_class_to_class () needs to
+	know whether the class is unlimited polymorphic.
+	* trans-array.h: Changed interface of gfc_array_allocate () to
+	reflect the no longer needed typespec.
+	* trans-expr.c (gfc_find_and_cut_at_last_class_ref): New.
+	(gfc_reset_len): New.
+	(gfc_get_class_array_ref): Switch to new function name for
+	getting a class' vtab's field.
+	(gfc_copy_class_to_class):  Added flag to know whether the class
+	to copy is unlimited polymorphic.  Adding _len dependent code
+	then, which calls ->vptr->copy () with four arguments adding
+	the length information ->vptr->copy(from, to, from_len, to_cap).
+	(gfc_conv_procedure_call): Switch to new function name for
+	getting a class' vtab's field.
+	(alloc_scalar_allocatable_for_assignment): Use the string_length
+	as computed by gfc_conv_expr and not the statically backend_decl
+	which may be incorrect when ref-ing.
+	(gfc_trans_assignment_1): Use the string_length variable and
+	not the rse.string_length.  The former has been computed more
+	generally.
+	* trans-intrinsic.c (gfc_conv_intrinsic_sizeof): Switch to new
+	function name for getting a class' vtab's field.
+	(gfc_conv_intrinsic_storage_size): Likewise.
+	(gfc_conv_intrinsic_transfer): Likewise.
+	* trans-stmt.c (gfc_trans_allocate): Restructured to evaluate
+	source=expr3 only once before the loop over the objects to
+	allocate, when the objects are not arrays. Doing correct _len
+	initialization and calling of vptr->copy () fixing PR 64787.
+	(gfc_trans_deallocate): Reseting _len to 0, preventing future
+	errors.
+	* trans.c (gfc_build_array_ref): Switch to new function name
+	for getting a class' vtab's field.
+	(gfc_add_comp_finalizer_call): Likewise.
+	* trans.h: Define the prototypes for the gfc_class_vtab_*_get ()
+	and gfc_vptr_*_get () functions.
+	Added gfc_find_and_cut_at_last_class_ref () and
+	gfc_reset_len () routine prototype.  Added flag to
+	gfc_copy_class_to_class () prototype to signal an unlimited
+	polymorphic entity to copy.
+
+2015-03-24  Iain Sandoe  <iain@codesourcery.com>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.texi (_gfortran_caf_sync_memory): Improve wording.
+
+2015-03-23  Paul Thomas  <pault@gcc.gnu.org>
+	    Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/64952
+	* gfortran.h (struct symbol_attribute) : New field
+	'array_outer_dependency'.
+	* trans.h (struct gfc_ss_info): New field 'array_outer_dependency'.
+	* module.c (enum ab_attribute): New value AB_ARRAY_OUTER_DEPENDENCY.
+	(attr_bits): Append same value to initializer.
+	(mio_symbol_attribute): Handle 'array_outer_dependency' attr
+	in module read and write.
+	* resolve.c (update_current_proc_outer_array_dependency): New function.
+	(resolve_function, resolve_call): Add code to update current procedure's
+	'array_outer_dependency' attribute.
+	(resolve_variable): Mark current procedure with attribute
+	array_outer_dependency if the variable is an array coming from outside
+	the current namespace.
+	(resolve_fl_procedure): Mark a procedure without body with attribute
+	'array_outer_dependency'.
+	* trans-array.c (gfc_conv_resolve_dependencies): If any ss is
+	marked as 'array_outer_dependency' generate a temporary.
+	(gfc_walk_function_expr): If the function may reference external arrays,
+	mark the head gfc_ss with flag 'array_outer_dependency'.
+
+2015-03-22 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/59513
+	* gfortran.texi (Read/Write after EOF marker): New information.
+
+2015-03-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gfortran.texi (_gfortran_caf_sync_memory): Put @{xxx} in one
+	line.
+
+2015-03-21  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.texi (_gfortran_caf_sync_all, _gfortran_caf_sync_images,
+	_gfortran_caf_sync_memory, _gfortran_caf_error_stop,
+	_gfortran_caf_error_stop_str, _gfortran_caf_atomic_define,
+	_gfortran_caf_atomic_ref, _gfortran_caf_atomic_cas,
+	_gfortran_caf_atomic_op): New sections.
+
+2015-03-21  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-expr.c (gfc_get_tree_for_caf_expr): Reject unimplemented
+	coindexed coarray accesses.
+
+2015-03-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/59198
+	* trans-types.c (gfc_get_derived_type): If an abstract derived
+	type with procedure pointer components has no other type of
+	component, return the backend_decl. Otherwise build the
+	components if any of the non-procedure pointer components have
+	no backend_decl.
+
+2015-03-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/64432
+	*trans-intrinisic.c (conv_intrinsic_system_clock): Check the
+	smallest kind passed in user arguments and hardcode tesults for
+	KIND=1 or KIND=2 to indicate no clock available.
+
+2015-03-16  Andre Vehreschild  <vehre@gmx.de>
+
+	* resolve.c: Prevent segfault on illegal input.
+
+2015-03-14  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/61138
+	* trans-expr.c (gfc_trans_pointer_assignment): Clear DESCRIPTOR_ONLY
+	field before reusing LSE.
+
+2015-03-11  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/65200
+	* gfortran.texi: Document behavior when opening files without
+	explicit ACTION= specifier.
+
+2015-03-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/65024
+	* trans-expr.c (gfc_conv_component_ref): If the component
+	backend declaration is missing and the derived type symbol is
+	available in the reference, call gfc_build_derived_type.
+
+2015-03-10  Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	* trans.h (caf_sync_memory): New function decl tree.
+	* trans-decl.c (gfc_build_builtin_function_decls): Define it.
+	(create_main_function): Don't call sync_synchronize and leave
+	it to the CAF library.
+	* trans-stmt.c (gfc_trans_stop): Ditto.
+	(gfc_trans_sync): Ditto; add call library call for sync memory.
+
+2015-03-08  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/60898
+	* resolve.c (resolve_symbol): Check that the symbol found by
+	name lookup really is the current symbol being resolved.
+
+2015-03-02  Tobias Burnus  <burnus@net-b.de>
+
+	* check.c (gfc_check_atomic): Properly check for coarrayness
+	and for being coindexed.
+
+2015-02-26  Martin Liska  <mliska@suse.cz>
+
+	* resolve.c: Rename enum 'comparison' to 'compare_result' as
+	solution for -Wodr issue.
+
+2015-02-24  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR libgomp/64625
+	* f95-lang.c (DEF_FUNCTION_TYPE_VAR_8, DEF_FUNCTION_TYPE_VAR_12):
+	Remove macros.
+	(DEF_FUNCTION_TYPE_VAR_7, DEF_FUNCTION_TYPE_VAR_11): New macros.
+	* types.def (BT_FN_VOID_INT_PTR_SIZE_PTR_PTR_PTR_INT_INT_VAR)
+	(BT_FN_VOID_INT_OMPFN_PTR_SIZE_PTR_PTR_PTR_INT_INT_INT_INT_INT_VAR):
+	Remove function types.
+	(BT_FN_VOID_INT_SIZE_PTR_PTR_PTR)
+	(BT_FN_VOID_INT_SIZE_PTR_PTR_PTR_INT_INT_VAR)
+	(BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_INT_INT_INT_INT_INT_VAR):
+	New function types.
+
+2015-02-22  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR fortran/64980
+	PR fortran/61960
+	* trans-expr.c (gfc_apply_interface_mapping_to_expr): Remove mapping
+	for component references to class objects.
+	(gfc_conv_procedure_call): Compare the class by name.
+
+2015-02-13  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/64506
+	* scanner.c (gfc_next_char_literal): For free form source,
+	check for '!' and if found, clear the comment and go back
+	and get the next character. For fixed form source, skip the
+	rest of the line.
+
+2015-02-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/64932
+	* trans-stmt.c (gfc_trans_deallocate): If a component array
+	expression is not a descriptor type and it is a derived type
+	that has allocatable components and is not finalizable, then
+	deallocate the allocatable components.
+
+2015-02-08  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/63744
+	* module.c (check_for_ambiguous): Change argument type
+	from gfc_symbol to gfc_symtree.  Check local (symtree) name
+	instead of original (symbol) name.
+	(read_module): Update caller.
+
 2015-02-06  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/63205

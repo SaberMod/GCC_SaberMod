@@ -828,7 +828,7 @@
      }
 }
   [(set_attr "type" "mov_reg,mov_imm,mov_imm,load1,load1,store1,store1,\
-                     neon_from_gp<q>,neon_from_gp<q>, neon_dup")
+                     neon_to_gp<q>,neon_from_gp<q>,neon_dup")
    (set_attr "simd" "*,*,yes,*,*,*,*,yes,yes,yes")]
 )
 
@@ -3065,8 +3065,10 @@
         (not:GPI (xor:GPI (match_operand:GPI 1 "register_operand" "r,?w")
                           (match_operand:GPI 2 "register_operand" "r,w"))))]
   ""
-  "eon\\t%<w>0, %<w>1, %<w>2" ;; For GPR registers (only).
-  "reload_completed && (which_alternative == 1)" ;; For SIMD registers.
+  "@
+  eon\\t%<w>0, %<w>1, %<w>2
+  #"
+  "reload_completed && FP_REGNUM_P (REGNO (operands[0]))" ;; For SIMD registers.
   [(set (match_operand:GPI 0 "register_operand" "=w")
         (xor:GPI (match_operand:GPI 1 "register_operand" "w")
                  (match_operand:GPI 2 "register_operand" "w")))
@@ -3360,7 +3362,7 @@
 
 ;; Logical right shift using SISD or Integer instruction
 (define_insn "*aarch64_lshr_sisd_or_int_<mode>3"
-  [(set (match_operand:GPI 0 "register_operand" "=w,w,r")
+  [(set (match_operand:GPI 0 "register_operand" "=w,&w,r")
         (lshiftrt:GPI
           (match_operand:GPI 1 "register_operand" "w,w,r")
           (match_operand:QI 2 "aarch64_reg_or_shift_imm_<mode>" "Us<cmode>,w,rUs<cmode>")))]
@@ -3379,11 +3381,13 @@
            (match_operand:DI 1 "aarch64_simd_register")
            (match_operand:QI 2 "aarch64_simd_register")))]
   "TARGET_SIMD && reload_completed"
-  [(set (match_dup 2)
+  [(set (match_dup 3)
         (unspec:QI [(match_dup 2)] UNSPEC_SISD_NEG))
    (set (match_dup 0)
-        (unspec:DI [(match_dup 1) (match_dup 2)] UNSPEC_SISD_USHL))]
-  ""
+        (unspec:DI [(match_dup 1) (match_dup 3)] UNSPEC_SISD_USHL))]
+  {
+    operands[3] = gen_lowpart (QImode, operands[0]);
+  }
 )
 
 (define_split
@@ -3392,11 +3396,13 @@
            (match_operand:SI 1 "aarch64_simd_register")
            (match_operand:QI 2 "aarch64_simd_register")))]
   "TARGET_SIMD && reload_completed"
-  [(set (match_dup 2)
+  [(set (match_dup 3)
         (unspec:QI [(match_dup 2)] UNSPEC_SISD_NEG))
    (set (match_dup 0)
-        (unspec:SI [(match_dup 1) (match_dup 2)] UNSPEC_USHL_2S))]
-  ""
+        (unspec:SI [(match_dup 1) (match_dup 3)] UNSPEC_USHL_2S))]
+  {
+    operands[3] = gen_lowpart (QImode, operands[0]);
+  }
 )
 
 ;; Arithmetic right shift using SISD or Integer instruction

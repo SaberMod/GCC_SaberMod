@@ -442,7 +442,7 @@ cgraph_node::expand_all_artificial_thunks ()
    node is not inlined.  */
 
 cgraph_node *
-cgraph_node::create_clone (tree decl, gcov_type gcov_count, int freq,
+cgraph_node::create_clone (tree new_decl, gcov_type gcov_count, int freq,
 			   bool update_original,
 			   vec<cgraph_edge *> redirect_callers,
 			   bool call_duplication_hook,
@@ -454,7 +454,7 @@ cgraph_node::create_clone (tree decl, gcov_type gcov_count, int freq,
   gcov_type count_scale;
   unsigned i;
 
-  new_node->decl = decl;
+  new_node->decl = new_decl;
   new_node->register_symbol ();
   new_node->origin = origin;
   new_node->lto_file_data = lto_file_data;
@@ -480,9 +480,12 @@ cgraph_node::create_clone (tree decl, gcov_type gcov_count, int freq,
   new_node->frequency = frequency;
   new_node->tp_first_run = tp_first_run;
   new_node->tm_clone = tm_clone;
+  new_node->icf_merged = icf_merged;
+  new_node->merged = merged;
 
   new_node->clone.tree_map = NULL;
   new_node->clone.args_to_skip = args_to_skip;
+  new_node->split_part = split_part;
   if (!args_to_skip)
     new_node->clone.combined_args_to_skip = clone.combined_args_to_skip;
   else if (clone.combined_args_to_skip)
@@ -545,19 +548,19 @@ cgraph_node::create_clone (tree decl, gcov_type gcov_count, int freq,
   return new_node;
 }
 
-/* Return a new assembler name for a clone of DECL with SUFFIX.  */
-
 static GTY(()) unsigned int clone_fn_id_num;
 
+/* Return a new assembler name for a clone with SUFFIX of a decl named
+   NAME.  */
+
 tree
-clone_function_name (tree decl, const char *suffix)
+clone_function_name_1 (const char *name, const char *suffix)
 {
-  tree name = DECL_ASSEMBLER_NAME (decl);
-  size_t len = IDENTIFIER_LENGTH (name);
+  size_t len = strlen (name);
   char *tmp_name, *prefix;
 
   prefix = XALLOCAVEC (char, len + strlen (suffix) + 2);
-  memcpy (prefix, IDENTIFIER_POINTER (name), len);
+  memcpy (prefix, name, len);
   strcpy (prefix + len + 1, suffix);
 #ifndef NO_DOT_IN_LABEL
   prefix[len] = '.';
@@ -569,6 +572,16 @@ clone_function_name (tree decl, const char *suffix)
   ASM_FORMAT_PRIVATE_NAME (tmp_name, prefix, clone_fn_id_num++);
   return get_identifier (tmp_name);
 }
+
+/* Return a new assembler name for a clone of DECL with SUFFIX.  */
+
+tree
+clone_function_name (tree decl, const char *suffix)
+{
+  tree name = DECL_ASSEMBLER_NAME (decl);
+  return clone_function_name_1 (IDENTIFIER_POINTER (name), suffix);
+}
+
 
 /* Create callgraph node clone with new declaration.  The actual body will
    be copied later at compilation stage.
@@ -589,7 +602,7 @@ cgraph_node::create_virtual_clone (vec<cgraph_edge *> redirect_callers,
   char *name;
 
   if (!in_lto_p)
-    gcc_checking_assert  (tree_versionable_function_p (old_decl));
+    gcc_checking_assert (tree_versionable_function_p (old_decl));
 
   gcc_assert (local.can_change_signature || !args_to_skip);
 
@@ -629,6 +642,8 @@ cgraph_node::create_virtual_clone (vec<cgraph_edge *> redirect_callers,
      ABI support for this.  */
   set_new_clone_decl_and_node_flags (new_node);
   new_node->clone.tree_map = tree_map;
+  if (!implicit_section)
+    new_node->set_section (get_section ());
 
   /* Clones of global symbols or symbols with unique names are unique.  */
   if ((TREE_PUBLIC (old_decl)
@@ -1022,6 +1037,8 @@ cgraph_node::create_version_clone_with_body
   new_version_node->externally_visible = 0;
   new_version_node->local.local = 1;
   new_version_node->lowered = true;
+  if (!implicit_section)
+    new_version_node->set_section (get_section ());
   /* Clones of global symbols or symbols with unique names are unique.  */
   if ((TREE_PUBLIC (old_decl)
        && !DECL_EXTERNAL (old_decl)

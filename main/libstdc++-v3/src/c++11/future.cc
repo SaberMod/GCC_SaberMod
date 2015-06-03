@@ -32,6 +32,7 @@ namespace
     name() const noexcept
     { return "future"; }
 
+    _GLIBCXX_DEFAULT_ABI_TAG
     virtual std::string message(int __ec) const
     {
       std::string __msg;
@@ -75,7 +76,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   future_error::~future_error() noexcept { }
 
   const char*
-  future_error::what() const noexcept { return _M_code.message().c_str(); }
+  future_error::what() const noexcept { return logic_error::what(); }
 
 #if defined(_GLIBCXX_HAS_GTHREADS) && defined(_GLIBCXX_USE_C99_STDINT_TR1) \
   && (ATOMIC_INT_LOCK_FREE > 1)

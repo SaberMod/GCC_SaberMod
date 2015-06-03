@@ -3091,9 +3091,9 @@ package body Sem_Res is
       --  This must be determined before the actual is resolved and expanded
       --  because if needed the transient scope must be introduced earlier.
 
-      ------------------------------
-      --  Check_Aliased_Parameter --
-      ------------------------------
+      -----------------------------
+      -- Check_Aliased_Parameter --
+      -----------------------------
 
       procedure Check_Aliased_Parameter is
          Nominal_Subt : Entity_Id;
@@ -8593,9 +8593,35 @@ package body Sem_Res is
 
       procedure Resolve_Set_Membership is
          Alt  : Node_Id;
-         Ltyp : constant Entity_Id := Etype (L);
+         Ltyp : Entity_Id;
 
       begin
+         --  If the left operand is overloaded, find type compatible with not
+         --  overloaded alternative of the right operand.
+
+         if Is_Overloaded (L) then
+            Ltyp := Empty;
+            Alt := First (Alternatives (N));
+            while Present (Alt) loop
+               if not Is_Overloaded (Alt) then
+                  Ltyp := Intersect_Types (L, Alt);
+                  exit;
+               else
+                  Next (Alt);
+               end if;
+            end loop;
+
+            --  Unclear how to resolve expression if all alternatives are also
+            --  overloaded.
+
+            if No (Ltyp) then
+               Error_Msg_N ("ambiguous expression", N);
+            end if;
+
+         else
+            Ltyp := Etype (L);
+         end if;
+
          Resolve (L, Ltyp);
 
          Alt := First (Alternatives (N));
@@ -10714,15 +10740,23 @@ package body Sem_Res is
             Target : Entity_Id := Target_Typ;
 
          begin
-            --  If the type of the operand is a limited view, use the non-
-            --  limited view when available.
+            --  If the type of the operand is a limited view, use nonlimited
+            --  view when available. If it is a class-wide type, recover the
+            --  class-wide type of the nonlimited view.
 
-            if From_Limited_With (Opnd)
-              and then Ekind (Opnd) in Incomplete_Kind
-              and then Present (Non_Limited_View (Opnd))
-            then
-               Opnd := Non_Limited_View (Opnd);
-               Set_Etype (Expression (N), Opnd);
+            if From_Limited_With (Opnd) then
+               if Ekind (Opnd) in Incomplete_Kind
+                 and then Present (Non_Limited_View (Opnd))
+               then
+                  Opnd := Non_Limited_View (Opnd);
+                  Set_Etype (Expression (N), Opnd);
+
+               elsif Is_Class_Wide_Type (Opnd)
+                 and then Present (Non_Limited_View (Etype (Opnd)))
+               then
+                  Opnd := Class_Wide_Type (Non_Limited_View (Etype (Opnd)));
+                  Set_Etype (Expression (N), Opnd);
+               end if;
             end if;
 
             if Is_Access_Type (Opnd) then
@@ -11803,7 +11837,7 @@ package body Sem_Res is
             return True;
 
          --  If the operand is a class-wide type obtained through a limited_
-         --  with clause, and the context includes the non-limited view, use
+         --  with clause, and the context includes the nonlimited view, use
          --  it to determine whether the conversion is legal.
 
          elsif Is_Class_Wide_Type (Opnd_Type)
@@ -12291,7 +12325,7 @@ package body Sem_Res is
             end if;
          end if;
 
-         --  In the presence of limited_with clauses we have to use non-limited
+         --  In the presence of limited_with clauses we have to use nonlimited
          --  views, if available.
 
          Check_Limited : declare

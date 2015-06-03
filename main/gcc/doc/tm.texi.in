@@ -957,6 +957,8 @@ bits.  Note that this is not the biggest alignment that is supported,
 just the biggest alignment that, when violated, may cause a fault.
 @end defmac
 
+@hook TARGET_ABSOLUTE_BIGGEST_ALIGNMENT
+
 @defmac MALLOC_ABI_ALIGNMENT
 Alignment, in bits, a C conformant malloc implementation has to
 provide.  If not defined, the default value is @code{BITS_PER_WORD}.
@@ -2648,7 +2650,7 @@ A C expression whose value is RTL representing the value of the return
 address for the frame @var{count} steps up from the current frame, after
 the prologue.  @var{frameaddr} is the frame pointer of the @var{count}
 frame, or the frame pointer of the @var{count} @minus{} 1 frame if
-@code{RETURN_ADDR_IN_PREVIOUS_FRAME} is defined.
+@code{RETURN_ADDR_IN_PREVIOUS_FRAME} is nonzero.
 
 The value of the expression must always be the correct address when
 @var{count} is zero, but may be @code{NULL_RTX} if there is no way to
@@ -2656,8 +2658,9 @@ determine the return address of other frames.
 @end defmac
 
 @defmac RETURN_ADDR_IN_PREVIOUS_FRAME
-Define this if the return address of a particular stack frame is accessed
-from the frame pointer of the previous stack frame.
+Define this macro to nonzero value if the return address of a particular
+stack frame is accessed from the frame pointer of the previous stack
+frame.  The zero default for this macro is suitable for most ports.
 @end defmac
 
 @defmac INCOMING_RETURN_ADDR_RTX
@@ -7249,6 +7252,8 @@ on this implementation detail.
 
 @hook TARGET_OPTION_RESTORE
 
+@hook TARGET_OPTION_POST_STREAM_IN
+
 @hook TARGET_OPTION_PRINT
 
 @hook TARGET_OPTION_PRAGMA_PARSE
@@ -7981,17 +7986,6 @@ to by @var{ce_info}.
 @hook TARGET_INVALID_WITHIN_DOLOOP
 
 @hook TARGET_LEGITIMATE_COMBINED_INSN
-
-@defmac MD_CAN_REDIRECT_BRANCH (@var{branch1}, @var{branch2})
-
-Take a branch insn in @var{branch1} and another in @var{branch2}.
-Return true if redirecting @var{branch1} to the destination of
-@var{branch2} is possible.
-
-On some targets, branches may have a limited range.  Optimizing the
-filling of delay slots can result in branches being redirected, and this
-may in turn cause a branch offset to overflow.
-@end defmac
 
 @hook TARGET_CAN_FOLLOW_JUMP
 

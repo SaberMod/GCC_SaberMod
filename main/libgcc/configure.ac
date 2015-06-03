@@ -197,6 +197,11 @@ AS_VAR_ARITH([long_double_type_size], [$ac_cv_sizeof_long_double \* 8])
 AC_SUBST(double_type_size)
 AC_SUBST(long_double_type_size)
 
+AC_CHECK_HEADERS(inttypes.h stdint.h stdlib.h ftw.h \
+	unistd.h sys/stat.h sys/types.h \
+	string.h strings.h memory.h)
+AC_HEADER_STDC
+
 # Check for decimal float support.
 AC_CACHE_CHECK([whether decimal floating point is supported], [libgcc_cv_dfp],
 	       [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -427,6 +432,22 @@ i?86-*-solaris2* | x86_64-*-solaris2.1[[0-9]]*)
 EOF
   if AC_TRY_COMMAND(${CC-cc} -shared -nostartfiles -nodefaultlibs -o conftest.so conftest.s 1>&AS_MESSAGE_LOG_FD); then
       tmake_file="${tmake_file} i386/t-crtstuff"
+  fi
+  ;;
+esac
+
+# Check if xtensa target is configured for windowed ABI and thus needs to use
+# custom unwind code.
+# This is after config.host so we can augment tmake_file.
+case ${host} in
+xtensa*-*)
+  cat > conftest.c <<EOF
+	#ifdef __XTENSA_CALL0_ABI__
+	#error
+	#endif
+EOF
+  if AC_TRY_COMMAND(${CC-cc} -E -o conftest.i conftest.c 1>&AS_MESSAGE_LOG_FD); then
+      tmake_file="${tmake_file} xtensa/t-windowed"
   fi
   ;;
 esac

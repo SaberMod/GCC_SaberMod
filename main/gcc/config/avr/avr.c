@@ -81,6 +81,8 @@
 #include "basic-block.h"
 #include "df.h"
 #include "builtins.h"
+#include "context.h"
+#include "tree-pass.h"
 
 /* Maximal allowed offset for an address in the LD command */
 #define MAX_LD_OFFSET(MODE) (64 - (signed)GET_MODE_SIZE (MODE))
@@ -232,10 +234,7 @@ static GTY(()) rtx xstring_empty;
 static GTY(()) rtx xstring_e;
 
 /* Current architecture.  */
-const avr_arch_t *avr_current_arch;
-
-/* Current device.  */
-const avr_mcu_t *avr_current_device;
+const avr_arch_t *avr_arch;
 
 /* Section to put switch tables in.  */
 static GTY(()) section *progmem_swtable_section;
@@ -329,6 +328,98 @@ avr_to_int_mode (rtx x)
 }
 
 
+static const pass_data avr_pass_data_recompute_notes =
+{
+  RTL_PASS,      // type
+  "",            // name (will be patched)
+  OPTGROUP_NONE, // optinfo_flags
+  TV_DF_SCAN,    // tv_id
+  0,             // properties_required
+  0,             // properties_provided
+  0,             // properties_destroyed
+  0,             // todo_flags_start
+  TODO_df_finish | TODO_df_verify // todo_flags_finish
+};
+
+
+class avr_pass_recompute_notes : public rtl_opt_pass
+{
+public:
+  avr_pass_recompute_notes (gcc::context *ctxt, const char *name)
+    : rtl_opt_pass (avr_pass_data_recompute_notes, ctxt)
+  {
+    this->name = name;
+  }
+
+  virtual unsigned int execute (function*)
+  {
+    df_note_add_problem ();
+    df_analyze ();
+
+    return 0;
+  }
+}; // avr_pass_recompute_notes
+
+
+static void
+avr_register_passes (void)
+{
+  /* This avr-specific pass (re)computes insn notes, in particular REG_DEAD
+     notes which are used by `avr.c::reg_unused_after' and branch offset
+     computations.  These notes must be correct, i.e. there must be no
+     dangling REG_DEAD notes; otherwise wrong code might result, cf. PR64331.
+
+     DF needs (correct) CFG, hence right before free_cfg is the last
+     opportunity to rectify notes.  */
+
+  register_pass (new avr_pass_recompute_notes (g, "avr-notes-free-cfg"),
+                 PASS_POS_INSERT_BEFORE, "*free_cfg", 1);
+}
+
+
+/* Set `avr_arch' as specified by `-mmcu='.
+   Return true on success.  */
+
+static bool
+avr_set_core_architecture (void)
+{
+  /* Search for mcu core architecture.  */
+
+  if (!avr_mmcu)
+    avr_mmcu = AVR_MMCU_DEFAULT;
+
+  avr_arch = &avr_arch_types[0];
+
+  for (const avr_mcu_t *mcu = avr_mcu_types; ; mcu++)
+    {
+      if (NULL == mcu->name)
+        {
+          /* Reached the end of `avr_mcu_types'.  This should actually never
+             happen as options are provided by device-specs.  It could be a
+             typo in a device-specs or calling the compiler proper directly
+             with -mmcu=<device>. */
+
+          error ("unknown core architecture %qs specified with %qs",
+                 avr_mmcu, "-mmcu=");
+          avr_inform_core_architectures ();
+          break;
+        }
+      else if (0 == strcmp (mcu->name, avr_mmcu)
+               // Is this a proper architecture ? 
+               && NULL == mcu->macro)
+        {
+          avr_arch = &avr_arch_types[mcu->arch_id];
+          if (avr_n_flash < 0)
+            avr_n_flash = mcu->n_flash;
+
+          return true;
+        }
+    }
+
+  return false;
+}
+
+
 /* Implement `TARGET_OPTION_OVERRIDE'.  */
 
 static void
@@ -373,44 +464,34 @@ avr_option_override (void)
   if (flag_pie == 2)
     warning (OPT_fPIE, "-fPIE is not supported");
 
-  /* Search for mcu arch.
-     ??? We should probably just put the architecture-default device
-     settings in the architecture struct and remove any notion of a current
-     device from gcc.  */
-
-  for (avr_current_device = avr_mcu_types; ; avr_current_device++)
-    {
-      if (!avr_current_device->name)
-        fatal_error (input_location, "mcu not found");
-      if (!avr_current_device->macro
-          && avr_current_device->arch == avr_arch_index)
-        break;
-    }
-
-  avr_current_arch = &avr_arch_types[avr_arch_index];
-  if (avr_n_flash < 0)
-    avr_n_flash = avr_current_device->n_flash;
+  if (!avr_set_core_architecture())
+    return;
 
   /* RAM addresses of some SFRs common to all devices in respective arch. */
 
   /* SREG: Status Register containing flags like I (global IRQ) */
-  avr_addr.sreg = 0x3F + avr_current_arch->sfr_offset;
+  avr_addr.sreg = 0x3F + avr_arch->sfr_offset;
 
   /* RAMPZ: Address' high part when loading via ELPM */
-  avr_addr.rampz = 0x3B + avr_current_arch->sfr_offset;
+  avr_addr.rampz = 0x3B + avr_arch->sfr_offset;
 
-  avr_addr.rampy = 0x3A + avr_current_arch->sfr_offset;
-  avr_addr.rampx = 0x39 + avr_current_arch->sfr_offset;
-  avr_addr.rampd = 0x38 + avr_current_arch->sfr_offset;
-  avr_addr.ccp = (AVR_TINY ? 0x3C : 0x34) + avr_current_arch->sfr_offset;
+  avr_addr.rampy = 0x3A + avr_arch->sfr_offset;
+  avr_addr.rampx = 0x39 + avr_arch->sfr_offset;
+  avr_addr.rampd = 0x38 + avr_arch->sfr_offset;
+  avr_addr.ccp = (AVR_TINY ? 0x3C : 0x34) + avr_arch->sfr_offset;
 
   /* SP: Stack Pointer (SP_H:SP_L) */
-  avr_addr.sp_l = 0x3D + avr_current_arch->sfr_offset;
+  avr_addr.sp_l = 0x3D + avr_arch->sfr_offset;
   avr_addr.sp_h = avr_addr.sp_l + 1;
 
   init_machine_status = avr_init_machine_status;
 
   avr_log_set_avr_log();
+
+  /* Register some avr-specific pass(es).  There is no canonical place for
+     pass registration.  This function is convenient.  */
+
+  avr_register_passes ();
 }
 
 /* Function to set up the backend function structure.  */
@@ -1823,6 +1904,16 @@ avr_legitimate_address_p (machine_mode mode, rtx x, bool strict)
       break;
     }
 
+  if (AVR_TINY
+      && CONSTANT_ADDRESS_P (x))
+    {
+      /* avrtiny's load / store instructions only cover addresses 0..0xbf:
+         IN / OUT range is 0..0x3f and LDS / STS can access 0x40..0xbf.  */
+
+      ok = (CONST_INT_P (x)
+            && IN_RANGE (INTVAL (x), 0, 0xc0 - GET_MODE_SIZE (mode)));
+    }
+
   if (avr_log.legitimate_address_p)
     {
       avr_edump ("\n%?: ret=%d, mode=%m strict=%d "
@@ -2262,7 +2353,7 @@ avr_print_operand (FILE *file, rtx x, int code)
           else
             {
               fprintf (file, HOST_WIDE_INT_PRINT_HEX,
-                       ival - avr_current_arch->sfr_offset);
+                       ival - avr_arch->sfr_offset);
             }
         }
       else
@@ -2330,7 +2421,7 @@ avr_print_operand (FILE *file, rtx x, int code)
     {
       if (GET_CODE (x) == SYMBOL_REF && (SYMBOL_REF_FLAGS (x) & SYMBOL_FLAG_IO))
 	avr_print_operand_address
-	  (file, plus_constant (HImode, x, -avr_current_arch->sfr_offset));
+	  (file, plus_constant (HImode, x, -avr_arch->sfr_offset));
       else
 	fatal_insn ("bad address, not an I/O address:", x);
     }
@@ -3209,37 +3300,6 @@ avr_out_xload (rtx_insn *insn ATTRIBUTE_UNUSED, rtx *op, int *plen)
   return "";
 }
 
-
-/* AVRTC-579
-   If OP is a symbol or a constant expression with value > 0xbf
-   return FALSE, otherwise TRUE.
-   This check is used to avoid LDS / STS instruction with invalid memory
-   access range (valid range 0x40..0xbf).  For I/O operand range 0x0..0x3f,
-   IN / OUT instruction will be generated.  */
-
-bool
-tiny_valid_direct_memory_access_range (rtx op, machine_mode mode)
-{
-  rtx x;
-
-  if (!AVR_TINY)
-    return true;
-
-  x = XEXP (op,0);
-
-  if (MEM_P (op) && x && GET_CODE (x) == SYMBOL_REF)
-    {
-      return false;
-    }
-
-  if (MEM_P (op) && x && (CONSTANT_ADDRESS_P (x))
-      && !(IN_RANGE (INTVAL (x), 0, 0xC0 - GET_MODE_SIZE (mode))))
-    {
-      return false;
-    }
-
-  return true;
-}
 
 const char*
 output_movqi (rtx_insn *insn, rtx operands[], int *plen)
@@ -8610,7 +8670,8 @@ avr_adjust_insn_length (rtx_insn *insn, int len)
      It is easier to state this in an insn attribute "adjust_len" than
      to clutter up code here...  */
 
-  if (JUMP_TABLE_DATA_P (insn) || recog_memoized (insn) == -1)
+  if (!NONDEBUG_INSN_P (insn)
+      || -1 == recog_memoized (insn))
     {
       return len;
     }
@@ -9210,12 +9271,11 @@ avr_pgm_check_var_decl (tree node)
       if (avr_addrspace[as].segment >= avr_n_flash)
         {
           if (TYPE_P (node))
-            error ("%qT uses address space %qs beyond flash of %qs",
-                   node, avr_addrspace[as].name, avr_current_device->name);
+            error ("%qT uses address space %qs beyond flash of %d KiB",
+                   node, avr_addrspace[as].name, avr_n_flash);
           else
-            error ("%s %q+D uses address space %qs beyond flash of %qs",
-                   reason, node, avr_addrspace[as].name,
-                   avr_current_device->name);
+            error ("%s %q+D uses address space %qs beyond flash of %d KiB",
+                   reason, node, avr_addrspace[as].name, avr_n_flash);
         }
       else
         {
@@ -9261,15 +9321,14 @@ avr_insert_attributes (tree node, tree *attributes)
 
       if (avr_addrspace[as].segment >= avr_n_flash)
         {
-          error ("variable %q+D located in address space %qs"
-                 " beyond flash of %qs",
-                 node, avr_addrspace[as].name, avr_current_device->name);
+          error ("variable %q+D located in address space %qs beyond flash "
+                 "of %d KiB", node, avr_addrspace[as].name, avr_n_flash);
         }
       else if (!AVR_HAVE_LPM && avr_addrspace[as].pointer_size > 2)
 	{
           error ("variable %q+D located in address space %qs"
-                 " which is not supported by %qs",
-                 node, avr_addrspace[as].name, avr_current_arch->arch_name);
+                 " which is not supported for architecture %qs",
+                 node, avr_addrspace[as].name, avr_arch->name);
 	}
 
       if (!TYPE_READONLY (node0)
@@ -9687,10 +9746,10 @@ avr_asm_select_section (tree decl, int reloc, unsigned HOST_WIDE_INT align)
 static void
 avr_file_start (void)
 {
-  int sfr_offset = avr_current_arch->sfr_offset;
+  int sfr_offset = avr_arch->sfr_offset;
 
-  if (avr_current_arch->asm_only)
-    error ("MCU %qs supported for assembler only", avr_current_device->name);
+  if (avr_arch->asm_only)
+    error ("architecture %qs supported for assembler only", avr_mmcu);
 
   default_file_start ();
 

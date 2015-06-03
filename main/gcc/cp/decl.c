@@ -611,7 +611,10 @@ poplevel (int keep, int reverse, int functionbody)
      or if this level is a function body,
      create a BLOCK to record them for the life of this function.  */
   block = NULL_TREE;
-  if (keep == 1 || functionbody)
+  /* Avoid function body block if possible.  */
+  if (functionbody && subblocks && BLOCK_CHAIN (subblocks) == NULL_TREE)
+    keep = 0;
+  else if (keep == 1 || functionbody)
     block = make_node (BLOCK);
   if (block != NULL_TREE)
     {
@@ -794,11 +797,16 @@ poplevel (int keep, int reverse, int functionbody)
      check over all the labels.  */
   if (functionbody)
     {
-      /* Since this is the top level block of a function, the vars are
-	 the function's parameters.  Don't leave them in the BLOCK
-	 because they are found in the FUNCTION_DECL instead.  */
-      BLOCK_VARS (block) = 0;
-      pop_labels (block);
+      if (block)
+	{
+	  /* Since this is the top level block of a function, the vars are
+	     the function's parameters.  Don't leave them in the BLOCK
+	     because they are found in the FUNCTION_DECL instead.  */
+	  BLOCK_VARS (block) = 0;
+	  pop_labels (block);
+	}
+      else
+	pop_labels (subblocks);
     }
 
   kind = current_binding_level->kind;
@@ -820,7 +828,17 @@ poplevel (int keep, int reverse, int functionbody)
       /* The current function is being defined, so its DECL_INITIAL
 	 should be error_mark_node.  */
       gcc_assert (DECL_INITIAL (current_function_decl) == error_mark_node);
-      DECL_INITIAL (current_function_decl) = block;
+      DECL_INITIAL (current_function_decl) = block ? block : subblocks;
+      if (subblocks)
+	{
+	  if (FUNCTION_NEEDS_BODY_BLOCK (current_function_decl))
+	    {
+	      if (BLOCK_SUBBLOCKS (subblocks))
+		BLOCK_OUTER_CURLY_BRACE_P (BLOCK_SUBBLOCKS (subblocks)) = 1;
+	    }
+	  else
+	    BLOCK_OUTER_CURLY_BRACE_P (subblocks) = 1;
+	}
     }
   else if (block)
     current_binding_level->blocks
@@ -1905,7 +1923,9 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	{
 	  /* Per C++11 8.3.6/4, default arguments cannot be added in later
 	     declarations of a function template.  */
-	  check_redeclaration_no_default_args (newdecl);
+	  if (DECL_SOURCE_LOCATION (newdecl)
+	      != DECL_SOURCE_LOCATION (olddecl))
+	    check_redeclaration_no_default_args (newdecl);
 
 	  check_default_args (newdecl);
 
@@ -3480,9 +3500,9 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
   if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
     {
       name = TREE_OPERAND (name, 0);
-      if (TREE_CODE (name) == TEMPLATE_DECL)
+      if (DECL_TYPE_TEMPLATE_P (name))
 	name = TREE_OPERAND (fullname, 0) = DECL_NAME (name);
-      else if (TREE_CODE (name) == OVERLOAD)
+      if (TREE_CODE (name) != IDENTIFIER_NODE)
 	{
 	  if (complain & tf_error)
 	    error ("%qD is not a type", name);
@@ -3571,7 +3591,7 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
     return lookup_template_class (t, TREE_OPERAND (fullname, 1),
 				  NULL_TREE, context,
 				  /*entering_scope=*/0,
-				  tf_warning_or_error | tf_user);
+				  complain | tf_user);
   
   if (DECL_ARTIFICIAL (t) || !(complain & tf_keep_type_decl))
     t = TREE_TYPE (t);
@@ -6069,7 +6089,6 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
 {
   int toplev = toplevel_bindings_p ();
   int defer_p;
-  const char *filename;
 
   /* Set the DECL_ASSEMBLER_NAME for the object.  */
   if (asmspec)
@@ -6117,32 +6136,9 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
      DECL_EXPR is expanded.  */
   defer_p = DECL_FUNCTION_SCOPE_P (decl) || DECL_VIRTUAL_P (decl);
 
-  /* We try to defer namespace-scope static constants so that they are
-     not emitted into the object file unnecessarily.  */
-  filename = LOCATION_FILE (input_location);
-  if (!DECL_VIRTUAL_P (decl)
-      && TREE_READONLY (decl)
-      && DECL_INITIAL (decl) != NULL_TREE
-      && DECL_INITIAL (decl) != error_mark_node
-      && filename != NULL
-      && ! EMPTY_CONSTRUCTOR_P (DECL_INITIAL (decl))
-      && toplev
-      && !TREE_PUBLIC (decl))
-    {
-      /* Fool with the linkage of static consts according to #pragma
-	 interface.  */
-      struct c_fileinfo *finfo = get_fileinfo (filename);
-      if (!finfo->interface_unknown && !TREE_PUBLIC (decl))
-	{
-	  TREE_PUBLIC (decl) = 1;
-	  DECL_EXTERNAL (decl) = finfo->interface_only;
-	}
-
-      defer_p = 1;
-    }
-  /* Likewise for template instantiations.  */
-  else if (DECL_LANG_SPECIFIC (decl)
-	   && DECL_IMPLICIT_INSTANTIATION (decl))
+  /* Defer template instantiations.  */
+  if (DECL_LANG_SPECIFIC (decl)
+      && DECL_IMPLICIT_INSTANTIATION (decl))
     defer_p = 1;
 
   /* Capture the current module info.  */
@@ -8246,7 +8242,9 @@ grokvardecl (tree type,
     DECL_INTERFACE_KNOWN (decl) = 1;
 
   // Handle explicit specializations and instantiations of variable templates.
-  if (orig_declarator)
+  if (orig_declarator
+      /* For GCC 5 fix 65646 this way.  */
+      && current_tmpl_spec_kind (template_count) != tsk_none)
     decl = check_explicit_specialization (orig_declarator, decl,
 					  template_count, 0);
 
@@ -10146,8 +10144,9 @@ grokdeclarator (const cp_declarator *declarator,
      the object as `const'.  */
   if (constexpr_p && innermost_code != cdk_function)
     {
-      if (type_quals & TYPE_QUAL_VOLATILE)
-        error ("both %<volatile%> and %<constexpr%> cannot be used here");
+      /* DR1688 says that a `constexpr' specifier in combination with
+	 `volatile' is valid.  */
+
       if (TREE_CODE (type) != REFERENCE_TYPE)
 	{
 	  type_quals |= TYPE_QUAL_CONST;
@@ -11241,11 +11240,10 @@ check_default_argument (tree decl, tree arg, tsubst_flags_t complain)
 				     LOOKUP_IMPLICIT);
   --cp_unevaluated_operand;
 
-  if (warn_zero_as_null_pointer_constant
-      && TYPE_PTR_OR_PTRMEM_P (decl_type)
-      && null_ptr_cst_p (arg)
-      && (complain & tf_warning)
-      && maybe_warn_zero_as_null_pointer_constant (arg, input_location))
+  /* Avoid redundant -Wzero-as-null-pointer-constant warnings at
+     the call sites.  */
+  if (TYPE_PTR_OR_PTRMEM_P (decl_type)
+      && null_ptr_cst_p (arg))
     return nullptr_node;
 
   /* [dcl.fct.default]
@@ -12219,6 +12217,7 @@ lookup_and_check_tag (enum tag_types tag_code, tree name,
       /* First try ordinary name lookup, ignoring hidden class name
 	 injected via friend declaration.  */
       decl = lookup_name_prefer_type (name, 2);
+      decl = strip_using_decl (decl);
       /* If that fails, the name will be placed in the smallest
 	 non-class, non-function-prototype scope according to 3.3.1/5.
 	 We may already have a hidden name declared as friend in this
@@ -13734,9 +13733,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
       || (DECL_CONSTRUCTOR_P (decl1)
 	  && targetm.cxx.cdtor_returns_this ()))
     {
-      cdtor_label = build_decl (input_location, 
-				LABEL_DECL, NULL_TREE, NULL_TREE);
-      DECL_CONTEXT (cdtor_label) = current_function_decl;
+      cdtor_label = create_artificial_label (input_location);
     }
 
   start_fname_decls ();
@@ -13950,15 +13947,19 @@ begin_destructor_body (void)
       initialize_vtbl_ptrs (current_class_ptr);
       finish_compound_stmt (compound_stmt);
 
-      /* Insert a cleanup to let the back end know that the object is dead
-	 when we exit the destructor, either normally or via exception.  */
-      tree btype = CLASSTYPE_AS_BASE (current_class_type);
-      tree clobber = build_constructor (btype, NULL);
-      TREE_THIS_VOLATILE (clobber) = true;
-      tree bref = build_nop (build_reference_type (btype), current_class_ptr);
-      bref = convert_from_reference (bref);
-      tree exprstmt = build2 (MODIFY_EXPR, btype, bref, clobber);
-      finish_decl_cleanup (NULL_TREE, exprstmt);
+      if (flag_lifetime_dse)
+	{
+	  /* Insert a cleanup to let the back end know that the object is dead
+	     when we exit the destructor, either normally or via exception.  */
+	  tree btype = CLASSTYPE_AS_BASE (current_class_type);
+	  tree clobber = build_constructor (btype, NULL);
+	  TREE_THIS_VOLATILE (clobber) = true;
+	  tree bref = build_nop (build_reference_type (btype),
+				 current_class_ptr);
+	  bref = convert_from_reference (bref);
+	  tree exprstmt = build2 (MODIFY_EXPR, btype, bref, clobber);
+	  finish_decl_cleanup (NULL_TREE, exprstmt);
+	}
 
       /* And insert cleanups for our bases and members so that they
 	 will be properly destroyed if we throw.  */
@@ -14085,10 +14086,14 @@ finish_function_body (tree compstmt)
 tree
 outer_curly_brace_block (tree fndecl)
 {
-  tree block = BLOCK_SUBBLOCKS (DECL_INITIAL (fndecl));
-  if (FUNCTION_NEEDS_BODY_BLOCK (current_function_decl))
-    /* Skip the artificial function body block.  */
-    block = BLOCK_SUBBLOCKS (block);
+  tree block = DECL_INITIAL (fndecl);
+  if (BLOCK_OUTER_CURLY_BRACE_P (block))
+    return block;
+  block = BLOCK_SUBBLOCKS (block);
+  if (BLOCK_OUTER_CURLY_BRACE_P (block))
+    return block;
+  block = BLOCK_SUBBLOCKS (block);
+  gcc_assert (BLOCK_OUTER_CURLY_BRACE_P (block));
   return block;
 }
 

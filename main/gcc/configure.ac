@@ -1043,7 +1043,7 @@ ACX_HEADER_STRING
 AC_HEADER_SYS_WAIT
 AC_HEADER_TIOCGWINSZ
 AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h iconv.h \
-		 fcntl.h unistd.h sys/file.h sys/time.h sys/mman.h \
+		 fcntl.h ftw.h unistd.h sys/file.h sys/time.h sys/mman.h \
 		 sys/resource.h sys/param.h sys/times.h sys/stat.h \
 		 direct.h malloc.h langinfo.h ldfcn.h locale.h wchar.h)
 
@@ -3640,6 +3640,18 @@ AS_HELP_STRING([--disable-fix-cortex-a53-835769],
 	jsr	$26, ($27), a	!lituse_jsrdirect!1],,
     [AC_DEFINE(HAVE_AS_JSRDIRECT_RELOCS, 1,
   [Define if your assembler supports the lituse_jsrdirect relocation.])])
+    ;;
+
+  avr-*-*)
+    gcc_GAS_CHECK_FEATURE([--mlink-relax option], gcc_cv_as_avr_mlink_relax,,
+      [--mlink-relax], [.text],,
+      [AC_DEFINE(HAVE_AS_AVR_MLINK_RELAX_OPTION, 1,
+		[Define if your avr assembler supports --mlink-relax option.])])
+
+    gcc_GAS_CHECK_FEATURE([-mrmw option], gcc_cv_as_avr_mrmw,,
+      [-mrmw], [.text],,
+      [AC_DEFINE(HAVE_AS_AVR_MRMW_OPTION, 1,
+		[Define if your avr assembler supports -mrmw option.])])
     ;;
 
   cris-*-*)

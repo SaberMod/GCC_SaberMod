@@ -66,6 +66,8 @@
 #include "langhooks.h"
 #include "value-prof.h"
 #include "domwalk.h"
+#include "cfgloop.h"
+#include "tree-cfgcleanup.h"
 
 /* This file implements a generic value propagation engine based on
    the same propagation used by the SSA-CCP algorithm [1].
@@ -992,6 +994,7 @@ replace_phi_args_in (gphi *phi, ssa_prop_get_value_fn get_value)
       print_gimple_stmt (dump_file, phi, 0, TDF_SLIM);
     }
 
+  basic_block bb = gimple_bb (phi);
   for (i = 0; i < gimple_phi_num_args (phi); i++)
     {
       tree arg = gimple_phi_arg_def (phi, i);
@@ -1002,6 +1005,21 @@ replace_phi_args_in (gphi *phi, ssa_prop_get_value_fn get_value)
 
 	  if (val && val != arg && may_propagate_copy (arg, val))
 	    {
+	      edge e = gimple_phi_arg_edge (phi, i);
+
+	      /* Avoid propagating constants into loop latch edge
+	         PHI arguments as this makes coalescing the copy
+		 across this edge impossible.  If the argument is
+		 defined by an assert - otherwise the stmt will
+		 get removed without replacing its uses.  */
+	      if (TREE_CODE (val) != SSA_NAME
+		  && bb->loop_father->header == bb
+		  && dominated_by_p (CDI_DOMINATORS, e->src, bb)
+		  && is_gimple_assign (SSA_NAME_DEF_STMT (arg))
+		  && (gimple_assign_rhs_code (SSA_NAME_DEF_STMT (arg))
+		      == ASSERT_EXPR))
+		continue;
+
 	      if (TREE_CODE (val) != SSA_NAME)
 		prop_stats.num_const_prop++;
 	      else
@@ -1014,8 +1032,15 @@ replace_phi_args_in (gphi *phi, ssa_prop_get_value_fn get_value)
 		 through an abnormal edge, update the replacement
 		 accordingly.  */
 	      if (TREE_CODE (val) == SSA_NAME
-		  && gimple_phi_arg_edge (phi, i)->flags & EDGE_ABNORMAL)
-		SSA_NAME_OCCURS_IN_ABNORMAL_PHI (val) = 1;
+		  && e->flags & EDGE_ABNORMAL
+		  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (val))
+		{
+		  /* This can only occur for virtual operands, since
+		     for the real ones SSA_NAME_OCCURS_IN_ABNORMAL_PHI (val))
+		     would prevent replacement.  */
+		  gcc_checking_assert (virtual_operand_p (val));
+		  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (val) = 1;
+		}
 	    }
 	}
     }
@@ -1047,11 +1072,13 @@ public:
       fold_fn (fold_fn_), do_dce (do_dce_), something_changed (false)
     {
       stmts_to_remove.create (0);
+      stmts_to_fixup.create (0);
       need_eh_cleanup = BITMAP_ALLOC (NULL);
     }
     ~substitute_and_fold_dom_walker ()
     {
       stmts_to_remove.release ();
+      stmts_to_fixup.release ();
       BITMAP_FREE (need_eh_cleanup);
     }
 
@@ -1063,6 +1090,7 @@ public:
     bool do_dce;
     bool something_changed;
     vec<gimple> stmts_to_remove;
+    vec<gimple> stmts_to_fixup;
     bitmap need_eh_cleanup;
 };
 
@@ -1101,7 +1129,6 @@ substitute_and_fold_dom_walker::before_dom_children (basic_block bb)
     {
       bool did_replace;
       gimple stmt = gsi_stmt (i);
-      gimple old_stmt;
       enum gimple_code code = gimple_code (stmt);
 
       /* Ignore ASSERT_EXPRs.  They are used by VRP to generate
@@ -1139,7 +1166,9 @@ substitute_and_fold_dom_walker::before_dom_children (basic_block bb)
 	  print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
 	}
 
-      old_stmt = stmt;
+      gimple old_stmt = stmt;
+      bool was_noreturn = (is_gimple_call (stmt)
+			   && gimple_call_noreturn_p (stmt));
 
       /* Some statements may be simplified using propagator
 	 specific information.  Do this before propagating
@@ -1169,6 +1198,13 @@ substitute_and_fold_dom_walker::before_dom_children (basic_block bb)
 	     remove EH edges.  */
 	  if (maybe_clean_or_replace_eh_stmt (old_stmt, stmt))
 	    bitmap_set_bit (need_eh_cleanup, bb->index);
+
+	  /* If we turned a not noreturn call into a noreturn one
+	     schedule it for fixup.  */
+	  if (!was_noreturn
+	      && is_gimple_call (stmt)
+	      && gimple_call_noreturn_p (stmt))
+	    stmts_to_fixup.safe_push (stmt);
 
 	  if (is_gimple_assign (stmt)
 	      && (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
@@ -1261,6 +1297,22 @@ substitute_and_fold (ssa_prop_get_value_fn get_value_fn,
 
   if (!bitmap_empty_p (walker.need_eh_cleanup))
     gimple_purge_all_dead_eh_edges (walker.need_eh_cleanup);
+
+  /* Fixup stmts that became noreturn calls.  This may require splitting
+     blocks and thus isn't possible during the dominator walk.  Do this
+     in reverse order so we don't inadvertedly remove a stmt we want to
+     fixup by visiting a dominating now noreturn call first.  */
+  while (!walker.stmts_to_fixup.is_empty ())
+    {
+      gimple stmt = walker.stmts_to_fixup.pop ();
+      if (dump_file && dump_flags & TDF_DETAILS)
+	{
+	  fprintf (dump_file, "Fixing up noreturn call ");
+	  print_gimple_stmt (dump_file, stmt, 0, 0);
+	  fprintf (dump_file, "\n");
+	}
+      fixup_noreturn_call (stmt);
+    }
 
   statistics_counter_event (cfun, "Constants propagated",
 			    prop_stats.num_const_prop);

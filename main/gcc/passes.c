@@ -157,7 +157,8 @@ void
 pass_manager::execute_early_local_passes ()
 {
   execute_pass_list (cfun, pass_build_ssa_passes_1->sub);
-  execute_pass_list (cfun, pass_chkp_instrumentation_passes_1->sub);
+  if (flag_check_pointer_bounds)
+    execute_pass_list (cfun, pass_chkp_instrumentation_passes_1->sub);
   execute_pass_list (cfun, pass_local_optimization_passes_1->sub);
 }
 
@@ -432,7 +433,8 @@ public:
   virtual bool gate (function *)
     {
       /* Don't bother doing anything if the program has errors.  */
-      return (!seen_error () && !in_lto_p);
+      return (flag_check_pointer_bounds
+	      && !seen_error () && !in_lto_p);
     }
 
 }; // class pass_chkp_instrumentation_passes
@@ -2474,6 +2476,7 @@ ipa_write_summaries_1 (lto_symtab_encoder_t encoder)
   struct lto_out_decl_state *state = lto_new_out_decl_state ();
   state->symtab_node_encoder = encoder;
 
+  lto_output_init_mode_table ();
   lto_push_out_decl_state (state);
 
   gcc_assert (!flag_wpa);
@@ -2595,6 +2598,7 @@ ipa_write_optimization_summaries (lto_symtab_encoder_t encoder)
   lto_symtab_encoder_iterator lsei;
   state->symtab_node_encoder = encoder;
 
+  lto_output_init_mode_table ();
   lto_push_out_decl_state (state);
   for (lsei = lsei_start_function_in_partition (encoder);
        !lsei_end_p (lsei); lsei_next_function_in_partition (&lsei))

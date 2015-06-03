@@ -593,20 +593,10 @@
   [(and (eq_attr "in_delay_slot" "yes")
 	(eq_attr "type" "!pstore,prget")) (nil) (nil)])
 
-;; Say that we have annulled true branches, since this gives smaller and
-;; faster code when branches are predicted as not taken.
-
-;; ??? The non-annulled condition should really be "in_delay_slot",
-;; but insns that can be filled in non-annulled get priority over insns
-;; that can only be filled in anulled.
-
+;; Conditional branches with delay slots are available starting with SH2.
 (define_delay
-  (and (eq_attr "type" "cbranch")
-       (match_test "TARGET_SH2"))
-  ;; SH2e has a hardware bug that pretty much prohibits the use of
-  ;; annulled delay slots.
-  [(eq_attr "cond_delay_slot" "yes") (and (eq_attr "cond_delay_slot" "yes")
-					  (not (eq_attr "cpu" "sh2e"))) (nil)])
+  (and (eq_attr "type" "cbranch") (match_test "TARGET_SH2"))
+  [(eq_attr "cond_delay_slot" "yes") (nil) (nil)])
 
 ;; -------------------------------------------------------------------------
 ;; SImode signed integer comparisons
@@ -1714,76 +1704,6 @@
 	(if_then_else:SI (match_dup 4) (match_dup 1) (match_dup 2)))]
 {
   replace_rtx (operands[4], operands[0], operands[1]);
-})
-
-(define_peephole2
-  [(set (match_operand 0 "any_register_operand" "")
-	(match_operand 1 "any_register_operand" ""))
-   (set (match_operand 2 "any_register_operand" "") (match_operand 3 "" ""))
-   (set (match_operand 4 "" "") (match_operand 5 "" ""))]
-  "(HARD_REGNO_NREGS (REGNO (operands[0]), GET_MODE (operands[2]))
-    <= HARD_REGNO_NREGS (REGNO (operands[0]), GET_MODE (operands[0])))
-   && peep2_reg_dead_p (3, operands[0]) && peep2_reg_dead_p (3, operands[2])
-   && ! FIND_REG_INC_NOTE (peep2_next_insn (2), operands[0])
-   && ! FIND_REG_INC_NOTE (peep2_next_insn (2), operands[2])
-   && ! reg_overlap_mentioned_p (operands[0], operands[3])
-   && ! reg_overlap_mentioned_p (operands[2], operands[0])
-   && ! reg_overlap_mentioned_p (operands[0], operands[1])
-   && (REGNO_REG_CLASS (REGNO (operands[0]))
-       == REGNO_REG_CLASS (REGNO (operands[2])))
-   && (REGNO_REG_CLASS (REGNO (operands[1]))
-       == REGNO_REG_CLASS (REGNO (operands[0])))"
-  [(set (match_dup 0) (match_dup 3))
-   (set (match_dup 4) (match_dup 5))]
-{
-  rtx set1, set2;
-  rtx_insn *insn1, *insn2;
-  rtx replacements[4];
-
-  /* We want to replace occurrences of operands[0] with operands[1] and
-     operands[2] with operands[0] in operands[4]/operands[5].
-     Doing just two replace_rtx calls naively would result in the second
-     replacement undoing all that the first did if operands[1] and operands[2]
-     are identical, so we must do this simultaneously.  */
-  replacements[0] = operands[0];
-  replacements[1] = operands[1];
-  replacements[2] = operands[2];
-  replacements[3] = operands[0];
-  if (!replace_n_hard_rtx (operands[5], replacements, 2, 0)
-      || !replace_n_hard_rtx (operands[4], replacements, 2, 0)
-      || !replace_n_hard_rtx (operands[2], replacements, 2, 0))
-    FAIL;
-
-  operands[5] = replace_n_hard_rtx (operands[5], replacements, 2, 1);
-  replace_n_hard_rtx (operands[4], replacements, 2, 1);
-  operands[2] = replace_n_hard_rtx (operands[2], replacements, 2, 1);
-  /* The operands array is aliased to recog_data.operand, which gets
-     clobbered by extract_insn, so finish with it now.  */
-  set1 = gen_rtx_SET (VOIDmode, operands[2], operands[3]);
-  set2 = gen_rtx_SET (VOIDmode, operands[4], operands[5]);
-  /* ??? The last insn might be a jump insn, but the generic peephole2 code
-     always uses emit_insn.  */
-  /* Check that we don't violate matching constraints or earlyclobbers.  */
-  basic_block bb = BLOCK_FOR_INSN (peep2_next_insn (2));
-  insn1 = emit_insn (set1);
-  extract_insn (insn1);
-  if (! constrain_operands (1, get_preferred_alternatives (insn1, bb)))
-    goto failure;
-  insn2 = emit (set2);
-  if (GET_CODE (insn2) == BARRIER)
-    goto failure;
-  extract_insn (insn2);
-  if (! constrain_operands (1, get_preferred_alternatives (insn2, bb)))
-    {
-    failure:
-      std::swap (replacements[0], replacements[1]);
-      std::swap (replacements[2], replacements[3]);
-      replace_n_hard_rtx (SET_DEST (set1), replacements, 2, 1);
-      replace_n_hard_rtx (SET_DEST (set2), replacements, 2, 1);
-      replace_n_hard_rtx (SET_SRC (set2), replacements, 2, 1);
-      FAIL;
-    }
-  DONE;
 })
 
 ;; The register allocator is rather clumsy in handling multi-way conditional
@@ -6228,7 +6148,7 @@ label:
 (define_insn "swapbsi2"
   [(set (match_operand:SI 0 "arith_reg_dest" "=r")
 	(ior:SI (and:SI (match_operand:SI 1 "arith_reg_operand" "r")
-			(const_int 4294901760))
+			(const_int -65536)) ;; 0xFFFF0000
 		(ior:SI (and:SI (ashift:SI (match_dup 1) (const_int 8))
 				(const_int 65280))
 			(and:SI (ashiftrt:SI (match_dup 1) (const_int 8))
@@ -6296,7 +6216,7 @@ label:
 (define_peephole2
   [(set (match_operand:SI 0 "arith_reg_dest" "")
 	(ior:SI (and:SI (match_operand:SI 1 "arith_reg_operand" "")
-			(const_int 4294901760))
+			(const_int -65536)) ;; 0xFFFF0000
 		(ior:SI (and:SI (ashift:SI (match_dup 1) (const_int 8))
 				(const_int 65280))
 			(and:SI (ashiftrt:SI (match_dup 1) (const_int 8))
@@ -6306,7 +6226,7 @@ label:
   "TARGET_SH1 && peep2_reg_dead_p (2, operands[0])"
   [(set (match_dup 2)
 	(ior:SI (and:SI (match_operand:SI 1 "arith_reg_operand" "")
-			(const_int 4294901760))
+			(const_int -65536)) ;; 0xFFFF0000
 		(ior:SI (and:SI (ashift:SI (match_dup 1) (const_int 8))
 				(const_int 65280))
 			(and:SI (ashiftrt:SI (match_dup 1) (const_int 8))
@@ -9358,6 +9278,19 @@ label:
   [(set_attr "type" "jump")
    (set_attr "needs_delay_slot" "yes")])
 
+(define_insn "*jump_compact_crossing"
+  [(set (pc)
+	(label_ref (match_operand 0 "" "")))]
+  "TARGET_SH1
+   && flag_reorder_blocks_and_partition
+   && CROSSING_JUMP_P (insn)"
+{
+  /* The length is 16 if the delay slot is unfilled.  */
+  return output_far_jump(insn, operands[0]);
+}
+  [(set_attr "type" "jump")
+   (set_attr "length" "16")])
+
 ;; ??? It would be much saner to explicitly use the scratch register
 ;; in the jump insn, and have indirect_jump_scratch only set it,
 ;; but fill_simple_delay_slots would refuse to do delay slot filling
@@ -10757,9 +10690,25 @@ label:
   ""
 {
   rtx mem;
+  bool stack_chk_guard_p = false;
 
   operands[2] = !can_create_pseudo_p () ? operands[0] : gen_reg_rtx (Pmode);
   operands[3] = !can_create_pseudo_p () ? operands[0] : gen_reg_rtx (Pmode);
+
+  if (!TARGET_SHMEDIA
+      && flag_stack_protect
+      && GET_CODE (operands[1]) == CONST
+      && GET_CODE (XEXP (operands[1], 0)) == UNSPEC
+      && GET_CODE (XVECEXP (XEXP (operands[1], 0), 0, 0)) == SYMBOL_REF
+      && strcmp (XSTR (XVECEXP (XEXP (operands[1], 0), 0, 0), 0),
+		 "__stack_chk_guard") == 0)
+    stack_chk_guard_p = true;
+
+  /* Use R0 to avoid long R0 liveness which stack-protector tends to
+     produce.  */
+  if (! sh_lra_flag
+      && stack_chk_guard_p && ! reload_in_progress && ! reload_completed)
+    operands[2] = gen_rtx_REG (Pmode, R0_REG);
 
   if (TARGET_SHMEDIA)
     {
@@ -10788,13 +10737,7 @@ label:
      insn to avoid combining (set A (plus rX r12)) and (set op0 (mem A))
      when rX is a GOT address for the guard symbol.  Ugly but doesn't
      matter because this is a rare situation.  */
-  if (!TARGET_SHMEDIA
-      && flag_stack_protect
-      && GET_CODE (operands[1]) == CONST
-      && GET_CODE (XEXP (operands[1], 0)) == UNSPEC
-      && GET_CODE (XVECEXP (XEXP (operands[1], 0), 0, 0)) == SYMBOL_REF
-      && strcmp (XSTR (XVECEXP (XEXP (operands[1], 0), 0, 0), 0),
-		 "__stack_chk_guard") == 0)
+  if (stack_chk_guard_p)
     emit_insn (gen_chk_guard_add (operands[3], operands[2]));
   else
     emit_move_insn (operands[3], gen_rtx_PLUS (Pmode, operands[2],
@@ -14598,6 +14541,179 @@ label:
   [(set (match_dup 3)
 	(mem:HI (plus:SI (match_dup 1) (match_dup 2))))]
   "")
+
+;;	extu.bw	a,b
+;;	mov	b,c	->	extu.bw	a,c
+(define_peephole2
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(zero_extend:SI (match_operand:QIHI 1 "arith_reg_operand")))
+   (set (match_operand:SI 2 "arith_reg_dest")
+	(match_dup 0))]
+  "TARGET_SH1 && peep2_reg_dead_p (2, operands[0])"
+  [(set (match_dup 2) (zero_extend:SI (match_dup 1)))])
+
+;;	mov	r0,r1
+;;	extu.bw	r1,r1   ->	extu.bw	r0,r1
+(define_peephole2
+  [(set (match_operand 0 "arith_reg_dest")
+	(match_operand 1 "arith_reg_operand"))
+   (set (match_operand:SI 2 "arith_reg_dest")
+	(zero_extend:SI (match_operand:QIHI 3 "arith_reg_operand")))]
+  "TARGET_SH1
+   && REGNO (operands[0]) == REGNO (operands[3])
+   && (REGNO (operands[0]) == REGNO (operands[2])
+       || peep2_reg_dead_p (2, operands[0]))"
+  [(set (match_dup 2) (zero_extend:SI (match_dup 1)))]
+{
+  operands[1] = gen_rtx_REG (<MODE>mode, REGNO (operands[1]));
+})
+
+;;	mov	a,b
+;;	mov	b,a	->	< nop >
+(define_peephole2
+  [(set (match_operand 0 "register_operand")
+	(match_operand 1 "register_operand"))
+   (set (match_operand 2 "register_operand")
+	(match_operand 3 "register_operand"))]
+  "TARGET_SH1
+   && REGNO (operands[0]) == REGNO (operands[3])
+   && REGNO (operands[1]) == REGNO (operands[2])
+   && peep2_reg_dead_p (2, operands[3])"
+  [(const_int 0)])
+
+;;	mov	#3,r4
+;;	and	r4,r1	->	mov	r1,r0
+;;	mov	r1,r0		and	#3,r0
+(define_code_iterator ANDIORXOR [and ior xor])
+(define_peephole2
+  [(set (match_operand:SI 0 "register_operand")
+	(match_operand:SI 1 "const_logical_operand"))
+   (set (match_operand:SI 2) (ANDIORXOR:SI (match_dup 2) (match_dup 0)))
+   (set (reg:SI R0_REG) (match_dup 2))]
+  "TARGET_SH1
+   && peep2_reg_dead_p (3, operands[0]) && peep2_reg_dead_p (3, operands[2])"
+  [(set (reg:SI R0_REG) (match_dup 2))
+   (set (reg:SI R0_REG) (ANDIORXOR:SI (reg:SI R0_REG) (match_dup 1)))])
+
+;;	...	r2,r0		...	r2,r0
+;;	or	r1,r0	->	or	r0,r1
+;;	mov	r0,r1
+;;	(r0 dead)
+(define_code_iterator ANDIORXORPLUS [and ior xor plus])
+(define_peephole2
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(ANDIORXORPLUS:SI (match_dup 0) (match_operand:SI 1 "arith_reg_dest")))
+   (set (match_dup 1) (match_dup 0))]
+  "TARGET_SH1 && peep2_reg_dead_p (2, operands[0])"
+  [(set (match_dup 1) (ANDIORXORPLUS:SI (match_dup 1) (match_dup 0)))])
+
+;;	mov	r12,r0
+;;	add	#-48,r0     ->	add	#-48,r12
+;;	mov.l	r0,@(4,r10)	mov.l	r12,@(4,r10)
+;;	(r12 dead)
+(define_peephole2
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(match_operand:SI 1 "arith_reg_dest"))
+   (set (match_dup 0) (plus:SI (match_dup 0)
+			       (match_operand:SI 2 "const_int_operand")))
+   (set (match_operand:SI 3 "general_movdst_operand") (match_dup 0))]
+  "TARGET_SH1
+   && peep2_reg_dead_p (2, operands[1]) && peep2_reg_dead_p (3, operands[0])"
+  [(const_int 0)]
+{
+  emit_insn (gen_addsi3 (operands[1], operands[1], operands[2]));
+  sh_check_add_incdec_notes (emit_move_insn (operands[3], operands[1]));
+})
+
+;;	mov.l	@(r0,r9),r1
+;;	mov	r1,r0	    ->	mov	@(r0,r9),r0
+(define_peephole2
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(match_operand:SI 1 "general_movsrc_operand"))
+   (set (match_operand:SI 2 "arith_reg_dest")
+	(match_dup 0))]
+  "TARGET_SH1 && peep2_reg_dead_p (2, operands[0])"
+  [(const_int 0)]
+{
+  sh_check_add_incdec_notes (emit_move_insn (operands[2], operands[1]));
+})
+
+(define_peephole2
+  [(set (match_operand:QIHI 0 "register_operand")
+	(match_operand:QIHI 1 "movsrc_no_disp_mem_operand"))
+   (set (match_operand:QIHI 2 "register_operand")
+	(match_dup 0))]
+  "TARGET_SH1 && peep2_reg_dead_p (2, operands[0])"
+  [(const_int 0)]
+{
+  sh_check_add_incdec_notes (emit_move_insn (operands[2], operands[1]));
+})
+
+(define_peephole2
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(sign_extend:SI (match_operand:QIHI 1 "movsrc_no_disp_mem_operand")))
+   (set (match_operand:SI 2 "arith_reg_dest")
+	(match_dup 0))]
+  "TARGET_SH1 && peep2_reg_dead_p (2, operands[0])"
+  [(const_int 0)]
+{
+  sh_check_add_incdec_notes (emit_insn (gen_extend<mode>si2 (operands[2],
+							     operands[1])));
+})
+
+;;	mov.w	@(18,r1),r0 (r0 = HImode)
+;;	mov	r0,r1       (r0 = r1 = HImode)		mov.w	@(18,r1),r0
+;;	...	..,r13      (r13 = SImode)	-> 	...	..,r13
+;;	tst	r1,r13					tst	r0,r13
+(define_peephole2
+  [(set (match_operand 0 "arith_reg_dest")
+	(match_operand 1 "arith_reg_dest"))
+   (set (match_operand:SI 2 "arith_reg_dest")
+	(match_operand:SI 3))
+   (set (reg:SI T_REG)
+	(eq:SI (and:SI (match_operand:SI 4 "arith_reg_operand")
+		       (match_operand:SI 5 "arith_reg_operand"))
+	       (const_int 0)))]
+  "TARGET_SH1
+   && peep2_reg_dead_p (3, operands[0])
+   && !reg_overlap_mentioned_p (operands[0], operands[3])
+   && (REGNO (operands[0]) == REGNO (operands[4])
+       || REGNO (operands[0]) == REGNO (operands[5]))
+   && (REGNO (operands[2]) == REGNO (operands[4])
+       || REGNO (operands[2]) == REGNO (operands[5]))"
+  [(const_int 0)]
+{
+  sh_check_add_incdec_notes (emit_move_insn (operands[2], operands[3]));
+  emit_insn (gen_tstsi_t (operands[2],
+			  gen_rtx_REG (SImode, (REGNO (operands[1])))));
+})
+
+;;	mov.w	@(18,r1),r0 (r0 = HImode)
+;;	...	..,r13	    (r13 = SImode)		mov.w	@(18,r1),r0
+;;	mov	r0,r1       (r0 = r1 = HImode)	->	...	..,r13
+;;	tst	r1,r13					tst	r0,r13
+(define_peephole2
+  [(set (match_operand:SI 2 "arith_reg_dest")
+	(match_operand:SI 3))
+   (set (match_operand 0 "arith_reg_dest")
+	(match_operand 1 "arith_reg_operand"))
+   (set (reg:SI T_REG)
+	(eq:SI (and:SI (match_operand:SI 4 "arith_reg_operand")
+		       (match_operand:SI 5 "arith_reg_operand"))
+	       (const_int 0)))]
+  "TARGET_SH1
+   && peep2_reg_dead_p (3, operands[0])
+   && !reg_overlap_mentioned_p (operands[0], operands[3])
+   && (REGNO (operands[0]) == REGNO (operands[4])
+       || REGNO (operands[0]) == REGNO (operands[5]))
+   && (REGNO (operands[2]) == REGNO (operands[4])
+       || REGNO (operands[2]) == REGNO (operands[5]))"
+  [(const_int 0)]
+{
+  sh_check_add_incdec_notes (emit_move_insn (operands[2], operands[3]));
+  emit_insn (gen_tstsi_t (operands[2],
+			  gen_rtx_REG (SImode, (REGNO (operands[1])))));
+})
 
 (define_peephole
   [(set (match_operand:SI 0 "register_operand" "=r")

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -297,6 +297,7 @@ package body Sem_Ch7 is
 
                elsif Nkind (N) = N_Attribute_Reference
                  and then Is_Entity_Name (Prefix (N))
+                 and then Present (Entity (Prefix (N)))
                  and then Is_Subprogram (Entity (Prefix (N)))
                then
                   Reference_Seen := True;
@@ -690,7 +691,6 @@ package body Sem_Ch7 is
       Set_Ekind (Body_Id, E_Package_Body);
       Set_Body_Entity (Spec_Id, Body_Id);
       Set_Spec_Entity (Body_Id, Spec_Id);
-      Set_Contract    (Body_Id, Make_Contract (Sloc (Body_Id)));
 
       --  Defining name for the package body is not a visible entity: Only the
       --  defining name for the declaration is visible.
@@ -1017,9 +1017,8 @@ package body Sem_Ch7 is
 
       Generate_Definition (Id);
       Enter_Name (Id);
-      Set_Ekind    (Id, E_Package);
-      Set_Etype    (Id, Standard_Void_Type);
-      Set_Contract (Id, Make_Contract (Sloc (Id)));
+      Set_Ekind  (Id, E_Package);
+      Set_Etype  (Id, Standard_Void_Type);
 
       --  Set SPARK_Mode from context only for non-generic package
 
@@ -1483,7 +1482,7 @@ package body Sem_Ch7 is
             end if;
 
             --  If invariants are present, build the invariant procedure for a
-            --  private type, but not any of its subtypes.
+            --  private type, but not any of its subtypes or interface types.
 
             if Has_Invariants (E) then
                if Ekind (E) = E_Private_Subtype then
@@ -1666,23 +1665,42 @@ package body Sem_Ch7 is
          if Is_Type (E)
            and then Has_Private_Declaration (E)
            and then Nkind (Parent (E)) = N_Full_Type_Declaration
-           and then Has_Aspects (Parent (E))
          then
             declare
-               ASN : Node_Id;
+               IP_Built : Boolean := False;
 
             begin
-               ASN := First (Aspect_Specifications (Parent (E)));
-               while Present (ASN) loop
-                  if Nam_In (Chars (Identifier (ASN)), Name_Invariant,
-                                                       Name_Type_Invariant)
-                  then
-                     Build_Invariant_Procedure (E, N);
-                     exit;
-                  end if;
+               if Has_Aspects (Parent (E)) then
+                  declare
+                     ASN : Node_Id;
 
-                  Next (ASN);
-               end loop;
+                  begin
+                     ASN := First (Aspect_Specifications (Parent (E)));
+                     while Present (ASN) loop
+                        if Nam_In (Chars (Identifier (ASN)),
+                             Name_Invariant,
+                             Name_Type_Invariant)
+                        then
+                           Build_Invariant_Procedure (E, N);
+                           IP_Built := True;
+                           exit;
+                        end if;
+
+                        Next (ASN);
+                     end loop;
+                  end;
+               end if;
+
+               --  Invariants may have been inherited from progenitors
+
+               if not IP_Built
+                 and then Has_Interfaces (E)
+                 and then Has_Inheritable_Invariants (E)
+                 and then not Is_Interface (E)
+                 and then not Is_Class_Wide_Type (E)
+               then
+                  Build_Invariant_Procedure (E, N);
+               end if;
             end;
          end if;
 
@@ -1988,7 +2006,7 @@ package body Sem_Ch7 is
                        and then Present (DTC_Entity (Alias (Prim_Op)))
                      then
                         Set_DTC_Entity_Value (E, New_Op);
-                        Set_DT_Position (New_Op,
+                        Set_DT_Position_Value (New_Op,
                           DT_Position (Alias (Prim_Op)));
                      end if;
 

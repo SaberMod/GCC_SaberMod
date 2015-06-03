@@ -773,31 +773,30 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
 	}
     }
 
-  /* For the declaration of a type, set its name if it either is not already
+  /* For the declaration of a type, set its name either if it isn't already
      set or if the previous type name was not derived from a source name.
      We'd rather have the type named with a real name and all the pointer
-     types to the same object have the same POINTER_TYPE node.  Code in the
-     equivalent function of c-decl.c makes a copy of the type node here, but
-     that may cause us trouble with incomplete types.  We make an exception
-     for fat pointer types because the compiler automatically builds them
-     for unconstrained array types and the debugger uses them to represent
-     both these and pointers to these.  */
+     types to the same object have the same node, except when the names are
+     both derived from source names.  */
   if (TREE_CODE (decl) == TYPE_DECL && DECL_NAME (decl))
     {
       tree t = TREE_TYPE (decl);
 
-      if (!(TYPE_NAME (t) && TREE_CODE (TYPE_NAME (t)) == TYPE_DECL))
+      if (!(TYPE_NAME (t) && TREE_CODE (TYPE_NAME (t)) == TYPE_DECL)
+	  && (TREE_CODE (t) != POINTER_TYPE || DECL_ARTIFICIAL (decl)))
 	{
-	  /* Array and pointer types aren't "tagged" types so we force the
-	     type to be associated with its typedef in the DWARF back-end,
-	     in order to make sure that the latter is always preserved.  */
-	  if (!DECL_ARTIFICIAL (decl)
-	      && (TREE_CODE (t) == ARRAY_TYPE
-		  || TREE_CODE (t) == POINTER_TYPE))
+	  /* Array types aren't "tagged" types so we force the type to be
+	     associated with its typedef in the DWARF back-end, in order to
+	     make sure that the latter is always preserved, by creating an
+	     on-side copy for DECL_ORIGINAL_TYPE.  We used to do the same
+	     for pointer types, but to have consistent DWARF output we now
+	     create a copy for the type itself and use the original type
+	     for DECL_ORIGINAL_TYPE like the C front-end.  */
+	  if (!DECL_ARTIFICIAL (decl) && TREE_CODE (t) == ARRAY_TYPE)
 	    {
 	      tree tt = build_distinct_type_copy (t);
-	      if (TREE_CODE (t) == POINTER_TYPE)
-		TYPE_NEXT_PTR_TO (t) = tt;
+	      /* Array types need to have a name so that they can be related
+		 to their GNAT encodings.  */
 	      TYPE_NAME (tt) = DECL_NAME (decl);
 	      defer_or_set_type_context (tt,
 					 DECL_CONTEXT (decl),
@@ -806,32 +805,47 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
 	      DECL_ORIGINAL_TYPE (decl) = tt;
 	    }
 	}
-      else if (TYPE_IS_FAT_POINTER_P (t))
+      else if (!DECL_ARTIFICIAL (decl)
+	       && (TREE_CODE (t) == POINTER_TYPE || TYPE_IS_FAT_POINTER_P (t)))
 	{
-	  /* We need a variant for the placeholder machinery to work.  */
-	  tree tt = build_variant_type_copy (t);
+	  tree tt;
+	  /* ??? Copy and original type are not supposed to be variant but we
+	     really need a variant for the placeholder machinery to work.  */
+	  if (TYPE_IS_FAT_POINTER_P (t))
+	    tt = build_variant_type_copy (t);
+	  else
+	    {
+	      /* TYPE_NEXT_PTR_TO is a chain of main variants.  */
+	      tt = build_distinct_type_copy (TYPE_MAIN_VARIANT (t));
+	      TYPE_NEXT_PTR_TO (TYPE_MAIN_VARIANT (t)) = tt;
+	      tt = build_qualified_type (tt, TYPE_QUALS (t));
+	    }
 	  TYPE_NAME (tt) = decl;
 	  defer_or_set_type_context (tt,
 				     DECL_CONTEXT (decl),
 				     deferred_decl_context);
 	  TREE_USED (tt) = TREE_USED (t);
 	  TREE_TYPE (decl) = tt;
-	  if (DECL_ORIGINAL_TYPE (TYPE_NAME (t)))
+	  if (TYPE_NAME (t) != NULL_TREE
+	      && TREE_CODE (TYPE_NAME (t)) == TYPE_DECL
+	      && DECL_ORIGINAL_TYPE (TYPE_NAME (t)))
 	    DECL_ORIGINAL_TYPE (decl) = DECL_ORIGINAL_TYPE (TYPE_NAME (t));
 	  else
 	    DECL_ORIGINAL_TYPE (decl) = t;
-	  DECL_ARTIFICIAL (decl) = 0;
 	  t = NULL_TREE;
 	}
-      else if (DECL_ARTIFICIAL (TYPE_NAME (t)) && !DECL_ARTIFICIAL (decl))
+      else if (TYPE_NAME (t) != NULL_TREE
+	       && TREE_CODE (TYPE_NAME (t)) == TYPE_DECL
+	       && DECL_ARTIFICIAL (TYPE_NAME (t)) && !DECL_ARTIFICIAL (decl))
 	;
       else
 	t = NULL_TREE;
 
       /* Propagate the name to all the anonymous variants.  This is needed
-	 for the type qualifiers machinery to work properly.  Also propagate
-	 the context to them.  Note that the context will be propagated to all
-	 parallel types too thanks to gnat_set_type_context.  */
+	 for the type qualifiers machinery to work properly (see
+	 check_qualified_type).  Also propagate the context to them.  Note that
+	 the context will be propagated to all parallel types too thanks to
+	 gnat_set_type_context.  */
       if (t)
 	for (t = TYPE_MAIN_VARIANT (t); t; t = TYPE_NEXT_VARIANT (t))
 	  if (!(TYPE_NAME (t) && TREE_CODE (TYPE_NAME (t)) == TYPE_DECL))
@@ -2277,11 +2291,16 @@ create_type_decl (tree type_name, tree type, bool artificial_p,
   /* Add this decl to the current binding level.  */
   gnat_pushdecl (type_decl, gnat_node);
 
-  /* If we're naming the type, equate the TYPE_STUB_DECL to the name.
-     This causes the name to be also viewed as a "tag" by the debug
-     back-end, with the advantage that no DW_TAG_typedef is emitted
-     for artificial "tagged" types in DWARF.  */
-  if (!named)
+  /* If we're naming the type, equate the TYPE_STUB_DECL to the name.  This
+     causes the name to be also viewed as a "tag" by the debug back-end, with
+     the advantage that no DW_TAG_typedef is emitted for artificial "tagged"
+     types in DWARF.
+
+     Note that if "type" is used as a DECL_ORIGINAL_TYPE, it may be referenced
+     from multiple contexts, and "type_decl" references a copy of it: in such a
+     case, do not mess TYPE_STUB_DECL: we do not want to re-use the TYPE_DECL
+     with the mechanism above.  */
+  if (!named && type != DECL_ORIGINAL_TYPE (type_decl))
     TYPE_STUB_DECL (type) = type_decl;
 
   /* Do not generate debug info for UNCONSTRAINED_ARRAY_TYPE that the
@@ -3104,6 +3123,11 @@ begin_subprog_body (tree subprog_decl)
 
   /* This function is being defined.  */
   TREE_STATIC (subprog_decl) = 1;
+
+  /* The failure of this assertion will likely come from a wrong context for
+     the subprogram body, e.g. another procedure for a procedure declared at
+     library level.  */
+  gcc_assert (current_function_decl == decl_function_context (subprog_decl));
 
   current_function_decl = subprog_decl;
 
@@ -5211,7 +5235,7 @@ gnat_write_global_declarations (void)
 /* The general scheme is fairly simple:
 
    For each builtin function/type to be declared, gnat_install_builtins calls
-   internal facilities which eventually get to gnat_push_decl, which in turn
+   internal facilities which eventually get to gnat_pushdecl, which in turn
    tracks the so declared builtin function decls in the 'builtin_decls' global
    datastructure. When an Intrinsic subprogram declaration is processed, we
    search this global datastructure to retrieve the associated BUILT_IN DECL
@@ -5338,13 +5362,11 @@ enum c_builtin_type
 #define DEF_FUNCTION_TYPE_VAR_3(NAME, RETURN, ARG1, ARG2, ARG3) NAME,
 #define DEF_FUNCTION_TYPE_VAR_4(NAME, RETURN, ARG1, ARG2, ARG3, ARG4) NAME,
 #define DEF_FUNCTION_TYPE_VAR_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) \
-  NAME,
-#define DEF_FUNCTION_TYPE_VAR_8(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
-				ARG6, ARG7, ARG8)			\
-  NAME,
-#define DEF_FUNCTION_TYPE_VAR_12(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
-				 ARG6, ARG7, ARG8, ARG9, ARG10, ARG11, ARG12) \
-  NAME,
+				NAME,
+#define DEF_FUNCTION_TYPE_VAR_7(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				ARG6, ARG7) NAME,
+#define DEF_FUNCTION_TYPE_VAR_11(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				 ARG6, ARG7, ARG8, ARG9, ARG10, ARG11) NAME,
 #define DEF_POINTER_TYPE(NAME, TYPE) NAME,
 #include "builtin-types.def"
 #undef DEF_PRIMITIVE_TYPE
@@ -5363,8 +5385,8 @@ enum c_builtin_type
 #undef DEF_FUNCTION_TYPE_VAR_3
 #undef DEF_FUNCTION_TYPE_VAR_4
 #undef DEF_FUNCTION_TYPE_VAR_5
-#undef DEF_FUNCTION_TYPE_VAR_8
-#undef DEF_FUNCTION_TYPE_VAR_12
+#undef DEF_FUNCTION_TYPE_VAR_7
+#undef DEF_FUNCTION_TYPE_VAR_11
 #undef DEF_POINTER_TYPE
   BT_LAST
 };
@@ -5470,14 +5492,13 @@ install_builtin_function_types (void)
   def_fn_type (ENUM, RETURN, 1, 4, ARG1, ARG2, ARG3, ARG4);
 #define DEF_FUNCTION_TYPE_VAR_5(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) \
   def_fn_type (ENUM, RETURN, 1, 5, ARG1, ARG2, ARG3, ARG4, ARG5);
-#define DEF_FUNCTION_TYPE_VAR_8(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
-				ARG6, ARG7, ARG8)			\
-  def_fn_type (ENUM, RETURN, 1, 5, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6,	\
-	       ARG7, ARG8);
-#define DEF_FUNCTION_TYPE_VAR_12(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
-				 ARG6, ARG7, ARG8, ARG9, ARG10, ARG11, ARG12) \
-  def_fn_type (ENUM, RETURN, 1, 5, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6,	\
-	       ARG7, ARG8, ARG9, ARG10, ARG11, ARG12);
+#define DEF_FUNCTION_TYPE_VAR_7(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				ARG6, ARG7)				\
+  def_fn_type (ENUM, RETURN, 1, 7, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7);
+#define DEF_FUNCTION_TYPE_VAR_11(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				 ARG6, ARG7, ARG8, ARG9, ARG10, ARG11) \
+  def_fn_type (ENUM, RETURN, 1, 11, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6,	\
+	       ARG7, ARG8, ARG9, ARG10, ARG11);
 #define DEF_POINTER_TYPE(ENUM, TYPE) \
   builtin_types[(int) ENUM] = build_pointer_type (builtin_types[(int) TYPE]);
 
@@ -5499,8 +5520,8 @@ install_builtin_function_types (void)
 #undef DEF_FUNCTION_TYPE_VAR_3
 #undef DEF_FUNCTION_TYPE_VAR_4
 #undef DEF_FUNCTION_TYPE_VAR_5
-#undef DEF_FUNCTION_TYPE_VAR_8
-#undef DEF_FUNCTION_TYPE_VAR_12
+#undef DEF_FUNCTION_TYPE_VAR_7
+#undef DEF_FUNCTION_TYPE_VAR_11
 #undef DEF_POINTER_TYPE
   builtin_types[(int) BT_LAST] = NULL_TREE;
 }

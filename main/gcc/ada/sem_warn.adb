@@ -40,6 +40,7 @@ with Sem;      use Sem;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Aux;  use Sem_Aux;
 with Sem_Eval; use Sem_Eval;
+with Sem_Prag; use Sem_Prag;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
@@ -722,28 +723,33 @@ package body Sem_Warn is
    ----------------------------
 
    procedure Check_Low_Bound_Tested (Expr : Node_Id) is
+      procedure Check_Low_Bound_Tested_For (Opnd : Node_Id);
+      --  Determine whether operand Opnd denotes attribute 'First whose prefix
+      --  is a formal parameter. If this is the case, mark the entity of the
+      --  prefix as having its low bound tested.
+
+      --------------------------------
+      -- Check_Low_Bound_Tested_For --
+      --------------------------------
+
+      procedure Check_Low_Bound_Tested_For (Opnd : Node_Id) is
+      begin
+         if Nkind (Opnd) = N_Attribute_Reference
+           and then Attribute_Name (Opnd) = Name_First
+           and then Is_Entity_Name (Prefix (Opnd))
+           and then Present (Entity (Prefix (Opnd)))
+           and then Is_Formal (Entity (Prefix (Opnd)))
+         then
+            Set_Low_Bound_Tested (Entity (Prefix (Opnd)));
+         end if;
+      end Check_Low_Bound_Tested_For;
+
+   --  Start of processing for Check_Low_Bound_Tested
+
    begin
       if Comes_From_Source (Expr) then
-         declare
-            L : constant Node_Id := Left_Opnd (Expr);
-            R : constant Node_Id := Right_Opnd (Expr);
-         begin
-            if Nkind (L) = N_Attribute_Reference
-              and then Attribute_Name (L) = Name_First
-              and then Is_Entity_Name (Prefix (L))
-              and then Is_Formal (Entity (Prefix (L)))
-            then
-               Set_Low_Bound_Tested (Entity (Prefix (L)));
-            end if;
-
-            if Nkind (R) = N_Attribute_Reference
-              and then Attribute_Name (R) = Name_First
-              and then Is_Entity_Name (Prefix (R))
-              and then Is_Formal (Entity (Prefix (R)))
-            then
-               Set_Low_Bound_Tested (Entity (Prefix (R)));
-            end if;
-         end;
+         Check_Low_Bound_Tested_For (Left_Opnd  (Expr));
+         Check_Low_Bound_Tested_For (Right_Opnd (Expr));
       end if;
    end Check_Low_Bound_Tested;
 
@@ -1074,6 +1080,13 @@ package body Sem_Warn is
                 (Ekind_In (E1, E_Out_Parameter, E_In_Out_Parameter)
                   and then not Is_Protected_Type (Current_Scope))
             then
+               --  If the formal has a class-wide type, retrieve its type
+               --  because checks below depend on its private nature.
+
+               if Is_Class_Wide_Type (E1T) then
+                  E1T := Etype (E1T);
+               end if;
+
                --  Case of an unassigned variable
 
                --  First gather any Unset_Reference indication for E1. In the
@@ -1855,7 +1868,7 @@ package body Sem_Warn is
 
                               if Nkind (P) = N_Pragma
                                 and then Pragma_Name (P) = Name_Test_Case
-                                and then Nod = Get_Ensures_From_CTC_Pragma (P)
+                                and then Nod = Test_Case_Arg (P, Name_Ensures)
                               then
                                  return True;
                               end if;
@@ -3096,9 +3109,7 @@ package body Sem_Warn is
 
    procedure Output_Unreferenced_Messages is
    begin
-      for J in Unreferenced_Entities.First ..
-               Unreferenced_Entities.Last
-      loop
+      for J in Unreferenced_Entities.First .. Unreferenced_Entities.Last loop
          Warn_On_Unreferenced_Entity (Unreferenced_Entities.Table (J));
       end loop;
    end Output_Unreferenced_Messages;

@@ -277,6 +277,7 @@ static int sh_variable_issue (FILE *, int, rtx_insn *, int);
 static bool sh_function_ok_for_sibcall (tree, tree);
 
 static bool sh_cannot_modify_jumps_p (void);
+static bool sh_can_follow_jump (const rtx_insn *, const rtx_insn *);
 static reg_class_t sh_target_reg_class (void);
 static bool sh_optimize_target_register_callee_saved (bool);
 static bool sh_ms_bitfield_layout_p (const_tree);
@@ -512,6 +513,8 @@ static const struct attribute_spec sh_attribute_table[] =
 
 #undef TARGET_CANNOT_MODIFY_JUMPS_P
 #define TARGET_CANNOT_MODIFY_JUMPS_P sh_cannot_modify_jumps_p
+#undef TARGET_CAN_FOLLOW_JUMP
+#define TARGET_CAN_FOLLOW_JUMP sh_can_follow_jump
 #undef TARGET_BRANCH_TARGET_REGISTER_CLASS
 #define TARGET_BRANCH_TARGET_REGISTER_CLASS sh_target_reg_class
 #undef TARGET_BRANCH_TARGET_REGISTER_CALLEE_SAVED
@@ -1060,29 +1063,6 @@ sh_option_override (void)
       warning (0, "unwind tables currently require either a frame pointer "
 	       "or -maccumulate-outgoing-args for correctness");
       TARGET_ACCUMULATE_OUTGOING_ARGS = 1;
-    }
-
-  /* Unwinding with -freorder-blocks-and-partition does not work on this
-     architecture, because it requires far jumps to label crossing between
-     hot/cold sections which are rejected on this architecture.  */
-  if (flag_reorder_blocks_and_partition)
-    {
-      if (flag_exceptions)
-	{
-	  inform (input_location, 
-		  "-freorder-blocks-and-partition does not work with "
-		  "exceptions on this architecture");
-	  flag_reorder_blocks_and_partition = 0;
-	  flag_reorder_blocks = 1;
-	}
-      else if (flag_unwind_tables)
-	{
-	  inform (input_location,
-		  "-freorder-blocks-and-partition does not support unwind "
-		  "info on this architecture");
-	  flag_reorder_blocks_and_partition = 0;
-	  flag_reorder_blocks = 1;
-	}
     }
 
   /*  Adjust loop, jump and function alignment values (in bytes), if those
@@ -10265,11 +10245,10 @@ sh_insn_length_adjustment (rtx_insn *insn)
       && get_attr_needs_delay_slot (insn) == NEEDS_DELAY_SLOT_YES)
     return 2;
 
-  /* SH2e has a bug that prevents the use of annulled branches, so if
-     the delay slot is not filled, we'll have to put a NOP in it.  */
-  if (sh_cpu_attr == CPU_SH2E
-      && JUMP_P (insn)
-      && get_attr_type (insn) == TYPE_CBRANCH
+  /* Increase the insn length of a cbranch without a delay slot insn to
+     force a delay slot which will be stuffed with a nop.  */
+  if (TARGET_CBRANCH_FORCE_DELAY_SLOT && TARGET_SH2
+      && JUMP_P (insn) && get_attr_type (insn) == TYPE_CBRANCH
       && ! sequence_insn_p (insn))
     return 2;
 
@@ -10822,9 +10801,17 @@ mark_constant_pool_use (rtx x)
 /* Return true if it's possible to redirect BRANCH1 to the destination
    of an unconditional jump BRANCH2.  We only want to do this if the
    resulting branch will have a short displacement.  */
-bool
-sh_can_redirect_branch (rtx_insn *branch1, rtx_insn *branch2)
+static bool
+sh_can_follow_jump (const rtx_insn *branch1, const rtx_insn *branch2)
 {
+  /* Don't follow if BRANCH2 is possible to be a jump crossing between
+     hot and cold partitions.  */
+  if (TARGET_SH1
+      && flag_reorder_blocks_and_partition
+      && simplejump_p (branch2)
+      && CROSSING_JUMP_P (branch2))
+    return false;
+
   if (flag_expensive_optimizations && simplejump_p (branch2))
     {
       rtx dest = XEXP (SET_SRC (single_set (branch2)), 0);
@@ -13028,146 +13015,6 @@ sh_init_cumulative_args (CUMULATIVE_ARGS *  pcum,
     }
 }
 
-/* Replace any occurrence of FROM(n) in X with TO(n).  The function does
-   not enter into CONST_DOUBLE for the replace.
-
-   Note that copying is not done so X must not be shared unless all copies
-   are to be modified.
-
-   This is like replace_rtx, except that we operate on N_REPLACEMENTS
-   replacements simultaneously - FROM(n) is replacements[n*2] and to(n) is
-   replacements[n*2+1] - and that we take mode changes into account.
-
-   If a replacement is ambiguous, return NULL_RTX.
-
-   If MODIFY is zero, don't modify any rtl in place,
-   just return zero or nonzero for failure / success.  */
-rtx
-replace_n_hard_rtx (rtx x, rtx *replacements, int n_replacements, int modify)
-{
-  int i, j;
-  const char *fmt;
-
-  /* The following prevents loops occurrence when we change MEM in
-     CONST_DOUBLE onto the same CONST_DOUBLE.  */
-  if (x != NULL_RTX && GET_CODE (x) == CONST_DOUBLE)
-    return x;
-
-  for (i = n_replacements - 1; i >= 0 ; i--)
-  if (x == replacements[i*2] && GET_MODE (x) == GET_MODE (replacements[i*2+1]))
-    return replacements[i*2+1];
-
-  /* Allow this function to make replacements in EXPR_LISTs.  */
-  if (x == NULL_RTX)
-    return NULL_RTX;
-
-  if (GET_CODE (x) == SUBREG)
-    {
-      rtx new_rtx = replace_n_hard_rtx (SUBREG_REG (x), replacements,
-				    n_replacements, modify);
-
-      if (CONST_INT_P (new_rtx))
-	{
-	  x = simplify_subreg (GET_MODE (x), new_rtx,
-			       GET_MODE (SUBREG_REG (x)),
-			       SUBREG_BYTE (x));
-	  if (! x)
-	    abort ();
-	}
-      else if (modify)
-	SUBREG_REG (x) = new_rtx;
-
-      return x;
-    }
-  else if (REG_P (x))
-    {
-      unsigned regno = REGNO (x);
-      unsigned nregs = (regno < FIRST_PSEUDO_REGISTER
-			? HARD_REGNO_NREGS (regno, GET_MODE (x)) : 1);
-      rtx result = NULL_RTX;
-
-      for (i = n_replacements - 1; i >= 0; i--)
-	{
-	  rtx from = replacements[i*2];
-	  rtx to = replacements[i*2+1];
-	  unsigned from_regno, from_nregs, to_regno, new_regno;
-
-	  if (!REG_P (from))
-	    continue;
-	  from_regno = REGNO (from);
-	  from_nregs = (from_regno < FIRST_PSEUDO_REGISTER
-			? HARD_REGNO_NREGS (from_regno, GET_MODE (from)) : 1);
-	  if (regno < from_regno + from_nregs && regno + nregs > from_regno)
-	    {
-	      if (regno < from_regno
-		  || regno + nregs > from_regno + nregs
-		  || !REG_P (to)
-		  || result)
-		return NULL_RTX;
-	      to_regno = REGNO (to);
-	      if (to_regno < FIRST_PSEUDO_REGISTER)
-		{
-		  new_regno = regno + to_regno - from_regno;
-		  if ((unsigned) HARD_REGNO_NREGS (new_regno, GET_MODE (x))
-		      != nregs)
-		    return NULL_RTX;
-		  result = gen_rtx_REG (GET_MODE (x), new_regno);
-		}
-	      else if (GET_MODE (x) <= GET_MODE (to))
-		result = gen_lowpart_common (GET_MODE (x), to);
-	      else
-		result = gen_lowpart_SUBREG (GET_MODE (x), to);
-	    }
-	}
-      return result ? result : x;
-    }
-  else if (GET_CODE (x) == ZERO_EXTEND)
-    {
-      rtx new_rtx = replace_n_hard_rtx (XEXP (x, 0), replacements,
-				    n_replacements, modify);
-
-      if (CONST_INT_P (new_rtx))
-	{
-	  x = simplify_unary_operation (ZERO_EXTEND, GET_MODE (x),
-					new_rtx, GET_MODE (XEXP (x, 0)));
-	  if (! x)
-	    abort ();
-	}
-      else if (modify)
-	XEXP (x, 0) = new_rtx;
-
-      return x;
-    }
-
-  fmt = GET_RTX_FORMAT (GET_CODE (x));
-  for (i = GET_RTX_LENGTH (GET_CODE (x)) - 1; i >= 0; i--)
-    {
-      rtx new_rtx;
-
-      if (fmt[i] == 'e')
-	{
-	  new_rtx = replace_n_hard_rtx (XEXP (x, i), replacements,
-				    n_replacements, modify);
-	  if (!new_rtx)
-	    return NULL_RTX;
-	  if (modify)
-	    XEXP (x, i) = new_rtx;
-	}
-      else if (fmt[i] == 'E')
-	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  {
-	    new_rtx = replace_n_hard_rtx (XVECEXP (x, i, j), replacements,
-				      n_replacements, modify);
-	  if (!new_rtx)
-	    return NULL_RTX;
-	    if (modify)
-	      XVECEXP (x, i, j) = new_rtx;
-	  }
-    }
-
-  return x;
-}
-
 rtx
 sh_gen_truncate (machine_mode mode, rtx x, int need_sign_ext)
 {
@@ -13908,6 +13755,35 @@ sh_remove_reg_dead_or_unused_notes (rtx_insn* i, int regno)
     remove_note (i, n);
   if (rtx n = find_regno_note (i, REG_UNUSED, regno))
     remove_note (i, n);
+}
+
+/* Given an insn check if it contains any post/pre inc/dec mem operands and
+   add the REG_INC notes accordingly.
+   FIXME: This function is very similar to lra.c (add_auto_inc_notes).
+   FIXME: This function is currently used by peephole2 patterns because
+	  the peephole2 pass does not preserve REG_INC notes.  If the notes
+	  are dropped the following passes will do wrong things.  */
+rtx_insn*
+sh_check_add_incdec_notes (rtx_insn* i)
+{
+  struct for_each_inc_dec_clb
+  {
+    static int func (rtx mem ATTRIBUTE_UNUSED, rtx op ATTRIBUTE_UNUSED,
+		     rtx dest, rtx src ATTRIBUTE_UNUSED,
+		     rtx srcoff ATTRIBUTE_UNUSED, void* arg)
+    {
+      gcc_assert (REG_P (dest));
+
+      rtx_insn* i = (rtx_insn*)arg;
+      if (find_regno_note (i, REG_INC, REGNO (dest)) == NULL)
+	add_reg_note (i, REG_INC, dest);
+
+      return 0;
+    }
+  };
+
+  for_each_inc_dec (PATTERN (i), for_each_inc_dec_clb::func, i);
+  return i;
 }
 
 /* Given an op rtx and an insn, try to find out whether the result of the

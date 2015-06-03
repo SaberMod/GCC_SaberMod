@@ -1893,7 +1893,8 @@ typedef enum
   AB_IS_BIND_C, AB_IS_C_INTEROP, AB_IS_ISO_C, AB_ABSTRACT, AB_ZERO_COMP,
   AB_IS_CLASS, AB_PROCEDURE, AB_PROC_POINTER, AB_ASYNCHRONOUS, AB_CODIMENSION,
   AB_COARRAY_COMP, AB_VTYPE, AB_VTAB, AB_CONTIGUOUS, AB_CLASS_POINTER,
-  AB_IMPLICIT_PURE, AB_ARTIFICIAL, AB_UNLIMITED_POLY, AB_OMP_DECLARE_TARGET
+  AB_IMPLICIT_PURE, AB_ARTIFICIAL, AB_UNLIMITED_POLY, AB_OMP_DECLARE_TARGET,
+  AB_ARRAY_OUTER_DEPENDENCY
 }
 ab_attribute;
 
@@ -1949,6 +1950,7 @@ static const mstring attr_bits[] =
     minit ("IMPLICIT_PURE", AB_IMPLICIT_PURE),
     minit ("UNLIMITED_POLY", AB_UNLIMITED_POLY),
     minit ("OMP_DECLARE_TARGET", AB_OMP_DECLARE_TARGET),
+    minit ("ARRAY_OUTER_DEPENDENCY", AB_ARRAY_OUTER_DEPENDENCY),
     minit (NULL, -1)
 };
 
@@ -2129,6 +2131,8 @@ mio_symbol_attribute (symbol_attribute *attr)
 	MIO_NAME (ab_attribute) (AB_VTAB, attr_bits);
       if (attr->omp_declare_target)
 	MIO_NAME (ab_attribute) (AB_OMP_DECLARE_TARGET, attr_bits);
+      if (attr->array_outer_dependency)
+	MIO_NAME (ab_attribute) (AB_ARRAY_OUTER_DEPENDENCY, attr_bits);
 
       mio_rparen ();
 
@@ -2294,6 +2298,9 @@ mio_symbol_attribute (symbol_attribute *attr)
 	      break;
 	    case AB_OMP_DECLARE_TARGET:
 	      attr->omp_declare_target = 1;
+	      break;
+	    case AB_ARRAY_OUTER_DEPENDENCY:
+	      attr->array_outer_dependency =1;
 	      break;
 	    }
 	}
@@ -4795,19 +4802,21 @@ read_cleanup (pointer_info *p)
 /* It is not quite enough to check for ambiguity in the symbols by
    the loaded symbol and the new symbol not being identical.  */
 static bool
-check_for_ambiguous (gfc_symbol *st_sym, pointer_info *info)
+check_for_ambiguous (gfc_symtree *st, pointer_info *info)
 {
   gfc_symbol *rsym;
   module_locus locus;
   symbol_attribute attr;
+  gfc_symbol *st_sym;
 
-  if (gfc_current_ns->proc_name && st_sym->name == gfc_current_ns->proc_name->name)
+  if (gfc_current_ns->proc_name && st->name == gfc_current_ns->proc_name->name)
     {
       gfc_error ("%qs of module %qs, imported at %C, is also the name of the "
-		 "current program unit", st_sym->name, module_name);
+		 "current program unit", st->name, module_name);
       return true;
     }
 
+  st_sym = st->n.sym;
   rsym = info->u.rsym.sym;
   if (st_sym == rsym)
     return false;
@@ -5037,7 +5046,7 @@ read_module (void)
 	  if (st != NULL)
 	    {
 	      /* Check for ambiguous symbols.  */
-	      if (check_for_ambiguous (st->n.sym, info))
+	      if (check_for_ambiguous (st, info))
 		st->ambiguous = 1;
 	      else
 		info->u.rsym.symtree = st;

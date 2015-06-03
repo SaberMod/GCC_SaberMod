@@ -2177,10 +2177,18 @@ update_range_test (struct range_entry *range, struct range_entry *otherrange,
 
   tem = fold_convert_loc (loc, optype, tem);
   gsi = gsi_for_stmt (stmt);
+  unsigned int uid = gimple_uid (stmt);
   /* In rare cases range->exp can be equal to lhs of stmt.
      In that case we have to insert after the stmt rather then before
-     it.  */
-  if (op == range->exp)
+     it.  If stmt is a PHI, insert it at the start of the basic block.  */
+  if (op != range->exp)
+    {
+      gsi_insert_seq_before (&gsi, seq, GSI_SAME_STMT);
+      tem = force_gimple_operand_gsi (&gsi, tem, true, NULL_TREE, true,
+				      GSI_SAME_STMT);
+      gsi_prev (&gsi);
+    }
+  else if (gimple_code (stmt) != GIMPLE_PHI)
     {
       gsi_insert_seq_after (&gsi, seq, GSI_CONTINUE_LINKING);
       tem = force_gimple_operand_gsi (&gsi, tem, true, NULL_TREE, false,
@@ -2188,16 +2196,32 @@ update_range_test (struct range_entry *range, struct range_entry *otherrange,
     }
   else
     {
+      gsi = gsi_after_labels (gimple_bb (stmt));
+      if (!gsi_end_p (gsi))
+	uid = gimple_uid (gsi_stmt (gsi));
+      else
+	{
+	  gsi = gsi_start_bb (gimple_bb (stmt));
+	  uid = 1;
+	  while (!gsi_end_p (gsi))
+	    {
+	      uid = gimple_uid (gsi_stmt (gsi));
+	      gsi_next (&gsi);
+	    }
+	}
       gsi_insert_seq_before (&gsi, seq, GSI_SAME_STMT);
       tem = force_gimple_operand_gsi (&gsi, tem, true, NULL_TREE, true,
 				      GSI_SAME_STMT);
-      gsi_prev (&gsi);
+      if (gsi_end_p (gsi))
+	gsi = gsi_last_bb (gimple_bb (stmt));
+      else
+	gsi_prev (&gsi);
     }
   for (; !gsi_end_p (gsi); gsi_prev (&gsi))
     if (gimple_uid (gsi_stmt (gsi)))
       break;
     else
-      gimple_set_uid (gsi_stmt (gsi), gimple_uid (stmt));
+      gimple_set_uid (gsi_stmt (gsi), uid);
 
   oe->op = tem;
   range->exp = exp;
@@ -2415,26 +2439,25 @@ extract_bit_test_mask (tree exp, int prec, tree totallow, tree low, tree high,
 	      && TREE_CODE (exp) == PLUS_EXPR
 	      && TREE_CODE (TREE_OPERAND (exp, 1)) == INTEGER_CST)
 	    {
+	      tree ret = TREE_OPERAND (exp, 0);
+	      STRIP_NOPS (ret);
 	      widest_int bias
 	        = wi::neg (wi::sext (wi::to_widest (TREE_OPERAND (exp, 1)),
 				     TYPE_PRECISION (TREE_TYPE (low))));
-	      tree tbias = wide_int_to_tree (TREE_TYPE (low), bias);
+	      tree tbias = wide_int_to_tree (TREE_TYPE (ret), bias);
 	      if (totallowp)
 		{
 		  *totallowp = tbias;
-		  exp = TREE_OPERAND (exp, 0);
-		  STRIP_NOPS (exp);
-		  return exp;
+		  return ret;
 		}
 	      else if (!tree_int_cst_lt (totallow, tbias))
 		return NULL_TREE;
+	      bias = wi::to_widest (tbias);
 	      bias -= wi::to_widest (totallow);
 	      if (wi::ges_p (bias, 0) && wi::lts_p (bias, prec - max))
 		{
 		  *mask = wi::lshift (*mask, bias);
-		  exp = TREE_OPERAND (exp, 0);
-		  STRIP_NOPS (exp);
-		  return exp;
+		  return ret;
 		}
 	    }
 	}
@@ -3508,7 +3531,7 @@ rewrite_expr_tree (gimple stmt, unsigned int opindex,
 
   /* The final recursion case for this function is that you have
      exactly two operations left.
-     If we had one exactly one op in the entire list to start with, we
+     If we had exactly one op in the entire list to start with, we
      would have never called this function, and the tail recursion
      rewrites them one at a time.  */
   if (opindex + 2 == ops.length ())
@@ -3529,7 +3552,11 @@ rewrite_expr_tree (gimple stmt, unsigned int opindex,
 	      print_gimple_stmt (dump_file, stmt, 0, 0);
 	    }
 
-	  if (changed)
+	  /* Even when changed is false, reassociation could have e.g. removed
+	     some redundant operations, so unless we are just swapping the
+	     arguments or unless there is no change at all (then we just
+	     return lhs), force creation of a new SSA_NAME.  */
+	  if (changed || ((rhs1 != oe2->op || rhs2 != oe1->op) && opindex))
 	    {
 	      gimple insert_point = find_insert_point (stmt, oe1->op, oe2->op);
 	      lhs = make_ssa_name (TREE_TYPE (lhs));

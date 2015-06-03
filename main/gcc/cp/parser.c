@@ -3828,7 +3828,7 @@ lookup_literal_operator (tree name, vec<tree, va_gc> *args)
 		 work in presence of default arguments on the literal
 		 operator parameters.  */
 	      && parmtypes == void_list_node)
-	    return fn;
+	    return decl;
 	}
     }
 
@@ -3862,12 +3862,7 @@ cp_parser_userdef_char_literal (cp_parser *parser)
     }
   result = finish_call_expr (decl, &args, false, true, tf_warning_or_error);
   release_tree_vector (args);
-  if (result != error_mark_node)
-    return result;
-
-  error ("unable to find character literal operator %qD with %qT argument",
-	 name, TREE_TYPE (value));
-  return error_mark_node;
+  return result;
 }
 
 /* A subroutine of cp_parser_userdef_numeric_literal to
@@ -3955,26 +3950,28 @@ cp_parser_userdef_numeric_literal (cp_parser *parser)
   decl = lookup_literal_operator (name, args);
   if (decl && decl != error_mark_node)
     {
-      result = finish_call_expr (decl, &args, false, true, tf_none);
-      if (result != error_mark_node)
+      result = finish_call_expr (decl, &args, false, true,
+				 tf_warning_or_error);
+
+      if (TREE_CODE (TREE_TYPE (value)) == INTEGER_TYPE && overflow > 0)
 	{
-	  if (TREE_CODE (TREE_TYPE (value)) == INTEGER_TYPE && overflow > 0)
-	    warning_at (token->location, OPT_Woverflow,
-		        "integer literal exceeds range of %qT type",
-		        long_long_unsigned_type_node);
-	  else
-	    {
-	      if (overflow > 0)
-		warning_at (token->location, OPT_Woverflow,
-			    "floating literal exceeds range of %qT type",
-			    long_double_type_node);
-	      else if (overflow < 0)
-		warning_at (token->location, OPT_Woverflow,
-			    "floating literal truncated to zero");
-	    }
-	  release_tree_vector (args);
-	  return result;
+	  warning_at (token->location, OPT_Woverflow,
+		      "integer literal exceeds range of %qT type",
+		      long_long_unsigned_type_node);
 	}
+      else
+	{
+	  if (overflow > 0)
+	    warning_at (token->location, OPT_Woverflow,
+			"floating literal exceeds range of %qT type",
+			long_double_type_node);
+	  else if (overflow < 0)
+	    warning_at (token->location, OPT_Woverflow,
+			"floating literal truncated to zero");
+	}
+
+      release_tree_vector (args);
+      return result;
     }
   release_tree_vector (args);
 
@@ -3986,12 +3983,10 @@ cp_parser_userdef_numeric_literal (cp_parser *parser)
   decl = lookup_literal_operator (name, args);
   if (decl && decl != error_mark_node)
     {
-      result = finish_call_expr (decl, &args, false, true, tf_none);
-      if (result != error_mark_node)
-	{
-	  release_tree_vector (args);
-	  return result;
-	}
+      result = finish_call_expr (decl, &args, false, true,
+				 tf_warning_or_error);
+      release_tree_vector (args);
+      return result;
     }
   release_tree_vector (args);
 
@@ -4004,13 +3999,12 @@ cp_parser_userdef_numeric_literal (cp_parser *parser)
     {
       tree tmpl_args = make_char_string_pack (num_string);
       decl = lookup_template_function (decl, tmpl_args);
-      result = finish_call_expr (decl, &args, false, true, tf_none);
-      if (result != error_mark_node)
-	{
-	  release_tree_vector (args);
-	  return result;
-	}
+      result = finish_call_expr (decl, &args, false, true,
+				 tf_warning_or_error);
+      release_tree_vector (args);
+      return result;
     }
+
   release_tree_vector (args);
 
   error ("unable to find numeric literal operator %qD", name);
@@ -4035,6 +4029,22 @@ cp_parser_userdef_string_literal (tree literal)
   tree decl, result;
   vec<tree, va_gc> *args;
 
+  /* Build up a call to the user-defined operator.  */
+  /* Lookup the name we got back from the id-expression.  */
+  args = make_tree_vector ();
+  vec_safe_push (args, value);
+  vec_safe_push (args, build_int_cst (size_type_node, len));
+  decl = lookup_literal_operator (name, args);
+
+  if (decl && decl != error_mark_node)
+    {
+      result = finish_call_expr (decl, &args, false, true,
+				 tf_warning_or_error);
+      release_tree_vector (args);
+      return result;
+    }
+  release_tree_vector (args);
+
   /* Look for a template function with typename parameter CharT
      and parameter pack CharT...  Call the function with
      template parameter characters representing the string.  */
@@ -4044,31 +4054,12 @@ cp_parser_userdef_string_literal (tree literal)
     {
       tree tmpl_args = make_string_pack (value);
       decl = lookup_template_function (decl, tmpl_args);
-      result = finish_call_expr (decl, &args, false, true, tf_none);
-      if (result != error_mark_node)
-	{
-	  release_tree_vector (args);
-	  return result;
-	}
-    }
-  release_tree_vector (args);
-
-  /* Build up a call to the user-defined operator  */
-  /* Lookup the name we got back from the id-expression.  */
-  args = make_tree_vector ();
-  vec_safe_push (args, value);
-  vec_safe_push (args, build_int_cst (size_type_node, len));
-  decl = lookup_name (name);
-  if (!decl || decl == error_mark_node)
-    {
-      error ("unable to find string literal operator %qD", name);
+      result = finish_call_expr (decl, &args, false, true,
+				 tf_warning_or_error);
       release_tree_vector (args);
-      return error_mark_node;
+      return result;
     }
-  result = finish_call_expr (decl, &args, false, true, tf_none);
   release_tree_vector (args);
-  if (result != error_mark_node)
-    return result;
 
   error ("unable to find string literal operator %qD with %qT, %qT arguments",
 	 name, TREE_TYPE (value), size_type_node);
@@ -8279,8 +8270,23 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p,
 	c_inhibit_evaluation_warnings -= current.lhs == truthvalue_true_node;
 
       if (warn_logical_not_paren
-	  && current.lhs_type == TRUTH_NOT_EXPR)
-	warn_logical_not_parentheses (current.loc, current.tree_type, rhs);
+	  && TREE_CODE_CLASS (current.tree_type) == tcc_comparison
+	  && current.lhs_type == TRUTH_NOT_EXPR
+	  /* Avoid warning for !!x == y.  */
+	  && (TREE_CODE (current.lhs) != NE_EXPR
+	      || !integer_zerop (TREE_OPERAND (current.lhs, 1)))
+	  && (TREE_CODE (current.lhs) != TRUTH_NOT_EXPR
+	      || (TREE_CODE (TREE_OPERAND (current.lhs, 0)) != TRUTH_NOT_EXPR
+		  /* Avoid warning for !b == y where b is boolean.  */
+		  && (TREE_TYPE (TREE_OPERAND (current.lhs, 0)) == NULL_TREE
+		      || (TREE_CODE (TREE_TYPE (TREE_OPERAND (current.lhs, 0)))
+			  != BOOLEAN_TYPE))))
+	  /* Avoid warning for !!b == y where b is boolean.  */
+	  && (!DECL_P (current.lhs)
+	      || TREE_TYPE (current.lhs) == NULL_TREE
+	      || TREE_CODE (TREE_TYPE (current.lhs)) != BOOLEAN_TYPE))
+	warn_logical_not_parentheses (current.loc, current.tree_type,
+				      maybe_constant_value (rhs));
 
       overload = NULL;
       /* ??? Currently we pass lhs_type == ERROR_MARK and rhs_type ==
@@ -14069,6 +14075,8 @@ cp_parser_template_name (cp_parser* parser,
 				/*ambiguous_decls=*/NULL,
 				token->location);
 
+  decl = strip_using_decl (decl);
+
   /* If DECL is a template, then the name was a template-name.  */
   if (TREE_CODE (decl) == TEMPLATE_DECL)
     {
@@ -18335,7 +18343,9 @@ parsing_nsdmi (void)
 {
   /* We recognize NSDMI context by the context-less 'this' pointer set up
      by the function above.  */
-  if (current_class_ptr && DECL_CONTEXT (current_class_ptr) == NULL_TREE)
+  if (current_class_ptr
+      && TREE_CODE (current_class_ptr) == PARM_DECL
+      && DECL_CONTEXT (current_class_ptr) == NULL_TREE)
     return true;
   return false;
 }
@@ -30785,7 +30795,7 @@ cp_parser_omp_for (cp_parser *parser, cp_token *pragma_tok,
     }
   if (!flag_openmp)  /* flag_openmp_simd  */
     {
-      cp_parser_require_pragma_eol (parser, pragma_tok);
+      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
       return NULL_TREE;
     }
 
@@ -30996,7 +31006,7 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok,
     }
   else if (!flag_openmp)  /* flag_openmp_simd  */
     {
-      cp_parser_require_pragma_eol (parser, pragma_tok);
+      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
       return NULL_TREE;
     }
   else if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
@@ -31259,7 +31269,7 @@ cp_parser_omp_distribute (cp_parser *parser, cp_token *pragma_tok,
     }
   if (!flag_openmp)  /* flag_openmp_simd  */
     {
-      cp_parser_require_pragma_eol (parser, pragma_tok);
+      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
       return NULL_TREE;
     }
 
@@ -31338,7 +31348,7 @@ cp_parser_omp_teams (cp_parser *parser, cp_token *pragma_tok,
     }
   if (!flag_openmp)  /* flag_openmp_simd  */
     {
-      cp_parser_require_pragma_eol (parser, pragma_tok);
+      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
       return NULL_TREE;
     }
 
@@ -31483,7 +31493,7 @@ cp_parser_omp_target (cp_parser *parser, cp_token *pragma_tok,
 	}
       else if (!flag_openmp)  /* flag_openmp_simd  */
 	{
-	  cp_parser_require_pragma_eol (parser, pragma_tok);
+	  cp_parser_skip_to_pragma_eol (parser, pragma_tok);
 	  return false;
 	}
       else if (strcmp (p, "data") == 0)
@@ -32459,7 +32469,7 @@ cp_parser_omp_declare (cp_parser *parser, cp_token *pragma_tok,
 	}
       if (!flag_openmp)  /* flag_openmp_simd  */
 	{
-	  cp_parser_require_pragma_eol (parser, pragma_tok);
+	  cp_parser_skip_to_pragma_eol (parser, pragma_tok);
 	  return;
 	}
       if (strcmp (p, "target") == 0)
@@ -33096,6 +33106,12 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context)
 
     case PRAGMA_IVDEP:
       {
+	if (context == pragma_external)
+	  {
+	    error_at (pragma_tok->location,
+		      "%<#pragma GCC ivdep%> must be inside a function");
+	    break;
+	  }
 	cp_parser_skip_to_pragma_eol (parser, pragma_tok);
 	cp_token *tok;
 	tok = cp_lexer_peek_token (the_parser->lexer);

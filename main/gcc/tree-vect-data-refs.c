@@ -650,7 +650,8 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   tree base, base_addr;
   bool base_aligned;
   tree misalign;
-  tree aligned_to, alignment;
+  tree aligned_to;
+  unsigned HOST_WIDE_INT alignment;
 
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
@@ -720,42 +721,44 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 	}
     }
 
-  base = build_fold_indirect_ref (base_addr);
-  alignment = ssize_int (TYPE_ALIGN (vectype)/BITS_PER_UNIT);
+  alignment = TYPE_ALIGN_UNIT (vectype);
 
-  if ((aligned_to && tree_int_cst_compare (aligned_to, alignment) < 0)
+  if ((compare_tree_int (aligned_to, alignment) < 0)
       || !misalign)
     {
       if (dump_enabled_p ())
 	{
 	  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 	                   "Unknown alignment for access: ");
-	  dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM, base);
+	  dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM, ref);
 	  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
 	}
       return true;
     }
 
-  if ((DECL_P (base)
-       && tree_int_cst_compare (ssize_int (DECL_ALIGN_UNIT (base)),
-				alignment) >= 0)
-      || (TREE_CODE (base_addr) == SSA_NAME
-	  && tree_int_cst_compare (ssize_int (TYPE_ALIGN_UNIT (TREE_TYPE (
-						      TREE_TYPE (base_addr)))),
-				   alignment) >= 0)
-      || (get_pointer_alignment (base_addr) >= TYPE_ALIGN (vectype)))
+  /* To look at alignment of the base we have to preserve an inner MEM_REF
+     as that carries alignment information of the actual access.  */
+  base = ref;
+  while (handled_component_p (base))
+    base = TREE_OPERAND (base, 0);
+  if (TREE_CODE (base) == MEM_REF)
+    base = build2 (MEM_REF, TREE_TYPE (base), base_addr,
+		   build_int_cst (TREE_TYPE (TREE_OPERAND (base, 1)), 0));
+
+  if (get_object_alignment (base) >= TYPE_ALIGN (vectype))
     base_aligned = true;
   else
     base_aligned = false;
 
   if (!base_aligned)
     {
-      /* Do not change the alignment of global variables here if
-	 flag_section_anchors is enabled as we already generated
-	 RTL for other functions.  Most global variables should
-	 have been aligned during the IPA increase_alignment pass.  */
-      if (!vect_can_force_dr_alignment_p (base, TYPE_ALIGN (vectype))
-	  || (TREE_STATIC (base) && flag_section_anchors))
+      /* Strip an inner MEM_REF to a bare decl if possible.  */
+      if (TREE_CODE (base) == MEM_REF
+	  && integer_zerop (TREE_OPERAND (base, 1))
+	  && TREE_CODE (TREE_OPERAND (base, 0)) == ADDR_EXPR)
+	base = TREE_OPERAND (TREE_OPERAND (base, 0), 0);
+
+      if (!vect_can_force_dr_alignment_p (base, TYPE_ALIGN (vectype)))
 	{
 	  if (dump_enabled_p ())
 	    {
@@ -784,7 +787,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   /* If this is a backward running DR then first access in the larger
      vectype actually is N-1 elements before the address in the DR.
      Adjust misalign accordingly.  */
-  if (tree_int_cst_compare (DR_STEP (dr), size_zero_node) < 0)
+  if (tree_int_cst_sgn (DR_STEP (dr)) < 0)
     {
       tree offset = ssize_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
       /* DR_STEP(dr) is the same as -TYPE_SIZE of the scalar type,
@@ -794,19 +797,8 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
       misalign = size_binop (PLUS_EXPR, misalign, offset);
     }
 
-  /* Modulo alignment.  */
-  misalign = size_binop (FLOOR_MOD_EXPR, misalign, alignment);
-
-  if (!tree_fits_uhwi_p (misalign))
-    {
-      /* Negative or overflowed misalignment value.  */
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-	                 "unexpected misalign value\n");
-      return false;
-    }
-
-  SET_DR_MISALIGNMENT (dr, tree_to_uhwi (misalign));
+  SET_DR_MISALIGNMENT (dr,
+		       wi::mod_floor (misalign, alignment, SIGNED).to_uhwi ());
 
   if (dump_enabled_p ())
     {
@@ -1160,7 +1152,6 @@ vect_peeling_hash_get_lowest_cost (_vect_peel_info **slot,
   vec<data_reference_p> datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
   struct data_reference *dr;
   stmt_vector_for_cost prologue_cost_vec, body_cost_vec, epilogue_cost_vec;
-  int single_iter_cost;
 
   prologue_cost_vec.create (2);
   body_cost_vec.create (2);
@@ -1183,11 +1174,11 @@ vect_peeling_hash_get_lowest_cost (_vect_peel_info **slot,
       SET_DR_MISALIGNMENT (dr, save_misalignment);
     }
 
-  single_iter_cost = vect_get_single_scalar_iteration_cost (loop_vinfo);
-  outside_cost += vect_get_known_peeling_cost (loop_vinfo, elem->npeel,
-					       &dummy, single_iter_cost,
-					       &prologue_cost_vec,
-					       &epilogue_cost_vec);
+  auto_vec<stmt_info_for_cost> scalar_cost_vec;
+  vect_get_single_scalar_iteration_cost (loop_vinfo, &scalar_cost_vec);
+  outside_cost += vect_get_known_peeling_cost
+    (loop_vinfo, elem->npeel, &dummy,
+     &scalar_cost_vec, &prologue_cost_vec, &epilogue_cost_vec);
 
   /* Prologue and epilogue costs are added to the target model later.
      These costs depend only on the scalar iteration cost, the
@@ -3850,6 +3841,20 @@ vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
   return new_vect_var;
 }
 
+/* Duplicate ptr info and set alignment/misaligment on NAME from DR.  */
+
+static void
+vect_duplicate_ssa_name_ptr_info (tree name, data_reference *dr,
+				  stmt_vec_info stmt_info)
+{
+  duplicate_ssa_name_ptr_info (name, DR_PTR_INFO (dr));
+  unsigned int align = TYPE_ALIGN_UNIT (STMT_VINFO_VECTYPE (stmt_info));
+  int misalign = DR_MISALIGNMENT (dr);
+  if (misalign == -1)
+    mark_ptr_info_alignment_unknown (SSA_NAME_PTR_INFO (name));
+  else
+    set_ptr_info_alignment (SSA_NAME_PTR_INFO (name), align, misalign);
+}
 
 /* Function vect_create_addr_base_for_vector_ref.
 
@@ -3969,13 +3974,9 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
   if (DR_PTR_INFO (dr)
       && TREE_CODE (addr_base) == SSA_NAME)
     {
-      duplicate_ssa_name_ptr_info (addr_base, DR_PTR_INFO (dr));
-      unsigned int align = TYPE_ALIGN_UNIT (STMT_VINFO_VECTYPE (stmt_info));
-      int misalign = DR_MISALIGNMENT (dr);
-      if (offset || byte_offset || (misalign == -1))
+      vect_duplicate_ssa_name_ptr_info (addr_base, dr, stmt_info);
+      if (offset || byte_offset)
 	mark_ptr_info_alignment_unknown (SSA_NAME_PTR_INFO (addr_base));
-      else
-	set_ptr_info_alignment (SSA_NAME_PTR_INFO (addr_base), align, misalign);
     }
 
   if (dump_enabled_p ())
@@ -4215,7 +4216,7 @@ vect_create_data_ref_ptr (gimple stmt, tree aggr_type, struct loop *at_loop,
       aggr_ptr_init = make_ssa_name (aggr_ptr, vec_stmt);
       /* Copy the points-to information if it exists. */
       if (DR_PTR_INFO (dr))
-	duplicate_ssa_name_ptr_info (aggr_ptr_init, DR_PTR_INFO (dr));
+	vect_duplicate_ssa_name_ptr_info (aggr_ptr_init, dr, stmt_info);
       gimple_assign_set_lhs (vec_stmt, aggr_ptr_init);
       if (pe)
 	{
@@ -4258,8 +4259,8 @@ vect_create_data_ref_ptr (gimple stmt, tree aggr_type, struct loop *at_loop,
       /* Copy the points-to information if it exists. */
       if (DR_PTR_INFO (dr))
 	{
-	  duplicate_ssa_name_ptr_info (indx_before_incr, DR_PTR_INFO (dr));
-	  duplicate_ssa_name_ptr_info (indx_after_incr, DR_PTR_INFO (dr));
+	  vect_duplicate_ssa_name_ptr_info (indx_before_incr, dr, stmt_info);
+	  vect_duplicate_ssa_name_ptr_info (indx_after_incr, dr, stmt_info);
 	}
       if (ptr_incr)
 	*ptr_incr = incr;
@@ -4288,8 +4289,8 @@ vect_create_data_ref_ptr (gimple stmt, tree aggr_type, struct loop *at_loop,
       /* Copy the points-to information if it exists. */
       if (DR_PTR_INFO (dr))
 	{
-	  duplicate_ssa_name_ptr_info (indx_before_incr, DR_PTR_INFO (dr));
-	  duplicate_ssa_name_ptr_info (indx_after_incr, DR_PTR_INFO (dr));
+	  vect_duplicate_ssa_name_ptr_info (indx_before_incr, dr, stmt_info);
+	  vect_duplicate_ssa_name_ptr_info (indx_after_incr, dr, stmt_info);
 	}
       if (ptr_incr)
 	*ptr_incr = incr;
@@ -5703,57 +5704,9 @@ vect_can_force_dr_alignment_p (const_tree decl, unsigned int alignment)
   if (TREE_CODE (decl) != VAR_DECL)
     return false;
 
-  /* With -fno-toplevel-reorder we may have already output the constant.  */
-  if (TREE_ASM_WRITTEN (decl))
+  if (decl_in_symtab_p (decl)
+      && !symtab_node::get (decl)->can_increase_alignment_p ())
     return false;
-
-  /* Constant pool entries may be shared and not properly merged by LTO.  */
-  if (DECL_IN_CONSTANT_POOL (decl))
-    return false;
-
-  if (TREE_PUBLIC (decl) || DECL_EXTERNAL (decl))
-    {
-      symtab_node *snode;
-
-      /* We cannot change alignment of symbols that may bind to symbols
-	 in other translation unit that may contain a definition with lower
-	 alignment.  */
-      if (!decl_binds_to_current_def_p (decl))
-	return false;
-
-      /* When compiling partition, be sure the symbol is not output by other
-	 partition.  */
-      snode = symtab_node::get (decl);
-      if (flag_ltrans
-	  && (snode->in_other_partition
-	      || snode->get_partitioning_class () == SYMBOL_DUPLICATE))
-	return false;
-    }
-
-  /* Do not override the alignment as specified by the ABI when the used
-     attribute is set.  */
-  if (DECL_PRESERVE_P (decl))
-    return false;
-
-  /* Do not override explicit alignment set by the user when an explicit
-     section name is also used.  This is a common idiom used by many
-     software projects.  */
-  if (TREE_STATIC (decl) 
-      && DECL_SECTION_NAME (decl) != NULL
-      && !symtab_node::get (decl)->implicit_section)
-    return false;
-
-  /* If symbol is an alias, we need to check that target is OK.  */
-  if (TREE_STATIC (decl))
-    {
-      tree target = symtab_node::get (decl)->ultimate_alias_target ()->decl;
-      if (target != decl)
-	{
-	  if (DECL_PRESERVE_P (target))
-	    return false;
-	  decl = target;
-	}
-    }
 
   if (TREE_STATIC (decl))
     return (alignment <= MAX_OFILE_ALIGNMENT);

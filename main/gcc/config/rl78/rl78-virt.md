@@ -85,6 +85,15 @@
 
 ;;---------- Arithmetic ------------------------
 
+(define_insn "*inc<mode>3_virt"
+  [(set (match_operand:QHI           0 "rl78_incdec_memory_operand" "=vm")
+	(plus:QHI (match_operand:QHI 1 "rl78_incdec_memory_operand" "0")
+		  (match_operand:QHI 2 "rl78_1_2_operand" "KLNO")))
+   ]
+  "rl78_virt_insns_ok ()"
+  "v.inc\t%0, %1, %2"
+)
+
 (define_insn "*add<mode>3_virt"
   [(set (match_operand:QHI           0 "rl78_nonfar_nonimm_operand" "=vY,S")
 	(plus:QHI (match_operand:QHI 1 "rl78_nonfar_operand" "viY,0")
@@ -122,8 +131,8 @@
 )
 
 (define_insn "*andqi3_virt"
-  [(set (match_operand:QI         0 "rl78_nonfar_nonimm_operand" "=vm")
-	(and:QI (match_operand:QI 1 "rl78_nonfar_operand" "vim")
+  [(set (match_operand:QI         0 "rl78_nonimmediate_operand" "=vm")
+	(and:QI (match_operand:QI 1 "rl78_general_operand" "vim")
 		(match_operand:QI 2 "rl78_general_operand" "vim")))
    ]
   "rl78_virt_insns_ok ()"
@@ -131,8 +140,8 @@
 )
 
 (define_insn "*iorqi3_virt"
-  [(set (match_operand:QI         0 "rl78_nonfar_nonimm_operand" "=vm")
-	(ior:QI (match_operand:QI 1 "rl78_nonfar_operand" "vim")
+  [(set (match_operand:QI         0 "rl78_nonimmediate_operand" "=vm")
+	(ior:QI (match_operand:QI 1 "rl78_general_operand" "vim")
 		(match_operand:QI 2 "rl78_general_operand" "vim")))
    ]
   "rl78_virt_insns_ok ()"

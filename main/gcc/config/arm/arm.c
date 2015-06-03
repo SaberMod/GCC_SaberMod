@@ -866,6 +866,9 @@ int arm_arch_thumb2;
 int arm_arch_arm_hwdiv;
 int arm_arch_thumb_hwdiv;
 
+/* Nonzero if chip disallows volatile memory access in IT block.  */
+int arm_arch_no_volatile_ce;
+
 /* Nonzero if we should use Neon to handle 64-bits operations rather
    than core registers.  */
 int prefer_neon_for_64bits = 0;
@@ -2859,6 +2862,7 @@ arm_option_override (void)
   arm_arch_iwmmxt2 = (insn_flags & FL_IWMMXT2) != 0;
   arm_arch_thumb_hwdiv = (insn_flags & FL_THUMB_DIV) != 0;
   arm_arch_arm_hwdiv = (insn_flags & FL_ARM_DIV) != 0;
+  arm_arch_no_volatile_ce = (insn_flags & FL_NO_VOLATILE_CE) != 0;
   arm_tune_cortex_a9 = (arm_tune == cortexa9) != 0;
   arm_arch_crc = (insn_flags & FL_CRC32) != 0;
   arm_m_profile_small_mul = (insn_flags & FL_SMALLMUL) != 0;
@@ -4532,19 +4536,20 @@ arm_gen_constant (enum rtx_code code, machine_mode mode, rtx cond,
 
 	  if ((remainder | shift_mask) != 0xffffffff)
 	    {
+	      HOST_WIDE_INT new_val
+	        = ARM_SIGN_EXTEND (remainder | shift_mask);
+
 	      if (generate)
 		{
 		  rtx new_src = subtargets ? gen_reg_rtx (mode) : target;
-		  insns = arm_gen_constant (AND, mode, cond,
-					    remainder | shift_mask,
+		  insns = arm_gen_constant (AND, SImode, cond, new_val,
 					    new_src, source, subtargets, 1);
 		  source = new_src;
 		}
 	      else
 		{
 		  rtx targ = subtargets ? NULL_RTX : target;
-		  insns = arm_gen_constant (AND, mode, cond,
-					    remainder | shift_mask,
+		  insns = arm_gen_constant (AND, mode, cond, new_val,
 					    targ, source, subtargets, 0);
 		}
 	    }
@@ -4567,12 +4572,13 @@ arm_gen_constant (enum rtx_code code, machine_mode mode, rtx cond,
 
 	  if ((remainder | shift_mask) != 0xffffffff)
 	    {
+	      HOST_WIDE_INT new_val
+	        = ARM_SIGN_EXTEND (remainder | shift_mask);
 	      if (generate)
 		{
 		  rtx new_src = subtargets ? gen_reg_rtx (mode) : target;
 
-		  insns = arm_gen_constant (AND, mode, cond,
-					    remainder | shift_mask,
+		  insns = arm_gen_constant (AND, mode, cond, new_val,
 					    new_src, source, subtargets, 1);
 		  source = new_src;
 		}
@@ -4580,8 +4586,7 @@ arm_gen_constant (enum rtx_code code, machine_mode mode, rtx cond,
 		{
 		  rtx targ = subtargets ? NULL_RTX : target;
 
-		  insns = arm_gen_constant (AND, mode, cond,
-					    remainder | shift_mask,
+		  insns = arm_gen_constant (AND, mode, cond, new_val,
 					    targ, source, subtargets, 0);
 		}
 	    }
@@ -4809,7 +4814,7 @@ arm_canonicalize_comparison (int *code, rtx *op0, rtx *op1,
       if (i != maxval
 	  && (const_ok_for_arm (i + 1) || const_ok_for_arm (-(i + 1))))
 	{
-	  *op1 = GEN_INT (i + 1);
+	  *op1 = GEN_INT (ARM_SIGN_EXTEND (i + 1));
 	  *code = *code == GT ? GE : LT;
 	  return;
 	}
@@ -4831,7 +4836,7 @@ arm_canonicalize_comparison (int *code, rtx *op0, rtx *op1,
       if (i != ~((unsigned HOST_WIDE_INT) 0)
 	  && (const_ok_for_arm (i + 1) || const_ok_for_arm (-(i + 1))))
 	{
-	  *op1 = GEN_INT (i + 1);
+	  *op1 = GEN_INT (ARM_SIGN_EXTEND (i + 1));
 	  *code = *code == GTU ? GEU : LTU;
 	  return;
 	}
@@ -6392,14 +6397,8 @@ arm_set_default_type_attributes (tree type)
 static bool
 arm_function_in_section_p (tree decl, section *section)
 {
-  /* We can only be certain about functions defined in the same
-     compilation unit.  */
-  if (!TREE_STATIC (decl))
-    return false;
-
-  /* Make sure that SYMBOL always binds to the definition in this
-     compilation unit.  */
-  if (!targetm.binds_local_p (decl))
+  /* We can only be certain about the prevailing symbol definition.  */
+  if (!decl_binds_to_current_def_p (decl))
     return false;
 
   /* If DECL_SECTION_NAME is set, assume it is trustworthy.  */
@@ -8194,14 +8193,8 @@ arm_tls_referenced_p (rtx x)
    When generating pic allow anything.  */
 
 static bool
-arm_legitimate_constant_p_1 (machine_mode mode, rtx x)
+arm_legitimate_constant_p_1 (machine_mode, rtx x)
 {
-  /* At present, we have no support for Neon structure constants, so forbid
-     them here.  It might be possible to handle simple cases like 0 and -1
-     in future.  */
-  if (TARGET_NEON && VALID_NEON_STRUCT_MODE (mode))
-    return false;
-
   return flag_pic || !label_mentioned_p (x);
 }
 
@@ -25634,6 +25627,59 @@ arm_emit_eabi_attribute (const char *name, int num, int val)
   asm_fprintf (asm_out_file, "\n");
 }
 
+/* This function is used to print CPU tuning information as comment
+   in assembler file.  Pointers are not printed for now.  */
+
+void
+arm_print_tune_info (void)
+{
+  asm_fprintf (asm_out_file, "\t@.tune parameters\n");
+  asm_fprintf (asm_out_file, "\t\t@constant_limit:\t%d\n",
+	       current_tune->constant_limit);
+  asm_fprintf (asm_out_file, "\t\t@max_insns_skipped:\t%d\n",
+	       current_tune->max_insns_skipped);
+  asm_fprintf (asm_out_file, "\t\t@num_prefetch_slots:\t%d\n",
+	       current_tune->num_prefetch_slots);
+  asm_fprintf (asm_out_file, "\t\t@l1_cache_size:\t%d\n",
+	       current_tune->l1_cache_size);
+  asm_fprintf (asm_out_file, "\t\t@l1_cache_line_size:\t%d\n",
+	       current_tune->l1_cache_line_size);
+  asm_fprintf (asm_out_file, "\t\t@prefer_constant_pool:\t%d\n",
+	       (int) current_tune->prefer_constant_pool);
+  asm_fprintf (asm_out_file, "\t\t@branch_cost:\t(s:speed, p:predictable)\n");
+  asm_fprintf (asm_out_file, "\t\t\t\ts&p\tcost\n");
+  asm_fprintf (asm_out_file, "\t\t\t\t00\t%d\n",
+	       current_tune->branch_cost (false, false));
+  asm_fprintf (asm_out_file, "\t\t\t\t01\t%d\n",
+	       current_tune->branch_cost (false, true));
+  asm_fprintf (asm_out_file, "\t\t\t\t10\t%d\n",
+	       current_tune->branch_cost (true, false));
+  asm_fprintf (asm_out_file, "\t\t\t\t11\t%d\n",
+	       current_tune->branch_cost (true, true));
+  asm_fprintf (asm_out_file, "\t\t@prefer_ldrd_strd:\t%d\n",
+	       (int) current_tune->prefer_ldrd_strd);
+  asm_fprintf (asm_out_file, "\t\t@logical_op_non_short_circuit:\t[%d,%d]\n",
+	       (int) current_tune->logical_op_non_short_circuit[0],
+	       (int) current_tune->logical_op_non_short_circuit[1]);
+  asm_fprintf (asm_out_file, "\t\t@prefer_neon_for_64bits:\t%d\n",
+	       (int) current_tune->prefer_neon_for_64bits);
+  asm_fprintf (asm_out_file,
+	       "\t\t@disparage_flag_setting_t16_encodings:\t%d\n",
+	       (int) current_tune->disparage_flag_setting_t16_encodings);
+  asm_fprintf (asm_out_file,
+	       "\t\t@disparage_partial_flag_setting_t16_encodings:\t%d\n",
+	       (int) current_tune
+	               ->disparage_partial_flag_setting_t16_encodings);
+  asm_fprintf (asm_out_file, "\t\t@string_ops_prefer_neon:\t%d\n",
+	       (int) current_tune->string_ops_prefer_neon);
+  asm_fprintf (asm_out_file, "\t\t@max_insns_inline_memset:\t%d\n",
+	       current_tune->max_insns_inline_memset);
+  asm_fprintf (asm_out_file, "\t\t@fuseable_ops:\t%u\n",
+	       current_tune->fuseable_ops);
+  asm_fprintf (asm_out_file, "\t\t@sched_autopref:\t%d\n",
+	       (int) current_tune->sched_autopref);
+}
+
 static void
 arm_file_start (void)
 {
@@ -25684,6 +25730,9 @@ arm_file_start (void)
 	    = arm_rewrite_selected_cpu (arm_selected_cpu->name);
 	  asm_fprintf (asm_out_file, "\t.cpu %s\n", truncated_name);
 	}
+
+      if (print_tune_info)
+	arm_print_tune_info ();
 
       if (TARGET_SOFT_FLOAT)
 	{
@@ -27154,6 +27203,7 @@ arm_issue_rate (void)
 
     case cortexa15:
     case cortexa57:
+    case exynosm1:
       return 3;
 
     case cortexm7:

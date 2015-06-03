@@ -488,9 +488,6 @@ static const struct aarch64_option_extension all_extensions[] =
    increment address.  */
 static machine_mode aarch64_memory_reference_mode;
 
-/* Used to force GTY into this file.  */
-static GTY(()) int gty_dummy;
-
 /* A table of valid AArch64 "bitmask immediate" values for
    logical instructions.  */
 
@@ -914,6 +911,10 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
     case SYMBOL_SMALL_TPREL:
       {
 	rtx tp = aarch64_load_tp (NULL);
+
+	if (GET_MODE (dest) != Pmode)
+	  tp = gen_lowpart (GET_MODE (dest), tp);
+
 	emit_insn (gen_tlsle_small (dest, tp, imm));
 	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
 	return;

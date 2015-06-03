@@ -182,6 +182,7 @@ static tree gnat_to_gnu_component_type (Entity_Id, bool, bool);
 static tree gnat_to_gnu_param (Entity_Id, Mechanism_Type, Entity_Id, bool,
 			       bool *);
 static tree gnat_to_gnu_field (Entity_Id, tree, int, bool, bool);
+static bool is_from_limited_with_of_main (Entity_Id);
 static tree change_qualified_type (tree, int);
 static bool same_discriminant_p (Entity_Id, Entity_Id);
 static bool array_type_has_nonaliased_component (tree, Entity_Id);
@@ -4165,8 +4166,13 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      ? is_required
 	      : (Is_Inlined (gnat_entity) ? is_enabled : is_disabled);
 	bool public_flag = Is_Public (gnat_entity) || imported_p;
+	/* Subprograms marked both Intrinsic and Always_Inline need not
+	   have a body of their own.  */
 	bool extern_flag
-	  = (Is_Public (gnat_entity) && !definition) || imported_p;
+	  = ((Is_Public (gnat_entity) && !definition)
+	     || imported_p
+	     || (Convention (gnat_entity) == Convention_Intrinsic
+		 && Has_Pragma_Inline_Always (gnat_entity)));
 	bool artificial_flag = !Comes_From_Source (gnat_entity);
        /* The semantics of "pure" in Ada essentially matches that of "const"
           in the back-end.  In particular, both properties are orthogonal to
@@ -4247,11 +4253,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	       context may now appear in parameter and result profiles.  If
 	       we are only annotating types, break circularities here.  */
 	    if (type_annotate_only
-		&& IN (Ekind (gnat_return_type), Incomplete_Kind)
-	        && From_Limited_With (gnat_return_type)
-		&& In_Extended_Main_Code_Unit
-		   (Non_Limited_View (gnat_return_type))
-		&& !present_gnu_tree (Non_Limited_View (gnat_return_type)))
+	        && is_from_limited_with_of_main (gnat_return_type))
 	      gnu_return_type = ptr_void_type_node;
 	    else
 	      gnu_return_type = gnat_to_gnu_type (gnat_return_type);
@@ -4264,8 +4266,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		return_by_direct_ref_p = true;
 	      }
 
-	    /* If we are supposed to return an unconstrained array type, make
-	       the actual return type the fat pointer type.  */
+	    /* If the return type is an unconstrained array type, the return
+	       value will be allocated on the secondary stack so the actual
+	       return type is the fat pointer type.  */
 	    else if (TREE_CODE (gnu_return_type) == UNCONSTRAINED_ARRAY_TYPE)
 	      {
 		gnu_return_type = TREE_TYPE (gnu_return_type);
@@ -4273,8 +4276,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      }
 
 	    /* Likewise, if the return type requires a transient scope, the
-	       return value will be allocated on the secondary stack so the
-	       actual return type is the pointer type.  */
+	       return value will also be allocated on the secondary stack so
+	       the actual return type is the pointer type.  */
 	    else if (Requires_Transient_Scope (gnat_return_type))
 	      {
 		gnu_return_type = build_pointer_type (gnu_return_type);
@@ -4360,11 +4363,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	       context may now appear in parameter and result profiles.  If
 	       we are only annotating types, break circularities here.  */
 	    if (type_annotate_only
-		&& IN (Ekind (gnat_param_type), Incomplete_Kind)
-	        && From_Limited_With (Etype (gnat_param_type))
-		&& In_Extended_Main_Code_Unit
-		   (Non_Limited_View (gnat_param_type))
-		&& !present_gnu_tree (Non_Limited_View (gnat_param_type)))
+	        && is_from_limited_with_of_main (gnat_param_type))
 	      {
 		gnu_param_type = ptr_void_type_node;
 		fake_param_type = true;
@@ -4593,11 +4592,14 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 				 return_by_direct_ref_p,
 				 return_by_invisi_ref_p);
 
-	/* A subprogram (something that doesn't return anything) shouldn't
-	   be considered const since there would be no reason for such a
+	/* A procedure (something that doesn't return anything) shouldn't be
+	   considered const since there would be no reason for calling such a
 	   subprogram.  Note that procedures with Out (or In Out) parameters
-	   have already been converted into a function with a return type.  */
-	if (TREE_CODE (gnu_return_type) == VOID_TYPE)
+	   have already been converted into a function with a return type.
+	   Similarly, if the function returns an unconstrained type, then the
+	   function will allocate the return value on the secondary stack and
+	   thus calls to it cannot be CSE'ed, lest the stack be reclaimed.  */
+	if (TREE_CODE (gnu_return_type) == VOID_TYPE || return_unconstrained_p)
 	  const_flag = false;
 
 	if (const_flag || volatile_flag)
@@ -4795,9 +4797,11 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
     case E_Abstract_State:
       /* This is a SPARK annotation that only reaches here when compiling in
-	 ASIS mode and has no characteristics to annotate.  */
+	 ASIS mode.  */
       gcc_assert (type_annotate_only);
-      return error_mark_node;
+      gnu_decl = error_mark_node;
+      saved = true;
+      break;
 
     default:
       gcc_unreachable ();
@@ -5138,7 +5142,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	 to conflict with Comp2 and an alias set copy is required.
 
 	 The language rules ensure the parent type is already frozen here.  */
-      if (Is_Derived_Type (gnat_entity) && !type_annotate_only)
+      if (kind != E_Subprogram_Type
+	  && Is_Derived_Type (gnat_entity)
+	  && !type_annotate_only)
 	{
 	  Entity_Id gnat_parent_type = Underlying_Type (Etype (gnat_entity));
 	  /* For constrained packed array subtypes, the implementation type is
@@ -5446,16 +5452,17 @@ is_cplusplus_method (Entity_Id gnat_entity)
   if (Convention (gnat_entity) != Convention_CPP)
     return false;
 
-  /* This is the main case: C++ method imported as a primitive operation.  */
-  if (Is_Dispatching_Operation (gnat_entity))
+  /* This is the main case: C++ method imported as a primitive operation.
+     Note that a C++ class with no virtual functions can be imported as a
+     limited record type so the operation is not necessarily dispatching.  */
+  if (Is_Primitive (gnat_entity))
     return true;
 
   /* A thunk needs to be handled like its associated primitive operation.  */
   if (Is_Subprogram (gnat_entity) && Is_Thunk (gnat_entity))
     return true;
 
-  /* C++ classes with no virtual functions can be imported as limited
-     record types, but we need to return true for the constructors.  */
+  /* A constructor is a method on the C++ side.  */
   if (Is_Constructor (gnat_entity))
     return true;
 
@@ -5656,15 +5663,17 @@ gnat_to_gnu_param (Entity_Id gnat_param, Mechanism_Type mech,
     }
 
   /* If this is either a foreign function or if the underlying type won't
-     be passed by reference, strip off possible padding type.  */
+     be passed by reference and is as aligned as the original type, strip
+     off possible padding type.  */
   if (TYPE_IS_PADDING_P (gnu_param_type))
     {
       tree unpadded_type = TREE_TYPE (TYPE_FIELDS (gnu_param_type));
 
-      if (mech == By_Reference
-	  || foreign
+      if (foreign
 	  || (!must_pass_by_ref (unpadded_type)
-	      && (mech == By_Copy || !default_pass_by_ref (unpadded_type))))
+	      && mech != By_Reference
+	      && (mech == By_Copy || !default_pass_by_ref (unpadded_type))
+	      && TYPE_ALIGN (unpadded_type) >= TYPE_ALIGN (gnu_param_type)))
 	gnu_param_type = unpadded_type;
     }
 
@@ -5796,6 +5805,30 @@ gnat_to_gnu_param (Entity_Id gnat_param, Mechanism_Type mech,
 
   Set_Mechanism (gnat_param, mech);
   return gnu_param;
+}
+
+/* Return true if GNAT_ENTITY is an incomplete entity coming from a limited
+   with of the main unit and whose full view has not been elaborated yet.  */
+
+static bool
+is_from_limited_with_of_main (Entity_Id gnat_entity)
+{
+  /* Class-wide types are always transformed into their root type.  */
+  if (Ekind (gnat_entity) == E_Class_Wide_Type)
+    gnat_entity = Root_Type (gnat_entity);
+
+  if (IN (Ekind (gnat_entity), Incomplete_Kind)
+      && From_Limited_With (gnat_entity))
+    {
+      Entity_Id gnat_full_view = Non_Limited_View (gnat_entity);
+
+      if (present_gnu_tree (gnat_full_view))
+	return false;
+
+      return In_Extended_Main_Code_Unit (gnat_full_view);
+    }
+
+  return false;
 }
 
 /* Like build_qualified_type, but TYPE_QUALS is added to the existing
@@ -6422,17 +6455,22 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 		   bool definition, bool debug_info_p)
 {
   const Entity_Id gnat_field_type = Etype (gnat_field);
+  const bool is_aliased
+    = Is_Aliased (gnat_field);
+  const bool is_atomic
+    = (Is_Atomic (gnat_field) || Is_Atomic (gnat_field_type));
+  const bool is_independent
+    = (Is_Independent (gnat_field) || Is_Independent (gnat_field_type));
+  const bool is_volatile
+    = (Treat_As_Volatile (gnat_field) || Treat_As_Volatile (gnat_field_type));
+  const bool needs_strict_alignment
+    = (is_aliased
+       || is_independent
+       || is_volatile
+       || Strict_Alignment (gnat_field_type));
   tree gnu_field_type = gnat_to_gnu_type (gnat_field_type);
   tree gnu_field_id = get_entity_name (gnat_field);
   tree gnu_field, gnu_size, gnu_pos;
-  bool is_aliased
-    = Is_Aliased (gnat_field);
-  bool is_atomic
-    = (Is_Atomic (gnat_field) || Is_Atomic (gnat_field_type));
-  bool is_volatile
-    = (Treat_As_Volatile (gnat_field) || Treat_As_Volatile (gnat_field_type));
-  bool needs_strict_alignment
-    = (is_aliased || is_volatile || Strict_Alignment (gnat_field_type));
 
   /* If this field requires strict alignment, we cannot pack it because
      it would very likely be under-aligned in the record.  */
@@ -6550,6 +6588,8 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 		s = "position of atomic field& must be multiple of ^ bits";
 	      else if (is_aliased)
 		s = "position of aliased field& must be multiple of ^ bits";
+	      else if (is_independent)
+		s = "position of independent field& must be multiple of ^ bits";
 	      else if (is_volatile)
 		s = "position of volatile field& must be multiple of ^ bits";
 	      else if (Strict_Alignment (gnat_field_type))
@@ -6578,6 +6618,8 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 		    s = "size of atomic field& must be ^ bits";
 		  else if (is_aliased)
 		    s = "size of aliased field& must be ^ bits";
+		  else if (is_independent)
+		    s = "size of independent field& must be at least ^ bits";
 		  else if (is_volatile)
 		    s = "size of volatile field& must be at least ^ bits";
 		  else if (Strict_Alignment (gnat_field_type))
@@ -6597,7 +6639,10 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 		{
 		  const char *s;
 
-		  if (is_volatile)
+		  if (is_independent)
+		    s = "size of independent field& must be multiple of"
+			" Storage_Unit";
+		  else if (is_volatile)
 		    s = "size of volatile field& must be multiple of"
 			" Storage_Unit";
 		  else if (Strict_Alignment (gnat_field_type))

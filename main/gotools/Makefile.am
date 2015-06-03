@@ -39,7 +39,7 @@ GOCFLAGS = $(CFLAGS_FOR_TARGET)
 GOCOMPILE = $(GOCOMPILER) $(GOCFLAGS)
 
 AM_LDFLAGS = -L $(libgodir) -L $(libgodir)/.libs
-GOLINK = $(GOCOMPILER) $(AM_GOCFLAGS) $(LDFLAGS) $(AM_LDFLAGS) -o $@
+GOLINK = $(GOCOMPILER) $(GOCFLAGS) $(AM_GOCFLAGS) $(LDFLAGS) $(AM_LDFLAGS) -o $@
 
 cmdsrcdir = $(srcdir)/../libgo/go/cmd
 
@@ -67,7 +67,8 @@ go_cmd_go_files = \
 	$(cmdsrcdir)/go/tool.go \
 	$(cmdsrcdir)/go/vcs.go \
 	$(cmdsrcdir)/go/version.go \
-	$(cmdsrcdir)/go/vet.go
+	$(cmdsrcdir)/go/vet.go \
+	$(libgodir)/zstdpkglist.go
 
 go_cmd_gofmt_files = \
 	$(cmdsrcdir)/gofmt/doc.go \

@@ -85,6 +85,7 @@ c-common.h, not after.
       PACK_EXPANSION_LOCAL_P (in *_PACK_EXPANSION)
       TINFO_HAS_ACCESS_ERRORS (in TEMPLATE_INFO)
       SIZEOF_EXPR_TYPE_P (in SIZEOF_EXPR)
+      BLOCK_OUTER_CURLY_BRACE_P (in BLOCK)
    1: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -152,7 +153,6 @@ c-common.h, not after.
       DECL_MUTABLE_P (in FIELD_DECL)
       DECL_DEPENDENT_P (in USING_DECL)
       LABEL_DECL_BREAK (in LABEL_DECL)
-      NAMESPACE_ABI_TAG (in NAMESPACE_DECL)
    1: C_TYPEDEF_EXPLICITLY_SIGNED (in TYPE_DECL).
       DECL_TEMPLATE_INSTANTIATED (in a VAR_DECL or a FUNCTION_DECL)
       DECL_MEMBER_TEMPLATE_P (in TEMPLATE_DECL)
@@ -326,6 +326,9 @@ typedef struct ptrmem_cst * ptrmem_cst_t;
   TREE_LANG_FLAG_0 (STATEMENT_LIST_CHECK (NODE))
 #define STATEMENT_LIST_TRY_BLOCK(NODE) \
   TREE_LANG_FLAG_2 (STATEMENT_LIST_CHECK (NODE))
+
+/* Mark the outer curly brace BLOCK.  */
+#define BLOCK_OUTER_CURLY_BRACE_P(NODE)	TREE_LANG_FLAG_0 (BLOCK_CHECK (NODE))
 
 /* Nonzero if this statement should be considered a full-expression,
    i.e., if temporaries created during this statement should have
@@ -2653,11 +2656,6 @@ struct GTY(()) lang_decl {
 /* 1 iff NODE is function-local, but for types.  */
 #define LOCAL_CLASS_P(NODE)				\
   (decl_function_context (TYPE_MAIN_DECL (NODE)) != NULL_TREE)
-
-/* 1 iff this NAMESPACE_DECL should also be treated as an ABI tag for
-   -Wabi-tag.  */
-#define NAMESPACE_ABI_TAG(NODE)				\
-  DECL_LANG_FLAG_0 (NAMESPACE_DECL_CHECK (NODE))
 
 /* For a NAMESPACE_DECL: the list of using namespace directives
    The PURPOSE is the used namespace, the value is the namespace
@@ -5309,6 +5307,7 @@ extern void explain_non_literal_class		(tree);
 extern void inherit_targ_abi_tags		(tree);
 extern void defaulted_late_check		(tree);
 extern bool defaultable_fn_check		(tree);
+extern void check_abi_tags			(tree);
 extern void fixup_type_variants			(tree);
 extern void fixup_attribute_variants		(tree);
 extern tree* decl_cloned_function_p		(const_tree, bool);
@@ -5739,6 +5738,7 @@ extern tree get_mostly_instantiated_function_type (tree);
 extern bool problematic_instantiation_changed	(void);
 extern void record_last_problematic_instantiation (void);
 extern struct tinst_level *current_instantiation(void);
+extern bool instantiating_current_function_p    (void);
 extern tree maybe_get_template_decl_from_type_decl (tree);
 extern int processing_template_parmlist;
 extern bool dependent_type_p			(tree);
@@ -6072,6 +6072,7 @@ extern bool type_has_nontrivial_copy_init	(const_tree);
 extern bool class_tmpl_impl_spec_p		(const_tree);
 extern int zero_init_p				(const_tree);
 extern bool check_abi_tag_redeclaration		(const_tree, const_tree, const_tree);
+extern bool check_abi_tag_args			(tree, tree);
 extern tree strip_typedefs			(tree);
 extern tree strip_typedefs_expr			(tree);
 extern tree copy_binfo				(tree, tree, tree,
@@ -6349,6 +6350,7 @@ extern bool decl_tls_wrapper_p			(tree);
 extern tree mangle_ref_init_variable		(tree);
 extern void reset_temp_count                    (void);
 extern char * get_mangled_vtable_map_var_name   (tree);
+extern bool mangle_return_type_p		(tree);
 
 /* in dump.c */
 extern bool cp_dump_tree			(void *, tree);

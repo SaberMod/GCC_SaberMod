@@ -416,7 +416,8 @@ check_constexpr_bind_expr_vars (tree t)
 
   for (tree var = BIND_EXPR_VARS (t); var; var = DECL_CHAIN (var))
     if (TREE_CODE (var) == TYPE_DECL
-	&& DECL_IMPLICIT_TYPEDEF_P (var))
+	&& DECL_IMPLICIT_TYPEDEF_P (var)
+	&& !LAMBDA_TYPE_P (TREE_TYPE (var)))
       return false;
   return true;
 }
@@ -1355,8 +1356,12 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	      if (DECL_SAVED_TREE (fun) == NULL_TREE
 		  && (DECL_CONSTRUCTOR_P (fun) || DECL_DESTRUCTOR_P (fun)))
 		/* The maybe-in-charge 'tor had its DECL_SAVED_TREE
-		   cleared, try the first clone.  */
-		fun = DECL_CHAIN (fun);
+		   cleared, try a clone.  */
+		for (fun = DECL_CHAIN (fun);
+		     fun && DECL_CLONED_FUNCTION_P (fun);
+		     fun = DECL_CHAIN (fun))
+		  if (DECL_SAVED_TREE (fun))
+		    break;
 	      gcc_assert (DECL_SAVED_TREE (fun));
 	      tree parms, res;
 
@@ -2923,6 +2928,63 @@ cxx_eval_switch_expr (const constexpr_ctx *ctx, tree t,
   return NULL_TREE;
 }
 
+/* Subroutine of cxx_eval_constant_expression.
+   Attempt to reduce a POINTER_PLUS_EXPR expression T.  */
+
+static tree
+cxx_eval_pointer_plus_expression (const constexpr_ctx *ctx, tree t,
+				  bool lval, bool *non_constant_p,
+				  bool *overflow_p)
+{
+  tree orig_type = TREE_TYPE (t);
+  tree op00 = TREE_OPERAND (t, 0);
+  tree op01 = TREE_OPERAND (t, 1);
+  location_t loc = EXPR_LOCATION (t);
+
+  op00 = cxx_eval_constant_expression (ctx, op00, lval,
+				       non_constant_p, overflow_p);
+
+  STRIP_NOPS (op00);
+  if (TREE_CODE (op00) != ADDR_EXPR)
+    return NULL_TREE;
+
+  op00 = TREE_OPERAND (op00, 0);
+
+  /* &A[i] p+ j => &A[i + j] */
+  if (TREE_CODE (op00) == ARRAY_REF
+      && TREE_CODE (TREE_OPERAND (op00, 1)) == INTEGER_CST
+      && TREE_CODE (op01) == INTEGER_CST
+      && TYPE_SIZE_UNIT (TREE_TYPE (op00))
+      && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (op00))) == INTEGER_CST)
+    {
+      tree type = TREE_TYPE (op00);
+      t = fold_convert_loc (loc, ssizetype, TREE_OPERAND (op00, 1));
+      tree nelts = array_type_nelts_top (TREE_TYPE (TREE_OPERAND (op00, 0)));
+      /* Don't fold an out-of-bound access.  */
+      if (!tree_int_cst_le (t, nelts))
+	return NULL_TREE;
+      op01 = cp_fold_convert (ssizetype, op01);
+      /* Don't fold if op01 can't be divided exactly by TYPE_SIZE_UNIT.
+	 constexpr int A[1]; ... (char *)&A[0] + 1 */
+      if (!integer_zerop (fold_build2_loc (loc, TRUNC_MOD_EXPR, sizetype,
+					   op01, TYPE_SIZE_UNIT (type))))
+	return NULL_TREE;
+      /* Make sure to treat the second operand of POINTER_PLUS_EXPR
+	 as signed.  */
+      op01 = fold_build2_loc (loc, EXACT_DIV_EXPR, ssizetype, op01,
+			      TYPE_SIZE_UNIT (type));
+      t = size_binop_loc (loc, PLUS_EXPR, op01, t);
+      t = build4_loc (loc, ARRAY_REF, type, TREE_OPERAND (op00, 0),
+		      t, NULL_TREE, NULL_TREE);
+      t = cp_build_addr_expr (t, tf_warning_or_error);
+      t = cp_fold_convert (orig_type, t);
+      return cxx_eval_constant_expression (ctx, t, lval, non_constant_p,
+					   overflow_p);
+    }
+
+  return NULL_TREE;
+}
+
 /* Attempt to reduce the expression T to a constant value.
    On failure, issue diagnostic and return error_mark_node.  */
 /* FIXME unify with c_fully_fold */
@@ -2957,8 +3019,8 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       if (lval)
 	return t;
       /* We ask for an rvalue for the RESULT_DECL when indirecting
-	 through an invisible reference.  */
-      gcc_assert (DECL_BY_REFERENCE (t));
+	 through an invisible reference, or in named return value
+	 optimization.  */
       return (*ctx->values->get (t));
 
     case VAR_DECL:
@@ -3115,9 +3177,10 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       break;
 
     case RETURN_EXPR:
-      r = cxx_eval_constant_expression (ctx, TREE_OPERAND (t, 0),
-					lval,
-					non_constant_p, overflow_p);
+      if (TREE_OPERAND (t, 0) != NULL_TREE)
+	r = cxx_eval_constant_expression (ctx, TREE_OPERAND (t, 0),
+					  lval,
+					  non_constant_p, overflow_p);
       *jump_target = t;
       break;
 
@@ -3227,6 +3290,12 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       break;
 
     case POINTER_PLUS_EXPR:
+      r = cxx_eval_pointer_plus_expression (ctx, t, lval, non_constant_p,
+					    overflow_p);
+      if (r)
+	break;
+      /* else fall through */
+
     case PLUS_EXPR:
     case MINUS_EXPR:
     case MULT_EXPR:
@@ -3641,7 +3710,6 @@ maybe_constant_value (tree t, tree decl)
 
   r = cxx_eval_outermost_constant_expr (t, true, true, decl);
 #ifdef ENABLE_CHECKING
-  /* cp_tree_equal looks through NOPs, so allow them.  */
   gcc_assert (r == t
 	      || CONVERT_EXPR_P (t)
 	      || TREE_CODE (t) == VIEW_CONVERT_EXPR
@@ -4376,6 +4444,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
     case ARRAY_RANGE_REF:
     case MEMBER_REF:
     case DOTSTAR_EXPR:
+    case MEM_REF:
     binary:
       for (i = 0; i < 2; ++i)
 	if (!RECUR (TREE_OPERAND (t, i), want_rval))

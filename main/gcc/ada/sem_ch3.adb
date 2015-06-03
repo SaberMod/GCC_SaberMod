@@ -878,7 +878,14 @@ package body Sem_Ch3 is
          --  create a reference to it after the enclosing protected definition
          --  because the itype will be used in the subsequent bodies.
 
-         if Ekind (Current_Scope) = E_Protected_Type then
+         --  If the anonymous access itself is protected, a full type
+         --  declaratiton will be created for it, so that the equivalent
+         --  record type can be constructed. For further details, see
+         --  Replace_Anonymous_Access_To_Protected-Subprogram.
+
+         if Ekind (Current_Scope) = E_Protected_Type
+           and then not Protected_Present (Access_To_Subprogram_Definition (N))
+         then
             Build_Itype_Reference (Anon_Type, Parent (Current_Scope));
          end if;
 
@@ -2464,6 +2471,7 @@ package body Sem_Ch3 is
             Analyze_Object_Contract (Defining_Entity (Decl));
 
          elsif Nkind_In (Decl, N_Abstract_Subprogram_Declaration,
+                               N_Generic_Subprogram_Declaration,
                                N_Subprogram_Declaration)
          then
             Analyze_Subprogram_Contract (Defining_Entity (Decl));
@@ -3151,6 +3159,11 @@ package body Sem_Ch3 is
          if SPARK_Mode = On
            and then Is_Effectively_Volatile (Obj_Id)
            and then No (Corresponding_Generic_Association (Parent (Obj_Id)))
+
+           --  Don't give this for internally generated entities (such as the
+           --  FIRST and LAST temporaries generated for bounds).
+
+           and then Comes_From_Source (Obj_Id)
          then
             Error_Msg_N ("constant cannot be volatile", Obj_Id);
          end if;
@@ -4109,8 +4122,6 @@ package body Sem_Ch3 is
          if Present (E) then
             Set_Has_Initial_Value (Id);
          end if;
-
-         Set_Contract (Id, Make_Contract (Sloc (Id)));
       end if;
 
       --  Initialize alignment and size and capture alignment setting
@@ -4978,16 +4989,17 @@ package body Sem_Ch3 is
                end if;
 
                if Has_Discriminants (T) then
-                  Set_Discriminant_Constraint (Id,
-                                           Discriminant_Constraint (T));
+                  Set_Discriminant_Constraint
+                    (Id, Discriminant_Constraint (T));
                   Set_Stored_Constraint_From_Discriminant_Constraint (Id);
                end if;
 
-            when E_Incomplete_Type =>
+            when Incomplete_Kind  =>
                if Ada_Version >= Ada_2005 then
 
                   --  In Ada 2005 an incomplete type can be explicitly tagged:
-                  --  propagate indication.
+                  --  propagate indication. Note that we also have to include
+                  --  subtypes for Ada 2012 extended use of incomplete types.
 
                   Set_Ekind              (Id, E_Incomplete_Subtype);
                   Set_Is_Tagged_Type     (Id, Is_Tagged_Type (T));
@@ -4996,6 +5008,7 @@ package body Sem_Ch3 is
                   if Is_Tagged_Type (Id) then
                      Set_No_Tagged_Streams_Pragma
                        (Id, No_Tagged_Streams_Pragma (T));
+                     Set_Direct_Primitive_Operations (Id, New_Elmt_List);
                   end if;
 
                   --  Ada 2005 (AI-412): Decorate an incomplete subtype of an
@@ -8045,9 +8058,9 @@ package body Sem_Ch3 is
                while Present (C) loop
                   Expr := Node (C);
 
-                  --  It is safe here to call New_Copy_Tree since
-                  --  Force_Evaluation was called on each constraint in
-                  --  Build_Discriminant_Constraints.
+                  --  It is safe here to call New_Copy_Tree since we called
+                  --  Force_Evaluation on each constraint previously
+                  --  in Build_Discriminant_Constraints.
 
                   Append (New_Copy_Tree (Expr), To => Constr_List);
 
@@ -8630,6 +8643,36 @@ package body Sem_Ch3 is
                           (Defining_Identifier (Def), Ifaces_List);
                      end if;
                   end;
+               end if;
+
+               --  Propagate inherited invariant information of parents
+               --  and progenitors
+
+               if Ada_Version >= Ada_2012
+                 and then not Is_Interface (Derived_Type)
+               then
+                  if Has_Inheritable_Invariants (Parent_Type) then
+                     Set_Has_Invariants (Derived_Type);
+                     Set_Has_Inheritable_Invariants (Derived_Type);
+
+                  elsif not Is_Empty_Elmt_List (Ifaces_List) then
+                     declare
+                        AI : Elmt_Id;
+
+                     begin
+                        AI := First_Elmt (Ifaces_List);
+                        while Present (AI) loop
+                           if Has_Inheritable_Invariants (Node (AI)) then
+                              Set_Has_Invariants (Derived_Type);
+                              Set_Has_Inheritable_Invariants (Derived_Type);
+
+                              exit;
+                           end if;
+
+                           Next_Elmt (AI);
+                        end loop;
+                     end;
+                  end if;
                end if;
 
                --  A type extension is automatically Ghost when one of its
@@ -13134,6 +13177,10 @@ package body Sem_Ch3 is
       T      : constant Entity_Id := Etype (Index);
 
    begin
+      Def_Id :=
+        Create_Itype (E_Void, Related_Nod, Related_Id, Suffix, Suffix_Index);
+      Set_Etype (Def_Id, Base_Type (T));
+
       if Nkind (S) = N_Range
         or else
           (Nkind (S) = N_Attribute_Reference
@@ -13182,8 +13229,10 @@ package body Sem_Ch3 is
          --  supposed to occur, e.g. on default parameters of a call.
 
          if Expander_Active or GNATprove_Mode then
-            Force_Evaluation (Low_Bound (R));
-            Force_Evaluation (High_Bound (R));
+            Force_Evaluation
+              (Low_Bound (R),  Related_Id => Def_Id, Is_Low_Bound  => True);
+            Force_Evaluation
+              (High_Bound (R), Related_Id => Def_Id, Is_High_Bound => True);
          end if;
 
       elsif Nkind (S) = N_Discriminant_Association then
@@ -13223,10 +13272,7 @@ package body Sem_Ch3 is
          end if;
       end if;
 
-      Def_Id :=
-        Create_Itype (E_Void, Related_Nod, Related_Id, Suffix, Suffix_Index);
-
-      Set_Etype (Def_Id, Base_Type (T));
+      --  Complete construction of the Itype
 
       if Is_Modular_Integer_Type (T) then
          Set_Ekind (Def_Id, E_Modular_Integer_Subtype);
@@ -13342,7 +13388,6 @@ package body Sem_Ch3 is
       else
          pragma Assert (No (C));
          Set_Scalar_Range (Def_Id, Scalar_Range (T));
-
       end if;
 
       Set_Discrete_RM_Size (Def_Id);
@@ -14477,7 +14522,6 @@ package body Sem_Ch3 is
    begin
       New_Subp := New_Entity (Nkind (Parent_Subp), Sloc (Derived_Type));
       Set_Ekind (New_Subp, Ekind (Parent_Subp));
-      Set_Contract (New_Subp, Make_Contract (Sloc (New_Subp)));
 
       --  Check whether the inherited subprogram is a private operation that
       --  should be inherited but not yet made visible. Such subprograms can
@@ -14804,7 +14848,7 @@ package body Sem_Ch3 is
 
          if Present (DTC_Entity (Actual_Subp)) then
             Set_DTC_Entity (New_Subp, DTC_Entity (Actual_Subp));
-            Set_DT_Position (New_Subp, DT_Position (Actual_Subp));
+            Set_DT_Position_Value (New_Subp, DT_Position (Actual_Subp));
          end if;
       end if;
 
@@ -16458,6 +16502,13 @@ package body Sem_Ch3 is
             Copy_And_Swap (Prev, Id);
             Set_Has_Private_Declaration (Prev);
             Set_Has_Private_Declaration (Id);
+
+            --  AI12-0133: Indicate whether we have a partial view with
+            --  unknown discriminants, in which case initialization of objects
+            --  of the type do not receive an invariant check.
+
+            Set_Partial_View_Has_Unknown_Discr
+              (Prev, Has_Unknown_Discriminants (Id));
 
             --  Preserve aspect and iterator flags that may have been set on
             --  the partial view.
@@ -19429,7 +19480,7 @@ package body Sem_Ch3 is
               and then Limited_Present (Type_Definition (Orig_Decl))
             then
                Error_Msg_N
-                ("full view of non-limited extension cannot be limited", N);
+                 ("full view of non-limited extension cannot be limited", N);
 
             --  Conversely, if the partial view carries the limited keyword,
             --  the full view must as well, even if it may be redundant.
@@ -19438,8 +19489,8 @@ package body Sem_Ch3 is
               and then not Limited_Present (Type_Definition (Orig_Decl))
             then
                Error_Msg_N
-                ("full view of limited extension must be explicitly limited",
-                 N);
+                 ("full view of limited extension must be explicitly limited",
+                  N);
             end if;
          end if;
       end;
@@ -19667,7 +19718,7 @@ package body Sem_Ch3 is
                         if not Is_Dispatching_Operation (Prim) then
                            Append_Elmt (Prim, Full_List);
                            Set_Is_Dispatching_Operation (Prim, True);
-                           Set_DT_Position (Prim, No_Uint);
+                           Set_DT_Position_Value (Prim, No_Uint);
                         end if;
 
                      elsif Is_Dispatching_Operation (Prim)
@@ -19821,6 +19872,34 @@ package body Sem_Ch3 is
 
       if Has_Inheritable_Invariants (Priv_T) then
          Set_Has_Inheritable_Invariants (Full_T);
+      end if;
+
+      --  Check hidden inheritance of class-wide type invariants
+
+      if Ada_Version >= Ada_2012
+        and then not Has_Inheritable_Invariants (Full_T)
+        and then In_Private_Part (Current_Scope)
+        and then Has_Interfaces (Full_T)
+      then
+         declare
+            Ifaces : Elist_Id;
+            AI     : Elmt_Id;
+
+         begin
+            Collect_Interfaces (Full_T, Ifaces, Exclude_Parents => True);
+
+            AI := First_Elmt (Ifaces);
+            while Present (AI) loop
+               if Has_Inheritable_Invariants (Node (AI)) then
+                  Error_Msg_N
+                    ("hidden inheritance of class-wide type invariants " &
+                     "not allowed", N);
+                  exit;
+               end if;
+
+               Next_Elmt (AI);
+            end loop;
+         end;
       end if;
 
       --  Propagate predicates to full type, and predicate function if already
@@ -20099,85 +20178,24 @@ package body Sem_Ch3 is
 
             if Expander_Active or GNATprove_Mode then
 
-               --  If no subtype name, then just call Force_Evaluation to
-               --  create declarations as needed to deal with side effects.
-               --  Also ignore calls from within a record type, where we
-               --  have possible scoping issues.
-
-               if No (Subtyp) or else Is_Record_Type (Current_Scope) then
-                  Force_Evaluation (Lo);
-                  Force_Evaluation (Hi);
-
-               --  If a subtype is given, then we capture the bounds if they
-               --  are not known at compile time, using constant identifiers
-               --  xxx_FIRST and xxx_LAST where xxx is the name of the subtype.
+               --  Call Force_Evaluation to create declarations as needed to
+               --  deal with side effects, and also create typ_FIRST/LAST
+               --  entities for bounds if we have a subtype name.
 
                --  Note: we do this transformation even if expansion is not
-               --  active, and in particular we do it in GNATprove_Mode since
-               --  the transformation is in general required to ensure that the
-               --  resulting tree has proper Ada semantics.
+               --  active if we are in GNATprove_Mode since the transformation
+               --  is in general required to ensure that the resulting tree has
+               --  proper Ada semantics.
 
-               --  Historical note: We used to just do Force_Evaluation calls
-               --  in all cases, but it is better to capture the bounds with
-               --  proper non-serialized names, since these will be accessed
-               --  from other units, and hence may be public, and also we can
-               --  then expand 'First and 'Last references to be references to
-               --  these special names.
-
-               else
-                  if not Compile_Time_Known_Value (Lo)
-
-                    --  No need to capture bounds if they already are
-                    --  references to constants.
-
-                    and then not (Is_Entity_Name (Lo)
-                                   and then Is_Constant_Object (Entity (Lo)))
-                  then
-                     declare
-                        Loc : constant Source_Ptr := Sloc (Lo);
-                        Lov : constant Entity_Id  :=
-                          Make_Defining_Identifier (Loc,
-                            Chars =>
-                              New_External_Name (Chars (Subtyp), "_FIRST"));
-                     begin
-                        Insert_Action (R,
-                          Make_Object_Declaration (Loc,
-                            Defining_Identifier => Lov,
-                            Object_Definition   =>
-                              New_Occurrence_Of (Base_Type (T), Loc),
-                            Constant_Present    => True,
-                            Expression          => Relocate_Node (Lo)));
-                        Rewrite (Lo, New_Occurrence_Of (Lov, Loc));
-                     end;
-                  end if;
-
-                  if not Compile_Time_Known_Value (Hi)
-                    and then not (Is_Entity_Name (Hi)
-                                  and then Is_Constant_Object (Entity (Hi)))
-                  then
-                     declare
-                        Loc : constant Source_Ptr := Sloc (Hi);
-                        Hiv : constant Entity_Id  :=
-                          Make_Defining_Identifier (Loc,
-                            Chars =>
-                              New_External_Name (Chars (Subtyp), "_LAST"));
-                     begin
-                        Insert_Action (R,
-                          Make_Object_Declaration (Loc,
-                            Defining_Identifier => Hiv,
-                            Object_Definition   =>
-                              New_Occurrence_Of (Base_Type (T), Loc),
-                            Constant_Present    => True,
-                            Expression          => Relocate_Node (Hi)));
-                        Rewrite (Hi, New_Occurrence_Of (Hiv, Loc));
-                     end;
-                  end if;
-               end if;
+               Force_Evaluation
+                 (Lo, Related_Id => Subtyp, Is_Low_Bound  => True);
+               Force_Evaluation
+                 (Hi, Related_Id => Subtyp, Is_High_Bound => True);
             end if;
 
-            --  We use a flag here instead of suppressing checks on the
-            --  type because the type we check against isn't necessarily
-            --  the place where we put the check.
+            --  We use a flag here instead of suppressing checks on the type
+            --  because the type we check against isn't necessarily the place
+            --  where we put the check.
 
             if not R_Check_Off then
                R_Checks := Get_Range_Checks (R, T);

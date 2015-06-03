@@ -1,10 +1,83 @@
+2015-04-10  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	PR target/55143
+	* c-decl.c (c_default_pointer_mode): Remove definition.
+	* c-tree.h (c_default_pointer_mode): Remove declaration.
+
+2015-03-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR c/65586
+	* c-parser.c (c_parser_skip_to_pragma_eol): Optionally, don't
+	error out.
+	(c_parser_omp_for, c_parser_omp_parallel, c_parser_omp_distribute,
+	c_parser_omp_teams, c_parser_omp_target, c_parser_omp_declare):
+	Update calls to not error for skipped omp pragmas with -fopenmp-simd.
+
+2015-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-decl.c (c_decl_attributes): Also add "omp declare target"
+	attribute for DECL_EXTERNAL VAR_DECLs.
+
+2015-03-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parse_init): Don't call xstrdup on get_identifier
+	argument.
+
+2015-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/65120
+	* c-typeck.c (parser_build_binary_op): Check for tcc_comparison
+	before preparing arguments to warn_logical_not_parentheses.
+
+2015-03-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/65120
+	* c-typeck.c (parser_build_binary_op): Don't warn for
+	!!x == y or !b == y where b is _Bool.
+
+2015-03-09  Marek Polacek  <polacek@redhat.com>
+
+	* c-convert.c (convert): Make use of do_ubsan_in_current_function.
+	* c-decl.c (grokdeclarator): Likewise.
+	* c-typeck.c (build_binary_op): Likewise.
+
+2015-02-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65228
+	* c-decl.c (start_decl): Return NULL_TREE if decl is an error node.
+
+2015-02-14  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64768
+	* c-decl.c (grokdeclarator): Set the range of a flexible array member
+	declared through a typedef name.
+
+2015-02-13  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65050
+	* c-decl.c (grokdeclarator): Print also the type when giving
+	the error message about array's incomplete element type.
+
+2015-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/64824
+	* c-parser.c (c_parser_binary_expression): Fix OpenMP stack[sp].prec
+	check in the POP macro.
+
+2015-02-09  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64856
+	* c-typeck.c (process_init_element): Don't always wrap
+	COMPOUND_LITERAL_EXPR in a SAVE_EXPR in C99 mode when
+	initializing a range of elements.
+
 2015-02-04  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/64824
 	PR c/64868
 	* c-parser.c (c_parser_omp_atomic): Handle RDIV_EXPR.
 
-2015-02-02  Bruno Loff <bruno.loff@gmail.com>
+2015-02-02  Bruno Loff  <bruno.loff@gmail.com>
 
 	* c-parser.c (c_parser_declspecs): Call invoke_plugin_callbacks after
 	processing enum declaration.

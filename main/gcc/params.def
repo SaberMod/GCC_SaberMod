@@ -217,7 +217,7 @@ DEFPARAM(PARAM_LARGE_UNIT_INSNS,
 DEFPARAM(PARAM_INLINE_UNIT_GROWTH,
 	 "inline-unit-growth",
 	 "How much can given compilation unit grow because of the inlining (in percent)",
-	 15, 0, 0)
+	 20, 0, 0)
 DEFPARAM(PARAM_IPCP_UNIT_GROWTH,
 	 "ipcp-unit-growth",
 	 "How much can given compilation unit grow because of the interprocedural constant propagation (in percent)",
@@ -897,6 +897,11 @@ DEFPARAM (PARAM_LRA_MAX_CONSIDERED_RELOAD_PSEUDOS,
 	  "The max number of reload pseudos which are considered during spilling a non-reload pseudo",
 	  500, 0, 0)
 
+DEFPARAM (PARAM_LRA_INHERITANCE_EBB_PROBABILITY_CUTOFF,
+	  "lra-inheritance-ebb-probability-cutoff",
+	  "Minimal fall-through edge probability in percentage used to add BB to inheritance EBB in LRA",
+	  40, 0, 100)
+
 /* Switch initialization conversion will refuse to create arrays that are
    bigger than this parameter times the number of switch branches.  */
 
@@ -1210,6 +1215,18 @@ DEFPARAM (PARAM_IPA_CP_EVAL_THRESHOLD,
 	  "Threshold ipa-cp opportunity evaluation that is still considered "
 	  "beneficial to clone.",
 	  500, 0, 0)
+
+DEFPARAM (PARAM_IPA_CP_RECURSION_PENALTY,
+	  "ipa-cp-recursion-penalty",
+	  "Percentage penalty the recursive functions will receive when they "
+	  "are evaluated for cloning.",
+	  40, 0, 100)
+
+DEFPARAM (PARAM_IPA_CP_SINGLE_CALL_PENALTY,
+	  "ipa-cp-single-call-penalty",
+	  "Percentage penalty functions containg a single call to another "
+	  "function will receive when they are evaluated for cloning.",
+	  15, 0, 100)
 
 DEFPARAM (PARAM_IPA_MAX_AGG_ITEMS,
 	  "ipa-max-agg-items",

@@ -7336,7 +7336,22 @@ template_args_equal (tree ot, tree nt)
   else if (TREE_CODE (ot) == TREE_VEC || TYPE_P (ot))
     return 0;
   else
-    return cp_tree_equal (ot, nt);
+    {
+      /* Try to treat a template non-type argument that has been converted
+	 to the parameter type as equivalent to one that hasn't yet.  */
+      for (enum tree_code code1 = TREE_CODE (ot);
+	   CONVERT_EXPR_CODE_P (code1)
+	     || code1 == NON_LVALUE_EXPR;
+	   code1 = TREE_CODE (ot))
+	ot = TREE_OPERAND (ot, 0);
+      for (enum tree_code code2 = TREE_CODE (nt);
+	   CONVERT_EXPR_CODE_P (code2)
+	     || code2 == NON_LVALUE_EXPR;
+	   code2 = TREE_CODE (nt))
+	nt = TREE_OPERAND (nt, 0);
+
+      return cp_tree_equal (ot, nt);
+    }
 }
 
 /* Returns 1 iff the OLDARGS and NEWARGS are in fact identical sets of
@@ -20747,62 +20762,8 @@ tsubst_enum (tree tag, tree newtag, tree args)
 tree
 get_mostly_instantiated_function_type (tree decl)
 {
-  tree fn_type;
-  tree tmpl;
-  tree targs;
-  tree tparms;
-  int parm_depth;
-
-  tmpl = most_general_template (DECL_TI_TEMPLATE (decl));
-  targs = DECL_TI_ARGS (decl);
-  tparms = DECL_TEMPLATE_PARMS (tmpl);
-  parm_depth = TMPL_PARMS_DEPTH (tparms);
-
-  /* There should be as many levels of arguments as there are levels
-     of parameters.  */
-  gcc_assert (parm_depth == TMPL_ARGS_DEPTH (targs));
-
-  fn_type = TREE_TYPE (tmpl);
-
-  if (parm_depth == 1)
-    /* No substitution is necessary.  */
-    ;
-  else
-    {
-      int i;
-      tree partial_args;
-
-      /* Replace the innermost level of the TARGS with NULL_TREEs to
-	 let tsubst know not to substitute for those parameters.  */
-      partial_args = make_tree_vec (TREE_VEC_LENGTH (targs));
-      for (i = 1; i < TMPL_ARGS_DEPTH (targs); ++i)
-	SET_TMPL_ARGS_LEVEL (partial_args, i,
-			     TMPL_ARGS_LEVEL (targs, i));
-      SET_TMPL_ARGS_LEVEL (partial_args,
-			   TMPL_ARGS_DEPTH (targs),
-			   make_tree_vec (DECL_NTPARMS (tmpl)));
-
-      /* Make sure that we can see identifiers, and compute access
-	 correctly.  */
-      push_access_scope (decl);
-
-      ++processing_template_decl;
-      /* Now, do the (partial) substitution to figure out the
-	 appropriate function type.  */
-      fn_type = tsubst (fn_type, partial_args, tf_error, NULL_TREE);
-      --processing_template_decl;
-
-      /* Substitute into the template parameters to obtain the real
-	 innermost set of parameters.  This step is important if the
-	 innermost set of template parameters contains value
-	 parameters whose types depend on outer template parameters.  */
-      TREE_VEC_LENGTH (partial_args)--;
-      tparms = tsubst_template_parms (tparms, partial_args, tf_error);
-
-      pop_access_scope (decl);
-    }
-
-  return fn_type;
+  /* For a function, DECL_TI_TEMPLATE is partially instantiated.  */
+  return TREE_TYPE (DECL_TI_TEMPLATE (decl));
 }
 
 /* Return truthvalue if we're processing a template different from
@@ -20824,6 +20785,16 @@ struct tinst_level *
 current_instantiation (void)
 {
   return current_tinst_level;
+}
+
+/* Return TRUE if current_function_decl is being instantiated, false
+   otherwise.  */
+
+bool
+instantiating_current_function_p (void)
+{
+  return (current_instantiation ()
+	  && current_instantiation ()->decl == current_function_decl);
 }
 
 /* [temp.param] Check that template non-type parm TYPE is of an allowable
@@ -20929,7 +20900,13 @@ dependent_type_p_r (tree type)
     return true;
   /* ... or any of the template arguments is a dependent type or
 	an expression that is type-dependent or value-dependent.  */
-  else if (TYPE_TEMPLATE_INFO (type)
+  else if (CLASS_TYPE_P (type) && CLASSTYPE_TEMPLATE_INFO (type)
+	   && (any_dependent_template_arguments_p
+	       (INNERMOST_TEMPLATE_ARGS (CLASSTYPE_TI_ARGS (type)))))
+    return true;
+  /* For an alias template specialization, check the arguments both to the
+     class template and the alias template.  */
+  else if (alias_template_specialization_p (type)
 	   && (any_dependent_template_arguments_p
 	       (INNERMOST_TEMPLATE_ARGS (TYPE_TI_ARGS (type)))))
     return true;

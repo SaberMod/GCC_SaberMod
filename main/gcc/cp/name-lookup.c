@@ -977,9 +977,8 @@ pushdecl_maybe_friend_1 (tree x, bool is_friend)
 	  /* If this is a locally defined typedef in a function that
 	     is not a template instantation, record it to implement
 	     -Wunused-local-typedefs.  */
-	  if (current_instantiation () == NULL
-	      || (current_instantiation ()->decl != current_function_decl))
-	  record_locally_defined_typedef (x);
+	  if (!instantiating_current_function_p ())
+	    record_locally_defined_typedef (x);
 	}
 
       /* Multiple external decls of the same identifier ought to match.
@@ -1300,7 +1299,8 @@ pushdecl_maybe_friend_1 (tree x, bool is_friend)
                               old and new decls are type decls.  */
                            || (TREE_CODE (oldglobal) == TYPE_DECL
                                && (!DECL_ARTIFICIAL (oldglobal)
-                                   || TREE_CODE (x) == TYPE_DECL))))
+                                   || TREE_CODE (x) == TYPE_DECL)))
+		       && !instantiating_current_function_p ())
 		/* XXX shadow warnings in outer-more namespaces */
 		{
 		  if (warning_at (input_location, OPT_Wshadow,
@@ -3688,7 +3688,30 @@ handle_namespace_attrs (tree ns, tree attributes)
 	}
       else if (is_attribute_p ("abi_tag", name))
 	{
-	  NAMESPACE_ABI_TAG (ns) = true;
+	  if (!DECL_NAMESPACE_ASSOCIATIONS (ns))
+	    {
+	      warning (OPT_Wattributes, "ignoring %qD attribute on non-inline "
+		       "namespace", name);
+	      continue;
+	    }
+	  if (!DECL_NAME (ns))
+	    {
+	      warning (OPT_Wattributes, "ignoring %qD attribute on anonymous "
+		       "namespace", name);
+	      continue;
+	    }
+	  if (!args)
+	    {
+	      tree dn = DECL_NAME (ns);
+	      args = build_string (IDENTIFIER_LENGTH (dn) + 1,
+				   IDENTIFIER_POINTER (dn));
+	      TREE_TYPE (args) = char_array_type_node;
+	      args = fix_string_type (args);
+	      args = build_tree_list (NULL_TREE, args);
+	    }
+	  if (check_abi_tag_args (args, name))
+	    DECL_ATTRIBUTES (ns) = tree_cons (name, args,
+					      DECL_ATTRIBUTES (ns));
 	}
       else
 	{

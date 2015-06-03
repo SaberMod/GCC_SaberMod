@@ -155,7 +155,6 @@
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)				\
 { char *buffer = (char *) alloca (strlen (NAME) + 1);			\
   char *p;								\
-  rtx _symref = XEXP (DECL_RTL (DECL), 0);				\
   int dollar_inside = 0;						\
   strcpy (buffer, NAME);						\
   p = strchr (buffer, '$');						\
@@ -169,15 +168,6 @@
       RS6000_OUTPUT_BASENAME (FILE, buffer);				\
       putc ('\n', FILE);						\
       fprintf(FILE, "\t.rename .%s,\".%s\"\n", buffer, NAME);		\
-    }									\
-  if ((TREE_CODE (DECL) == VAR_DECL					\
-       || TREE_CODE (DECL) == FUNCTION_DECL)				\
-      && (NAME)[strlen (NAME) - 1] != ']')				\
-    {									\
-      XSTR (_symref, 0) = concat (XSTR (_symref, 0),			\
-				  (TREE_CODE (DECL) == FUNCTION_DECL	\
-				   ? "[DS]" : "[RW]"),			\
-				  NULL);				\
     }									\
 }
 

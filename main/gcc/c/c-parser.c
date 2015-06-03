@@ -140,7 +140,7 @@ c_parse_init (void)
       /* We always create the symbols but they aren't always supported.  */
       char name[50];
       sprintf (name, "__int%d", int_n_data[i].bitsize);
-      id = get_identifier (xstrdup (name));
+      id = get_identifier (name);
       C_SET_RID_CODE (id, RID_FIRST_INT_N + i);
       C_IS_RESERVED_WORD (id) = 1;
     }
@@ -992,24 +992,24 @@ c_parser_skip_to_end_of_parameter (c_parser *parser)
    end of line marker.  */
 
 static void
-c_parser_skip_to_pragma_eol (c_parser *parser)
+c_parser_skip_to_pragma_eol (c_parser *parser, bool error_if_not_eol = true)
 {
   gcc_assert (parser->in_pragma);
   parser->in_pragma = false;
 
-  if (!c_parser_require (parser, CPP_PRAGMA_EOL, "expected end of line"))
-    while (true)
-      {
-	c_token *token = c_parser_peek_token (parser);
-	if (token->type == CPP_EOF)
-	  break;
-	if (token->type == CPP_PRAGMA_EOL)
-	  {
-	    c_parser_consume_token (parser);
-	    break;
-	  }
-	c_parser_consume_token (parser);
-      }
+  if (error_if_not_eol && c_parser_peek_token (parser)->type != CPP_PRAGMA_EOL)
+    c_parser_error (parser, "expected end of line");
+
+  cpp_ttype token_type;
+  do
+    {
+      c_token *token = c_parser_peek_token (parser);
+      token_type = token->type;
+      if (token_type == CPP_EOF)
+	break;
+      c_parser_consume_token (parser);
+    }
+  while (token_type != CPP_PRAGMA_EOL);
 
   parser->error = false;
 }
@@ -6234,8 +6234,8 @@ c_parser_binary_expression (c_parser *parser, struct c_expr *after,
     if (__builtin_expect (omp_atomic_lhs != NULL_TREE, 0) && sp == 1	      \
 	&& c_parser_peek_token (parser)->type == CPP_SEMICOLON		      \
 	&& ((1 << stack[sp].prec)					      \
-	    & (1 << (PREC_BITOR | PREC_BITXOR | PREC_BITAND | PREC_SHIFT      \
-		     | PREC_ADD | PREC_MULT)))				      \
+	    & ((1 << PREC_BITOR) | (1 << PREC_BITXOR) | (1 << PREC_BITAND)    \
+	       | (1 << PREC_SHIFT) | (1 << PREC_ADD) | (1 << PREC_MULT)))     \
 	&& stack[sp].op != TRUNC_MOD_EXPR				      \
 	&& stack[0].expr.value != error_mark_node			      \
 	&& stack[1].expr.value != error_mark_node			      \
@@ -13224,7 +13224,7 @@ c_parser_omp_for (location_t loc, c_parser *parser,
     }
   if (!flag_openmp)  /* flag_openmp_simd  */
     {
-      c_parser_skip_to_pragma_eol (parser);
+      c_parser_skip_to_pragma_eol (parser, false);
       return NULL_TREE;
     }
 
@@ -13449,7 +13449,7 @@ c_parser_omp_parallel (location_t loc, c_parser *parser,
     }
   else if (!flag_openmp)  /* flag_openmp_simd  */
     {
-      c_parser_skip_to_pragma_eol (parser);
+      c_parser_skip_to_pragma_eol (parser, false);
       return NULL_TREE;
     }
   else if (c_parser_next_token_is (parser, CPP_NAME))
@@ -13709,7 +13709,7 @@ c_parser_omp_distribute (location_t loc, c_parser *parser,
     }
   if (!flag_openmp)  /* flag_openmp_simd  */
     {
-      c_parser_skip_to_pragma_eol (parser);
+      c_parser_skip_to_pragma_eol (parser, false);
       return NULL_TREE;
     }
 
@@ -13777,7 +13777,7 @@ c_parser_omp_teams (location_t loc, c_parser *parser,
     }
   if (!flag_openmp)  /* flag_openmp_simd  */
     {
-      c_parser_skip_to_pragma_eol (parser);
+      c_parser_skip_to_pragma_eol (parser, false);
       return NULL_TREE;
     }
 
@@ -13922,7 +13922,7 @@ c_parser_omp_target (c_parser *parser, enum pragma_context context)
 	}
       else if (!flag_openmp)  /* flag_openmp_simd  */
 	{
-	  c_parser_skip_to_pragma_eol (parser);
+	  c_parser_skip_to_pragma_eol (parser, false);
 	  return false;
 	}
       else if (strcmp (p, "data") == 0)
@@ -14605,7 +14605,7 @@ c_parser_omp_declare (c_parser *parser, enum pragma_context context)
 	}
       if (!flag_openmp)  /* flag_openmp_simd  */
 	{
-	  c_parser_skip_to_pragma_eol (parser);
+	  c_parser_skip_to_pragma_eol (parser, false);
 	  return;
 	}
       if (strcmp (p, "target") == 0)

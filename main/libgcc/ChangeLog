@@ -1,3 +1,77 @@
+2015-04-10  Jakub Jelinek  <jakub@redhat.com>
+	    Iain Sandoe  <iain@codesourcery.com>
+
+	PR target/65351
+	* configure: Regenerate.
+
+2015-04-07  Jakub Jelinek  <jakub@redhat.com>
+	    Iain Sandoe  <iain@codesourcery.com>
+
+	PR target/65351
+	* configure: Regenerate.
+
+2015-03-25  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* config.host (nios2-*-linux*): Remove 'extra_parts' setting.
+
+2015-03-03  Max Filippov  <jcmvbkbc@gmail.com>
+
+	Implement call0 ABI for xtensa
+	* config/xtensa/lib2funcs.S (__xtensa_libgcc_window_spill,
+	__xtensa_nonlocal_goto): Don't compile for call0 ABI.
+	(__xtensa_sync_caches): Only use entry and retw in windowed ABI,
+	use ret in call0 ABI.
+	* config/xtensa/t-windowed: New file.
+	* libgcc/config/xtensa/t-xtensa (LIB2ADDEH): Move to t-windowed.
+	* libgcc/configure: Regenerated.
+	* libgcc/configure.ac: Check if xtensa target is configured for
+	windowed ABI and thus needs to use custom unwind code.
+
+2015-02-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libgcc/64885
+	* gthr-single.h: Use __unused__ attribute instead of unused.
+	* config/gthr-vxworks.h: Likewise.
+	* config/i386/gthr-win32.h: Likewise.
+
+2015-02-27  Kai Tietz  <ktietz@redhat.com>
+
+	PR target/65038
+	* config.in: Regenerated.
+	* configure: Likewise.
+	* configure.ac (AC_HEADER_STDC): Added explicit.
+	(AC_CHECK_HEADERS): Check for default headers  plus
+	for ftw.h header.
+	* libgcov-util.c (gcov_read_profile_dir): Disable use
+	of ftw-function, if header is not found.
+	(ftw_read_file): Likewise.
+
+2015-02-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR target/65181
+	* config/nvptx/t-nvptx (INHIBIT_LIBC_CFLAGS): Define to
+	-Dinhibit_libc.
+
+2015-02-17  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* config/arm/bpabi.S (test_div_by_zero): Make label names
+	consistent between thumb2 and arm mode cases.  Separate the
+	signed comparison on the high word of the numerator from the
+	unsigned comparison on the low word.
+	* config/arm/bpabi-v6m.S (test_div_by_zero): Similarly separate
+	signed comparison.
+
+2015-02-17  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/nvptx/realloc.c: Include <stddef.h> instead of <stdlib.h>
+	and <string.h>.
+	(__nvptx_realloc): Call __builtin_memcpy instead of memcpy.
+
+2015-02-10  Rainer Emrich  <rainer@emrich-ebersheim.de>
+
+	PR gcov-profile/61889
+	* libgcov-driver-system.c: undefine clashing macro for mkdir.
+
 2015-02-02  Nick Clifton  <nickc@redhat.com>
 
 	* config/rl78/fpmath-sf.S (__rl78_int_pack_a_r8): Fix edge case

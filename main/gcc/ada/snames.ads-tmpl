@@ -144,6 +144,7 @@ package Snames is
    Name_Dynamic_Predicate              : constant Name_Id := N + $;
    Name_Static_Predicate               : constant Name_Id := N + $;
    Name_Synchronization                : constant Name_Id := N + $;
+   Name_Unimplemented                  : constant Name_Id := N + $;
 
    --  Some special names used by the expander. Note that the lower case u's
    --  at the start of these names get translated to extra underscores. These
@@ -844,6 +845,7 @@ package Snames is
    Name_Definite                       : constant Name_Id := N + $;
    Name_Delta                          : constant Name_Id := N + $;
    Name_Denorm                         : constant Name_Id := N + $;
+   Name_Deref                          : constant Name_Id := N + $; -- GNAT
    Name_Descriptor_Size                : constant Name_Id := N + $;
    Name_Digits                         : constant Name_Id := N + $;
    Name_Elaborated                     : constant Name_Id := N + $; -- GNAT
@@ -1063,12 +1065,12 @@ package Snames is
    --  for FIFO_Within_Priorities). If new policy names are added, the first
    --  character must be distinct.
 
-   First_Task_Dispatching_Policy_Name    : constant Name_Id := N + $;
-   Name_EDF_Across_Priorities            : constant Name_Id := N + $;
-   Name_FIFO_Within_Priorities           : constant Name_Id := N + $;
-   Name_Non_Preemptive_Within_Priorities : constant Name_Id := N + $;
-   Name_Round_Robin_Within_Priorities    : constant Name_Id := N + $;
-   Last_Task_Dispatching_Policy_Name     : constant Name_Id := N + $;
+   First_Task_Dispatching_Policy_Name         : constant Name_Id := N + $;
+   Name_EDF_Across_Priorities                 : constant Name_Id := N + $;
+   Name_FIFO_Within_Priorities                : constant Name_Id := N + $;
+   Name_Non_Preemptive_FIFO_Within_Priorities : constant Name_Id := N + $;
+   Name_Round_Robin_Within_Priorities         : constant Name_Id := N + $;
+   Last_Task_Dispatching_Policy_Name          : constant Name_Id := N + $;
 
    --  Names of recognized partition elaboration policy identifiers
 
@@ -1475,6 +1477,7 @@ package Snames is
       Attribute_Definite,
       Attribute_Delta,
       Attribute_Denorm,
+      Attribute_Deref,
       Attribute_Descriptor_Size,
       Attribute_Digits,
       Attribute_Elaborated,

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -690,41 +690,6 @@ package body Exp_Attr is
       Obj_Ref : Node_Id;
       Curr    : Entity_Id;
 
-      function May_Be_External_Call return Boolean;
-      --  If the 'Access is to a local operation, but appears in a context
-      --  where it may lead to a call from outside the object, we must treat
-      --  this as an external call. Clearly we cannot tell without full
-      --  flow analysis, and a subsequent call that uses this 'Access may
-      --  lead to a bounded error (trying to seize locks twice, e.g.). For
-      --  now we treat 'Access as a potential external call if it is an actual
-      --  in a call to an outside subprogram.
-
-      --------------------------
-      -- May_Be_External_Call --
-      --------------------------
-
-      function May_Be_External_Call return Boolean is
-         Subp : Entity_Id;
-         Par  : Node_Id := Parent (N);
-
-      begin
-         --  Account for the case where the Access attribute is part of a
-         --  named parameter association.
-
-         if Nkind (Par) = N_Parameter_Association then
-            Par := Parent (Par);
-         end if;
-
-         if Nkind (Par) in N_Subprogram_Call
-            and then Is_Entity_Name (Name (Par))
-         then
-            Subp := Entity (Name (Par));
-            return not In_Open_Scopes (Scope (Subp));
-         else
-            return False;
-         end if;
-      end May_Be_External_Call;
-
    --  Start of processing for Expand_Access_To_Protected_Op
 
    begin
@@ -733,14 +698,14 @@ package body Exp_Attr is
       --  protected body of the current enclosing operation.
 
       if Is_Entity_Name (Pref) then
-         if May_Be_External_Call then
-            Sub :=
-              New_Occurrence_Of (External_Subprogram (Entity (Pref)), Loc);
-         else
-            Sub :=
-              New_Occurrence_Of
-                (Protected_Body_Subprogram (Entity (Pref)), Loc);
-         end if;
+         --  All indirect calls are external calls, so must do locking and
+         --  barrier reevaluation, even if the 'Access occurs within the
+         --  protected body. Hence the call to External_Subprogram, as opposed
+         --  to Protected_Body_Subprogram, below. See RM-9.5(5). This means
+         --  that indirect calls from within the same protected body will
+         --  deadlock, as allowed by RM-9.5.1(8,15,17).
+
+         Sub := New_Occurrence_Of (External_Subprogram (Entity (Pref)), Loc);
 
          --  Don't traverse the scopes when the attribute occurs within an init
          --  proc, because we directly use the _init formal of the init proc in
@@ -3665,18 +3630,15 @@ package body Exp_Attr is
 
                declare
                   Rtyp : constant Entity_Id := Root_Type (P_Type);
-                  Dnn  : Entity_Id;
-                  Decl : Node_Id;
                   Expr : Node_Id;
 
                begin
                   --  Read the internal tag (RM 13.13.2(34)) and use it to
-                  --  initialize a dummy tag object:
+                  --  initialize a dummy tag value:
 
-                  --    Dnn : Ada.Tags.Tag :=
-                  --            Descendant_Tag (String'Input (Strm), P_Type);
+                  --     Descendant_Tag (String'Input (Strm), P_Type);
 
-                  --  This dummy object is used only to provide a controlling
+                  --  This value is used only to provide a controlling
                   --  argument for the eventual _Input call. Descendant_Tag is
                   --  called rather than Internal_Tag to ensure that we have a
                   --  tag for a type that is descended from the prefix type and
@@ -3685,30 +3647,26 @@ package body Exp_Attr is
                   --  required for Ada 2005 because tagged types can be
                   --  extended in nested scopes (AI-344).
 
+                  --  Note: we used to generate an explicit declaration of a
+                  --  constant Ada.Tags.Tag object, and use an occurrence of
+                  --  this constant in Cntrl, but this caused a secondary stack
+                  --  leak.
+
                   Expr :=
                     Make_Function_Call (Loc,
-                      Name =>
+                      Name                   =>
                         New_Occurrence_Of (RTE (RE_Descendant_Tag), Loc),
                       Parameter_Associations => New_List (
                         Make_Attribute_Reference (Loc,
-                          Prefix => New_Occurrence_Of (Standard_String, Loc),
+                          Prefix         =>
+                            New_Occurrence_Of (Standard_String, Loc),
                           Attribute_Name => Name_Input,
-                          Expressions => New_List (
+                          Expressions    => New_List (
                             Relocate_Node (Duplicate_Subexpr (Strm)))),
                         Make_Attribute_Reference (Loc,
-                          Prefix => New_Occurrence_Of (P_Type, Loc),
+                          Prefix         => New_Occurrence_Of (P_Type, Loc),
                           Attribute_Name => Name_Tag)));
-
-                  Dnn := Make_Temporary (Loc, 'D', Expr);
-
-                  Decl :=
-                    Make_Object_Declaration (Loc,
-                      Defining_Identifier => Dnn,
-                      Object_Definition   =>
-                        New_Occurrence_Of (RTE (RE_Tag), Loc),
-                      Expression          => Expr);
-
-                  Insert_Action (N, Decl);
+                  Set_Etype (Expr, RTE (RE_Tag));
 
                   --  Now we need to get the entity for the call, and construct
                   --  a function call node, where we preset a reference to Dnn
@@ -3717,9 +3675,7 @@ package body Exp_Attr is
                   --  tagged object).
 
                   Fname := Find_Prim_Op (Rtyp, TSS_Stream_Input);
-                  Cntrl :=
-                    Unchecked_Convert_To (P_Type,
-                      New_Occurrence_Of (Dnn, Loc));
+                  Cntrl := Unchecked_Convert_To (P_Type, Expr);
                   Set_Etype (Cntrl, P_Type);
                   Set_Parent (Cntrl, N);
                end;
@@ -7147,6 +7103,7 @@ package body Exp_Attr is
       when Attribute_Bit_Order                    |
            Attribute_Code_Address                 |
            Attribute_Definite                     |
+           Attribute_Deref                        |
            Attribute_Null_Parameter               |
            Attribute_Passed_By_Reference          |
            Attribute_Pool_Address                 |

@@ -786,26 +786,6 @@ evaluated only once when using @code{__auto_type}, but twice if
 @code{typeof} is used.
 @end itemize
 
-@emph{Compatibility Note:} In addition to @code{typeof}, GCC 2 supported
-a more limited extension that permitted one to write
-
-@smallexample
-typedef @var{T} = @var{expr};
-@end smallexample
-
-@noindent
-with the effect of declaring @var{T} to have the type of the expression
-@var{expr}.  This extension does not work with GCC 3 (versions between
-3.0 and 3.2 crash; 3.2.1 and later give an error).  Code that
-relies on it should be rewritten to use @code{typeof}:
-
-@smallexample
-typedef typeof(@var{expr}) @var{T};
-@end smallexample
-
-@noindent
-This works with all versions of GCC@.
-
 @node Conditionals
 @section Conditionals with Omitted Operands
 @cindex conditional expressions, extensions
@@ -845,7 +825,7 @@ the middle operand uses the value already computed without the undesirable
 effects of recomputing it.
 
 @node __int128
-@section 128-bit integers
+@section 128-bit Integers
 @cindex @code{__int128} data types
 
 As an extension the integer scalar type @code{__int128} is supported for
@@ -1498,16 +1478,13 @@ structure or an element of an array.  (However, these uses are
 permitted by GCC as extensions.)
 @end itemize
 
-GCC versions before 3.0 allowed zero-length arrays to be statically
-initialized, as if they were flexible arrays.  In addition to those
-cases that were useful, it also allowed initializations in situations
-that would corrupt later data.  Non-empty initialization of zero-length
-arrays is now treated like any case where there are more initializer
+Non-empty initialization of zero-length
+arrays is treated like any case where there are more initializer
 elements than the array holds, in that a suitable warning about ``excess
 elements in array'' is given, and the excess elements (all of them, in
 this case) are ignored.
 
-Instead GCC allows static initialization of flexible array members.
+GCC allows static initialization of flexible array members.
 This is equivalent to defining a new structure containing the original
 structure followed by an array of sufficient size to contain the data.
 E.g.@: in the following, @code{f1} is constructed as if it were declared
@@ -1548,7 +1525,7 @@ struct foo d[1] = @{ @{ 1, @{ 2, 3, 4 @} @} @};  // @r{Invalid.}
 @end smallexample
 
 @node Empty Structures
-@section Structures With No Members
+@section Structures with No Members
 @cindex empty structures
 @cindex zero-size structures
 
@@ -1729,9 +1706,10 @@ argument, these arguments are not macro expanded.
 @cindex escaped newlines
 @cindex newlines (escaped)
 
-Recently, the preprocessor has relaxed its treatment of escaped
-newlines.  Previously, the newline had to immediately follow a
-backslash.  The current implementation allows whitespace in the form
+The preprocessor treatment of escaped newlines is more relaxed 
+than that specified by the C90 standard, which requires the newline
+to immediately follow a backslash.  
+GCC's implementation allows whitespace in the form
 of spaces, horizontal and vertical tabs, and form feeds between the
 backslash and the subsequent newline.  The preprocessor issues a
 warning, but treats it as a valid escaped newline and combines the two
@@ -1786,7 +1764,7 @@ The option @option{-Wpointer-arith} requests a warning if these extensions
 are used.
 
 @node Pointers to Arrays
-@section Pointers to arrays with qualifiers work as expected
+@section Pointers to Arrays with Qualifiers Work as Expected
 @cindex pointers to arrays
 @cindex const qualifier
 
@@ -1905,12 +1883,12 @@ In C, a compound literal designates an unnamed object with static or
 automatic storage duration.  In C++, a compound literal designates a
 temporary object, which only lives until the end of its
 full-expression.  As a result, well-defined C code that takes the
-address of a subobject of a compound literal can be undefined in C++.
+address of a subobject of a compound literal can be undefined in C++,
+so the C++ compiler rejects the conversion of a temporary array to a pointer.
 For instance, if the array compound literal example above appeared
 inside a function, any subsequent use of @samp{foo} in C++ has
 undefined behavior because the lifetime of the array ends after the
-declaration of @samp{foo}.  As a result, the C++ compiler now rejects
-the conversion of a temporary array to a pointer.
+declaration of @samp{foo}.  
 
 As an optimization, the C++ compiler sometimes gives array compound
 literals longer lifetimes: when the array either appears outside a
@@ -2230,7 +2208,7 @@ attributes.
 @c Keep this table alphabetized by attribute name.  Treat _ as space.
 
 @item alias ("@var{target}")
-@cindex @code{alias} attribute
+@cindex @code{alias} function attribute
 The @code{alias} attribute causes the declaration to be emitted as an
 alias for another symbol, which must be specified.  For instance,
 
@@ -2247,7 +2225,7 @@ is not defined in the same translation unit.
 Not all target machines support this attribute.
 
 @item aligned (@var{alignment})
-@cindex @code{aligned} attribute
+@cindex @code{aligned} function attribute
 This attribute specifies a minimum alignment for the function,
 measured in bytes.
 
@@ -2268,7 +2246,7 @@ The @code{aligned} attribute can also be used for variables and fields
 (@pxref{Variable Attributes}.)
 
 @item alloc_size
-@cindex @code{alloc_size} attribute
+@cindex @code{alloc_size} function attribute
 The @code{alloc_size} attribute is used to tell the compiler that the
 function return value points to memory, where the size is given by
 one or two of the functions parameters.  GCC uses this
@@ -2293,7 +2271,7 @@ the product of parameter 1 and 2 and that @code{my_realloc} returns memory
 of the size given by parameter 2.
 
 @item alloc_align
-@cindex @code{alloc_align} attribute
+@cindex @code{alloc_align} function attribute
 The @code{alloc_align} attribute is used to tell the compiler that the
 function return value points to memory, where the returned pointer minimum
 alignment is given by one of the functions parameters.  GCC uses this
@@ -2314,7 +2292,7 @@ declares that @code{my_memalign} returns memory with minimum alignment
 given by parameter 1.
 
 @item assume_aligned
-@cindex @code{assume_aligned} attribute
+@cindex @code{assume_aligned} function attribute
 The @code{assume_aligned} attribute is used to tell the compiler that the
 function return value points to memory, where the returned pointer minimum
 alignment is given by the first argument.
@@ -2389,7 +2367,7 @@ or using the caller location for all instructions within the inlined
 body.
 
 @item bank_switch
-@cindex interrupt handler functions
+@cindex @code{bank_switch} function attribute, M32C
 When added to an interrupt handler with the M32C port, causes the
 prologue and epilogue to use bank switching to preserve the registers
 rather than saving them on the stack.
@@ -2426,6 +2404,7 @@ is diagnosed earlier and with exact location of the call even in presence
 of inline functions or when not emitting debugging information.
 
 @item cdecl
+@cindex @code{cdecl} function attribute, x86-32
 @cindex functions that do pop the argument stack on x86-32
 @opindex mrtd
 On the x86-32 targets, the @code{cdecl} attribute causes the compiler to
@@ -2446,21 +2425,6 @@ pointed to must @emph{not} be declared @code{const}.  Likewise, a
 function that calls a non-@code{const} function usually must not be
 @code{const}.  It does not make sense for a @code{const} function to
 return @code{void}.
-
-The attribute @code{const} is not implemented in GCC versions earlier
-than 2.5.  An alternative way to declare that a function has no side
-effects, which works in the current version and in some older versions,
-is as follows:
-
-@smallexample
-typedef int intfn ();
-
-extern const intfn square;
-@end smallexample
-
-@noindent
-This approach does not work in GNU C++ from 2.6.0 on, since the language
-specifies that the @samp{const} must be attached to the return value.
 
 @item constructor
 @itemx destructor
@@ -2490,7 +2454,7 @@ These attributes are not currently implemented for Objective-C@.
 
 @item deprecated
 @itemx deprecated (@var{msg})
-@cindex @code{deprecated} attribute.
+@cindex @code{deprecated} function attribute
 The @code{deprecated} attribute results in a warning if the function
 is used anywhere in the source file.  This is useful when identifying
 functions that are expected to be removed in a future version of a
@@ -2514,12 +2478,14 @@ The @code{deprecated} attribute can also be used for variables and
 types (@pxref{Variable Attributes}, @pxref{Type Attributes}.)
 
 @item disinterrupt
-@cindex @code{disinterrupt} attribute
+@cindex @code{disinterrupt} function attribute, Epiphany
+@cindex @code{disinterrupt} function attribute, MeP
 On Epiphany and MeP targets, this attribute causes the compiler to emit
 instructions to disable interrupts for the duration of the given
 function.
 
 @item dllexport
+@cindex @code{dllexport} function attribute
 @cindex @code{__declspec(dllexport)}
 On Microsoft Windows targets and Symbian OS targets the
 @code{dllexport} attribute causes the compiler to provide a global
@@ -2536,14 +2502,13 @@ On systems that support the @code{visibility} attribute, this
 attribute also implies ``default'' visibility.  It is an error to
 explicitly specify any other visibility.
 
-In previous versions of GCC, the @code{dllexport} attribute was ignored
-for inlined functions, unless the @option{-fkeep-inline-functions} flag
-had been used.  The default behavior now is to emit all dllexported
-inline functions; however, this can cause object file-size bloat, in
-which case the old behavior can be restored by using
-@option{-fno-keep-inline-dllexport}.
+GCC's default behavior is to emit all inline functions with the
+@code{dllexport} attribute.  Since this can cause object file-size bloat,
+you can use @option{-fno-keep-inline-dllexport}, which tells GCC to
+ignore the attribute for inlined functions unless the 
+@option{-fkeep-inline-functions} flag is used instead.
 
-The attribute is also ignored for undefined symbols.
+The attribute is ignored for undefined symbols.
 
 When applied to C++ classes, the attribute marks defined non-inlined
 member functions and static data members as exports.  Static consts
@@ -2556,6 +2521,7 @@ including the symbol in the DLL's export table such as using a
 the @option{--export-all} linker flag.
 
 @item dllimport
+@cindex @code{dllimport} function attribute
 @cindex @code{__declspec(dllimport)}
 On Microsoft Windows and Symbian OS targets, the @code{dllimport}
 attribute causes the compiler to reference a function or variable via
@@ -2595,8 +2561,7 @@ the current translation unit.
 For Microsoft Windows targets the use of the @code{dllimport}
 attribute on functions is not necessary, but provides a small
 performance benefit by eliminating a thunk in the DLL@.  The use of the
-@code{dllimport} attribute on imported variables was required on older
-versions of the GNU linker, but can now be avoided by passing the
+@code{dllimport} attribute on imported variables can be avoided by passing the
 @option{--enable-auto-import} switch to the GNU linker.  As with
 functions, using the attribute for a variable eliminates a thunk in
 the DLL@.
@@ -2609,32 +2574,23 @@ this case, the address of a stub function in the import lib is
 referenced.  On Microsoft Windows targets, the attribute can be disabled
 for functions by setting the @option{-mnop-fun-dllimport} flag.
 
-@item eightbit_data
-@cindex eight-bit data on the H8/300, H8/300H, and H8S
-Use this attribute on the H8/300, H8/300H, and H8S to indicate that the specified
-variable should be placed into the eight-bit data section.
-The compiler generates more efficient code for certain operations
-on data in the eight-bit data area.  Note the eight-bit data area is limited to
-256 bytes of data.
-
-You must use GAS and GLD from GNU binutils version 2.7 or later for
-this attribute to work correctly.
-
 @item exception
-@cindex exception handler functions
+@cindex @code{exception} function attribute
+@cindex exception handler functions, NDS32
 Use this attribute on the NDS32 target to indicate that the specified function
 is an exception handler.  The compiler will generate corresponding sections
 for use in an exception handler.
 
 @item exception_handler
-@cindex exception handler functions on the Blackfin processor
+@cindex @code{exception_handler} function attribute
+@cindex exception handler functions, Blackfin
 Use this attribute on the Blackfin to indicate that the specified function
 is an exception handler.  The compiler generates function entry and
 exit sequences suitable for use in an exception handler when this
 attribute is present.
 
 @item externally_visible
-@cindex @code{externally_visible} attribute.
+@cindex @code{externally_visible} function attribute
 This attribute, attached to a global variable or function, nullifies
 the effect of the @option{-fwhole-program} command-line option, so the
 object remains visible outside the current compilation unit.
@@ -2649,34 +2605,22 @@ For other linkers that cannot generate resolution file,
 explicit @code{externally_visible} attributes are still necessary.
 
 @item far
-@cindex functions that handle memory bank switching
-On 68HC11 and 68HC12 the @code{far} attribute causes the compiler to
-use a calling convention that takes care of switching memory banks when
-entering and leaving a function.  This calling convention is also the
-default when using the @option{-mlong-calls} option.
-
-On 68HC12 the compiler uses the @code{call} and @code{rtc} instructions
-to call and return from a function.
-
-On 68HC11 the compiler generates a sequence of instructions
-to invoke a board-specific routine to switch the memory bank and call the
-real function.  The board-specific routine simulates a @code{call}.
-At the end of a function, it jumps to a board-specific routine
-instead of using @code{rts}.  The board-specific return routine simulates
-the @code{rtc}.
+@cindex @code{far} function attribute
 
 On MeP targets this causes the compiler to use a calling convention
 that assumes the called function is too far away for the built-in
 addressing modes.
 
 @item fast_interrupt
-@cindex interrupt handler functions
+@cindex @code{fast_interrupt} function attribute, M32C
+@cindex @code{fast_interrupt} function attribute, RX
 Use this attribute on the M32C and RX ports to indicate that the specified
 function is a fast interrupt handler.  This is just like the
 @code{interrupt} attribute, except that @code{freit} is used to return
 instead of @code{reit}.
 
 @item fastcall
+@cindex @code{fastcall} function attribute, x86-32
 @cindex functions that pop the argument stack on x86-32
 On x86-32 targets, the @code{fastcall} attribute causes the compiler to
 pass the first argument (if of integral type) in the register ECX and
@@ -2686,6 +2630,7 @@ pops the arguments off the stack.  If the number of arguments is variable all
 arguments are pushed on the stack.
 
 @item thiscall
+@cindex @code{thiscall} function attribute, x86-32
 @cindex functions that pop the argument stack on x86-32
 On x86-32 targets, the @code{thiscall} attribute causes the compiler to
 pass the first argument (if of integral type) in the register ECX.
@@ -2827,6 +2772,9 @@ The target may also allow additional types in @code{format-arg} attributes.
 Target Machines}.
 
 @item function_vector
+@cindex @code{function_vector} function attribute, H8/300
+@cindex @code{function_vector} function attribute, M16C/M32C
+@cindex @code{function_vector} function attribute, SH
 @cindex calling functions through the function vector on H8/300, M16C, M32C and SH2A processors
 Use this attribute on the H8/300, H8/300H, and H8S to indicate that the specified
 function should be called through the function vector.  Calling a
@@ -2888,7 +2836,7 @@ then be sure to write this declaration in both files.
 This attribute is ignored for R8C target.
 
 @item ifunc ("@var{resolver}")
-@cindex @code{ifunc} attribute
+@cindex @code{ifunc} function attribute
 The @code{ifunc} attribute is used to mark a function as an indirect
 function using the STT_GNU_IFUNC symbol type extension to the ELF
 standard.  This allows the resolution of the symbol value to be
@@ -2931,13 +2879,28 @@ void *memcpy (void *, const void *, size_t)
      __attribute__ ((ifunc ("resolve_memcpy")));
 @end smallexample
 
-Indirect functions cannot be weak, and require a recent binutils (at
-least version 2.20.1), and GNU C library (at least version 2.11.1).
+Indirect functions cannot be weak.  Binutils version 2.20.1 or higher
+and GNU C Library version 2.11.1 are required to use this feature.
 
 @item interrupt
-@cindex interrupt handler functions
+@cindex @code{interrupt} function attribute, ARC
+@cindex @code{interrupt} function attribute, ARM
+@cindex @code{interrupt} function attribute, AVR
+@cindex @code{interrupt} function attribute, CR16
+@cindex @code{interrupt} function attribute, Epiphany
+@cindex @code{interrupt} function attribute, M32C
+@cindex @code{interrupt} function attribute, M32R/D
+@cindex @code{interrupt} function attribute, m68k
+@cindex @code{interrupt} function attribute, MeP
+@cindex @code{interrupt} function attribute, MIPS
+@cindex @code{interrupt} function attribute, MSP430
+@cindex @code{interrupt} function attribute, NDS32
+@cindex @code{interrupt} function attribute, RL78
+@cindex @code{interrupt} function attribute, RX
+@cindex @code{interrupt} function attribute, Visium
+@cindex @code{interrupt} function attribute, Xstormy16
 Use this attribute on the ARC, ARM, AVR, CR16, Epiphany, M32C, M32R/D,
-m68k, MeP, MIPS, MSP430, RL78, RX, Visium and Xstormy16 ports to indicate
+m68k, MeP, MIPS, MSP430, NDS32, RL78, RX, Visium and Xstormy16 ports to indicate
 that the specified function is an interrupt handler.  The compiler generates
 function entry and exit sequences suitable for use in an interrupt handler
 when this attribute is present.  With Epiphany targets it may also generate
@@ -2985,28 +2948,28 @@ which this handler should be assigned.  If the argument is a name it
 is treated as a symbolic name for the vector slot.  These names should
 match up with appropriate entries in the linker script.  By default
 the names @code{watchdog} for vector 26, @code{nmi} for vector 30 and
-@code{reset} for vector 31 are recognised.
+@code{reset} for vector 31 are recognized.
 
 You can also use the following function attributes to modify how
 normal functions interact with interrupt functions:
 
 @table @code
 @item critical
-@cindex @code{critical} attribute
+@cindex @code{critical} function attribute, MSP430
 Critical functions disable interrupts upon entry and restore the
 previous interrupt state upon exit.  Critical functions cannot also
 have the @code{naked} or @code{reentrant} attributes.  They can have
 the @code{interrupt} attribute.
 
 @item reentrant
-@cindex @code{reentrant} attribute
+@cindex @code{reentrant} function attribute, MSP430
 Reentrant functions disable interrupts upon entry and enable them
 upon exit.  Reentrant functions cannot also have the @code{naked}
 or @code{critical} attributes.  They can have the @code{interrupt}
 attribute.
 
 @item wakeup
-@cindex @code{wakeup} attribute
+@cindex @code{wakeup} function attribute, MSP430
 This attribute only applies to interrupt functions.  It is silently
 ignored if applied to a non-interrupt function.  A wakeup interrupt
 function will rouse the processor from any low-power state that it
@@ -3037,7 +3000,7 @@ On Epiphany targets, you can also use the following attribute to
 modify the behavior of an interrupt handler:
 @table @code
 @item forwarder_section
-@cindex @code{forwarder_section} attribute
+@cindex @code{forwarder_section} function attribute, Epiphany
 The interrupt handler may be in external memory which cannot be
 reached by a branch instruction, so generate a local memory trampoline
 to transfer control.  The single parameter identifies the section where
@@ -3060,17 +3023,17 @@ On MIPS targets, you can use the following attributes to modify the behavior
 of an interrupt handler:
 @table @code
 @item use_shadow_register_set
-@cindex @code{use_shadow_register_set} attribute
+@cindex @code{use_shadow_register_set} function attribute, MIPS
 Assume that the handler uses a shadow register set, instead of
 the main general-purpose registers.
 
 @item keep_interrupts_masked
-@cindex @code{keep_interrupts_masked} attribute
+@cindex @code{keep_interrupts_masked} function attribute, MIPS
 Keep interrupts masked for the whole function.  Without this attribute,
 GCC tries to reenable interrupts for as much of the function as it can.
 
 @item use_debug_exception_return
-@cindex @code{use_debug_exception_return} attribute
+@cindex @code{use_debug_exception_return} function attribute, MIPS
 Return using the @code{deret} instruction.  Interrupt handlers that don't
 have this attribute return using @code{eret} instead.
 @end table
@@ -3092,32 +3055,33 @@ void __attribute__ ((interrupt, use_shadow_register_set,
                      use_debug_exception_return)) v7 ();
 @end smallexample
 
-On NDS32 target, this attribute is to indicate that the specified function
-is an interrupt handler.  The compiler will generate corresponding sections
+On NDS32 target, this attribute indicates that the specified function
+is an interrupt handler.  The compiler generates corresponding sections
 for use in an interrupt handler.  You can use the following attributes
 to modify the behavior:
 @table @code
 @item nested
-@cindex @code{nested} attribute
+@cindex @code{nested} function attribute, NDS32
 This interrupt service routine is interruptible.
 @item not_nested
-@cindex @code{not_nested} attribute
+@cindex @code{not_nested} function attribute, NDS32
 This interrupt service routine is not interruptible.
 @item nested_ready
-@cindex @code{nested_ready} attribute
+@cindex @code{nested_ready} function attribute, NDS32
 This interrupt service routine is interruptible after @code{PSW.GIE}
 (global interrupt enable) is set.  This allows interrupt service routine to
 finish some short critical code before enabling interrupts.
 @item save_all
-@cindex @code{save_all} attribute
+@cindex @code{save_all} function attribute, NDS32
 The system will help save all registers into stack before entering
 interrupt handler.
 @item partial_save
-@cindex @code{partial_save} attribute
+@cindex @code{partial_save} function attribute, NDS32
 The system will help save caller registers into stack before entering
 interrupt handler.
 @end table
 
+@cindex @code{brk_interrupt} function attribute, RL78
 On RL78, use @code{brk_interrupt} instead of @code{interrupt} for
 handlers intended to be used with the @code{BRK} opcode (i.e.@: those
 that must end with @code{RETB} instead of @code{RETI}).
@@ -3145,14 +3109,17 @@ void __attribute__ ((interrupt (RXD1_VECT,RXD2_VECT,"dct","$default")))
 @end smallexample
 
 @item interrupt_handler
-@cindex interrupt handler functions on the Blackfin, m68k, H8/300 and SH processors
+@cindex @code{interrupt_handler} function attribute, Blackfin
+@cindex @code{interrupt_handler} function attribute, m68k
+@cindex @code{interrupt_handler} function attribute, H8/300
+@cindex @code{interrupt_handler} function attribute, SH
 Use this attribute on the Blackfin, m68k, H8/300, H8/300H, H8S, and SH to
 indicate that the specified function is an interrupt handler.  The compiler
 generates function entry and exit sequences suitable for use in an
 interrupt handler when this attribute is present.
 
 @item interrupt_thread
-@cindex interrupt thread functions on fido
+@cindex @code{interrupt_thread} function attribute, fido
 Use this attribute on fido, a subarchitecture of the m68k, to indicate
 that the specified function is an interrupt handler that is designed
 to run as a thread.  The compiler omits generate prologue/epilogue
@@ -3160,25 +3127,26 @@ sequences and replaces the return instruction with a @code{sleep}
 instruction.  This attribute is available only on fido.
 
 @item isr
-@cindex interrupt service routines on ARM
+@cindex @code{isr} function attribute, ARM
 Use this attribute on ARM to write Interrupt Service Routines. This is an
 alias to the @code{interrupt} attribute above.
 
 @item kspisusp
+@cindex @code{kspisusp} function attribute, Blackfin
 @cindex User stack pointer in interrupts on the Blackfin
 When used together with @code{interrupt_handler}, @code{exception_handler}
 or @code{nmi_handler}, code is generated to load the stack pointer
 from the USP register in the function prologue.
 
 @item l1_text
-@cindex @code{l1_text} function attribute
+@cindex @code{l1_text} function attribute, Blackfin
 This attribute specifies a function to be placed into L1 Instruction
 SRAM@. The function is put into a specific section named @code{.l1.text}.
 With @option{-mfdpic}, function calls with a such function as the callee
 or caller uses inlined PLT.
 
 @item l2
-@cindex @code{l2} function attribute
+@cindex @code{l2} function attribute, Blackfin
 On the Blackfin, this attribute specifies a function to be placed into L2
 SRAM. The function is put into a specific section named
 @code{.l1.text}. With @option{-mfdpic}, callers of such functions use
@@ -3209,10 +3177,19 @@ unit.  This is to allow easy merging of multiple compilation units into one,
 for example, by using the link-time optimization.  For this reason the
 attribute is not allowed on types to annotate indirect calls.
 
-@item long_call/medium_call/short_call
-@cindex indirect calls on ARC
-@cindex indirect calls on ARM
-@cindex indirect calls on Epiphany
+@item long_call
+@itemx medium_call
+@itemx short_call
+@cindex @code{long_call} function attribute, ARC
+@cindex @code{long_call} function attribute, ARM
+@cindex @code{long_call} function attribute, Epiphany
+@cindex @code{medium_call} function attribute, ARC
+@cindex @code{short_call} function attribute, ARC
+@cindex @code{short_call} function attribute, ARM
+@cindex @code{short_call} function attribute, Epiphany
+@cindex indirect calls, ARC
+@cindex indirect calls, ARM
+@cindex indirect calls, Epiphany
 These attributes specify how a particular function is called on
 ARC, ARM and Epiphany - with @code{medium_call} being specific to ARC.
 These attributes override the
@@ -3236,9 +3213,15 @@ attribute will always be close enough to be called with a conditional
 branch-and-link instruction, which has a 21-bit offset from
 the call site.
 
-@item longcall/shortcall
-@cindex functions called via pointer on the RS/6000 and PowerPC
-On the Blackfin, RS/6000 and PowerPC, the @code{longcall} attribute
+@item longcall
+@itemx shortcall
+@cindex indirect calls, Blackfin
+@cindex indirect calls, PowerPC
+@cindex @code{longcall} function attribute, Blackfin
+@cindex @code{longcall} function attribute, PowerPC
+@cindex @code{shortcall} function attribute, Blackfin
+@cindex @code{shortcall} function attribute, PowerPC
+On Blackfin and PowerPC, the @code{longcall} attribute
 indicates that the function might be far away from the call site and
 require a different (more expensive) calling sequence.  The
 @code{shortcall} attribute indicates that the function is always close
@@ -3249,8 +3232,13 @@ PowerPC, the @code{#pragma longcall} setting.
 @xref{RS/6000 and PowerPC Options}, for more information on whether long
 calls are necessary.
 
-@item long_call/near/far
-@cindex indirect calls on MIPS
+@item long_call
+@itemx near
+@itemx far
+@cindex indirect calls, MIPS
+@cindex @code{long_call} function attribute, MIPS
+@cindex @code{near} function attribute, MIPS
+@cindex @code{far} function attribute, MIPS
 These attributes specify how a particular function is called on MIPS@.
 The attributes override the @option{-mlong-calls} (@pxref{MIPS Options})
 command-line switch.  The @code{long_call} and @code{far} attributes are
@@ -3261,7 +3249,7 @@ effect; it specifies that non-PIC calls should be made using the more
 efficient @code{jal} instruction.
 
 @item malloc
-@cindex @code{malloc} attribute
+@cindex @code{malloc} function attribute
 This tells the compiler that a function is @code{malloc}-like, i.e.,
 that the pointer @var{P} returned by the function cannot alias any
 other pointer valid when the function returns, and moreover no
@@ -3273,9 +3261,10 @@ a pointer to uninitialized or zeroed-out storage.  However, functions
 like @code{realloc} do not have this property, as they can return a
 pointer to storage containing pointers.
 
-@item mips16/nomips16
-@cindex @code{mips16} attribute
-@cindex @code{nomips16} attribute
+@item mips16
+@itemx nomips16
+@cindex @code{mips16} function attribute, MIPS
+@cindex @code{nomips16} function attribute, MIPS
 
 On MIPS targets, you can use the @code{mips16} and @code{nomips16}
 function attributes to locally select or turn off MIPS16 code generation.
@@ -3291,9 +3280,10 @@ not that within individual functions.  Mixed MIPS16 and non-MIPS16 code
 may interact badly with some GCC extensions such as @code{__builtin_apply}
 (@pxref{Constructing Calls}).
 
-@item micromips/nomicromips
-@cindex @code{micromips} attribute
-@cindex @code{nomicromips} attribute
+@item micromips, MIPS
+@itemx nomicromips, MIPS
+@cindex @code{micromips} function attribute
+@cindex @code{nomicromips} function attribute
 
 On MIPS targets, you can use the @code{micromips} and @code{nomicromips}
 function attributes to locally select or turn off microMIPS code generation.
@@ -3311,8 +3301,8 @@ may interact badly with some GCC extensions such as @code{__builtin_apply}
 (@pxref{Constructing Calls}).
 
 @item model (@var{model-name})
+@cindex @code{model} function attribute, M32R/D
 @cindex function addressability on the M32R/D
-@cindex variable addressability on the IA-64
 
 On the M32R/D, use this attribute to set the addressability of an
 object, and of the code generated for a function.  The identifier
@@ -3332,17 +3322,10 @@ compiler generates @code{seth/add3} instructions to load their addresses),
 and may not be reachable with the @code{bl} instruction (the compiler
 generates the much slower @code{seth/add3/jl} instruction sequence).
 
-On IA-64, use this attribute to set the addressability of an object.
-At present, the only supported identifier for @var{model-name} is
-@code{small}, indicating addressability via ``small'' (22-bit)
-addresses (so that their addresses can be loaded with the @code{addl}
-instruction).  Caveat: such addressing is by definition not position
-independent and hence this attribute must not be used for objects
-defined by shared libraries.
-
-@item ms_abi/sysv_abi
-@cindex @code{ms_abi} attribute
-@cindex @code{sysv_abi} attribute
+@item ms_abi
+@itemx sysv_abi
+@cindex @code{ms_abi} function attribute, x86
+@cindex @code{sysv_abi} function attribute, x86
 
 On 32-bit and 64-bit x86 targets, you can use an ABI attribute
 to indicate which calling convention should be used for a function.  The
@@ -3355,7 +3338,7 @@ Note, the @code{ms_abi} attribute for Microsoft Windows 64-bit targets currently
 requires the @option{-maccumulate-outgoing-args} option.
 
 @item callee_pop_aggregate_return (@var{number})
-@cindex @code{callee_pop_aggregate_return} attribute
+@cindex @code{callee_pop_aggregate_return} function attribute, x86
 
 On x86-32 targets, you can use this attribute to control how
 aggregates are returned in memory.  If the caller is responsible for
@@ -3369,7 +3352,7 @@ the compiler assumes that the
 caller pops the stack for hidden pointer.
 
 @item ms_hook_prologue
-@cindex @code{ms_hook_prologue} attribute
+@cindex @code{ms_hook_prologue} function attribute, x86
 
 On 32-bit and 64-bit x86 targets, you can use
 this function attribute to make GCC generate the ``hot-patching'' function
@@ -3377,7 +3360,7 @@ prologue used in Win32 API functions in Microsoft Windows XP Service Pack 2
 and newer.
 
 @item hotpatch (@var{halfwords-before-function-label},@var{halfwords-after-function-label})
-@cindex @code{hotpatch} attribute
+@cindex @code{hotpatch} function attribute, S/390
 
 On S/390 System z targets, you can use this function attribute to
 make GCC generate a ``hot-patching'' function prologue.  If the
@@ -3388,38 +3371,44 @@ the function label.  A second argument can be used to specify the
 number of halfwords to be added after the function label.  For
 both arguments the maximum allowed value is 1000000.
 
-If both ar guments are zero, hotpatching is disabled.
+If both arguments are zero, hotpatching is disabled.
 
 @item naked
-@cindex function without a prologue/epilogue code
+@cindex @code{naked} function attribute, ARM
+@cindex @code{naked} function attribute, AVR
+@cindex @code{naked} function attribute, MCORE
+@cindex @code{naked} function attribute, MSP430
+@cindex @code{naked} function attribute, NDS32
+@cindex @code{naked} function attribute, RL78
+@cindex @code{naked} function attribute, RX
+@cindex @code{naked} function attribute, SPU
+@cindex function without prologue/epilogue code
 This attribute is available on the ARM, AVR, MCORE, MSP430, NDS32,
 RL78, RX and SPU ports.  It allows the compiler to construct the
 requisite function declaration, while allowing the body of the
 function to be assembly code. The specified function will not have
-prologue/epilogue sequences generated by the compiler. Only Basic
+prologue/epilogue sequences generated by the compiler. Only basic
 @code{asm} statements can safely be included in naked functions
-(@pxref{Basic Asm}). While using Extended @code{asm} or a mixture of
-Basic @code{asm} and ``C'' code may appear to work, they cannot be
+(@pxref{Basic Asm}). While using extended @code{asm} or a mixture of
+basic @code{asm} and C code may appear to work, they cannot be
 depended upon to work reliably and are not supported.
 
 @item near
+@cindex @code{near} function attribute, MeP
 @cindex functions that do not handle memory bank switching on 68HC11/68HC12
-On 68HC11 and 68HC12 the @code{near} attribute causes the compiler to
-use the normal calling convention based on @code{jsr} and @code{rts}.
-This attribute can be used to cancel the effect of the @option{-mlong-calls}
-option.
-
 On MeP targets this attribute causes the compiler to assume the called
 function is close enough to use the normal calling convention,
 overriding the @option{-mtf} command-line option.
 
 @item nesting
-@cindex Allow nesting in an interrupt handler on the Blackfin processor.
+@cindex @code{nesting} function attribute, Blackfin
+@cindex Allow nesting in an interrupt handler on the Blackfin processor
 Use this attribute together with @code{interrupt_handler},
 @code{exception_handler} or @code{nmi_handler} to indicate that the function
 entry code should enable nested interrupts or exceptions.
 
 @item nmi_handler
+@cindex @code{nmi_handler} function attribute, Blackfin
 @cindex NMI handler functions on the Blackfin processor
 Use this attribute on the Blackfin to indicate that the specified function
 is an NMI handler.  The compiler generates function entry and
@@ -3427,7 +3416,7 @@ exit sequences suitable for use in an NMI handler when this
 attribute is present.
 
 @item nocompression
-@cindex @code{nocompression} attribute
+@cindex @code{nocompression} function attribute, MIPS
 On MIPS targets, you can use the @code{nocompression} function attribute
 to locally turn off MIPS16 and microMIPS code generation.  This attribute
 overrides the @option{-mips16} and @option{-mmicromips} options on the
@@ -3514,7 +3503,7 @@ my_memcpy (void *dest, const void *src, size_t len)
 @end smallexample
 
 @item no_reorder
-@cindex @code{no_reorder} function or variable attribute
+@cindex @code{no_reorder} function attribute
 Do not reorder functions or variables marked @code{no_reorder}
 against each other or top level assembler statements the executable.
 The actual order in the program will depend on the linker command
@@ -3573,31 +3562,16 @@ restored before calling the @code{noreturn} function.
 It does not make sense for a @code{noreturn} function to have a return
 type other than @code{void}.
 
-The attribute @code{noreturn} is not implemented in GCC versions
-earlier than 2.5.  An alternative way to declare that a function does
-not return, which works in the current version and in some older
-versions, is as follows:
-
-@smallexample
-typedef void voidfn ();
-
-volatile voidfn fatal;
-@end smallexample
-
-@noindent
-This approach does not work in GNU C++.
-
 @item nothrow
 @cindex @code{nothrow} function attribute
 The @code{nothrow} attribute is used to inform the compiler that a
 function cannot throw an exception.  For example, most functions in
 the standard C library can be guaranteed not to throw an exception
 with the notable exceptions of @code{qsort} and @code{bsearch} that
-take function pointer arguments.  The @code{nothrow} attribute is not
-implemented in GCC versions earlier than 3.3.
+take function pointer arguments.
 
 @item nosave_low_regs
-@cindex @code{nosave_low_regs} attribute
+@cindex @code{nosave_low_regs} function attribute, SH
 Use this attribute on SH targets to indicate that an @code{interrupt_handler}
 function should not save and restore registers R0..R7.  This can be used on SH3*
 and SH4* targets that have a second R0..R7 register bank for non-reentrant
@@ -3621,9 +3595,10 @@ compiled with more aggressive optimization options that produce faster
 and larger code, while other functions can be compiled with less
 aggressive options.
 
-@item OS_main/OS_task
-@cindex @code{OS_main} AVR function attribute
-@cindex @code{OS_task} AVR function attribute
+@item OS_main
+@itemx OS_task
+@cindex @code{OS_main} function attribute, AVR
+@cindex @code{OS_task} function attribute, AVR
 On AVR, functions with the @code{OS_main} or @code{OS_task} attribute
 do not save/restore any call-saved register in their prologue/epilogue.
 
@@ -3649,7 +3624,7 @@ as needed.
 @end itemize
 
 @item pcs
-@cindex @code{pcs} function attribute
+@cindex @code{pcs} function attribute, ARM
 
 The @code{pcs} attribute can be used to control the calling convention
 used for a function on ARM.  The attribute takes an argument that specifies
@@ -3692,9 +3667,6 @@ Interesting non-pure functions are functions with infinite loops or those
 depending on volatile memory or other system resource, that may change between
 two consecutive calls (such as @code{feof} in a multithreading environment).
 
-The attribute @code{pure} is not implemented in GCC versions earlier
-than 2.96.
-
 @item hot
 @cindex @code{hot} function attribute
 The @code{hot} attribute on a function is used to inform the compiler that
@@ -3705,9 +3677,6 @@ improving locality.
 
 When profile feedback is available, via @option{-fprofile-use}, hot functions
 are automatically detected and this attribute is ignored.
-
-The @code{hot} attribute on functions is not implemented in GCC versions
-earlier than 4.3.
 
 @item cold
 @cindex @code{cold} function attribute
@@ -3723,9 +3692,6 @@ of hot functions that do call marked functions in rare occasions.
 
 When profile feedback is available, via @option{-fprofile-use}, cold functions
 are automatically detected and this attribute is ignored.
-
-The @code{cold} attribute on functions is not implemented in GCC versions
-earlier than 4.3.
 
 @item no_sanitize_address
 @itemx no_address_safety_analysis
@@ -3751,18 +3717,19 @@ in the function when compiling with the @option{-fsanitize=undefined} option.
 
 @item bnd_legacy
 @cindex @code{bnd_legacy} function attribute
-The @code{bnd_legacy} attribute on functions is used to inform
-compiler that function should not be instrumented when compiled
-with @option{-fcheck-pointer-bounds} option.
+@cindex Pointer Bounds Checker attributes
+The @code{bnd_legacy} attribute on functions is used to inform the
+compiler that the function should not be instrumented when compiled
+with the @option{-fcheck-pointer-bounds} option.
 
 @item bnd_instrument
 @cindex @code{bnd_instrument} function attribute
-The @code{bnd_instrument} attribute on functions is used to inform
-compiler that function should be instrumented when compiled
-with @option{-fchkp-instrument-marked-only} option.
+The @code{bnd_instrument} attribute on functions is used to inform the
+compiler that the function should be instrumented when compiled
+with the @option{-fchkp-instrument-marked-only} option.
 
 @item regparm (@var{number})
-@cindex @code{regparm} attribute
+@cindex @code{regparm} function attribute, x86
 @cindex functions that are passed arguments in registers on x86-32
 On x86-32 targets, the @code{regparm} attribute causes the compiler to
 pass arguments number one to @var{number} if they are of integral type
@@ -3782,6 +3749,7 @@ disabled with the linker or the loader if desired, to avoid the
 problem.)
 
 @item reset
+@cindex @code{reset} function attribute, NDS32
 @cindex reset handler functions
 Use this attribute on the NDS32 target to indicate that the specified function
 is a reset handler.  The compiler will generate corresponding sections
@@ -3789,15 +3757,15 @@ for use in a reset handler.  You can use the following attributes
 to provide extra exception handling:
 @table @code
 @item nmi
-@cindex @code{nmi} attribute
+@cindex @code{nmi} function attribute, NDS32
 Provide a user-defined function to handle NMI exception.
 @item warm
-@cindex @code{warm} attribute
+@cindex @code{warm} function attribute, NDS32
 Provide a user-defined function to handle warm reset exception.
 @end table
 
 @item sseregparm
-@cindex @code{sseregparm} attribute
+@cindex @code{sseregparm} function attribute, x86
 On x86-32 targets with SSE support, the @code{sseregparm} attribute
 causes the compiler to pass up to 3 floating-point arguments in
 SSE registers instead of on the stack.  Functions that take a
@@ -3805,7 +3773,7 @@ variable number of arguments continue to pass all of their
 floating-point arguments on the stack.
 
 @item force_align_arg_pointer
-@cindex @code{force_align_arg_pointer} attribute
+@cindex @code{force_align_arg_pointer} function attribute, x86
 On x86 targets, the @code{force_align_arg_pointer} attribute may be
 applied to individual function definitions, generating an alternate
 prologue and epilogue that realigns the run-time stack if necessary.
@@ -3813,12 +3781,12 @@ This supports mixing legacy codes that run with a 4-byte aligned stack
 with modern codes that keep a 16-byte stack for SSE compatibility.
 
 @item renesas
-@cindex @code{renesas} attribute
+@cindex @code{renesas} function attribute, SH
 On SH targets this attribute specifies that the function or struct follows the
 Renesas ABI.
 
 @item resbank
-@cindex @code{resbank} attribute
+@cindex @code{resbank} function attribute, SH
 On the SH2A target, this attribute enables the high-speed register
 saving and restoration using a register bank for @code{interrupt_handler}
 routines.  Saving to the bank is performed automatically after the CPU
@@ -3831,7 +3799,7 @@ banks are stacked in first-in last-out (FILO) sequence.  Restoration
 from the bank is executed by issuing a RESBANK instruction.
 
 @item returns_twice
-@cindex @code{returns_twice} attribute
+@cindex @code{returns_twice} function attribute
 The @code{returns_twice} attribute tells the compiler that a function may
 return more than one time.  The compiler ensures that all registers
 are dead before calling such a function and emits a warning about
@@ -3841,13 +3809,15 @@ The @code{longjmp}-like counterpart of such function, if any, might need
 to be marked with the @code{noreturn} attribute.
 
 @item saveall
+@cindex @code{saveall} function attribute, Blackfin
+@cindex @code{saveall} function attribute, H8/300
 @cindex save all registers on the Blackfin, H8/300, H8/300H, and H8S
 Use this attribute on the Blackfin, H8/300, H8/300H, and H8S to indicate that
 all registers except the stack pointer should be saved in the prologue
 regardless of whether they are used or not.
 
 @item save_volatiles
-@cindex save volatile registers on the MicroBlaze
+@cindex @code{save_volatiles} function attribute, MicroBlaze
 Use this attribute on the MicroBlaze to indicate that the function is
 an interrupt handler.  All volatile registers (in addition to non-volatile
 registers) are saved in the function prologue.  If the function is a leaf
@@ -3855,9 +3825,10 @@ function, only volatiles used by the function are saved.  A normal function
 return is generated instead of a return from interrupt.
 
 @item break_handler
+@cindex @code{break_handler} function attribute, MicroBlaze
 @cindex break handler functions
 Use this attribute on the MicroBlaze ports to indicate that
-the specified function is an break handler.  The compiler generates function
+the specified function is a break handler.  The compiler generates function
 entry and exit sequences suitable for use in an break handler when this
 attribute is present. The return from @code{break_handler} is done through
 the @code{rtbd} instead of @code{rtsd}.
@@ -3914,13 +3885,13 @@ The warnings for missing or incorrect sentinels are enabled with
 @option{-Wformat}.
 
 @item short_call
-See @code{long_call/short_call}.
+See @code{long_call}.
 
 @item shortcall
-See @code{longcall/shortcall}.
+See @code{longcall}.
 
 @item signal
-@cindex interrupt handler functions on the AVR processors
+@cindex @code{signal} function attribute, AVR
 Use this attribute on the AVR to indicate that the specified
 function is an interrupt handler.  The compiler generates function
 entry and exit sequences suitable for use in an interrupt handler when this
@@ -3939,7 +3910,7 @@ If both @code{signal} and @code{interrupt} are specified for the same
 function, @code{signal} is silently ignored.
 
 @item sp_switch
-@cindex @code{sp_switch} attribute
+@cindex @code{sp_switch} function attribute, SH
 Use this attribute on the SH to indicate an @code{interrupt_handler}
 function should switch to an alternate stack.  It expects a string
 argument that names a global variable holding the address of the
@@ -3952,13 +3923,14 @@ void f () __attribute__ ((interrupt_handler,
 @end smallexample
 
 @item stdcall
+@cindex @code{stdcall} function attribute, x86-32
 @cindex functions that pop the argument stack on x86-32
 On x86-32 targets, the @code{stdcall} attribute causes the compiler to
 assume that the called function pops off the stack space used to
 pass arguments, unless it takes a variable number of arguments.
 
 @item syscall_linkage
-@cindex @code{syscall_linkage} attribute
+@cindex @code{syscall_linkage} function attribute, IA-64
 This attribute is used to modify the IA-64 calling convention by marking
 all input registers as live at all function exits.  This makes it possible
 to restart a system call after an interrupt without having to save/restore
@@ -4005,144 +3977,144 @@ On the x86, the following options are allowed:
 @table @samp
 @item abm
 @itemx no-abm
-@cindex @code{target("abm")} attribute
+@cindex @code{target("abm")} function attribute, x86
 Enable/disable the generation of the advanced bit instructions.
 
 @item aes
 @itemx no-aes
-@cindex @code{target("aes")} attribute
+@cindex @code{target("aes")} function attribute, x86
 Enable/disable the generation of the AES instructions.
 
 @item default
-@cindex @code{target("default")} attribute
+@cindex @code{target("default")} function attribute, x86
 @xref{Function Multiversioning}, where it is used to specify the
 default function version.
 
 @item mmx
 @itemx no-mmx
-@cindex @code{target("mmx")} attribute
+@cindex @code{target("mmx")} function attribute, x86
 Enable/disable the generation of the MMX instructions.
 
 @item pclmul
 @itemx no-pclmul
-@cindex @code{target("pclmul")} attribute
+@cindex @code{target("pclmul")} function attribute, x86
 Enable/disable the generation of the PCLMUL instructions.
 
 @item popcnt
 @itemx no-popcnt
-@cindex @code{target("popcnt")} attribute
+@cindex @code{target("popcnt")} function attribute, x86
 Enable/disable the generation of the POPCNT instruction.
 
 @item sse
 @itemx no-sse
-@cindex @code{target("sse")} attribute
+@cindex @code{target("sse")} function attribute, x86
 Enable/disable the generation of the SSE instructions.
 
 @item sse2
 @itemx no-sse2
-@cindex @code{target("sse2")} attribute
+@cindex @code{target("sse2")} function attribute, x86
 Enable/disable the generation of the SSE2 instructions.
 
 @item sse3
 @itemx no-sse3
-@cindex @code{target("sse3")} attribute
+@cindex @code{target("sse3")} function attribute, x86
 Enable/disable the generation of the SSE3 instructions.
 
 @item sse4
 @itemx no-sse4
-@cindex @code{target("sse4")} attribute
+@cindex @code{target("sse4")} function attribute, x86
 Enable/disable the generation of the SSE4 instructions (both SSE4.1
 and SSE4.2).
 
 @item sse4.1
 @itemx no-sse4.1
-@cindex @code{target("sse4.1")} attribute
+@cindex @code{target("sse4.1")} function attribute, x86
 Enable/disable the generation of the sse4.1 instructions.
 
 @item sse4.2
 @itemx no-sse4.2
-@cindex @code{target("sse4.2")} attribute
+@cindex @code{target("sse4.2")} function attribute, x86
 Enable/disable the generation of the sse4.2 instructions.
 
 @item sse4a
 @itemx no-sse4a
-@cindex @code{target("sse4a")} attribute
+@cindex @code{target("sse4a")} function attribute, x86
 Enable/disable the generation of the SSE4A instructions.
 
 @item fma4
 @itemx no-fma4
-@cindex @code{target("fma4")} attribute
+@cindex @code{target("fma4")} function attribute, x86
 Enable/disable the generation of the FMA4 instructions.
 
 @item xop
 @itemx no-xop
-@cindex @code{target("xop")} attribute
+@cindex @code{target("xop")} function attribute, x86
 Enable/disable the generation of the XOP instructions.
 
 @item lwp
 @itemx no-lwp
-@cindex @code{target("lwp")} attribute
+@cindex @code{target("lwp")} function attribute, x86
 Enable/disable the generation of the LWP instructions.
 
 @item ssse3
 @itemx no-ssse3
-@cindex @code{target("ssse3")} attribute
+@cindex @code{target("ssse3")} function attribute, x86
 Enable/disable the generation of the SSSE3 instructions.
 
 @item cld
 @itemx no-cld
-@cindex @code{target("cld")} attribute
+@cindex @code{target("cld")} function attribute, x86
 Enable/disable the generation of the CLD before string moves.
 
 @item fancy-math-387
 @itemx no-fancy-math-387
-@cindex @code{target("fancy-math-387")} attribute
+@cindex @code{target("fancy-math-387")} function attribute, x86
 Enable/disable the generation of the @code{sin}, @code{cos}, and
 @code{sqrt} instructions on the 387 floating-point unit.
 
 @item fused-madd
 @itemx no-fused-madd
-@cindex @code{target("fused-madd")} attribute
+@cindex @code{target("fused-madd")} function attribute, x86
 Enable/disable the generation of the fused multiply/add instructions.
 
 @item ieee-fp
 @itemx no-ieee-fp
-@cindex @code{target("ieee-fp")} attribute
+@cindex @code{target("ieee-fp")} function attribute, x86
 Enable/disable the generation of floating point that depends on IEEE arithmetic.
 
 @item inline-all-stringops
 @itemx no-inline-all-stringops
-@cindex @code{target("inline-all-stringops")} attribute
+@cindex @code{target("inline-all-stringops")} function attribute, x86
 Enable/disable inlining of string operations.
 
 @item inline-stringops-dynamically
 @itemx no-inline-stringops-dynamically
-@cindex @code{target("inline-stringops-dynamically")} attribute
+@cindex @code{target("inline-stringops-dynamically")} function attribute, x86
 Enable/disable the generation of the inline code to do small string
 operations and calling the library routines for large operations.
 
 @item align-stringops
 @itemx no-align-stringops
-@cindex @code{target("align-stringops")} attribute
+@cindex @code{target("align-stringops")} function attribute, x86
 Do/do not align destination of inlined string operations.
 
 @item recip
 @itemx no-recip
-@cindex @code{target("recip")} attribute
+@cindex @code{target("recip")} function attribute, x86
 Enable/disable the generation of RCPSS, RCPPS, RSQRTSS and RSQRTPS
 instructions followed an additional Newton-Raphson step instead of
 doing a floating-point division.
 
 @item arch=@var{ARCH}
-@cindex @code{target("arch=@var{ARCH}")} attribute
+@cindex @code{target("arch=@var{ARCH}")} function attribute, x86
 Specify the architecture to generate code for in compiling the function.
 
 @item tune=@var{TUNE}
-@cindex @code{target("tune=@var{TUNE}")} attribute
+@cindex @code{target("tune=@var{TUNE}")} function attribute, x86
 Specify the architecture to tune for in compiling the function.
 
 @item fpmath=@var{FPMATH}
-@cindex @code{target("fpmath=@var{FPMATH}")} attribute
+@cindex @code{target("fpmath=@var{FPMATH}")} function attribute, x86
 Specify which floating-point unit to use.  The
 @code{target("fpmath=sse,387")} option must be specified as
 @code{target("fpmath=sse+387")} because the comma would separate
@@ -4154,60 +4126,60 @@ On the PowerPC, the following options are allowed:
 @table @samp
 @item altivec
 @itemx no-altivec
-@cindex @code{target("altivec")} attribute
+@cindex @code{target("altivec")} function attribute, PowerPC
 Generate code that uses (does not use) AltiVec instructions.  In
 32-bit code, you cannot enable AltiVec instructions unless
 @option{-mabi=altivec} is used on the command line.
 
 @item cmpb
 @itemx no-cmpb
-@cindex @code{target("cmpb")} attribute
+@cindex @code{target("cmpb")} function attribute, PowerPC
 Generate code that uses (does not use) the compare bytes instruction
 implemented on the POWER6 processor and other processors that support
 the PowerPC V2.05 architecture.
 
 @item dlmzb
 @itemx no-dlmzb
-@cindex @code{target("dlmzb")} attribute
+@cindex @code{target("dlmzb")} function attribute, PowerPC
 Generate code that uses (does not use) the string-search @samp{dlmzb}
 instruction on the IBM 405, 440, 464 and 476 processors.  This instruction is
 generated by default when targeting those processors.
 
 @item fprnd
 @itemx no-fprnd
-@cindex @code{target("fprnd")} attribute
+@cindex @code{target("fprnd")} function attribute, PowerPC
 Generate code that uses (does not use) the FP round to integer
 instructions implemented on the POWER5+ processor and other processors
 that support the PowerPC V2.03 architecture.
 
 @item hard-dfp
 @itemx no-hard-dfp
-@cindex @code{target("hard-dfp")} attribute
+@cindex @code{target("hard-dfp")} function attribute, PowerPC
 Generate code that uses (does not use) the decimal floating-point
 instructions implemented on some POWER processors.
 
 @item isel
 @itemx no-isel
-@cindex @code{target("isel")} attribute
+@cindex @code{target("isel")} function attribute, PowerPC
 Generate code that uses (does not use) ISEL instruction.
 
 @item mfcrf
 @itemx no-mfcrf
-@cindex @code{target("mfcrf")} attribute
+@cindex @code{target("mfcrf")} function attribute, PowerPC
 Generate code that uses (does not use) the move from condition
 register field instruction implemented on the POWER4 processor and
 other processors that support the PowerPC V2.01 architecture.
 
 @item mfpgpr
 @itemx no-mfpgpr
-@cindex @code{target("mfpgpr")} attribute
+@cindex @code{target("mfpgpr")} function attribute, PowerPC
 Generate code that uses (does not use) the FP move to/from general
 purpose register instructions implemented on the POWER6X processor and
 other processors that support the extended PowerPC V2.05 architecture.
 
 @item mulhw
 @itemx no-mulhw
-@cindex @code{target("mulhw")} attribute
+@cindex @code{target("mulhw")} function attribute, PowerPC
 Generate code that uses (does not use) the half-word multiply and
 multiply-accumulate instructions on the IBM 405, 440, 464 and 476 processors.
 These instructions are generated by default when targeting those
@@ -4215,20 +4187,20 @@ processors.
 
 @item multiple
 @itemx no-multiple
-@cindex @code{target("multiple")} attribute
+@cindex @code{target("multiple")} function attribute, PowerPC
 Generate code that uses (does not use) the load multiple word
 instructions and the store multiple word instructions.
 
 @item update
 @itemx no-update
-@cindex @code{target("update")} attribute
+@cindex @code{target("update")} function attribute, PowerPC
 Generate code that uses (does not use) the load or store instructions
 that update the base register to the address of the calculated memory
 location.
 
 @item popcntb
 @itemx no-popcntb
-@cindex @code{target("popcntb")} attribute
+@cindex @code{target("popcntb")} function attribute, PowerPC
 Generate code that uses (does not use) the popcount and double-precision
 FP reciprocal estimate instruction implemented on the POWER5
 processor and other processors that support the PowerPC V2.02
@@ -4236,42 +4208,42 @@ architecture.
 
 @item popcntd
 @itemx no-popcntd
-@cindex @code{target("popcntd")} attribute
+@cindex @code{target("popcntd")} function attribute, PowerPC
 Generate code that uses (does not use) the popcount instruction
 implemented on the POWER7 processor and other processors that support
 the PowerPC V2.06 architecture.
 
 @item powerpc-gfxopt
 @itemx no-powerpc-gfxopt
-@cindex @code{target("powerpc-gfxopt")} attribute
+@cindex @code{target("powerpc-gfxopt")} function attribute, PowerPC
 Generate code that uses (does not use) the optional PowerPC
 architecture instructions in the Graphics group, including
 floating-point select.
 
 @item powerpc-gpopt
 @itemx no-powerpc-gpopt
-@cindex @code{target("powerpc-gpopt")} attribute
+@cindex @code{target("powerpc-gpopt")} function attribute, PowerPC
 Generate code that uses (does not use) the optional PowerPC
 architecture instructions in the General Purpose group, including
 floating-point square root.
 
 @item recip-precision
 @itemx no-recip-precision
-@cindex @code{target("recip-precision")} attribute
+@cindex @code{target("recip-precision")} function attribute, PowerPC
 Assume (do not assume) that the reciprocal estimate instructions
-provide higher-precision estimates than is mandated by the powerpc
+provide higher-precision estimates than is mandated by the PowerPC
 ABI.
 
 @item string
 @itemx no-string
-@cindex @code{target("string")} attribute
+@cindex @code{target("string")} function attribute, PowerPC
 Generate code that uses (does not use) the load string instructions
 and the store string word instructions to save multiple registers and
 do small block moves.
 
 @item vsx
 @itemx no-vsx
-@cindex @code{target("vsx")} attribute
+@cindex @code{target("vsx")} function attribute, PowerPC
 Generate code that uses (does not use) vector/scalar (VSX)
 instructions, and also enable the use of built-in functions that allow
 more direct access to the VSX instruction set.  In 32-bit code, you
@@ -4280,7 +4252,7 @@ cannot enable VSX or AltiVec instructions unless
 
 @item friz
 @itemx no-friz
-@cindex @code{target("friz")} attribute
+@cindex @code{target("friz")} function attribute, PowerPC
 Generate (do not generate) the @code{friz} instruction when the
 @option{-funsafe-math-optimizations} option is used to optimize
 rounding a floating-point value to 64-bit integer and back to floating
@@ -4289,31 +4261,31 @@ the floating-point number is too large to fit in an integer.
 
 @item avoid-indexed-addresses
 @itemx no-avoid-indexed-addresses
-@cindex @code{target("avoid-indexed-addresses")} attribute
+@cindex @code{target("avoid-indexed-addresses")} function attribute, PowerPC
 Generate code that tries to avoid (not avoid) the use of indexed load
 or store instructions.
 
 @item paired
 @itemx no-paired
-@cindex @code{target("paired")} attribute
+@cindex @code{target("paired")} function attribute, PowerPC
 Generate code that uses (does not use) the generation of PAIRED simd
 instructions.
 
 @item longcall
 @itemx no-longcall
-@cindex @code{target("longcall")} attribute
+@cindex @code{target("longcall")} function attribute, PowerPC
 Generate code that assumes (does not assume) that all calls are far
 away so that a longer more expensive calling sequence is required.
 
 @item cpu=@var{CPU}
-@cindex @code{target("cpu=@var{CPU}")} attribute
+@cindex @code{target("cpu=@var{CPU}")} function attribute, PowerPC
 Specify the architecture to generate code for when compiling the
 function.  If you select the @code{target("cpu=power7")} attribute when
 generating 32-bit code, VSX and AltiVec instructions are not generated
 unless you use the @option{-mabi=altivec} option on the command line.
 
 @item tune=@var{TUNE}
-@cindex @code{target("tune=@var{TUNE}")} attribute
+@cindex @code{target("tune=@var{TUNE}")} function attribute, PowerPC
 Specify the architecture to tune for when compiling the function.  If
 you do not specify the @code{target("tune=@var{TUNE}")} attribute and
 you do specify the @code{target("cpu=@var{CPU}")} attribute,
@@ -4326,8 +4298,8 @@ When compiling for Nios II, the following options are allowed:
 @table @samp
 @item custom-@var{insn}=@var{N}
 @itemx no-custom-@var{insn}
-@cindex @code{target("custom-@var{insn}=@var{N}")} attribute
-@cindex @code{target("no-custom-@var{insn}")} attribute
+@cindex @code{target("custom-@var{insn}=@var{N}")} function attribute, Nios II
+@cindex @code{target("no-custom-@var{insn}")} function attribute, Nios II
 Each @samp{custom-@var{insn}=@var{N}} attribute locally enables use of a
 custom instruction with encoding @var{N} when generating code that uses 
 @var{insn}.  Similarly, @samp{no-custom-@var{insn}} locally inhibits use of
@@ -4338,7 +4310,7 @@ command-line options, and support the same set of @var{insn} keywords.
 @xref{Nios II Options}, for more information.
 
 @item custom-fpu-cfg=@var{name}
-@cindex @code{target("custom-fpu-cfg=@var{name}")} attribute
+@cindex @code{target("custom-fpu-cfg=@var{name}")} function attribute, Nios II
 This attribute corresponds to the @option{-mcustom-fpu-cfg=@var{name}}
 command-line option, to select a predefined set of custom instructions
 named @var{name}.
@@ -4351,33 +4323,25 @@ callee has a subset of the target options of the caller.  For example
 a function declared with @code{target("sse3")} can inline a function
 with @code{target("sse2")}, since @code{-msse3} implies @code{-msse2}.
 
-@item tiny_data
-@cindex tiny data section on the H8/300H and H8S
-Use this attribute on the H8/300H and H8S to indicate that the specified
-variable should be placed into the tiny data section.
-The compiler generates more efficient code for loads and stores
-on data in the tiny data section.  Note the tiny data area is limited to
-slightly under 32KB of data.
-
 @item trap_exit
-@cindex @code{trap_exit} attribute
+@cindex @code{trap_exit} function attribute, SH
 Use this attribute on the SH for an @code{interrupt_handler} to return using
 @code{trapa} instead of @code{rte}.  This attribute expects an integer
 argument specifying the trap number to be used.
 
 @item trapa_handler
-@cindex @code{trapa_handler} attribute
+@cindex @code{trapa_handler} function attribute, SH
 On SH targets this function attribute is similar to @code{interrupt_handler}
 but it does not save and restore all registers.
 
 @item unused
-@cindex @code{unused} attribute.
+@cindex @code{unused} function attribute
 This attribute, attached to a function, means that the function is meant
 to be possibly unused.  GCC does not produce a warning for this
 function.
 
 @item used
-@cindex @code{used} attribute.
+@cindex @code{used} function attribute
 This attribute, attached to a function, means that code must be emitted
 for the function even if it appears that the function is not referenced.
 This is useful, for example, when the function is referenced only in
@@ -4388,14 +4352,14 @@ attribute also means that the function is instantiated if the
 class itself is instantiated.
 
 @item vector
-@cindex @code{vector} attribute
+@cindex @code{vector} function attribute, RX
 This RX attribute is similar to the @code{interrupt} attribute, including its
 parameters, but does not make the function an interrupt-handler type
 function (i.e. it retains the normal C function calling ABI).  See the
 @code{interrupt} attribute for a description of its arguments.
 
 @item version_id
-@cindex @code{version_id} attribute
+@cindex @code{version_id} function attribute, IA-64
 This IA-64 HP-UX attribute, attached to a global variable or function, renames a
 symbol to contain a version string, thus allowing for function level
 versioning.  HP-UX system header files may use function level versioning
@@ -4409,7 +4373,7 @@ extern int foo () __attribute__((version_id ("20040821")));
 Calls to @var{foo} are mapped to calls to @var{foo@{20040821@}}.
 
 @item visibility ("@var{visibility_type}")
-@cindex @code{visibility} attribute
+@cindex @code{visibility} function attribute
 This attribute affects the linkage of the declaration to which it is attached.
 There are four supported @var{visibility_type} values: default,
 hidden, protected or internal visibility.
@@ -4511,14 +4475,14 @@ If both the template and enclosing class have explicit visibility, the
 visibility from the template is used.
 
 @item vliw
-@cindex @code{vliw} attribute
+@cindex @code{vliw} function attribute, MeP
 On MeP, the @code{vliw} attribute tells the compiler to emit
 instructions in VLIW mode instead of core mode.  Note that this
 attribute is not allowed unless a VLIW coprocessor has been configured
 and enabled through command-line options.
 
 @item warn_unused_result
-@cindex @code{warn_unused_result} attribute
+@cindex @code{warn_unused_result} function attribute
 The @code{warn_unused_result} attribute causes a warning to be emitted
 if a caller of the function with this attribute does not use its
 return value.  This is useful for functions where not checking
@@ -4539,7 +4503,7 @@ int foo ()
 results in warning on line 5.
 
 @item weak
-@cindex @code{weak} attribute
+@cindex @code{weak} function attribute
 The @code{weak} attribute causes the declaration to be emitted as a weak
 symbol rather than a global.  This is primarily useful in defining
 library functions that can be overridden in user code, though it can
@@ -4549,7 +4513,7 @@ and linker.
 
 @item weakref
 @itemx weakref ("@var{target}")
-@cindex @code{weakref} attribute
+@cindex @code{weakref} function attribute
 The @code{weakref} attribute marks a declaration as a weak reference.
 Without arguments, it should be accompanied by an @code{alias} attribute
 naming the target symbol.  Optionally, the @var{target} may be given as
@@ -4633,7 +4597,7 @@ This example uses the @code{cold} label attribute to indicate the
 
    asm goto ("some asm" : : : : NoError);
 
-/* This branch (the fallthru from the asm) is less commonly used */
+/* This branch (the fall-through from the asm) is less commonly used */
 ErrorHandling: 
    __attribute__((cold, unused)); /* Semi-colon is required here */
    printf("error\n");
@@ -4660,18 +4624,12 @@ the path following the label is more likely than paths that are not so
 annotated.  This attribute is used in cases where @code{__builtin_expect}
 cannot be used, for instance with computed goto or @code{asm goto}.
 
-The @code{hot} attribute on labels is not implemented in GCC versions
-earlier than 4.8.
-
 @item cold
 @cindex @code{cold} label attribute
 The @code{cold} attribute on labels is used to inform the compiler that
 the path following the label is unlikely to be executed.  This attribute
 is used in cases where @code{__builtin_expect} cannot be used, for instance
 with computed goto or @code{asm goto}.
-
-The @code{cold} attribute on labels is not implemented in GCC versions
-earlier than 4.8.
 
 @end table
 
@@ -4813,7 +4771,7 @@ example, in
 @smallexample
 __attribute__((noreturn)) void d0 (void),
     __attribute__((format(printf, 1, 2))) d1 (const char *, ...),
-     d2 (void)
+     d2 (void);
 @end smallexample
 
 @noindent
@@ -5021,7 +4979,7 @@ you may use @code{__aligned__} instead of @code{aligned}.
 attributes.
 
 @table @code
-@cindex @code{aligned} attribute
+@cindex @code{aligned} variable attribute
 @item aligned (@var{alignment})
 This attribute specifies a minimum alignment for the variable or
 structure field, measured in bytes.  For example, the declaration:
@@ -5091,7 +5049,7 @@ The @code{aligned} attribute can also be used for functions
 (@pxref{Function Attributes}.)
 
 @item cleanup (@var{cleanup_function})
-@cindex @code{cleanup} attribute
+@cindex @code{cleanup} variable attribute
 The @code{cleanup} attribute runs a function when the variable goes
 out of scope.  This attribute can only be applied to auto function
 scope variables; it may not be applied to parameters or variables
@@ -5108,8 +5066,8 @@ return normally.
 
 @item common
 @itemx nocommon
-@cindex @code{common} attribute
-@cindex @code{nocommon} attribute
+@cindex @code{common} variable attribute
+@cindex @code{nocommon} variable attribute
 @opindex fcommon
 @opindex fno-common
 The @code{common} attribute requests GCC to place a variable in
@@ -5121,7 +5079,7 @@ These attributes override the default chosen by the
 
 @item deprecated
 @itemx deprecated (@var{msg})
-@cindex @code{deprecated} attribute
+@cindex @code{deprecated} variable attribute
 The @code{deprecated} attribute results in a warning if the variable
 is used anywhere in the source file.  This is useful when identifying
 variables that are expected to be removed in a future version of a
@@ -5145,7 +5103,7 @@ The @code{deprecated} attribute can also be used for functions and
 types (@pxref{Function Attributes}, @pxref{Type Attributes}.)
 
 @item mode (@var{mode})
-@cindex @code{mode} attribute
+@cindex @code{mode} variable attribute
 This attribute specifies the data type for the declaration---whichever
 type corresponds to the mode @var{mode}.  This in effect lets you
 request an integer or floating-point type according to its width.
@@ -5156,7 +5114,7 @@ indicate the mode corresponding to a one-byte integer, @code{word} or
 or @code{__pointer__} for the mode used to represent pointers.
 
 @item packed
-@cindex @code{packed} attribute
+@cindex @code{packed} variable attribute
 The @code{packed} attribute specifies that a variable or structure field
 should have the smallest possible alignment---one byte for a variable,
 and one bit for a field, unless you specify a larger value with the
@@ -5256,7 +5214,7 @@ linkers work.  See @code{section} attribute for more information.
 The @code{shared} attribute is only available on Microsoft Windows@.
 
 @item tls_model ("@var{tls_model}")
-@cindex @code{tls_model} attribute
+@cindex @code{tls_model} variable attribute
 The @code{tls_model} attribute sets thread-local storage model
 (@pxref{Thread-Local}) of a particular @code{__thread} variable,
 overriding @option{-ftls-model=} command-line switch on a per-variable
@@ -5267,12 +5225,14 @@ The @var{tls_model} argument should be one of @code{global-dynamic},
 Not all targets support this attribute.
 
 @item unused
+@cindex @code{unused} variable attribute
 This attribute, attached to a variable, means that the variable is meant
 to be possibly unused.  GCC does not produce a warning for this
 variable.
 
 @item used
-This attribute, attached to a variable with the static storage, means that
+@cindex @code{used} variable attribute
+This attribute, attached to a variable with static storage, means that
 the variable must be emitted even if it appears that the variable is not
 referenced.
 
@@ -5281,6 +5241,7 @@ attribute also means that the member is instantiated if the
 class itself is instantiated.
 
 @item vector_size (@var{bytes})
+@cindex @code{vector_size} variable attribute
 This attribute specifies the vector size for the variable, measured in
 bytes.  For example, the declaration:
 
@@ -5310,6 +5271,7 @@ is invalid even if the size of the structure is the same as the size of
 the @code{int}.
 
 @item selectany
+@cindex @code{selectany} variable attribute
 The @code{selectany} attribute causes an initialized global variable to
 have link-once semantics.  When multiple definitions of the variable are
 encountered by the linker, the first is selected and the remainder are
@@ -5330,12 +5292,15 @@ targets.  You can use @code{__declspec (selectany)} as a synonym for
 compilers.
 
 @item weak
+@cindex @code{weak} variable attribute
 The @code{weak} attribute is described in @ref{Function Attributes}.
 
 @item dllimport
+@cindex @code{dllimport} variable attribute
 The @code{dllimport} attribute is described in @ref{Function Attributes}.
 
 @item dllexport
+@cindex @code{dllexport} variable attribute
 The @code{dllexport} attribute is described in @ref{Function Attributes}.
 
 @end table
@@ -5345,7 +5310,7 @@ The @code{dllexport} attribute is described in @ref{Function Attributes}.
 
 @table @code
 @item progmem
-@cindex @code{progmem} AVR variable attribute
+@cindex @code{progmem} variable attribute, AVR
 The @code{progmem} attribute is used on the AVR to place read-only
 data in the non-volatile program memory (flash). The @code{progmem}
 attribute accomplishes this by putting respective variables into a
@@ -5380,6 +5345,7 @@ an alternate way to locate and access data in flash memory.
 
 @item io
 @itemx io (@var{addr})
+@cindex @code{io} variable attribute, AVR
 Variables with the @code{io} attribute are used to address
 memory-mapped peripherals in the io address range.
 If an address is specified, the variable
@@ -5404,6 +5370,7 @@ extern volatile int porta __attribute__((io));
 
 @item io_low
 @itemx io_low (@var{addr})
+@cindex @code{io_low} variable attribute, AVR
 This is like the @code{io} attribute, but additionally it informs the
 compiler that the object lies in the lower half of the I/O area,
 allowing the use of @code{cbi}, @code{sbi}, @code{sbic} and @code{sbis}
@@ -5411,6 +5378,7 @@ instructions.
 
 @item address
 @itemx address (@var{addr})
+@cindex @code{address} variable attribute, AVR
 Variables with the @code{address} attribute are used to address
 memory-mapped peripherals that may lie outside the io address range.
 
@@ -5428,9 +5396,9 @@ Three attributes are currently defined for the Blackfin.
 @item l1_data
 @itemx l1_data_A
 @itemx l1_data_B
-@cindex @code{l1_data} variable attribute
-@cindex @code{l1_data_A} variable attribute
-@cindex @code{l1_data_B} variable attribute
+@cindex @code{l1_data} variable attribute, Blackfin
+@cindex @code{l1_data_A} variable attribute, Blackfin
+@cindex @code{l1_data_B} variable attribute, Blackfin
 Use these attributes on the Blackfin to place the variable into L1 Data SRAM.
 Variables with @code{l1_data} attribute are put into the specific section
 named @code{.l1.data}. Those with @code{l1_data_A} attribute are put into
@@ -5438,10 +5406,56 @@ the specific section named @code{.l1.data.A}. Those with @code{l1_data_B}
 attribute are put into the specific section named @code{.l1.data.B}.
 
 @item l2
-@cindex @code{l2} variable attribute
+@cindex @code{l2} variable attribute, Blackfin
 Use this attribute on the Blackfin to place the variable into L2 SRAM.
 Variables with @code{l2} attribute are put into the specific section
 named @code{.l2.data}.
+@end table
+
+@subsection H8/300 Variable Attributes
+
+These variable attributes are available for H8/300 targets:
+
+@table @code
+@item eightbit_data
+@cindex @code{eightbit_data} variable attribute, H8/300
+@cindex eight-bit data on the H8/300, H8/300H, and H8S
+Use this attribute on the H8/300, H8/300H, and H8S to indicate that the specified
+variable should be placed into the eight-bit data section.
+The compiler generates more efficient code for certain operations
+on data in the eight-bit data area.  Note the eight-bit data area is limited to
+256 bytes of data.
+
+You must use GAS and GLD from GNU binutils version 2.7 or later for
+this attribute to work correctly.
+
+@item tiny_data
+@cindex @code{tiny_data} variable attribute, H8/300
+@cindex tiny data section on the H8/300H and H8S
+Use this attribute on the H8/300H and H8S to indicate that the specified
+variable should be placed into the tiny data section.
+The compiler generates more efficient code for loads and stores
+on data in the tiny data section.  Note the tiny data area is limited to
+slightly under 32KB of data.
+
+@end table
+
+@subsection IA-64 Variable Attributes
+
+The IA-64 back end supports the following variable attribute:
+
+@table @code
+@item model (@var{model-name})
+@cindex @code{model} variable attribute, IA-64
+
+On IA-64, use this attribute to set the addressability of an object.
+At present, the only supported identifier for @var{model-name} is
+@code{small}, indicating addressability via ``small'' (22-bit)
+addresses (so that their addresses can be loaded with the @code{addl}
+instruction).  Caveat: such addressing is by definition not position
+independent and hence this attribute must not be used for objects
+defined by shared libraries.
+
 @end table
 
 @subsection M32R/D Variable Attributes
@@ -5450,6 +5464,7 @@ One attribute is currently defined for the M32R/D@.
 
 @table @code
 @item model (@var{model-name})
+@cindex @code{model-name} variable attribute, M32R/D
 @cindex variable addressability on the M32R/D
 Use this attribute on the M32R/D to set the addressability of an object.
 The identifier @var{model-name} is one of @code{small}, @code{medium},
@@ -5478,27 +5493,32 @@ control bus which is specified with @code{cb} attributes.
 @table @code
 
 @item based
+@cindex @code{based} variable attribute, MeP
 Any variable with the @code{based} attribute is assigned to the
 @code{.based} section, and is accessed with relative to the
 @code{$tp} register.
 
 @item tiny
+@cindex @code{tiny} variable attribute, MeP
 Likewise, the @code{tiny} attribute assigned variables to the
 @code{.tiny} section, relative to the @code{$gp} register.
 
 @item near
+@cindex @code{near} variable attribute, MeP
 Variables with the @code{near} attribute are assumed to have addresses
 that fit in a 24-bit addressing mode.  This is the default for large
 variables (@code{-mtiny=4} is the default) but this attribute can
 override @code{-mtiny=} for small variables, or override @code{-ml}.
 
 @item far
+@cindex @code{far} variable attribute, MeP
 Variables with the @code{far} attribute are addressed using a full
 32-bit address.  Since this covers the entire memory space, this
 allows modules to make no assumptions about where variables might be
 stored.
 
 @item io
+@cindex @code{io} variable attribute, MeP
 @itemx io (@var{addr})
 Variables with the @code{io} attribute are used to address
 memory-mapped peripherals.  If an address is specified, the variable
@@ -5511,6 +5531,7 @@ int timer_count __attribute__((io(0x123)));
 
 @item cb
 @itemx cb (@var{addr})
+@cindex @code{cb} variable attribute, MeP
 Variables with the @code{cb} attribute are used to access the control
 bus, using special instructions.  @code{addr} indicates the control bus
 address.  Example:
@@ -5526,14 +5547,18 @@ int cpu_clock __attribute__((cb(0x123)));
 Three attributes currently are defined for PowerPC configurations:
 @code{altivec}, @code{ms_struct} and @code{gcc_struct}.
 
+@cindex @code{ms_struct} variable attribute, PowerPC
+@cindex @code{gcc_struct} variable attribute, PowerPC
 For full documentation of the struct attributes please see the
 documentation in @ref{x86 Variable Attributes}.
 
+@cindex @code{altivec} variable attribute, PowerPC
 For documentation of @code{altivec} attribute please see the
 documentation in @ref{PowerPC Type Attributes}.
 
 @subsection SPU Variable Attributes
 
+@cindex @code{spu_vector} variable attribute, SPU
 The SPU supports the @code{spu_vector} attribute for variables.  For
 documentation of this attribute please see the documentation in
 @ref{SPU Type Attributes}.
@@ -5547,8 +5572,8 @@ Two attributes are currently defined for x86 configurations:
 @table @code
 @item ms_struct
 @itemx gcc_struct
-@cindex @code{ms_struct} attribute
-@cindex @code{gcc_struct} attribute
+@cindex @code{ms_struct} variable attribute, x86
+@cindex @code{gcc_struct} variable attribute, x86
 
 If @code{packed} is used on a structure, or if bit-fields are used,
 it may be that the Microsoft ABI lays out the structure differently
@@ -5683,7 +5708,7 @@ One attribute is currently defined for xstormy16 configurations:
 
 @table @code
 @item below100
-@cindex @code{below100} attribute
+@cindex @code{below100} variable attribute, Xstormy16
 
 If a variable has the @code{below100} attribute (@code{BELOW100} is
 allowed also), GCC places the variable in the first 0x100 bytes of
@@ -5727,7 +5752,7 @@ former syntax is preferred.
 attributes.
 
 @table @code
-@cindex @code{aligned} attribute
+@cindex @code{aligned} type attribute
 @item aligned (@var{alignment})
 This attribute specifies a minimum alignment (in bytes) for variables
 of the specified type.  For example, the declarations:
@@ -5807,6 +5832,7 @@ in an @code{__attribute__} still only provides you with 8-byte
 alignment.  See your linker documentation for further information.
 
 @item packed
+@cindex @code{packed} type attribute
 This attribute, attached to @code{struct} or @code{union} type
 definition, specifies that each member (other than zero-width bit-fields)
 of the structure or union is placed to minimize the memory required.  When
@@ -5845,7 +5871,7 @@ You may only specify this attribute on the definition of an @code{enum},
 also define the enumerated type, structure or union.
 
 @item transparent_union
-@cindex @code{transparent_union} attribute
+@cindex @code{transparent_union} type attribute
 
 This attribute, attached to a @code{union} type definition, indicates
 that any function parameter having that union type causes calls to that
@@ -5907,6 +5933,7 @@ pid_t wait (wait_status_ptr_t p)
 @end smallexample
 
 @item unused
+@cindex @code{unused} type attribute
 When attached to a type (including a @code{union} or a @code{struct}),
 this attribute means that variables of that type are meant to appear
 possibly unused.  GCC does not produce a warning for any variables of
@@ -5917,6 +5944,7 @@ nontrivial bookkeeping functions.
 
 @item deprecated
 @itemx deprecated (@var{msg})
+@cindex @code{deprecated} type attribute
 The @code{deprecated} attribute results in a warning if the type
 is used anywhere in the source file.  This is useful when identifying
 types that are expected to be removed in a future version of a program.
@@ -5948,6 +5976,7 @@ The @code{deprecated} attribute can also be used for functions and
 variables (@pxref{Function Attributes}, @pxref{Variable Attributes}.)
 
 @item may_alias
+@cindex @code{may_alias} type attribute
 Accesses through pointers to types with this attribute are not subject
 to type-based alias analysis, but are instead assumed to be able to alias
 any other type of objects.
@@ -5985,9 +6014,10 @@ main (void)
 If you replaced @code{short_a} with @code{short} in the variable
 declaration, the above program would abort when compiled with
 @option{-fstrict-aliasing}, which is on by default at @option{-O2} or
-above in recent GCC versions.
+above.
 
 @item visibility
+@cindex @code{visibility} type attribute
 In C++, attribute visibility (@pxref{Function Attributes}) can also be
 applied to class, struct, union and enum types.  Unlike other type
 attributes, the attribute must appear between the initial keyword and
@@ -6001,6 +6031,7 @@ Otherwise the two shared objects are unable to use the same
 typeinfo node and exception handling will break.
 
 @item designated_init
+@cindex @code{designated_init} type attribute
 This attribute may only be applied to structure types.  It indicates
 that any initialization of an object of this type must use designated
 initializers rather than positional initializers.  The intent of this
@@ -6012,10 +6043,12 @@ GCC emits warnings based on this attribute by default; use
 @option{-Wno-designated-init} to suppress them.
 
 @item bnd_variable_size
+@cindex @code{bnd_variable_size} type attribute
+@cindex Pointer Bounds Checker attributes
 When applied to a structure field, this attribute tells Pointer
 Bounds Checker that the size of this field should not be computed
-using static type information.  It may be used to mark variable
-sized static array fields placed at the end of a structure.
+using static type information.  It may be used to mark variably-sized
+static array fields placed at the end of a structure.
 
 @smallexample
 struct S
@@ -6027,8 +6060,9 @@ S *p = (S *)malloc (sizeof(S) + 100);
 p->data[10] = 0; //Bounds violation
 @end smallexample
 
-By using an attribute for a field we may avoid bound violation
-we most probably do not want to see:
+@noindent
+By using an attribute for the field we may avoid unwanted bound
+violation checks:
 
 @smallexample
 struct S
@@ -6048,6 +6082,7 @@ packed))}.
 
 @subsection ARM Type Attributes
 
+@cindex @code{notshared} type attribute, ARM
 On those ARM targets that support @code{dllimport} (such as Symbian
 OS), you can use the @code{notshared} attribute to indicate that the
 virtual table and other similar data for a class should not be
@@ -6073,6 +6108,10 @@ most Symbian OS code uses @code{__declspec}.)
 @anchor{MeP Type Attributes}
 @subsection MeP Type Attributes
 
+@cindex @code{based} type attribute, MeP
+@cindex @code{tiny} type attribute, MeP
+@cindex @code{near} type attribute, MeP
+@cindex @code{far} type attribute, MeP
 Many of the MeP variable attributes may be applied to types as well.
 Specifically, the @code{based}, @code{tiny}, @code{near}, and
 @code{far} attributes may be applied to either.  The @code{io} and
@@ -6084,9 +6123,12 @@ Specifically, the @code{based}, @code{tiny}, @code{near}, and
 Three attributes currently are defined for PowerPC configurations:
 @code{altivec}, @code{ms_struct} and @code{gcc_struct}.
 
+@cindex @code{ms_struct} type attribute, PowerPC
+@cindex @code{gcc_struct} type attribute, PowerPC
 For full documentation of the @code{ms_struct} and @code{gcc_struct}
 attributes please see the documentation in @ref{x86 Type Attributes}.
 
+@cindex @code{altivec} type attribute, PowerPC
 The @code{altivec} attribute allows one to declare AltiVec vector data
 types supported by the AltiVec Programming Interface Manual.  The
 attribute requires an argument to specify one of three vector types:
@@ -6105,6 +6147,7 @@ These attributes mainly are intended to support the @code{__vector},
 @anchor{SPU Type Attributes}
 @subsection SPU Type Attributes
 
+@cindex @code{spu_vector} type attribute, SPU
 The SPU supports the @code{spu_vector} attribute for types.  This attribute
 allows one to declare vector data types supported by the Sony/Toshiba/IBM SPU
 Language Extensions Specification.  It is intended to support the
@@ -6120,8 +6163,8 @@ Two attributes are currently defined for x86 configurations:
 
 @item ms_struct
 @itemx gcc_struct
-@cindex @code{ms_struct}
-@cindex @code{gcc_struct}
+@cindex @code{ms_struct} type attribute, x86
+@cindex @code{gcc_struct} type attribute, x86
 
 If @code{packed} is used on a structure, or if bit-fields are used
 it may be that the Microsoft ABI packs them differently
@@ -6382,12 +6425,25 @@ access hardware.
 
 @node Using Assembly Language with C
 @section How to Use Inline Assembly Language in C Code
+@cindex @code{asm} keyword
+@cindex assembly language in C
+@cindex inline assembly language
+@cindex mixing assembly language and C
 
-GCC provides various extensions that allow you to embed assembler within 
-C code.
+The @code{asm} keyword allows you to embed assembler instructions
+within C code.  GCC provides two forms of inline @code{asm}
+statements.  A @dfn{basic @code{asm}} statement is one with no
+operands (@pxref{Basic Asm}), while an @dfn{extended @code{asm}}
+statement (@pxref{Extended Asm}) includes one or more operands.  
+The extended form is preferred for mixing C and assembly language
+within a function, but to include assembly language at
+top level you must use basic @code{asm}.
+
+You can also use the @code{asm} keyword to override the assembler name
+for a C symbol, or to place a C variable in a specific register.
 
 @menu
-* Basic Asm::          Inline assembler with no operands.
+* Basic Asm::          Inline assembler without operands.
 * Extended Asm::       Inline assembler with operands.
 * Constraints::        Constraints for @code{asm} operands
 * Asm Labels::         Specifying the assembler name to use for a C symbol.
@@ -6396,92 +6452,105 @@ C code.
 @end menu
 
 @node Basic Asm
-@subsection Basic Asm --- Assembler Instructions with No Operands
+@subsection Basic Asm --- Assembler Instructions Without Operands
 @cindex basic @code{asm}
+@cindex assembly language in C, basic
 
-The @code{asm} keyword allows you to embed assembler instructions within 
-C code.
+A basic @code{asm} statement has the following syntax:
 
 @example
-asm [ volatile ] ( AssemblerInstructions )
+asm @r{[} volatile @r{]} ( @var{AssemblerInstructions} )
 @end example
 
-To create headers compatible with ISO C, write @code{__asm__} instead of 
+The @code{asm} keyword is a GNU extension.
+When writing code that can be compiled with @option{-ansi} and the
+various @option{-std} options, use @code{__asm__} instead of 
 @code{asm} (@pxref{Alternate Keywords}).
 
-By definition, a Basic @code{asm} statement is one with no operands. 
-@code{asm} statements that contain one or more colons (used to delineate 
-operands) are considered to be Extended (for example, @code{asm("int $3")} 
-is Basic, and @code{asm("int $3" : )} is Extended). @xref{Extended Asm}.
-
 @subsubheading Qualifiers
-@emph{volatile}
-@*
-This optional qualifier has no effect. All Basic @code{asm} blocks are 
-implicitly volatile.
+@table @code
+@item volatile
+The optional @code{volatile} qualifier has no effect. 
+All basic @code{asm} blocks are implicitly volatile.
+@end table
 
 @subsubheading Parameters
-@emph{AssemblerInstructions}
-@*
+@table @var
+
+@item AssemblerInstructions
 This is a literal string that specifies the assembler code. The string can 
 contain any instructions recognized by the assembler, including directives. 
 GCC does not parse the assembler instructions themselves and 
 does not know what they mean or even whether they are valid assembler input. 
-The compiler copies it verbatim to the assembly language output file, without 
-processing dialects or any of the "%" operators that are available with
-Extended @code{asm}. This results in minor differences between Basic 
-@code{asm} strings and Extended @code{asm} templates. For example, to refer to 
-registers you might use %%eax in Extended @code{asm} and %eax in Basic 
-@code{asm}.
 
 You may place multiple assembler instructions together in a single @code{asm} 
 string, separated by the characters normally used in assembly code for the 
 system. A combination that works in most places is a newline to break the 
-line, plus a tab character (written as "\n\t").
+line, plus a tab character (written as @samp{\n\t}).
 Some assemblers allow semicolons as a line separator. However, 
 note that some assembler dialects use semicolons to start a comment. 
+@end table
+
+@subsubheading Remarks
+Using extended @code{asm} typically produces smaller, safer, and more
+efficient code, and in most cases it is a better solution than basic
+@code{asm}.  However, there are two situations where only basic @code{asm}
+can be used:
+
+@itemize @bullet
+@item
+Extended @code{asm} statements have to be inside a C
+function, so to write inline assembly language at file scope (``top-level''),
+outside of C functions, you must use basic @code{asm}.
+You can use this technique to emit assembler directives,
+define assembly language macros that can be invoked elsewhere in the file,
+or write entire functions in assembly language.
+
+@item
+Functions declared
+with the @code{naked} attribute also require basic @code{asm}
+(@pxref{Function Attributes}).
+@end itemize
+
+Safely accessing C data and calling functions from basic @code{asm} is more 
+complex than it may appear. To access C data, it is better to use extended 
+@code{asm}.
 
 Do not expect a sequence of @code{asm} statements to remain perfectly 
 consecutive after compilation. If certain instructions need to remain 
-consecutive in the output, put them in a single multi-instruction asm 
+consecutive in the output, put them in a single multi-instruction @code{asm}
 statement. Note that GCC's optimizers can move @code{asm} statements 
 relative to other code, including across jumps.
 
 @code{asm} statements may not perform jumps into other @code{asm} statements. 
 GCC does not know about these jumps, and therefore cannot take 
 account of them when deciding how to optimize. Jumps from @code{asm} to C 
-labels are only supported in Extended @code{asm}.
-
-@subsubheading Remarks
-Using Extended @code{asm} will typically produce smaller, safer, and more 
-efficient code, and in most cases it is a better solution. When writing 
-inline assembly language outside of C functions, however, you must use Basic 
-@code{asm}. Extended @code{asm} statements have to be inside a C function.
-Functions declared with the @code{naked} attribute also require Basic 
-@code{asm} (@pxref{Function Attributes}).
+labels are only supported in extended @code{asm}.
 
 Under certain circumstances, GCC may duplicate (or remove duplicates of) your 
 assembly code when optimizing. This can lead to unexpected duplicate 
 symbol errors during compilation if your assembly code defines symbols or 
 labels.
 
-Safely accessing C data and calling functions from Basic @code{asm} is more 
-complex than it may appear. To access C data, it is better to use Extended 
-@code{asm}.
-
-Since GCC does not parse the AssemblerInstructions, it has no 
+Since GCC does not parse the @var{AssemblerInstructions}, it has no 
 visibility of any symbols it references. This may result in GCC discarding 
 those symbols as unreferenced.
 
-Unlike Extended @code{asm}, all Basic @code{asm} blocks are implicitly 
-volatile. @xref{Volatile}.  Similarly, Basic @code{asm} blocks are not treated 
-as though they used a "memory" clobber (@pxref{Clobbers}).
+The compiler copies the assembler instructions in a basic @code{asm} 
+verbatim to the assembly language output file, without 
+processing dialects or any of the @samp{%} operators that are available with
+extended @code{asm}. This results in minor differences between basic 
+@code{asm} strings and extended @code{asm} templates. For example, to refer to 
+registers you might use @samp{%eax} in basic @code{asm} and
+@samp{%%eax} in extended @code{asm}.
 
-All Basic @code{asm} blocks use the assembler dialect specified by the 
-@option{-masm} command-line option. Basic @code{asm} provides no
+On targets such as x86 that support multiple assembler dialects,
+all basic @code{asm} blocks use the assembler dialect specified by the 
+@option{-masm} command-line option (@pxref{x86 Options}).  
+Basic @code{asm} provides no
 mechanism to provide different assembler strings for different dialects.
 
-Here is an example of Basic @code{asm} for i386:
+Here is an example of basic @code{asm} for i386:
 
 @example
 /* Note that this code will not compile with -masm=intel */
@@ -6490,85 +6559,80 @@ Here is an example of Basic @code{asm} for i386:
 
 @node Extended Asm
 @subsection Extended Asm - Assembler Instructions with C Expression Operands
-@cindex @code{asm} keyword
 @cindex extended @code{asm}
-@cindex assembler instructions
+@cindex assembly language in C, extended
 
-The @code{asm} keyword allows you to embed assembler instructions within C 
-code. With Extended @code{asm} you can read and write C variables from 
-assembler and perform jumps from assembler code to C labels.
+With extended @code{asm} you can read and write C variables from 
+assembler and perform jumps from assembler code to C labels.  
+Extended @code{asm} syntax uses colons (@samp{:}) to delimit
+the operand parameters after the assembler template:
 
 @example
-@ifhtml
-asm [volatile] ( AssemblerTemplate : [OutputOperands] [ : [InputOperands] [ : [Clobbers] ] ] )
+asm @r{[}volatile@r{]} ( @var{AssemblerTemplate} 
+                 : @var{OutputOperands} 
+                 @r{[} : @var{InputOperands}
+                 @r{[} : @var{Clobbers} @r{]} @r{]})
 
-asm [volatile] goto ( AssemblerTemplate : : [InputOperands] : [Clobbers] : GotoLabels )
-@end ifhtml
-@ifnothtml
-asm [volatile] ( AssemblerTemplate 
-                 : [OutputOperands] 
-                 [ : [InputOperands] 
-                 [ : [Clobbers] ] ])
-
-asm [volatile] goto ( AssemblerTemplate 
+asm @r{[}volatile@r{]} goto ( @var{AssemblerTemplate} 
                       : 
-                      : [InputOperands] 
-                      : [Clobbers] 
-                      : GotoLabels)
-@end ifnothtml
+                      : @var{InputOperands}
+                      : @var{Clobbers}
+                      : @var{GotoLabels})
 @end example
 
-To create headers compatible with ISO C, write @code{__asm__} instead of 
-@code{asm} and @code{__volatile__} instead of @code{volatile} 
-(@pxref{Alternate Keywords}). There is no alternate for @code{goto}.
-
-By definition, Extended @code{asm} is an @code{asm} statement that contains 
-operands. To separate the classes of operands, you use colons. Basic 
-@code{asm} statements contain no colons. (So, for example, 
-@code{asm("int $3")} is Basic @code{asm}, and @code{asm("int $3" : )} is 
-Extended @code{asm}. @pxref{Basic Asm}.)
+The @code{asm} keyword is a GNU extension.
+When writing code that can be compiled with @option{-ansi} and the
+various @option{-std} options, use @code{__asm__} instead of 
+@code{asm} (@pxref{Alternate Keywords}).
 
 @subsubheading Qualifiers
-@emph{volatile}
-@*
-The typical use of Extended @code{asm} statements is to manipulate input 
+@table @code
+
+@item volatile
+The typical use of extended @code{asm} statements is to manipulate input 
 values to produce output values. However, your @code{asm} statements may 
 also produce side effects. If so, you may need to use the @code{volatile} 
 qualifier to disable certain optimizations. @xref{Volatile}.
 
-@emph{goto}
-@*
+@item goto
 This qualifier informs the compiler that the @code{asm} statement may 
-perform a jump to one of the labels listed in the GotoLabels section. 
+perform a jump to one of the labels listed in the @var{GotoLabels}.
 @xref{GotoLabels}.
+@end table
 
 @subsubheading Parameters
-@emph{AssemblerTemplate}
-@*
-This is a literal string that contains the assembler code. It is a 
+@table @var
+@item AssemblerTemplate
+This is a literal string that is the template for the assembler code. It is a 
 combination of fixed text and tokens that refer to the input, output, 
 and goto parameters. @xref{AssemblerTemplate}.
 
-@emph{OutputOperands}
-@*
+@item OutputOperands
 A comma-separated list of the C variables modified by the instructions in the 
-AssemblerTemplate. @xref{OutputOperands}.
+@var{AssemblerTemplate}.  An empty list is permitted.  @xref{OutputOperands}.
 
-@emph{InputOperands}
-@*
+@item InputOperands
 A comma-separated list of C expressions read by the instructions in the 
-AssemblerTemplate. @xref{InputOperands}.
+@var{AssemblerTemplate}.  An empty list is permitted.  @xref{InputOperands}.
 
-@emph{Clobbers}
-@*
+@item Clobbers
 A comma-separated list of registers or other values changed by the 
-AssemblerTemplate, beyond those listed as outputs. @xref{Clobbers}.
+@var{AssemblerTemplate}, beyond those listed as outputs.
+An empty list is permitted.  @xref{Clobbers}.
 
-@emph{GotoLabels}
-@*
+@item GotoLabels
 When you are using the @code{goto} form of @code{asm}, this section contains 
-the list of all C labels to which the AssemblerTemplate may jump. 
+the list of all C labels to which the code in the 
+@var{AssemblerTemplate} may jump. 
 @xref{GotoLabels}.
+
+@code{asm} statements may not perform jumps into other @code{asm} statements,
+only to the listed @var{GotoLabels}.
+GCC's optimizers do not know about other jumps; therefore they cannot take 
+account of them when deciding how to optimize.
+@end table
+
+The total number of input + output + goto operands is limited to 30.
 
 @subsubheading Remarks
 The @code{asm} statement allows you to include assembly instructions directly 
@@ -6576,9 +6640,9 @@ within C code. This may help you to maximize performance in time-sensitive
 code or to access assembly instructions that are not readily available to C 
 programs.
 
-Note that Extended @code{asm} statements must be inside a function. Only 
-Basic @code{asm} may be outside functions (@pxref{Basic Asm}).
-Functions declared with the @code{naked} attribute also require Basic 
+Note that extended @code{asm} statements must be inside a function. Only 
+basic @code{asm} may be outside functions (@pxref{Basic Asm}).
+Functions declared with the @code{naked} attribute also require basic 
 @code{asm} (@pxref{Function Attributes}).
 
 While the uses of @code{asm} are many and varied, it may help to think of an 
@@ -6598,7 +6662,7 @@ asm ("mov %1, %0\n\t"
 printf("%d\n", dst);
 @end example
 
-This code will copy @var{src} to @var{dst} and add 1 to @var{dst}.
+This code copies @code{src} to @code{dst} and add 1 to @code{dst}.
 
 @anchor{Volatile}
 @subsubsection Volatile
@@ -6610,13 +6674,12 @@ there is no need for the output variables. Also, the optimizers may move
 code out of loops if they believe that the code will always return the same 
 result (i.e. none of its input values change between calls). Using the 
 @code{volatile} qualifier disables these optimizations. @code{asm} statements 
-that have no output operands are implicitly volatile.
-
-Examples:
+that have no output operands, including @code{asm goto} statements, 
+are implicitly volatile.
 
 This i386 code demonstrates a case that does not use (or require) the 
 @code{volatile} qualifier. If it is performing assertion checking, this code 
-uses @code{asm} to perform the validation. Otherwise, @var{dwRes} is 
+uses @code{asm} to perform the validation. Otherwise, @code{dwRes} is 
 unreferenced by any code. As a result, the optimizers can discard the 
 @code{asm} statement, which in turn removes the need for the entire 
 @code{DoCheck} routine. By omitting the @code{volatile} qualifier when it 
@@ -6639,7 +6702,7 @@ void DoCheck(uint32_t dwSomeValue)
 @end example
 
 The next example shows a case where the optimizers can recognize that the input 
-(@var{dwSomeValue}) never changes during the execution of the function and can 
+(@code{dwSomeValue}) never changes during the execution of the function and can 
 therefore move the @code{asm} outside the loop to produce more efficient code. 
 Again, using @code{volatile} disables this type of optimization.
 
@@ -6662,7 +6725,8 @@ void do_print(uint32_t dwSomeValue)
 @end example
 
 The following example demonstrates a case where you need to use the 
-@code{volatile} qualifier. It uses the x86 RDTSC instruction, which reads 
+@code{volatile} qualifier. 
+It uses the x86 @code{rdtsc} instruction, which reads 
 the computer's time-stamp counter. Without the @code{volatile} qualifier, 
 the optimizers might assume that the @code{asm} block will always return the 
 same value and therefore optimize away the second call.
@@ -6692,7 +6756,7 @@ asm volatile ( "rdtsc\n\t"    // Returns the time in EDX:EAX.
 printf("msr: %llx\n", msr);
 @end example
 
-GCC's optimizers will not treat this code like the non-volatile code in the 
+GCC's optimizers do not treat this code like the non-volatile code in the 
 earlier examples. They do not move it out of loops or omit it on the 
 assumption that the result from a previous call is still valid.
 
@@ -6700,7 +6764,7 @@ Note that the compiler can move even volatile @code{asm} instructions relative
 to other code, including across jump instructions. For example, on many 
 targets there is a system register that controls the rounding mode of 
 floating-point operations. Setting it with a volatile @code{asm}, as in the 
-following PowerPC example, will not work reliably.
+following PowerPC example, does not work reliably.
 
 @example
 asm volatile("mtfsf 255, %0" : : "f" (fpenv));
@@ -6718,16 +6782,18 @@ sum = x + y;
 
 Under certain circumstances, GCC may duplicate (or remove duplicates of) your 
 assembly code when optimizing. This can lead to unexpected duplicate symbol 
-errors during compilation if your asm code defines symbols or labels. Using %= 
+errors during compilation if your asm code defines symbols or labels. 
+Using @samp{%=} 
 (@pxref{AssemblerTemplate}) may help resolve this problem.
 
 @anchor{AssemblerTemplate}
 @subsubsection Assembler Template
 @cindex @code{asm} assembler template
 
-An assembler template is a literal string containing assembler instructions. 
-The compiler will replace any references to inputs, outputs, and goto labels 
-in the template, and then output the resulting string to the assembler. The 
+An assembler template is a literal string containing assembler instructions.
+The compiler replaces tokens in the template that refer 
+to inputs, outputs, and goto labels,
+and then outputs the resulting string to the assembler. The 
 string can contain any instructions recognized by the assembler, including 
 directives. GCC does not parse the assembler instructions 
 themselves and does not know what they mean or even whether they are valid 
@@ -6738,7 +6804,8 @@ You may place multiple assembler instructions together in a single @code{asm}
 string, separated by the characters normally used in assembly code for the 
 system. A combination that works in most places is a newline to break the 
 line, plus a tab character to move to the instruction field (written as 
-"\n\t"). Some assemblers allow semicolons as a line separator. However, note 
+@samp{\n\t}). 
+Some assemblers allow semicolons as a line separator. However, note 
 that some assembler dialects use semicolons to start a comment. 
 
 Do not expect a sequence of @code{asm} statements to remain perfectly 
@@ -6751,20 +6818,44 @@ by using global symbols directly from the assembler template) may not work as
 expected. Similarly, calling functions directly from an assembler template 
 requires a detailed understanding of the target assembler and ABI.
 
-Since GCC does not parse the AssemblerTemplate, it has no visibility of any 
+Since GCC does not parse the assembler template,
+it has no visibility of any 
 symbols it references. This may result in GCC discarding those symbols as 
 unreferenced unless they are also listed as input, output, or goto operands.
 
-GCC can support multiple assembler dialects (for example, GCC for x86 
-supports "att" and "intel" dialects) for inline assembler. In builds that 
-support this capability, the @option{-masm} option controls which dialect 
-GCC uses as its default. The hardware-specific documentation for the 
+@subsubheading Special format strings
+
+In addition to the tokens described by the input, output, and goto operands, 
+these tokens have special meanings in the assembler template:
+
+@table @samp
+@item %% 
+Outputs a single @samp{%} into the assembler code.
+
+@item %= 
+Outputs a number that is unique to each instance of the @code{asm} 
+statement in the entire compilation. This option is useful when creating local 
+labels and referring to them multiple times in a single template that 
+generates multiple assembler instructions. 
+
+@item %@{
+@itemx %|
+@itemx %@}
+Outputs @samp{@{}, @samp{|}, and @samp{@}} characters (respectively)
+into the assembler code.  When unescaped, these characters have special
+meaning to indicate multiple assembler dialects, as described below.
+@end table
+
+@subsubheading Multiple assembler dialects in @code{asm} templates
+
+On targets such as x86, GCC supports multiple assembler dialects.
+The @option{-masm} option controls which dialect GCC uses as its 
+default for inline assembler. The target-specific documentation for the 
 @option{-masm} option contains the list of supported dialects, as well as the 
 default dialect if the option is not specified. This information may be 
 important to understand, since assembler code that works correctly when 
 compiled using one dialect will likely fail if compiled using another.
-
-@subsubheading Using braces in @code{asm} templates
+@xref{x86 Options}.
 
 If your code needs to support multiple assembler dialects (for example, if 
 you are writing public headers that need to support a variety of compilation 
@@ -6774,23 +6865,26 @@ options), use constructs of this form:
 @{ dialect0 | dialect1 | dialect2... @}
 @end example
 
-This construct outputs 'dialect0' when using dialect #0 to compile the code, 
-'dialect1' for dialect #1, etc. If there are fewer alternatives within the 
+This construct outputs @code{dialect0} 
+when using dialect #0 to compile the code, 
+@code{dialect1} for dialect #1, etc. If there are fewer alternatives within the 
 braces than the number of dialects the compiler supports, the construct 
 outputs nothing.
 
-For example, if an x86 compiler supports two dialects (att, intel), an 
+For example, if an x86 compiler supports two dialects
+(@samp{att}, @samp{intel}), an 
 assembler template such as this:
 
 @example
 "bt@{l %[Offset],%[Base] | %[Base],%[Offset]@}; jc %l2"
 @end example
 
-would produce the output:
+@noindent
+is equivalent to one of
 
 @example
-For att: "btl %[Offset],%[Base] ; jc %l2"
-For intel: "bt %[Base],%[Offset]; jc %l2"
+"btl %[Offset],%[Base] ; jc %l2"   @r{/* att dialect */}
+"bt %[Base],%[Offset]; jc %l2"     @r{/* intel dialect */}
 @end example
 
 Using that same compiler, this code:
@@ -6799,33 +6893,15 @@ Using that same compiler, this code:
 "xchg@{l@}\t@{%%@}ebx, %1"
 @end example
 
-would produce 
+@noindent
+corresponds to either
 
 @example
-For att: "xchgl\t%%ebx, %1"
-For intel: "xchg\tebx, %1"
+"xchgl\t%%ebx, %1"                 @r{/* att dialect */}
+"xchg\tebx, %1"                    @r{/* intel dialect */}
 @end example
 
-There is no support for nesting dialect alternatives. Also, there is no 
-``escape'' for an open brace (@{), so do not use open braces in an Extended 
-@code{asm} template other than as a dialect indicator.
-
-@subsubheading Other format strings
-
-In addition to the tokens described by the input, output, and goto operands, 
-there are a few special cases:
-
-@itemize
-@item
-"%%" outputs a single "%" into the assembler code.
-
-@item
-"%=" outputs a number that is unique to each instance of the @code{asm} 
-statement in the entire compilation. This option is useful when creating local 
-labels and referring to them multiple times in a single template that 
-generates multiple assembler instructions. 
-
-@end itemize
+There is no support for nesting dialect alternatives.
 
 @anchor{OutputOperands}
 @subsubsection Output Operands
@@ -6834,8 +6910,8 @@ generates multiple assembler instructions.
 An @code{asm} statement has zero or more output operands indicating the names
 of C variables modified by the assembler code.
 
-In this i386 example, @var{old} (referred to in the template string as 
-@code{%0}) and @var{*Base} (as @code{%1}) are outputs and @var{Offset} 
+In this i386 example, @code{old} (referred to in the template string as 
+@code{%0}) and @code{*Base} (as @code{%1}) are outputs and @code{Offset} 
 (@code{%2}) is an input:
 
 @example
@@ -6850,53 +6926,57 @@ __asm__ ("btsl %2,%1\n\t" // Turn on zero-based bit #Offset in Base.
 return old;
 @end example
 
-Operands use this format:
+Operands are separated by commas.  Each operand has this format:
 
 @example
-[ [asmSymbolicName] ] "constraint" (cvariablename)
+@r{[} [@var{asmSymbolicName}] @r{]} @var{constraint} (@var{cvariablename})
 @end example
 
-@emph{asmSymbolicName}
-@*
-
-When not using asmSymbolicNames, use the (zero-based) position of the operand 
-in the list of operands in the assembler template. For example if there are 
-three output operands, use @code{%0} in the template to refer to the first, 
-@code{%1} for the second, and @code{%2} for the third. When using an 
-asmSymbolicName, reference it by enclosing the name in square brackets 
-(i.e. @code{%[Value]}). The scope of the name is the @code{asm} statement 
+@table @var
+@item asmSymbolicName
+Specifies a symbolic name for the operand.
+Reference the name in the assembler template 
+by enclosing it in square brackets 
+(i.e. @samp{%[Value]}). The scope of the name is the @code{asm} statement 
 that contains the definition. Any valid C variable name is acceptable, 
 including names already defined in the surrounding code. No two operands 
 within the same @code{asm} statement can use the same symbolic name.
 
-@emph{constraint}
-@*
-Output constraints must begin with either @code{"="} (a variable overwriting an 
-existing value) or @code{"+"} (when reading and writing). When using 
-@code{"="}, do not assume the location will contain the existing value (except 
-when tying the variable to an input; @pxref{InputOperands,,Input Operands}).
+When not using an @var{asmSymbolicName}, use the (zero-based) position
+of the operand 
+in the list of operands in the assembler template. For example if there are 
+three output operands, use @samp{%0} in the template to refer to the first, 
+@samp{%1} for the second, and @samp{%2} for the third. 
+
+@item constraint
+A string constant specifying constraints on the placement of the operand; 
+@xref{Constraints}, for details.
+
+Output constraints must begin with either @samp{=} (a variable overwriting an 
+existing value) or @samp{+} (when reading and writing). When using 
+@samp{=}, do not assume the location contains the existing value
+on entry to the @code{asm}, except 
+when the operand is tied to an input; @pxref{InputOperands,,Input Operands}.
 
 After the prefix, there must be one or more additional constraints 
 (@pxref{Constraints}) that describe where the value resides. Common 
-constraints include @code{"r"} for register and @code{"m"} for memory. 
-When you list more than one possible location (for example @code{"=rm"}), the 
-compiler chooses the most efficient one based on the current context. If you 
-list as many alternates as the @code{asm} statement allows, you will permit 
-the optimizers to produce the best possible code. If you must use a specific
-register, but your Machine Constraints do not provide sufficient 
-control to select the specific register you want, Local Reg Vars may provide 
-a solution (@pxref{Local Reg Vars}).
+constraints include @samp{r} for register and @samp{m} for memory. 
+When you list more than one possible location (for example, @code{"=rm"}),
+the compiler chooses the most efficient one based on the current context. 
+If you list as many alternates as the @code{asm} statement allows, you permit 
+the optimizers to produce the best possible code. 
+If you must use a specific register, but your Machine Constraints do not
+provide sufficient control to select the specific register you want, 
+local register variables may provide a solution (@pxref{Local Reg Vars}).
 
-@emph{cvariablename}
-@*
-Specifies the C variable name of the output (enclosed by parentheses). Accepts 
-any (non-constant) variable within scope.
+@item cvariablename
+Specifies a C lvalue expression to hold the output, typically a variable name.
+The enclosing parentheses are a required part of the syntax.
 
-Remarks:
+@end table
 
-The total number of input + output + goto operands has a limit of 30. Commas 
-separate the operands. When the compiler selects the registers to use to 
-represent the output operands, it will not use any of the clobbered registers 
+When the compiler selects the registers to use to 
+represent the output operands, it does not use any of the clobbered registers 
 (@pxref{Clobbers}).
 
 Output operand expressions must be lvalues. The compiler cannot check whether 
@@ -6906,12 +6986,16 @@ example a bit-field), the constraint must allow a register. In that case, GCC
 uses the register as the output of the @code{asm}, and then stores that 
 register into the output. 
 
-Unless an output operand has the '@code{&}' constraint modifier 
-(@pxref{Modifiers}), GCC may allocate it in the same register as an unrelated 
-input operand, on the assumption that the assembler code will consume its 
+Operands using the @samp{+} constraint modifier count as two operands 
+(that is, both as input and output) towards the total maximum of 30 operands
+per @code{asm} statement.
+
+Use the @samp{&} constraint modifier (@pxref{Modifiers}) on all output
+operands that must not overlap an input.  Otherwise, 
+GCC may allocate the output operand in the same register as an unrelated 
+input operand, on the assumption that the assembler code consumes its 
 inputs before producing outputs. This assumption may be false if the assembler 
-code actually consists of more than one instruction. In this case, use 
-'@code{&}' on each output operand that must not overlap an input.
+code actually consists of more than one instruction.
 
 The same problem can occur if one output parameter (@var{a}) allows a register 
 constraint and another output parameter (@var{b}) allows a memory constraint.
@@ -6920,13 +7004,13 @@ registers which @emph{might} be shared by @var{a}, and GCC considers those
 registers to be inputs to the asm. As above, GCC assumes that such input
 registers are consumed before any outputs are written. This assumption may 
 result in incorrect behavior if the asm writes to @var{a} before using 
-@var{b}. Combining the `@code{&}' constraint with the register constraint 
-ensures that modifying @var{a} will not affect what address is referenced by 
-@var{b}. Omitting the `@code{&}' constraint means that the location of @var{b} 
-will be undefined if @var{a} is modified before using @var{b}.
+@var{b}. Combining the @samp{&} modifier with the register constraint on @var{a}
+ensures that modifying @var{a} does not affect the address referenced by 
+@var{b}. Otherwise, the location of @var{b} 
+is undefined if @var{a} is modified before using @var{b}.
 
-@code{asm} supports operand modifiers on operands (for example @code{%k2} 
-instead of simply @code{%2}). Typically these qualifiers are hardware 
+@code{asm} supports operand modifiers on operands (for example @samp{%k2} 
+instead of simply @samp{%2}). Typically these qualifiers are hardware 
 dependent. The list of supported modifiers for x86 is found at 
 @ref{x86Operandmodifiers,x86 Operand modifiers}.
 
@@ -6935,13 +7019,11 @@ operands, use @code{volatile} for the @code{asm} statement to prevent the
 optimizers from discarding the @code{asm} statement as unneeded 
 (see @ref{Volatile}).
 
-Examples:
-
-This code makes no use of the optional asmSymbolicName. Therefore it 
+This code makes no use of the optional @var{asmSymbolicName}. Therefore it 
 references the first output operand as @code{%0} (were there a second, it 
 would be @code{%1}, etc). The number of the first input operand is one greater 
 than that of the last output operand. In this i386 example, that makes 
-@var{Mask} @code{%1}:
+@code{Mask} referenced as @code{%1}:
 
 @example
 uint32_t Mask = 1234;
@@ -6953,17 +7035,21 @@ uint32_t Index;
      : "cc");
 @end example
 
-That code overwrites the variable Index ("="), placing the value in a register 
-("r"). The generic "r" constraint instead of a constraint for a specific 
+That code overwrites the variable @code{Index} (@samp{=}),
+placing the value in a register (@samp{r}).
+Using the generic @samp{r} constraint instead of a constraint for a specific 
 register allows the compiler to pick the register to use, which can result 
 in more efficient code. This may not be possible if an assembler instruction 
 requires a specific register.
 
-The following i386 example uses the asmSymbolicName operand. It produces the 
+The following i386 example uses the @var{asmSymbolicName} syntax.
+It produces the 
 same result as the code above, but some may consider it more readable or more 
 maintainable since reordering index numbers is not necessary when adding or 
-removing operands. The names aIndex and aMask are only used to emphasize which 
-names get used where. It is acceptable to reuse the names Index and Mask.
+removing operands. The names @code{aIndex} and @code{aMask}
+are only used in this example to emphasize which 
+names get used where.
+It is acceptable to reuse the names @code{Index} and @code{Mask}.
 
 @example
 uint32_t Mask = 1234;
@@ -6987,61 +7073,68 @@ asm ("mov %[e], %[d]"
    : [e] "rm" (*e));
 @end example
 
-Here, @var{d} may either be in a register or in memory. Since the compiler 
-might already have the current value of the uint32_t pointed to by @var{e} 
+Here, @code{d} may either be in a register or in memory. Since the compiler 
+might already have the current value of the @code{uint32_t} location
+pointed to by @code{e}
 in a register, you can enable it to choose the best location
-for @var{d} by specifying both constraints.
+for @code{d} by specifying both constraints.
 
 @anchor{InputOperands}
 @subsubsection Input Operands
 @cindex @code{asm} input operands
 @cindex @code{asm} expressions
 
-Input operands make inputs from C variables and expressions available to the 
+Input operands make values from C variables and expressions available to the 
 assembly code.
 
-Specify input operands by using the format:
+Operands are separated by commas.  Each operand has this format:
 
 @example
-[ [asmSymbolicName] ] "constraint" (cexpression)
+@r{[} [@var{asmSymbolicName}] @r{]} @var{constraint} (@var{cexpression})
 @end example
 
-@emph{asmSymbolicName}
-@*
-When not using asmSymbolicNames, use the (zero-based) position of the operand 
-in the list of operands, including outputs, in the assembler template. For 
-example, if there are two output parameters and three inputs, @code{%2} refers 
-to the first input, @code{%3} to the second, and @code{%4} to the third.
-When using an asmSymbolicName, reference it by enclosing the name in square 
-brackets (e.g. @code{%[Value]}). The scope of the name is the @code{asm} 
-statement that contains the definition. Any valid C variable name is 
-acceptable, including names already defined in the surrounding code. No two 
-operands within the same @code{asm} statement can use the same symbolic name.
+@table @var
+@item asmSymbolicName
+Specifies a symbolic name for the operand.
+Reference the name in the assembler template 
+by enclosing it in square brackets 
+(i.e. @samp{%[Value]}). The scope of the name is the @code{asm} statement 
+that contains the definition. Any valid C variable name is acceptable, 
+including names already defined in the surrounding code. No two operands 
+within the same @code{asm} statement can use the same symbolic name.
 
-@emph{constraint}
-@*
-Input constraints must be a string containing one or more constraints 
-(@pxref{Constraints}). When you give more than one possible constraint 
-(for example, @code{"irm"}), the compiler will choose the most efficient 
-method based on the current context. Input constraints may not begin with 
-either "=" or "+". If you must use a specific register, but your Machine
-Constraints do not provide sufficient control to select the specific 
-register you want, Local Reg Vars may provide a solution 
-(@pxref{Local Reg Vars}).
+When not using an @var{asmSymbolicName}, use the (zero-based) position
+of the operand 
+in the list of operands in the assembler template. For example if there are
+two output operands and three inputs,
+use @samp{%2} in the template to refer to the first input operand,
+@samp{%3} for the second, and @samp{%4} for the third. 
+
+@item constraint
+A string constant specifying constraints on the placement of the operand; 
+@xref{Constraints}, for details.
+
+Input constraint strings may not begin with either @samp{=} or @samp{+}.
+When you list more than one possible location (for example, @samp{"irm"}), 
+the compiler chooses the most efficient one based on the current context.
+If you must use a specific register, but your Machine Constraints do not
+provide sufficient control to select the specific register you want, 
+local register variables may provide a solution (@pxref{Local Reg Vars}).
 
 Input constraints can also be digits (for example, @code{"0"}). This indicates 
-that the specified input will be in the same place as the output constraint 
-at the (zero-based) index in the output constraint list. When using 
-asmSymbolicNames for the output operands, you may use these names (enclosed 
-in brackets []) instead of digits.
+that the specified input must be in the same place as the output constraint 
+at the (zero-based) index in the output constraint list. 
+When using @var{asmSymbolicName} syntax for the output operands,
+you may use these names (enclosed in brackets @samp{[]}) instead of digits.
 
-@emph{cexpression}
-@*
+@item cexpression
 This is the C variable or expression being passed to the @code{asm} statement 
-as input.
+as input.  The enclosing parentheses are a required part of the syntax.
+
+@end table
 
 When the compiler selects the registers to use to represent the input 
-operands, it will not use any of the clobbered registers (@pxref{Clobbers}).
+operands, it does not use any of the clobbered registers (@pxref{Clobbers}).
 
 If there are no output operands but there are input operands, place two 
 consecutive colons where the output operands would go:
@@ -7049,13 +7142,14 @@ consecutive colons where the output operands would go:
 @example
 __asm__ ("some instructions"
    : /* No outputs. */
-   : "r" (Offset / 8);
+   : "r" (Offset / 8));
 @end example
 
 @strong{Warning:} Do @emph{not} modify the contents of input-only operands 
 (except for inputs tied to outputs). The compiler assumes that on exit from 
-the @code{asm} statement these operands will contain the same values as they 
-had before executing the assembler. It is @emph{not} possible to use Clobbers 
+the @code{asm} statement these operands contain the same values as they 
+had before executing the statement. 
+It is @emph{not} possible to use clobbers
 to inform the compiler that the values in these inputs are changing. One 
 common work-around is to tie the changing input variable to an output variable 
 that never gets used. Note, however, that if the code that follows the 
@@ -7063,23 +7157,17 @@ that never gets used. Note, however, that if the code that follows the
 optimizers may discard the @code{asm} statement as unneeded 
 (see @ref{Volatile}).
 
-Remarks:
-
-The total number of input + output + goto operands has a limit of 30.
-
-@code{asm} supports operand modifiers on operands (for example @code{%k2} 
-instead of simply @code{%2}). Typically these qualifiers are hardware 
+@code{asm} supports operand modifiers on operands (for example @samp{%k2} 
+instead of simply @samp{%2}). Typically these qualifiers are hardware 
 dependent. The list of supported modifiers for x86 is found at 
 @ref{x86Operandmodifiers,x86 Operand modifiers}.
-
-Examples:
 
 In this example using the fictitious @code{combine} instruction, the 
 constraint @code{"0"} for input operand 1 says that it must occupy the same 
 location as output operand 0. Only input operands may use numbers in 
 constraints, and they must each refer to an output operand. Only a number (or 
 the symbolic assembler name) in the constraint can guarantee that one operand 
-is in the same place as another. The mere fact that @var{foo} is the value of 
+is in the same place as another. The mere fact that @code{foo} is the value of 
 both operands is not enough to guarantee that they are in the same place in 
 the generated assembler code.
 
@@ -7102,24 +7190,24 @@ asm ("cmoveq %1, %2, %[result]"
 @cindex @code{asm} clobbers
 
 While the compiler is aware of changes to entries listed in the output 
-operands, the assembler code may modify more than just the outputs. For 
+operands, the inline @code{asm} code may modify more than just the outputs. For 
 example, calculations may require additional registers, or the processor may 
 overwrite a register as a side effect of a particular assembler instruction. 
 In order to inform the compiler of these changes, list them in the clobber 
 list. Clobber list items are either register names or the special clobbers 
-(listed below). Each clobber list item is enclosed in double quotes and 
-separated by commas.
+(listed below). Each clobber list item is a string constant 
+enclosed in double quotes and separated by commas.
 
 Clobber descriptions may not in any way overlap with an input or output 
 operand. For example, you may not have an operand describing a register class 
 with one member when listing that register in the clobber list. Variables 
-declared to live in specific registers (@pxref{Explicit Reg Vars}), and used 
-as @code{asm} input or output operands, must have no part mentioned in the 
+declared to live in specific registers (@pxref{Explicit Reg Vars}) and used 
+as @code{asm} input or output operands must have no part mentioned in the 
 clobber description. In particular, there is no way to specify that input 
 operands get modified without also specifying them as output operands.
 
 When the compiler selects which registers to use to represent input and output 
-operands, it will not use any of the clobbered registers. As a result, 
+operands, it does not use any of the clobbered registers. As a result, 
 clobbered registers are available for any use in the assembler code.
 
 Here is a realistic example for the VAX showing the use of clobbered 
@@ -7134,68 +7222,78 @@ asm volatile ("movc3 %0, %1, %2"
 
 Also, there are two special clobber arguments:
 
-@enumerate
-@item
+@table @code
+@item "cc"
 The @code{"cc"} clobber indicates that the assembler code modifies the flags 
 register. On some machines, GCC represents the condition codes as a specific 
-hardware register; "cc" serves to name this register. On other machines, 
-condition code handling is different, and specifying "cc" has no effect. But 
-it is valid no matter what the machine.
+hardware register; @code{"cc"} serves to name this register.
+On other machines, condition code handling is different, 
+and specifying @code{"cc"} has no effect. But 
+it is valid no matter what the target.
 
-@item
-The "memory" clobber tells the compiler that the assembly code performs memory 
+@item "memory"
+The @code{"memory"} clobber tells the compiler that the assembly code
+performs memory 
 reads or writes to items other than those listed in the input and output 
-operands (for example accessing the memory pointed to by one of the input 
+operands (for example, accessing the memory pointed to by one of the input 
 parameters). To ensure memory contains correct values, GCC may need to flush 
 specific register values to memory before executing the @code{asm}. Further, 
-the compiler will not assume that any values read from memory before an 
-@code{asm} will remain unchanged after that @code{asm}; it will reload them as 
-needed. This effectively forms a read/write memory barrier for the compiler.
+the compiler does not assume that any values read from memory before an 
+@code{asm} remain unchanged after that @code{asm}; it reloads them as 
+needed.  
+Using the @code{"memory"} clobber effectively forms a read/write
+memory barrier for the compiler.
 
 Note that this clobber does not prevent the @emph{processor} from doing 
 speculative reads past the @code{asm} statement. To prevent that, you need 
 processor-specific fence instructions.
 
 Flushing registers to memory has performance implications and may be an issue 
-for time-sensitive code. One trick to avoid this is available if the size of 
+for time-sensitive code.  You can use a trick to avoid this if the size of 
 the memory being accessed is known at compile time. For example, if accessing 
 ten bytes of a string, use a memory input like: 
 
 @code{@{"m"( (@{ struct @{ char x[10]; @} *p = (void *)ptr ; *p; @}) )@}}.
 
-@end enumerate
+@end table
 
 @anchor{GotoLabels}
 @subsubsection Goto Labels
 @cindex @code{asm} goto labels
 
-@code{asm goto} allows assembly code to jump to one or more C labels. The 
-GotoLabels section in an @code{asm goto} statement contains a comma-separated 
+@code{asm goto} allows assembly code to jump to one or more C labels.  The
+@var{GotoLabels} section in an @code{asm goto} statement contains 
+a comma-separated 
 list of all C labels to which the assembler code may jump. GCC assumes that 
 @code{asm} execution falls through to the next statement (if this is not the 
 case, consider using the @code{__builtin_unreachable} intrinsic after the 
 @code{asm} statement). Optimization of @code{asm goto} may be improved by 
 using the @code{hot} and @code{cold} label attributes (@pxref{Label 
-Attributes}). The total number of input + output + goto operands has 
-a limit of 30.
+Attributes}).
 
-An @code{asm goto} statement can not have outputs (which means that the 
-statement is implicitly volatile). This is due to an internal restriction of 
-the compiler: control transfer instructions cannot have outputs. If the 
-assembler code does modify anything, use the "memory" clobber to force the 
-optimizers to flush all register values to memory, and reload them if 
-necessary, after the @code{asm} statement.
+An @code{asm goto} statement cannot have outputs.
+This is due to an internal restriction of 
+the compiler: control transfer instructions cannot have outputs. 
+If the assembler code does modify anything, use the @code{"memory"} clobber 
+to force the 
+optimizers to flush all register values to memory and reload them if 
+necessary after the @code{asm} statement.
 
-To reference a label, prefix it with @code{%l} (that's a lowercase L) followed 
-by its (zero-based) position in GotoLabels plus the number of input 
-arguments.  For example, if the @code{asm} has three inputs and references two 
-labels, refer to the first label as @code{%l3} and the second as @code{%l4}).
+Also note that an @code{asm goto} statement is always implicitly
+considered volatile.
 
-@code{asm} statements may not perform jumps into other @code{asm} statements. 
-GCC's optimizers do not know about these jumps; therefore they cannot take 
-account of them when deciding how to optimize.
+To reference a label in the assembler template,
+prefix it with @samp{%l} (lowercase @samp{L}) followed 
+by its (zero-based) position in @var{GotoLabels} plus the number of input 
+operands.  For example, if the @code{asm} has three inputs and references two 
+labels, refer to the first label as @samp{%l3} and the second as @samp{%l4}).
 
-Example code for i386 might look like:
+Alternately, you can reference labels using the actual C label name enclosed
+in brackets.  For example, to reference a label named @code{carry}, you can
+use @samp{%l[carry]}.  The label must still be listed in the @var{GotoLabels}
+section when using this approach.
+
+Here is an example of @code{asm goto} for i386:
 
 @example
 asm goto (
@@ -7212,7 +7310,7 @@ carry:
 return 1;
 @end example
 
-The following example shows an @code{asm goto} that uses the memory clobber.
+The following example shows an @code{asm goto} that uses a memory clobber.
 
 @example
 int frob(int x)
@@ -7230,17 +7328,20 @@ error:
 @end example
 
 @anchor{x86Operandmodifiers}
-@subsubsection x86 Operand modifiers
+@subsubsection x86 Operand Modifiers
 
-Input, output, and goto operands for extended @code{asm} statements can use 
-modifiers to affect the code output to the assembler. For example, the 
-following code uses the "h" and "b" modifiers for x86:
+References to input, output, and goto operands in the assembler template
+of extended @code{asm} statements can use 
+modifiers to affect the way the operands are formatted in 
+the code output to the assembler. For example, the 
+following code uses the @samp{h} and @samp{b} modifiers for x86:
 
 @example
 uint16_t  num;
 asm volatile ("xchg %h0, %b0" : "+a" (num) );
 @end example
 
+@noindent
 These modifiers generate this assembler code:
 
 @example
@@ -7265,7 +7366,7 @@ top:
 @end example
 
 With no modifiers, this is what the output from the operands would be for the 
-att and intel dialects of assembler:
+@samp{att} and @samp{intel} dialects of assembler:
 
 @multitable {Operand} {masm=att} {OFFSET FLAT:.L2}
 @headitem Operand @tab masm=att @tab masm=intel
@@ -7327,7 +7428,7 @@ The table below shows the list of supported modifiers and their effects.
 @end multitable
 
 @anchor{x86floatingpointasmoperands}
-@subsubsection x86 floating-point asm operands
+@subsubsection x86 Floating-Point @code{asm} Operands
 
 On x86 targets, there are several rules on the usage of stack-like registers
 in the operands of an @code{asm}.  These rules apply only to the operands
@@ -7369,10 +7470,10 @@ reload may think that it can use the same register for both the input and
 the output.
 
 To prevent this from happening,
-if any input operand uses the @code{f} constraint, all output register
-constraints must use the @code{&} early-clobber modifier.
+if any input operand uses the @samp{f} constraint, all output register
+constraints must use the @samp{&} early-clobber modifier.
 
-The example above would be correctly written as:
+The example above is correctly written as:
 
 @smallexample
 asm ("foo" : "=&t" (a) : "f" (b));
@@ -7385,7 +7486,7 @@ know which registers the outputs appear in unless you indicate
 this in the constraints.
 
 Output operands must specifically indicate which register an output
-appears in after an @code{asm}.  @code{=f} is not allowed: the operand
+appears in after an @code{asm}.  @samp{=f} is not allowed: the operand
 constraints must select a class with a single register.
 
 @item
@@ -7404,8 +7505,7 @@ unrelated to the inputs and outputs.
 
 @end enumerate
 
-Here are a couple of reasonable @code{asm}s to want to write.  This
-@code{asm}
+This @code{asm}
 takes one input, which is internally popped, and produces two outputs.
 
 @smallexample
@@ -7529,8 +7629,8 @@ Here @code{a5} is the name of the register that should be used.  Choose a
 register that is normally saved and restored by function calls on your
 machine, so that library routines will not clobber it.
 
-Naturally the register name is cpu-dependent, so you need to
-conditionalize your program according to cpu type.  The register
+Naturally the register name is CPU-dependent, so you need to
+conditionalize your program according to CPU type.  The register
 @code{a5} is a good choice on a 68000 for a variable of pointer
 type.  On machines with register windows, be sure to choose a ``global''
 register that is not affected magically by the function call mechanism.
@@ -7628,13 +7728,13 @@ Here @code{a5} is the name of the register that should be used.  Note
 that this is the same syntax used for defining global register
 variables, but for a local variable it appears within a function.
 
-Naturally the register name is cpu-dependent, but this is not a
+Naturally the register name is CPU-dependent, but this is not a
 problem, since specific registers are most often useful with explicit
 assembler instructions (@pxref{Extended Asm}).  Both of these things
 generally require that you conditionalize your program according to
-cpu type.
+CPU type.
 
-In addition, operating systems on one type of cpu may differ in how they
+In addition, operating systems on one type of CPU may differ in how they
 name the registers; then you need additional conditionals.  For
 example, some 68000 operating systems call this register @code{%a5}.
 
@@ -7644,11 +7744,12 @@ the variable's value is not live.
 
 This option does not guarantee that GCC generates code that has
 this variable in the register you specify at all times.  You may not
-code an explicit reference to this register in the @emph{assembler
-instruction template} part of an @code{asm} statement and assume it
-always refers to this variable.  However, using the variable as an
-@code{asm} @emph{operand} guarantees that the specified register is used
-for the operand.
+code an explicit reference to this register in the assembler
+instruction template part of an @code{asm} statement and assume it
+always refers to this variable.
+However, using the variable as an input or output operand to the @code{asm}
+guarantees that the specified register is used for that operand.  
+@xref{Extended Asm}, for more information.
 
 Stores into local register variables may be deleted when they appear to be dead
 according to dataflow analysis.  References to local register variables may
@@ -7787,21 +7888,8 @@ static const char __func__[] = "function-name";
 appeared, where function-name is the name of the lexically-enclosing
 function.  This name is the unadorned name of the function.
 
-@code{__FUNCTION__} is another name for @code{__func__}.  Older
-versions of GCC recognize only this name.  However, it is not
-standardized.  For maximum portability, we recommend you use
-@code{__func__}, but provide a fallback definition with the
-preprocessor:
-
-@smallexample
-#if __STDC_VERSION__ < 199901L
-# if __GNUC__ >= 2
-#  define __func__ __FUNCTION__
-# else
-#  define __func__ "<unknown>"
-# endif
-#endif
-@end smallexample
+@code{__FUNCTION__} is another name for @code{__func__}, provided for
+backward compatibility with old versions of GCC.
 
 In C, @code{__PRETTY_FUNCTION__} is yet another name for
 @code{__func__}.  However, in C++, @code{__PRETTY_FUNCTION__} contains
@@ -7839,13 +7927,9 @@ __FUNCTION__ = sub
 __PRETTY_FUNCTION__ = void a::sub(int)
 @end smallexample
 
-These identifiers are not preprocessor macros.  In GCC 3.3 and
-earlier, in C only, @code{__FUNCTION__} and @code{__PRETTY_FUNCTION__}
-were treated as string literals; they could be used to initialize
-@code{char} arrays, and they could be concatenated with other string
-literals.  GCC 3.4 and later treat them as variables, like
-@code{__func__}.  In C++, @code{__FUNCTION__} and
-@code{__PRETTY_FUNCTION__} have always been variables.
+These identifiers are variables, not preprocessor macros, and may not
+be used to initialize @code{char} arrays or be concatenated with other string
+literals.
 
 @node Return Address
 @section Getting the Return or Frame Address of a Function
@@ -8096,7 +8180,7 @@ You cannot operate between vectors of different lengths or different
 signedness without a cast.
 
 @node Offsetof
-@section Offsetof
+@section Support for @code{offsetof}
 @findex __builtin_offsetof
 
 GCC implements for both C and C++ a syntactic extension to implement
@@ -8124,7 +8208,7 @@ may be dependent.  In either case, @var{member} may consist of a single
 identifier, or a sequence of member accesses and array references.
 
 @node __sync Builtins
-@section Legacy __sync Built-in Functions for Atomic Memory Access
+@section Legacy @code{__sync} Built-in Functions for Atomic Memory Access
 
 The following built-in functions
 are intended to be compatible with those described
@@ -8140,7 +8224,7 @@ counterparts.  GCC allows any integral scalar or pointer type that is
 
 Not all operations are supported by all target processors.  If a particular
 operation cannot be implemented on the target processor, a warning is
-generated and a call an external function is generated.  The external
+generated and a call to an external function is generated.  The external
 function carries the same name as the built-in version,
 with an additional suffix
 @samp{_@var{n}} where @var{n} is the size of the data type.
@@ -8264,7 +8348,7 @@ are not prevented from being speculated to before the barrier.
 @end table
 
 @node __atomic Builtins
-@section Built-in functions for memory model aware atomic operations
+@section Built-in Functions for Memory Model Aware Atomic Operations
 
 The following built-in functions approximately match the requirements for
 C++11 memory model. Many are similar to the @samp{__sync} prefixed built-in
@@ -8533,7 +8617,7 @@ compiler may also ignore this parameter.
 @end deftypefn
 
 @node Integer Overflow Builtins
-@section Built-in functions to perform arithmetics and arithmetic overflow checking.
+@section Built-in Functions to Perform Arithmetic with Overflow Checking
 
 The following built-in functions allow performing simple arithmetic operations
 together with checking whether the operations overflowed.
@@ -8592,7 +8676,7 @@ functions above, except they perform multiplication, instead of addition.
 @end deftypefn
 
 @node x86 specific memory model extensions for transactional memory
-@section x86 specific memory model extensions for transactional memory
+@section x86-Specific Memory Model Extensions for Transactional Memory
 
 The x86 architecture supports additional memory ordering flags
 to mark lock critical sections for hardware lock elision. 
@@ -8759,6 +8843,7 @@ is called and the @var{flag} argument passed to it.
 
 @node Pointer Bounds Checker builtins
 @section Pointer Bounds Checker Built-in Functions
+@cindex Pointer Bounds Checker builtins
 @findex __builtin___bnd_set_ptr_bounds
 @findex __builtin___bnd_narrow_ptr_bounds
 @findex __builtin___bnd_copy_ptr_bounds
@@ -8772,15 +8857,16 @@ is called and the @var{flag} argument passed to it.
 @findex __builtin___bnd_get_ptr_ubound
 
 GCC provides a set of built-in functions to control Pointer Bounds Checker
-instrumentation.  Note that all Pointer Bounds Checker builtins are allowed
-to use even if you compile with Pointer Bounds Checker off.  The builtins
-behavior may differ in such case as documented below.
+instrumentation.  Note that all Pointer Bounds Checker builtins can be used
+even if you compile with Pointer Bounds Checker off
+(@option{-fno-check-pointer-bounds}).
+The behavior may differ in such case as documented below.
 
-@deftypefn {Built-in Function} void * __builtin___bnd_set_ptr_bounds (const void * @var{q}, size_t @var{size})
+@deftypefn {Built-in Function} {void *} __builtin___bnd_set_ptr_bounds (const void *@var{q}, size_t @var{size})
 
 This built-in function returns a new pointer with the value of @var{q}, and
 associate it with the bounds [@var{q}, @var{q}+@var{size}-1].  With Pointer
-Bounds Checker off built-in function just returns the first argument.
+Bounds Checker off, the built-in function just returns the first argument.
 
 @smallexample
 extern void *__wrap_malloc (size_t n)
@@ -8793,72 +8879,75 @@ extern void *__wrap_malloc (size_t n)
 
 @end deftypefn
 
-@deftypefn {Built-in Function} void * __builtin___bnd_narrow_ptr_bounds (const void * @var{p}, const void * @var{q}, size_t  @var{size})
+@deftypefn {Built-in Function} {void *} __builtin___bnd_narrow_ptr_bounds (const void *@var{p}, const void *@var{q}, size_t  @var{size})
 
 This built-in function returns a new pointer with the value of @var{p}
-and associate it with the narrowed bounds formed by the intersection
-of bounds associated with @var{q} and the [@var{p}, @var{p} + @var{size} - 1].
-With Pointer Bounds Checker off built-in function just returns the first
+and associates it with the narrowed bounds formed by the intersection
+of bounds associated with @var{q} and the bounds
+[@var{p}, @var{p} + @var{size} - 1].
+With Pointer Bounds Checker off, the built-in function just returns the first
 argument.
 
 @smallexample
 void init_objects (object *objs, size_t size)
 @{
   size_t i;
-  /* Initialize objects one-by-one passing pointers with bounds of an object,
-     not the full array of objects.  */
+  /* Initialize objects one-by-one passing pointers with bounds of 
+     an object, not the full array of objects.  */
   for (i = 0; i < size; i++)
-    init_object (__builtin___bnd_narrow_ptr_bounds (objs + i, objs, sizeof(object)));
+    init_object (__builtin___bnd_narrow_ptr_bounds (objs + i, objs,
+                                                    sizeof(object)));
 @}
 @end smallexample
 
 @end deftypefn
 
-@deftypefn {Built-in Function} void * __builtin___bnd_copy_ptr_bounds (const void * @var{q}, const void * @var{r})
+@deftypefn {Built-in Function} {void *} __builtin___bnd_copy_ptr_bounds (const void *@var{q}, const void *@var{r})
 
 This built-in function returns a new pointer with the value of @var{q},
-and associate it with the bounds already associated with pointer @var{r}.
-With Pointer Bounds Checker off built-in function just returns the first
+and associates it with the bounds already associated with pointer @var{r}.
+With Pointer Bounds Checker off, the built-in function just returns the first
 argument.
 
 @smallexample
 /* Here is a way to get pointer to object's field but
    still with the full object's bounds.  */
-int *field_ptr = __builtin___bnd_copy_ptr_bounds (&objptr->int_filed, objptr);
+int *field_ptr = __builtin___bnd_copy_ptr_bounds (&objptr->int_field, 
+                                                  objptr);
 @end smallexample
 
 @end deftypefn
 
-@deftypefn {Built-in Function} void * __builtin___bnd_init_ptr_bounds (const void * @var{q})
+@deftypefn {Built-in Function} {void *} __builtin___bnd_init_ptr_bounds (const void *@var{q})
 
 This built-in function returns a new pointer with the value of @var{q}, and
-associate it with INIT (allowing full memory access) bounds. With Pointer
-Bounds Checker off built-in function just returns the first argument.
+associates it with INIT (allowing full memory access) bounds. With Pointer
+Bounds Checker off, the built-in function just returns the first argument.
 
 @end deftypefn
 
-@deftypefn {Built-in Function} void * __builtin___bnd_null_ptr_bounds (const void * @var{q})
+@deftypefn {Built-in Function} {void *} __builtin___bnd_null_ptr_bounds (const void *@var{q})
 
 This built-in function returns a new pointer with the value of @var{q}, and
-associate it with NULL (allowing no memory access) bounds. With Pointer
-Bounds Checker off built-in function just returns the first argument.
+associates it with NULL (allowing no memory access) bounds. With Pointer
+Bounds Checker off, the built-in function just returns the first argument.
 
 @end deftypefn
 
-@deftypefn {Built-in Function} void __builtin___bnd_store_ptr_bounds (const void ** @var{ptr_addr}, const void * @var{ptr_val})
+@deftypefn {Built-in Function} void __builtin___bnd_store_ptr_bounds (const void **@var{ptr_addr}, const void *@var{ptr_val})
 
 This built-in function stores the bounds associated with pointer @var{ptr_val}
 and location @var{ptr_addr} into Bounds Table.  This can be useful to propagate
 bounds from legacy code without touching the associated pointer's memory when
-pointers were copied as integers.  With Pointer Bounds Checker off built-in
+pointers are copied as integers.  With Pointer Bounds Checker off, the built-in
 function call is ignored.
 
 @end deftypefn
 
-@deftypefn {Built-in Function} void __builtin___bnd_chk_ptr_lbounds (const void * @var{q})
+@deftypefn {Built-in Function} void __builtin___bnd_chk_ptr_lbounds (const void *@var{q})
 
 This built-in function checks if the pointer @var{q} is within the lower
-bound of its associated bounds.  With Pointer Bounds Checker off built-in
+bound of its associated bounds.  With Pointer Bounds Checker off, the built-in
 function call is ignored.
 
 @smallexample
@@ -8876,19 +8965,19 @@ extern void *__wrap_memset (void *dst, int c, size_t len)
 
 @end deftypefn
 
-@deftypefn {Built-in Function} void __builtin___bnd_chk_ptr_ubounds (const void * @var{q})
+@deftypefn {Built-in Function} void __builtin___bnd_chk_ptr_ubounds (const void *@var{q})
 
 This built-in function checks if the pointer @var{q} is within the upper
-bound of its associated bounds.  With Pointer Bounds Checker off built-in
+bound of its associated bounds.  With Pointer Bounds Checker off, the built-in
 function call is ignored.
 
 @end deftypefn
 
-@deftypefn {Built-in Function} void __builtin___bnd_chk_ptr_bounds (const void * @var{q}, size_t @var{size})
+@deftypefn {Built-in Function} void __builtin___bnd_chk_ptr_bounds (const void *@var{q}, size_t @var{size})
 
 This built-in function checks if [@var{q}, @var{q} + @var{size} - 1] is within
 the lower and upper bounds associated with @var{q}.  With Pointer Bounds Checker
-off built-in function call is ignored.
+off, the built-in function call is ignored.
 
 @smallexample
 extern void *__wrap_memcpy (void *dst, const void *src, size_t n)
@@ -8905,11 +8994,12 @@ extern void *__wrap_memcpy (void *dst, const void *src, size_t n)
 
 @end deftypefn
 
-@deftypefn {Built-in Function} const void * __builtin___bnd_get_ptr_lbound (const void * @var{q})
+@deftypefn {Built-in Function} {const void *} __builtin___bnd_get_ptr_lbound (const void *@var{q})
 
-This built-in function returns the lower bound (which is a pointer) associated
-with the pointer @var{q}.  This is at least useful for debugging using printf.
-With Pointer Bounds Checker off built-in function returns 0.
+This built-in function returns the lower bound associated
+with the pointer @var{q}, as a pointer value.  
+This is useful for debugging using @code{printf}.
+With Pointer Bounds Checker off, the built-in function returns 0.
 
 @smallexample
 void *lb = __builtin___bnd_get_ptr_lbound (q);
@@ -8919,34 +9009,34 @@ printf ("q = %p  lb(q) = %p  ub(q) = %p", q, lb, ub);
 
 @end deftypefn
 
-@deftypefn {Built-in Function} const void * __builtin___bnd_get_ptr_ubound (const void * @var{q})
+@deftypefn {Built-in Function} {const void *} __builtin___bnd_get_ptr_ubound (const void *@var{q})
 
 This built-in function returns the upper bound (which is a pointer) associated
-with the pointer @var{q}.  With Pointer Bounds Checker off built-in function
-returns -1.
+with the pointer @var{q}.  With Pointer Bounds Checker off,
+the built-in function returns -1.
 
 @end deftypefn
 
 @node Cilk Plus Builtins
-@section Cilk Plus C/C++ language extension Built-in Functions.
+@section Cilk Plus C/C++ Language Extension Built-in Functions
 
-GCC provides support for the following built-in reduction funtions if Cilk Plus
+GCC provides support for the following built-in reduction functions if Cilk Plus
 is enabled. Cilk Plus can be enabled using the @option{-fcilkplus} flag.
 
 @itemize @bullet
-@item __sec_implicit_index
-@item __sec_reduce
-@item __sec_reduce_add
-@item __sec_reduce_all_nonzero
-@item __sec_reduce_all_zero
-@item __sec_reduce_any_nonzero
-@item __sec_reduce_any_zero
-@item __sec_reduce_max
-@item __sec_reduce_min
-@item __sec_reduce_max_ind
-@item __sec_reduce_min_ind
-@item __sec_reduce_mul
-@item __sec_reduce_mutating
+@item @code{__sec_implicit_index}
+@item @code{__sec_reduce}
+@item @code{__sec_reduce_add}
+@item @code{__sec_reduce_all_nonzero}
+@item @code{__sec_reduce_all_zero}
+@item @code{__sec_reduce_any_nonzero}
+@item @code{__sec_reduce_any_zero}
+@item @code{__sec_reduce_max}
+@item @code{__sec_reduce_min}
+@item @code{__sec_reduce_max_ind}
+@item @code{__sec_reduce_min_ind}
+@item @code{__sec_reduce_mul}
+@item @code{__sec_reduce_mutating}
 @end itemize
 
 Further details and examples about these built-in functions are described 
@@ -9660,10 +9750,6 @@ not otherwise permitted in a static initializer (for example,
 @code{0 && foo ()}).  GCC must be more conservative about evaluating the
 built-in in this case, because it has no opportunity to perform
 optimization.
-
-Previous versions of GCC did not accept this built-in in data
-initializers.  The earliest version where it is completely safe is
-3.0.1.
 @end deftypefn
 
 @deftypefn {Built-in Function} long __builtin_expect (long @var{exp}, long @var{c})
@@ -10686,7 +10772,7 @@ __v8hi __builtin_arc_vupsbaw (__v8hi)
 __v8hi __builtin_arc_vupsbw (__v8hi)
 @end example
 
-The followign take two @code{int} arguments and return no result:
+The following take two @code{int} arguments and return no result:
 @example
 void __builtin_arc_vdirun (int, int)
 void __builtin_arc_vdorun (int, int)
@@ -10925,11 +11011,11 @@ intrinsics can be found at
 The built-in intrinsics for the Advanced SIMD extension are available when
 NEON is enabled.
 
-Currently, ARM and AArch64 back-ends do not support ACLE 2.0 fully.  Both
-back-ends support CRC32 intrinsics from @file{arm_acle.h}.  The ARM backend's
-16-bit floating-point Advanded SIMD Intrinsics currently comply to ACLE v1.1.
-AArch64's backend does not have support for 16-bit floating point Advanced SIMD
-Intrinsics yet.
+Currently, ARM and AArch64 back ends do not support ACLE 2.0 fully.  Both
+back ends support CRC32 intrinsics from @file{arm_acle.h}.  The ARM back end's
+16-bit floating-point Advanced SIMD intrinsics currently comply to ACLE v1.1.
+AArch64's back end does not have support for 16-bit floating point Advanced SIMD
+intrinsics yet.
 
 See @ref{ARM Options} and @ref{AArch64 Options} for more information on the
 availability of extensions.
@@ -11120,7 +11206,7 @@ number of an IACC register.  See @pxref{Other Built-in Functions}
 for more details.
 
 @node Directly-mapped Integer Functions
-@subsubsection Directly-mapped Integer Functions
+@subsubsection Directly-Mapped Integer Functions
 
 The functions listed below map directly to FR-V I-type instructions.
 
@@ -11159,7 +11245,7 @@ The functions listed below map directly to FR-V I-type instructions.
 @end multitable
 
 @node Directly-mapped Media Functions
-@subsubsection Directly-mapped Media Functions
+@subsubsection Directly-Mapped Media Functions
 
 The functions listed below map directly to FR-V M-type instructions.
 
@@ -11432,7 +11518,7 @@ The functions listed below map directly to FR-V M-type instructions.
 @end multitable
 
 @node Raw read/write Functions
-@subsubsection Raw read/write Functions
+@subsubsection Raw Read/Write Functions
 
 This sections describes built-in functions related to read and write
 instructions to access memory.  These functions generate
@@ -12393,7 +12479,7 @@ unsigned int addg6s (unsigned int, unsigned int);
 @end smallexample
 
 The @code{__builtin_divde}, @code{__builtin_divdeo},
-@code{__builitin_divdeu}, @code{__builtin_divdeou} functions require a
+@code{__builtin_divdeu}, @code{__builtin_divdeou} functions require a
 64-bit environment support ISA 2.06 or later.
 
 The following built-in functions are available for the PowerPC family
@@ -12409,9 +12495,9 @@ _Decimal128 __builtin_denbcdq (int, _Decimal128);
 _Decimal64 __builtin_diex (_Decimal64, _Decimal64);
 _Decimal128 _builtin_diexq (_Decimal128, _Decimal128);
 _Decimal64 __builtin_dscli (_Decimal64, int);
-_Decimal128 __builitn_dscliq (_Decimal128, int);
+_Decimal128 __builtin_dscliq (_Decimal128, int);
 _Decimal64 __builtin_dscri (_Decimal64, int);
-_Decimal128 __builitn_dscriq (_Decimal128, int);
+_Decimal128 __builtin_dscriq (_Decimal128, int);
 unsigned long long __builtin_unpack_dec128 (_Decimal128, int);
 _Decimal128 __builtin_pack_dec128 (unsigned long long, unsigned long long);
 @end smallexample
@@ -15021,7 +15107,7 @@ must be a constant integer in the range of 0 to 15.
 @subsection PowerPC Hardware Transactional Memory Built-in Functions
 GCC provides two interfaces for accessing the Hardware Transactional
 Memory (HTM) instructions available on some of the PowerPC family
-of prcoessors (eg, POWER8).  The two interfaces come in a low level
+of processors (eg, POWER8).  The two interfaces come in a low level
 interface, consisting of built-in functions specific to PowerPC and a
 higher level interface consisting of inline functions that are common
 between PowerPC and S/390.
@@ -17197,12 +17283,13 @@ int __builtin_ia32_xtest ()
 @end smallexample
 
 @node x86 transactional memory intrinsics
-@subsection x86 transaction memory intrinsics
+@subsection x86 Transactional Memory Intrinsics
 
-Hardware transactional memory intrinsics for x86. These allow to use
+These hardware transactional memory intrinsics for x86 allow you to use
 memory transactions with RTM (Restricted Transactional Memory).
-For using HLE (Hardware Lock Elision) see @ref{x86 specific memory model extensions for transactional memory} instead.
 This support is enabled with the @option{-mrtm} option.
+For using HLE (Hardware Lock Elision) see 
+@ref{x86 specific memory model extensions for transactional memory} instead.
 
 A memory transaction commits all changes to memory in an atomic way,
 as visible to other threads. If the transaction fails it is rolled back
@@ -17213,58 +17300,81 @@ and suitable fallback code always needs to be supplied.
 
 @deftypefn {RTM Function} {unsigned} _xbegin ()
 Start a RTM (Restricted Transactional Memory) transaction. 
-Returns _XBEGIN_STARTED when the transaction
+Returns @code{_XBEGIN_STARTED} when the transaction
 started successfully (note this is not 0, so the constant has to be 
-explicitely tested). When the transaction aborts all side effects
-are undone and an abort code is returned. There is no guarantee
-any transaction ever succeeds, so there always needs to be a valid
-tested fallback path.
-@end deftypefn
+explicitly tested).  
 
-@smallexample
-#include <immintrin.h>
-
-if ((status = _xbegin ()) == _XBEGIN_STARTED) @{
-    ... transaction code...
-    _xend ();
-@} else @{
-    ... non transactional fallback path...
-@}
-@end smallexample
-
-Valid abort status bits (when the value is not @code{_XBEGIN_STARTED}) are:
+If the transaction aborts, all side-effects 
+are undone and an abort code encoded as a bit mask is returned.
+The following macros are defined:
 
 @table @code
 @item _XABORT_EXPLICIT
-Transaction explicitely aborted with @code{_xabort}. The parameter passed
-to @code{_xabort} is available with @code{_XABORT_CODE(status)}
+Transaction was explicitly aborted with @code{_xabort}.  The parameter passed
+to @code{_xabort} is available with @code{_XABORT_CODE(status)}.
 @item _XABORT_RETRY
 Transaction retry is possible.
 @item _XABORT_CONFLICT
-Transaction abort due to a memory conflict with another thread
+Transaction abort due to a memory conflict with another thread.
 @item _XABORT_CAPACITY
-Transaction abort due to the transaction using too much memory
+Transaction abort due to the transaction using too much memory.
 @item _XABORT_DEBUG
-Transaction abort due to a debug trap
+Transaction abort due to a debug trap.
 @item _XABORT_NESTED
-Transaction abort in a inner nested transaction
+Transaction abort in an inner nested transaction.
 @end table
 
+There is no guarantee
+any transaction ever succeeds, so there always needs to be a valid
+fallback path.
+@end deftypefn
+
 @deftypefn {RTM Function} {void} _xend ()
-Commit the current transaction. When no transaction is active this will
-fault. All memory side effects of the transactions will become visible
-to other threads in an atomic matter.
+Commit the current transaction. When no transaction is active this faults.
+All memory side-effects of the transaction become visible
+to other threads in an atomic manner.
 @end deftypefn
 
 @deftypefn {RTM Function} {int} _xtest ()
-Return a value not zero when a transaction is currently active, otherwise 0.
+Return a nonzero value if a transaction is currently active, otherwise 0.
 @end deftypefn
 
 @deftypefn {RTM Function} {void} _xabort (status)
 Abort the current transaction. When no transaction is active this is a no-op.
-status must be a 8bit constant, that is included in the status code returned
-by @code{_xbegin}
+The @var{status} is an 8-bit constant; its value is encoded in the return 
+value from @code{_xbegin}.
 @end deftypefn
+
+Here is an example showing handling for @code{_XABORT_RETRY}
+and a fallback path for other failures:
+
+@smallexample
+#include <immintrin.h>
+
+int n_tries, max_tries;
+unsigned status = _XABORT_EXPLICIT;
+...
+
+for (n_tries = 0; n_tries < max_tries; n_tries++) 
+  @{
+    status = _xbegin ();
+    if (status == _XBEGIN_STARTED || !(status & _XABORT_RETRY))
+      break;
+  @}
+if (status == _XBEGIN_STARTED) 
+  @{
+    ... transaction code...
+    _xend ();
+  @} 
+else 
+  @{
+    ... non-transactional fallback path...
+  @}
+@end smallexample
+
+@noindent
+Note that, in most cases, the transactional and non-transactional code
+must synchronize together to ensure consistency.
 
 @node Target Format Checks
 @section Format Checks Specific to Particular Target Machines
@@ -17546,8 +17656,10 @@ adding a call to the @code{.init} section.
 @subsection Symbol-Renaming Pragmas
 
 GCC supports a @code{#pragma} directive that changes the name used in
-assembly for a given declaration. This effect can also be achieved
-using the asm labels extension (@pxref{Asm Labels}).
+assembly for a given declaration. While this pragma is supported on all
+platforms, it is intended primarily to provide compatibility with the
+Solaris system headers. This effect can also be achieved using the asm
+labels extension (@pxref{Asm Labels}).
 
 @table @code
 @item redefine_extname @var{oldname} @var{newname}
@@ -17810,9 +17922,6 @@ if @code{attribute((optimize("STRING")))} was specified for that
 function.  The parenthesis around the options is optional.
 @xref{Function Attributes}, for more information about the
 @code{optimize} attribute and the attribute syntax.
-
-The @samp{#pragma GCC optimize} pragma is not implemented in GCC
-versions earlier than 4.4.
 @end table
 
 @table @code
@@ -17826,9 +17935,6 @@ options.  It is intended for include files where you temporarily want
 to switch to using a different @samp{#pragma GCC target} or
 @samp{#pragma GCC optimize} and then to pop back to the previous
 options.
-
-The @samp{#pragma GCC push_options} and @samp{#pragma GCC pop_options}
-pragmas are not implemented in GCC versions earlier than 4.4.
 @end table
 
 @table @code
@@ -17838,9 +17944,6 @@ pragmas are not implemented in GCC versions earlier than 4.4.
 This pragma clears the current @code{#pragma GCC target} and
 @code{#pragma GCC optimize} to use the default switches as specified
 on the command line.
-
-The @samp{#pragma GCC reset_options} pragma is not implemented in GCC
-versions earlier than 4.4.
 @end table
 
 @node Loop-Specific Pragmas
@@ -17852,8 +17955,8 @@ versions earlier than 4.4.
 @end table
 
 With this pragma, the programmer asserts that there are no loop-carried
-dependencies which would prevent that consecutive iterations of
-the following loop can be executed concurrently with SIMD
+dependencies which would prevent consecutive iterations of
+the following loop from executing concurrently with SIMD
 (single instruction multiple data) instructions.
 
 For example, the compiler can only unconditionally vectorize the following
@@ -17886,7 +17989,7 @@ void ignore_vec_dep (int *a, int k, int c, int m)
 
 
 @node Unnamed Fields
-@section Unnamed struct/union fields within structs/unions
+@section Unnamed Structure and Union Fields
 @cindex @code{struct}
 @cindex @code{union}
 
@@ -18227,7 +18330,7 @@ Non-@code{static} members shall not be @code{__thread}.
 @end itemize
 
 @node Binary constants
-@section Binary constants using the @samp{0b} prefix
+@section Binary Constants using the @samp{0b} Prefix
 @cindex Binary constants using the @samp{0b} prefix
 
 Integer constants can be written as binary constants, consisting of a
@@ -18462,7 +18565,7 @@ almost certainly breaks things.
 another way to control placement of these constructs.
 
 @node C++ Interface
-@section #pragma interface and implementation
+@section C++ Interface and Implementation Pragmas
 
 @cindex interface and implementation headers, C++
 @cindex C++ interface and implementation headers
@@ -18473,14 +18576,11 @@ user with a way of explicitly directing the compiler to emit entities
 with vague linkage (and debugging information) in a particular
 translation unit.
 
-@emph{Note:} As of GCC 2.7.2, these @code{#pragma}s are not useful in
-most cases, because of COMDAT support and the ``key method'' heuristic
+@emph{Note:} These @code{#pragma}s have been superceded as of GCC 2.7.2
+by COMDAT support and the ``key method'' heuristic
 mentioned in @ref{Vague Linkage}.  Using them can actually cause your
 program to grow due to unnecessary out-of-line copies of inline
-functions.  Currently (3.4) the only benefit of these
-@code{#pragma}s is reduced duplication of debugging information, and
-that should be addressed soon on DWARF 2 targets with the use of
-COMDAT groups.
+functions.
 
 @table @code
 @item #pragma interface
@@ -18523,12 +18623,6 @@ suffixes, such as @samp{.h} or @samp{.C} or @samp{.cc}.} as your source
 file.  For example, in @file{allclass.cc}, giving just
 @samp{#pragma implementation}
 by itself is equivalent to @samp{#pragma implementation "allclass.h"}.
-
-In versions of GNU C++ prior to 2.6.0 @file{allclass.h} was treated as
-an implementation file whenever you would include it from
-@file{allclass.cc} even if you never specified @samp{#pragma
-implementation}.  This was deemed to be more trouble than it was worth,
-however, and disabled.
 
 Use the string argument if you want a single implementation file to
 include code from multiple header files.  (You must also use
@@ -18697,7 +18791,7 @@ duplication.
 @end enumerate
 
 @node Bound member functions
-@section Extracting the function pointer from a bound pointer to member function
+@section Extracting the Function Pointer from a Bound Pointer to Member Function
 @cindex pmf
 @cindex pointer to member function
 @cindex bound pointer to member function
@@ -18745,19 +18839,29 @@ Some attributes only make sense for C++ programs.
 
 @table @code
 @item abi_tag ("@var{tag}", ...)
-@cindex @code{abi_tag} attribute
-The @code{abi_tag} attribute can be applied to a function or class
-declaration.  It modifies the mangled name of the function or class to
+@cindex @code{abi_tag} function attribute
+@cindex @code{abi_tag} variable attribute
+@cindex @code{abi_tag} type attribute
+The @code{abi_tag} attribute can be applied to a function, variable, or class
+declaration.  It modifies the mangled name of the entity to
 incorporate the tag name, in order to distinguish the function or
 class from an earlier version with a different ABI; perhaps the class
 has changed size, or the function has a different return type that is
 not encoded in the mangled name.
 
+The attribute can also be applied to an inline namespace, but does not
+affect the mangled name of the namespace; in this case it is only used
+for @option{-Wabi-tag} warnings and automatic tagging of functions and
+variables.  Tagging inline namespaces is generally preferable to
+tagging individual declarations, but the latter is sometimes
+necessary, such as when only certain members of a class need to be
+tagged.
+
 The argument can be a list of strings of arbitrary length.  The
 strings are sorted on output, so the order of the list is
 unimportant.
 
-A redeclaration of a function or class must not add new ABI tags,
+A redeclaration of an entity must not add new ABI tags,
 since doing so would change the mangled name.
 
 The ABI tags apply to a name, so all instantiations and
@@ -18769,9 +18873,15 @@ not have all the ABI tags used by its subobjects and virtual functions; for user
 that needs to coexist with an earlier ABI, using this option can help
 to find all affected types that need to be tagged.
 
-@item init_priority (@var{priority})
-@cindex @code{init_priority} attribute
+When a type involving an ABI tag is used as the type of a variable or
+return type of a function where that tag is not already present in the
+signature of the function, the tag is automatically applied to the
+variable or function.  @option{-Wabi-tag} also warns about this
+situation; this warning can be avoided by explicitly tagging the
+variable or function or moving it into a tagged inline namespace.
 
+@item init_priority (@var{priority})
+@cindex @code{init_priority} variable attribute
 
 In Standard C++, objects defined at namespace scope are guaranteed to be
 initialized in an order in strict accordance with that of their definitions
@@ -18795,7 +18905,7 @@ Note that the particular values of @var{priority} do not matter; only their
 relative ordering.
 
 @item java_interface
-@cindex @code{java_interface} attribute
+@cindex @code{java_interface} type attribute
 
 This type attribute informs C++ that the class is a Java interface.  It may
 only be applied to classes declared within an @code{extern "Java"} block.
@@ -18803,7 +18913,7 @@ Calls to methods declared in this interface are dispatched using GCJ's
 interface table mechanism, instead of regular virtual table dispatch.
 
 @item warn_unused
-@cindex @code{warn_unused} attribute
+@cindex @code{warn_unused} type attribute
 
 For C++ types with non-trivial constructors and/or destructors it is
 impossible for the compiler to determine whether a variable of this
@@ -19194,4 +19304,4 @@ than no arguments, as C++ demands.
 @end table
 
 @c  LocalWords:  emph deftypefn builtin ARCv2EM SIMD builtins msimd
-@c  LocalWords:  typedef v4si v8hi DMA dma vdiwr vdowr followign
+@c  LocalWords:  typedef v4si v8hi DMA dma vdiwr vdowr

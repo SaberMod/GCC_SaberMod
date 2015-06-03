@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -617,6 +617,17 @@ package Sinfo is
    --       checks on empty ranges, which typically appear in deactivated
    --       code in a particular configuration).
 
+   --    6. Subtypes should match in the AST, even after a generic is
+   --       instantiated. In particular, GNATprove relies on the fact that,
+   --       on a selected component, the type of the selected component is
+   --       the type of the corresponding component in the prefix of the
+   --       selected component.
+   --
+   --       Note that, in some cases, we know that this rule is broken by the
+   --       frontend. In particular, if the selected component is a packed
+   --       array depending on a discriminant of a unconstrained formal object
+   --       parameter of a generic.
+
    -----------------------
    -- Check Flag Fields --
    -----------------------
@@ -816,7 +827,9 @@ package Sinfo is
    --    setting tag values, etc. N_Object_Declaration nodes also have this
    --    flag defined. Here it is used to indicate that an initialization
    --    expression is valid, even where it would normally not be allowed
-   --    (e.g. where the type involved is limited).
+   --    (e.g. where the type involved is limited). It is also used to stop
+   --    a Force_Evaluation call for an unchecked conversion, but this usage
+   --    is unclear and not documented ???
 
    --  Associated_Node (Node4-Sem)
    --    Present in nodes that can denote an entity: identifiers, character
@@ -6521,6 +6534,14 @@ package Sinfo is
       --  expanded tree. This is for example used to deal with the case of
       --  a cleanup procedure that must handle declarations as well as the
       --  statements of a block.
+
+      --  Note: the cleanup_procedure_call does not go through the common
+      --  processing for calls, which in particular means that it will not be
+      --  automatically inlined in all cases, even though the procedure to be
+      --  called is marked inline. More specifically, if the procedure comes
+      --  from another unit than the main source unit, for example a run-time
+      --  unit, then it needs to be manually added to the list of bodies to be
+      --  inlined by invoking Add_Inlined_Body on it.
 
       --  N_Handled_Sequence_Of_Statements
       --  Sloc points to first token of first statement

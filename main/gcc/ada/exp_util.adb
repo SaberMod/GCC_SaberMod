@@ -2996,9 +2996,22 @@ package body Exp_Util is
    -- Force_Evaluation --
    ----------------------
 
-   procedure Force_Evaluation (Exp : Node_Id; Name_Req : Boolean := False) is
+   procedure Force_Evaluation
+     (Exp           : Node_Id;
+      Name_Req      : Boolean   := False;
+      Related_Id    : Entity_Id := Empty;
+      Is_Low_Bound  : Boolean   := False;
+      Is_High_Bound : Boolean   := False)
+   is
    begin
-      Remove_Side_Effects (Exp, Name_Req, Variable_Ref => True);
+      Remove_Side_Effects
+        (Exp           => Exp,
+         Name_Req      => Name_Req,
+         Variable_Ref  => True,
+         Renaming_Req  => False,
+         Related_Id    => Related_Id,
+         Is_Low_Bound  => Is_Low_Bound,
+         Is_High_Bound => Is_High_Bound);
    end Force_Evaluation;
 
    ---------------------------------
@@ -5697,6 +5710,11 @@ package body Exp_Util is
       elsif Is_Entity_Name (N) and then Is_Type (Entity (N)) then
          return False;
 
+      --  Never true for a compile time known constant
+
+      elsif Compile_Time_Known_Value (N) then
+         return False;
+
       --  True if object reference with volatile type
 
       elsif Is_Volatile_Object (N) then
@@ -6938,6 +6956,13 @@ package body Exp_Util is
 
    function Possible_Bit_Aligned_Component (N : Node_Id) return Boolean is
    begin
+      --  Do not process an unanalyzed node because it is not yet decorated and
+      --  most checks performed below will fail.
+
+      if not Analyzed (N) then
+         return False;
+      end if;
+
       case Nkind (N) is
 
          --  Case of indexed component
@@ -7315,8 +7340,9 @@ package body Exp_Util is
         (Loc         : Source_Ptr;
          Id          : Character;
          Related_Nod : Node_Id := Empty) return Entity_Id;
-      --  Create an external symbol of the form xxx_FIRST/_LAST if Related_Id
-      --  is present, otherwise it generates an internal temporary.
+      --  Create an external symbol of the form xxx_FIRST/_LAST if Related_Nod
+      --  is present (xxx is taken from the Chars field of Related_Nod),
+      --  otherwise it generates an internal temporary.
 
       ---------------------
       -- Build_Temporary --

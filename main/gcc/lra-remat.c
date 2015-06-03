@@ -459,6 +459,16 @@ operand_to_remat (rtx_insn *insn)
 	     reg2 = reg2->next)
 	  if (reg2->type == OP_OUT && reg->regno == reg2->regno)
 	    return -1;
+	if (reg->regno < FIRST_PSEUDO_REGISTER)
+	  for (struct lra_insn_reg *reg2 = static_id->hard_regs;
+	       reg2 != NULL;
+	       reg2 = reg2->next)
+	    if (reg2->type == OP_OUT
+		&& reg->regno <= reg2->regno
+		&& (reg2->regno
+		    < (reg->regno
+		       + hard_regno_nregs[reg->regno][reg->biggest_mode])))
+	      return -1;
       }
   /* Find the rematerialization operand.  */
   int nop = static_id->n_operands;
@@ -1034,6 +1044,29 @@ get_hard_regs (struct lra_insn_reg *reg, int &nregs)
   return hard_regno;
 }
 
+/* Make copy of and register scratch pseudos in rematerialized insn
+   REMAT_INSN.  */
+static void
+update_scratch_ops (rtx_insn *remat_insn)
+{
+  lra_insn_recog_data_t id = lra_get_insn_recog_data (remat_insn);
+  struct lra_static_insn_data *static_id = id->insn_static_data;
+  for (int i = 0; i < static_id->n_operands; i++)
+    {
+      rtx *loc = id->operand_loc[i];
+      if (! REG_P (*loc))
+	continue;
+      int regno = REGNO (*loc);
+      if (! lra_former_scratch_p (regno))
+	continue;
+      *loc = lra_create_new_reg (GET_MODE (*loc), *loc,
+				 lra_get_allocno_class (regno),
+				 "scratch pseudo copy");
+      lra_register_new_scratch_op (remat_insn, i);
+    }
+  
+}
+
 /* Insert rematerialization insns using the data-flow data calculated
    earlier.  */
 static bool
@@ -1183,6 +1216,7 @@ do_remat (void)
 	      HOST_WIDE_INT sp_offset_change = cand_sp_offset - id->sp_offset;
 	      if (sp_offset_change != 0)
 		change_sp_offset (remat_insn, sp_offset_change);
+	      update_scratch_ops (remat_insn);
 	      lra_process_new_insns (insn, remat_insn, NULL,
 				     "Inserting rematerialization insn");
 	      lra_set_insn_deleted (insn);
@@ -1200,22 +1234,25 @@ do_remat (void)
 		for (i = 0; i < nregs; i++)
 		  CLEAR_HARD_REG_BIT (live_hard_regs, hard_regno + i);
 	      }
-	    else if (reg->type != OP_IN
-		     && find_regno_note (insn, REG_UNUSED, reg->regno) == NULL)
-	      {
-		if ((hard_regno = get_hard_regs (reg, nregs)) < 0)
-		  continue;
-		for (i = 0; i < nregs; i++)
-		  SET_HARD_REG_BIT (live_hard_regs, hard_regno + i);
-	      }
 	  /* Process also hard regs (e.g. CC register) which are part
 	     of insn definition.  */
 	  for (reg = static_id->hard_regs; reg != NULL; reg = reg->next)
 	    if (reg->type == OP_IN
 		&& find_regno_note (insn, REG_DEAD, reg->regno) != NULL)
 	      CLEAR_HARD_REG_BIT (live_hard_regs, reg->regno);
-	    else if (reg->type != OP_IN
-		     && find_regno_note (insn, REG_UNUSED, reg->regno) == NULL)
+	  /* Inputs have been processed, now process outputs.  */
+	  for (reg = id->regs; reg != NULL; reg = reg->next)
+	    if (reg->type != OP_IN
+		&& find_regno_note (insn, REG_UNUSED, reg->regno) == NULL)
+	      {
+		if ((hard_regno = get_hard_regs (reg, nregs)) < 0)
+		  continue;
+		for (i = 0; i < nregs; i++)
+		  SET_HARD_REG_BIT (live_hard_regs, hard_regno + i);
+	      }
+	  for (reg = static_id->hard_regs; reg != NULL; reg = reg->next)
+	    if (reg->type != OP_IN
+		&& find_regno_note (insn, REG_UNUSED, reg->regno) == NULL)
 	      SET_HARD_REG_BIT (live_hard_regs, reg->regno);
 	}
     }
@@ -1224,6 +1261,9 @@ do_remat (void)
 }
 
 
+
+/* Current number of rematerialization iteration.  */
+int lra_rematerialization_iter;
 
 /* Entry point of the rematerialization sub-pass.  Return true if we
    did any rematerialization.  */
@@ -1236,6 +1276,13 @@ lra_remat (void)
 
   if (! flag_lra_remat)
     return false;
+  lra_rematerialization_iter++;
+  if (lra_rematerialization_iter > LRA_MAX_REMATERIALIZATION_PASSES)
+    return false;
+  if (lra_dump_file != NULL)
+    fprintf (lra_dump_file,
+	     "\n******** Rematerialization #%d: ********\n\n",
+	     lra_rematerialization_iter);
   timevar_push (TV_LRA_REMAT);
   insn_to_cand = XCNEWVEC (cand_t, get_max_uid ());
   regno_cands = XCNEWVEC (cand_t, max_regno);

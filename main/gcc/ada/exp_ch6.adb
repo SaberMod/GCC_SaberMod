@@ -42,8 +42,8 @@ with Exp_Intr; use Exp_Intr;
 with Exp_Pakd; use Exp_Pakd;
 with Exp_Prag; use Exp_Prag;
 with Exp_Tss;  use Exp_Tss;
+with Exp_Unst; use Exp_Unst;
 with Exp_Util; use Exp_Util;
-with Fname;    use Fname;
 with Freeze;   use Freeze;
 with Inline;   use Inline;
 with Lib;      use Lib;
@@ -203,10 +203,9 @@ package body Exp_Ch6 is
    --  secondary stack using 'reference.
 
    procedure Expand_Non_Function_Return (N : Node_Id);
-   --  Called by Expand_N_Simple_Return_Statement in case we're returning from
-   --  a procedure body, entry body, accept statement, or extended return
-   --  statement. Note that all non-function returns are simple return
-   --  statements.
+   --  Expand a simple return statement found in a procedure body, entry body,
+   --  accept statement, or an extended return statement. Note that all non-
+   --  function returns are simple return statements.
 
    function Expand_Protected_Object_Reference
      (N    : Node_Id;
@@ -672,7 +671,7 @@ package body Exp_Ch6 is
               and then Is_Hidden (Par_Op)
               and then Type_Conformant (Prim_Op, Subp)
             then
-               Set_DT_Position (Subp, DT_Position (Prim_Op));
+               Set_DT_Position_Value (Subp, DT_Position (Prim_Op));
             end if;
 
             Next_Elmt (Op_Elmt);
@@ -965,6 +964,10 @@ package body Exp_Ch6 is
 
       Pop_Scope;
    end Detect_Infinite_Recursion;
+
+   --------------------
+   -- Expand_Actuals --
+   --------------------
 
    --------------------
    -- Expand_Actuals --
@@ -1750,9 +1753,49 @@ package body Exp_Ch6 is
             --  be handled separately because the name does not denote an
             --  overloadable entity.
 
-            declare
+            By_Ref_Predicate_Check : declare
                Aund : constant Entity_Id := Underlying_Type (E_Actual);
                Atyp : Entity_Id;
+
+               function Is_Public_Subp return Boolean;
+               --  Check whether the subprogram being called is a visible
+               --  operation of the type of the actual. Used to determine
+               --  whether an invariant check must be generated on the
+               --  caller side.
+
+               ---------------------
+               --  Is_Public_Subp --
+               ---------------------
+
+               function Is_Public_Subp return Boolean is
+                  Pack      : constant Entity_Id := Scope (Subp);
+                  Subp_Decl : Node_Id;
+
+               begin
+                  if not Is_Subprogram (Subp) then
+                     return False;
+
+                  --  The operation may be inherited, or a primitive of the
+                  --  root type.
+
+                  elsif
+                    Nkind_In (Parent (Subp), N_Private_Extension_Declaration,
+                                             N_Full_Type_Declaration)
+                  then
+                     Subp_Decl := Parent (Subp);
+
+                  else
+                     Subp_Decl := Unit_Declaration_Node (Subp);
+                  end if;
+
+                  return Ekind (Pack) = E_Package
+                    and then
+                      List_Containing (Subp_Decl) =
+                        Visible_Declarations
+                          (Specification (Unit_Declaration_Node (Pack)));
+               end Is_Public_Subp;
+
+            --  Start of processing for By_Ref_Predicate_Check
 
             begin
                if No (Aund) then
@@ -1771,7 +1814,34 @@ package body Exp_Ch6 is
                   Append_To (Post_Call,
                     Make_Predicate_Check (Atyp, Actual));
                end if;
-            end;
+
+               --  We generated caller-side invariant checks in two cases:
+
+               --  a) when calling an inherited operation, where there is an
+               --  implicit view conversion of the actual to the parent type.
+
+               --  b) When the conversion is explicit
+
+               --  We treat these cases separately because the required
+               --  conversion for a) is added later when expanding the call.
+
+               if Has_Invariants (Etype (Actual))
+                  and then
+                    Nkind (Parent (Subp)) = N_Private_Extension_Declaration
+               then
+                  if  Comes_From_Source (N) and then Is_Public_Subp then
+                     Append_To (Post_Call, Make_Invariant_Call (Actual));
+                  end if;
+
+               elsif Nkind (Actual) = N_Type_Conversion
+                 and then Has_Invariants (Etype (Expression (Actual)))
+               then
+                  if Comes_From_Source (N) and then Is_Public_Subp then
+                     Append_To (Post_Call,
+                       Make_Invariant_Call (Expression (Actual)));
+                  end if;
+               end if;
+            end By_Ref_Predicate_Check;
 
          --  Processing for IN parameters
 
@@ -3686,7 +3756,7 @@ package body Exp_Ch6 is
                else
                   --  Let the back end handle it
 
-                  Add_Inlined_Body (Subp);
+                  Add_Inlined_Body (Subp, Call_Node);
 
                   if Front_End_Inlining
                     and then Nkind (Spec) = N_Subprogram_Declaration
@@ -3708,35 +3778,17 @@ package body Exp_Ch6 is
            or else Nkind (Unit_Declaration_Node (Subp)) /=
                                                  N_Subprogram_Declaration
            or else No (Body_To_Inline (Unit_Declaration_Node (Subp)))
+           or else Nkind (Body_To_Inline (Unit_Declaration_Node (Subp))) in
+                                                                      N_Entity
          then
-            Add_Inlined_Body (Subp);
-            Register_Backend_Call (Call_Node);
-
-            --  If the call is to a function in a run-time unit that is marked
-            --  Inline_Always, we must suppress debugging information on it,
-            --  so that the code that is eventually inlined will not affect
-            --  debugging of the user program.
-
-            if Is_Predefined_File_Name
-                 (Unit_File_Name (Get_Source_Unit (Sloc (Subp))))
-              and then In_Extended_Main_Source_Unit (N)
-            then
-               --  We make an exception for calls to the Ada hierarchy if call
-               --  comes from source, because some user applications need the
-               --  debugging information for such calls.
-
-               if Comes_From_Source (Call_Node)
-                 and then Name_Buffer (1 .. 2) = "a-"
-               then
-                  null;
-               else
-                  Set_Needs_Debug_Info (Subp, False);
-               end if;
-            end if;
+            Add_Inlined_Body (Subp, Call_Node);
 
          --  Front end expansion of simple functions returning unconstrained
-         --  types (see Check_And_Split_Unconstrained_Function) and simple
-         --  renamings inlined by the front end (see Build_Renamed_Entity).
+         --  types (see Check_And_Split_Unconstrained_Function). Note that the
+         --  case of a simple renaming (Body_To_Inline in N_Entity above, see
+         --  also Build_Renamed_Body) cannot be expanded here because this may
+         --  give rise to order-of-elaboration issues for the types of the
+         --  parameters of the subprogram, if any.
 
          else
             Expand_Inlined_Call (Call_Node, Subp, Orig_Subp);
@@ -4327,7 +4379,7 @@ package body Exp_Ch6 is
            (Result, New_Occurrence_Of (Return_Statement_Entity (N), Loc));
 
          --  If the object decl was already rewritten as a renaming, then we
-         --  don't want to do the object allocation and transformation of of
+         --  don't want to do the object allocation and transformation of
          --  the return object declaration to a renaming. This case occurs
          --  when the return object is initialized by a call to another
          --  build-in-place function, and that function is responsible for
@@ -4931,21 +4983,22 @@ package body Exp_Ch6 is
       ----------------
 
       procedure Add_Return (S : List_Id) is
-         Last_Stm : Node_Id;
-         Loc      : Source_Ptr;
+         Last_Stmt : Node_Id;
+         Loc       : Source_Ptr;
+         Stmt      : Node_Id;
 
       begin
          --  Get last statement, ignoring any Pop_xxx_Label nodes, which are
          --  not relevant in this context since they are not executable.
 
-         Last_Stm := Last (S);
-         while Nkind (Last_Stm) in N_Pop_xxx_Label loop
-            Prev (Last_Stm);
+         Last_Stmt := Last (S);
+         while Nkind (Last_Stmt) in N_Pop_xxx_Label loop
+            Prev (Last_Stmt);
          end loop;
 
          --  Now insert return unless last statement is a transfer
 
-         if not Is_Transfer (Last_Stm) then
+         if not Is_Transfer (Last_Stmt) then
 
             --  The source location for the return is the end label of the
             --  procedure if present. Otherwise use the sloc of the last
@@ -4957,49 +5010,43 @@ package body Exp_Ch6 is
             if Nkind (Parent (S)) = N_Exception_Handler
               and then not Comes_From_Source (Parent (S))
             then
-               Loc := Sloc (Last_Stm);
+               Loc := Sloc (Last_Stmt);
             elsif Present (End_Label (H)) then
                Loc := Sloc (End_Label (H));
             else
-               Loc := Sloc (Last_Stm);
+               Loc := Sloc (Last_Stmt);
             end if;
 
-            declare
-               Rtn : constant Node_Id := Make_Simple_Return_Statement (Loc);
+            --  Append return statement, and set analyzed manually. We can't
+            --  call Analyze on this return since the scope is wrong.
 
-            begin
-               --  Append return statement, and set analyzed manually. We can't
-               --  call Analyze on this return since the scope is wrong.
+            --  Note: it almost works to push the scope and then do the Analyze
+            --  call, but something goes wrong in some weird cases and it is
+            --  not worth worrying about ???
 
-               --  Note: it almost works to push the scope and then do the
-               --  Analyze call, but something goes wrong in some weird cases
-               --  and it is not worth worrying about ???
+            Stmt := Make_Simple_Return_Statement (Loc);
 
-               --  The return statement is handled properly, and the call
-               --  to the postcondition, inserted below, does not require
-               --  information from the body either. However, that call is
-               --  analyzed in the enclosing scope, and an elaboration check
-               --  might improperly be added to it. A guard in Sem_Elab is
-               --  needed to prevent that spurious check, see Check_Elab_Call.
+            --  The return statement is handled properly, and the call to the
+            --  postcondition, inserted below, does not require information
+            --  from the body either. However, that call is analyzed in the
+            --  enclosing scope, and an elaboration check might improperly be
+            --  added to it. A guard in Sem_Elab is needed to prevent that
+            --  spurious check, see Check_Elab_Call.
 
-               Append_To (S, Rtn);
-               Set_Analyzed (Rtn);
+            Append_To (S, Stmt);
+            Set_Analyzed (Stmt);
 
-               --  Call _Postconditions procedure if appropriate. We need to
-               --  do this explicitly because we did not analyze the generated
-               --  return statement above, so the call did not get inserted.
+            --  Call the _Postconditions procedure if the related subprogram
+            --  has contract assertions that need to be verified on exit.
 
-               if Ekind (Spec_Id) = E_Procedure
-                 and then Has_Postconditions (Spec_Id)
-               then
-                  pragma Assert (Present (Postcondition_Proc (Spec_Id)));
-                  Insert_Action (Rtn,
-                    Make_Procedure_Call_Statement (Loc,
-                      Name =>
-                        New_Occurrence_Of
-                          (Postcondition_Proc (Spec_Id), Loc)));
-               end if;
-            end;
+            if Ekind (Spec_Id) = E_Procedure
+              and then Present (Postconditions_Proc (Spec_Id))
+            then
+               Insert_Action (Stmt,
+                 Make_Procedure_Call_Statement (Loc,
+                   Name =>
+                     New_Occurrence_Of (Postconditions_Proc (Spec_Id), Loc)));
+            end if;
          end if;
       end Add_Return;
 
@@ -5154,7 +5201,8 @@ package body Exp_Ch6 is
                   --  the initial value itself (which may well be invalid).
                   --  Predicate checks are disabled as well (RM 6.4.1 (13/3))
 
-                  A :=  Make_Assignment_Statement (Loc,
+                  A :=
+                    Make_Assignment_Statement (Loc,
                       Name       => New_Occurrence_Of (F, Loc),
                       Expression => Get_Simple_Init_Val (Etype (F), N));
                   Set_Suppress_Assignment_Checks (A);
@@ -5292,6 +5340,28 @@ package body Exp_Ch6 is
       --  Set to encode entity names in package body before gigi is called
 
       Qualify_Entity_Names (N);
+
+      --  If we are unnesting procedures, and this is an outer level procedure
+      --  with nested subprograms, do the unnesting operation now.
+
+      if Opt.Unnest_Subprogram_Mode
+
+        --  We are only interested in subprograms (not generic subprograms)
+
+        and then Is_Subprogram (Spec_Id)
+
+        --  Only deal with outer level subprograms. Nested subprograms are
+        --  handled as part of dealing with the outer level subprogram in
+        --  which they are nested.
+
+        and then Enclosing_Subprogram (Spec_Id) = Empty
+
+        --  We are only interested in subprograms that have nested subprograms
+
+        and then Has_Nested_Subprogram (Spec_Id)
+      then
+         Unnest_Subprogram (Spec_Id, N);
+      end if;
    end Expand_N_Subprogram_Body;
 
    -----------------------------------
@@ -5435,31 +5505,24 @@ package body Exp_Ch6 is
    procedure Expand_Non_Function_Return (N : Node_Id) is
       pragma Assert (No (Expression (N)));
 
-      Loc         : constant Source_Ptr := Sloc (N);
-      Scope_Id    : Entity_Id :=
-                      Return_Applies_To (Return_Statement_Entity (N));
-      Kind        : constant Entity_Kind := Ekind (Scope_Id);
-      Call        : Node_Id;
-      Acc_Stat    : Node_Id;
-      Goto_Stat   : Node_Id;
-      Lab_Node    : Node_Id;
+      Loc       : constant Source_Ptr := Sloc (N);
+      Scope_Id  : Entity_Id := Return_Applies_To (Return_Statement_Entity (N));
+      Kind      : constant Entity_Kind := Ekind (Scope_Id);
+      Call      : Node_Id;
+      Acc_Stat  : Node_Id;
+      Goto_Stat : Node_Id;
+      Lab_Node  : Node_Id;
 
    begin
-      --  Call _Postconditions procedure if procedure with active
-      --  postconditions. Here, we use the Postcondition_Proc attribute,
-      --  which is needed for implicitly-generated returns. Functions
-      --  never have implicitly-generated returns, and there's no
-      --  room for Postcondition_Proc in E_Function, so we look up the
-      --  identifier Name_uPostconditions for function returns (see
-      --  Expand_Simple_Function_Return).
+      --  Call the _Postconditions procedure if the related subprogram has
+      --  contract assertions that need to be verified on exit.
 
-      if Ekind (Scope_Id) = E_Procedure
-        and then Has_Postconditions (Scope_Id)
+      if Ekind_In (Scope_Id, E_Entry, E_Entry_Family, E_Procedure)
+        and then Present (Postconditions_Proc (Scope_Id))
       then
-         pragma Assert (Present (Postcondition_Proc (Scope_Id)));
          Insert_Action (N,
            Make_Procedure_Call_Statement (Loc,
-             Name => New_Occurrence_Of (Postcondition_Proc (Scope_Id), Loc)));
+             Name => New_Occurrence_Of (Postconditions_Proc (Scope_Id), Loc)));
       end if;
 
       --  If it is a return from a procedure do no extra steps
@@ -6203,18 +6266,60 @@ package body Exp_Ch6 is
 
             if Is_Class_Wide_Type (Etype (Exp))
               and then Is_Interface (Etype (Exp))
-              and then Nkind (Exp) = N_Explicit_Dereference
             then
-               Tag_Node :=
-                 Make_Explicit_Dereference (Loc,
-                   Prefix =>
-                     Unchecked_Convert_To (RTE (RE_Tag_Ptr),
-                       Make_Function_Call (Loc,
-                         Name                   =>
-                           New_Occurrence_Of (RTE (RE_Base_Address), Loc),
-                         Parameter_Associations => New_List (
-                           Unchecked_Convert_To (RTE (RE_Address),
-                             Duplicate_Subexpr (Prefix (Exp)))))));
+               --  If the expression is an explicit dereference then we can
+               --  directly displace the pointer to reference the base of
+               --  the object.
+
+               if Nkind (Exp) = N_Explicit_Dereference then
+                  Tag_Node :=
+                    Make_Explicit_Dereference (Loc,
+                      Prefix =>
+                        Unchecked_Convert_To (RTE (RE_Tag_Ptr),
+                          Make_Function_Call (Loc,
+                            Name                   =>
+                              New_Occurrence_Of (RTE (RE_Base_Address), Loc),
+                            Parameter_Associations => New_List (
+                              Unchecked_Convert_To (RTE (RE_Address),
+                                Duplicate_Subexpr (Prefix (Exp)))))));
+
+               --  Similar case to the previous one but the expression is a
+               --  renaming of an explicit dereference.
+
+               elsif Nkind (Exp) = N_Identifier
+                 and then Present (Renamed_Object (Entity (Exp)))
+                 and then Nkind (Renamed_Object (Entity (Exp)))
+                            = N_Explicit_Dereference
+               then
+                  Tag_Node :=
+                    Make_Explicit_Dereference (Loc,
+                      Prefix =>
+                        Unchecked_Convert_To (RTE (RE_Tag_Ptr),
+                          Make_Function_Call (Loc,
+                            Name                   =>
+                              New_Occurrence_Of (RTE (RE_Base_Address), Loc),
+                            Parameter_Associations => New_List (
+                              Unchecked_Convert_To (RTE (RE_Address),
+                                Duplicate_Subexpr
+                                  (Prefix
+                                    (Renamed_Object (Entity (Exp)))))))));
+
+               --  Common case: obtain the address of the actual object and
+               --  displace the pointer to reference the base of the object.
+
+               else
+                  Tag_Node :=
+                    Make_Explicit_Dereference (Loc,
+                      Prefix =>
+                        Unchecked_Convert_To (RTE (RE_Tag_Ptr),
+                          Make_Function_Call (Loc,
+                            Name               =>
+                              New_Occurrence_Of (RTE (RE_Base_Address), Loc),
+                            Parameter_Associations => New_List (
+                              Make_Attribute_Reference (Loc,
+                                Prefix         => Duplicate_Subexpr (Exp),
+                                Attribute_Name => Name_Address)))));
+               end if;
             else
                Tag_Node :=
                  Make_Attribute_Reference (Loc,
@@ -6506,10 +6611,11 @@ package body Exp_Ch6 is
          end;
       end if;
 
-      --  Generate call to postcondition checks if they are present
+      --  Call the _Postconditions procedure if the related function has
+      --  contract assertions that need to be verified on exit.
 
       if Ekind (Scope_Id) = E_Function
-        and then Has_Postconditions (Scope_Id)
+        and then Present (Postconditions_Proc (Scope_Id))
       then
          --  We are going to reference the returned value twice in this case,
          --  once in the call to _Postconditions, and once in the actual return
@@ -6617,11 +6723,12 @@ package body Exp_Ch6 is
             end;
          end if;
 
-         --  Generate call to _postconditions
+         --  Generate call to _Postconditions
 
          Insert_Action (Exp,
            Make_Procedure_Call_Statement (Loc,
-             Name => Make_Identifier (Loc, Name_uPostconditions),
+             Name                   =>
+               New_Occurrence_Of (Postconditions_Proc (Scope_Id), Loc),
              Parameter_Associations => New_List (Duplicate_Subexpr (Exp))));
       end if;
 
@@ -6645,11 +6752,10 @@ package body Exp_Ch6 is
    -- Expand_Subprogram_Contract --
    --------------------------------
 
-   procedure Expand_Subprogram_Contract
-     (N       : Node_Id;
-      Spec_Id : Entity_Id;
-      Body_Id : Entity_Id)
-   is
+   procedure Expand_Subprogram_Contract (N : Node_Id) is
+      Body_Id : constant Entity_Id := Defining_Entity (N);
+      Spec_Id : constant Entity_Id := Corresponding_Spec (N);
+
       procedure Add_Invariant_And_Predicate_Checks
         (Subp_Id : Entity_Id;
          Stmts   : in out List_Id;
@@ -6683,29 +6789,17 @@ package body Exp_Ch6 is
       --  the routine corrects the references of all formals of Inher_Id to
       --  point to the formals of Subp_Id.
 
-      procedure Collect_Body_Postconditions (Stmts : in out List_Id);
-      --  Process all postconditions found in the declarations of the body. The
-      --  routine appends the pragma Check equivalents to list Stmts.
+      procedure Process_Contract_Cases (Stmts : in out List_Id);
+      --  Process pragma Contract_Cases. This routine prepends items to the
+      --  body declarations and appends items to list Stmts.
 
-      procedure Collect_Spec_Postconditions
-        (Subp_Id : Entity_Id;
-         Stmts   : in out List_Id);
-      --  Process all [inherited] postconditions of subprogram spec Subp_Id.
-      --  The routine appends the pragma Check equivalents to list Stmts.
+      procedure Process_Postconditions (Stmts : in out List_Id);
+      --  Collect all [inherited] spec and body postconditions and accumulate
+      --  their pragma Check equivalents in list Stmts.
 
-      procedure Collect_Spec_Preconditions (Subp_Id : Entity_Id);
-      --  Process all [inherited] preconditions of subprogram spec Subp_Id. The
-      --  routine prepends the pragma Check equivalents to the declarations of
-      --  the body.
-
-      procedure Prepend_To_Declarations (Item : Node_Id);
-      --  Prepend a single item to the declarations of the subprogram body
-
-      procedure Process_Contract_Cases
-        (Subp_Id : Entity_Id;
-         Stmts   : in out List_Id);
-      --  Process pragma Contract_Cases of subprogram spec Subp_Id. The routine
-      --  appends the expanded code to list Stmts.
+      procedure Process_Preconditions;
+      --  Collect all [inherited] spec and body preconditions and prepend their
+      --  pragma Check equivalents to the declarations of the body.
 
       ----------------------------------------
       -- Add_Invariant_And_Predicate_Checks --
@@ -6902,15 +6996,9 @@ package body Exp_Ch6 is
       begin
          Result := Empty;
 
-         --  Do not generate any checks if no code is being generated
-
-         if not Expander_Active then
-            return;
-         end if;
-
          --  Process the result of a function
 
-         if Ekind_In (Subp_Id, E_Function, E_Generic_Function) then
+         if Ekind (Subp_Id) = E_Function then
             Typ := Etype (Subp_Id);
 
             --  Generate _Result which is used in procedure _Postconditions to
@@ -7051,25 +7139,23 @@ package body Exp_Ch6 is
 
          --  Local variables
 
-         Loc     : constant Source_Ptr := Sloc (N);
-         Params  : List_Id := No_List;
-         Proc_Id : Entity_Id;
+         Loc      : constant Source_Ptr := Sloc (N);
+         Params   : List_Id := No_List;
+         Proc_Bod : Node_Id;
+         Proc_Id  : Entity_Id;
 
       --  Start of processing for Build_Postconditions_Procedure
 
       begin
-         --  Do not create the routine if no code is being generated
-
-         if not Expander_Active then
-            return;
-
          --  Nothing to do if there are no actions to check on exit
 
-         elsif No (Stmts) then
+         if No (Stmts) then
             return;
          end if;
 
          Proc_Id := Make_Defining_Identifier (Loc, Name_uPostconditions);
+         Set_Debug_Info_Needed   (Proc_Id);
+         Set_Postconditions_Proc (Subp_Id, Proc_Id);
 
          --  The related subprogram is a function, create the specification of
          --  parameter _Result.
@@ -7100,13 +7186,12 @@ package body Exp_Ch6 is
          --  order reference. The body of _Postconditions must be placed after
          --  the declaration of Temp to preserve correct visibility.
 
-         --  Note that we set an explicit End_Label in order to override the
-         --  sloc of the implicit RETURN statement, and prevent it from
-         --  inheriting the sloc of one of the postconditions: this would cause
-         --  confusing debug info to be produced, interfering with coverage
-         --  analysis tools.
+         --  Set an explicit End_Lavel to override the sloc of the implicit
+         --  RETURN statement, and prevent it from inheriting the sloc of one
+         --  the postconditions: this would cause confusing debug into to be
+         --  produced, interfering with coverage analysis tools.
 
-         Insert_Before_First_Source_Declaration (
+         Proc_Bod :=
            Make_Subprogram_Body (Loc,
              Specification              =>
                Make_Procedure_Specification (Loc,
@@ -7117,16 +7202,10 @@ package body Exp_Ch6 is
              Handled_Statement_Sequence =>
                Make_Handled_Sequence_Of_Statements (Loc,
                  Statements => Stmts,
-                 End_Label  => Make_Identifier (Loc, Chars (Proc_Id)))));
+                 End_Label  => Make_Identifier (Loc, Chars (Proc_Id))));
 
-         --  Set the attributes of the related subprogram to capture the
-         --  generated procedure.
-
-         if Ekind_In (Subp_Id, E_Generic_Procedure, E_Procedure) then
-            Set_Postcondition_Proc (Subp_Id, Proc_Id);
-         end if;
-
-         Set_Has_Postconditions (Subp_Id);
+         Insert_Before_First_Source_Declaration (Proc_Bod);
+         Analyze (Proc_Bod);
       end Build_Postconditions_Procedure;
 
       -----------------------------------
@@ -7138,6 +7217,42 @@ package body Exp_Ch6 is
          Subp_Id  : Entity_Id := Empty;
          Inher_Id : Entity_Id := Empty) return Node_Id
       is
+         function Suppress_Reference (N : Node_Id) return Traverse_Result;
+         --  Detect whether node N references a formal parameter subject to
+         --  pragma Unreferenced. If this is the case, set Comes_From_Source
+         --  to False to suppress the generation of a reference when analyzing
+         --  N later on.
+
+         ------------------------
+         -- Suppress_Reference --
+         ------------------------
+
+         function Suppress_Reference (N : Node_Id) return Traverse_Result is
+            Formal : Entity_Id;
+
+         begin
+            if Is_Entity_Name (N) and then Present (Entity (N)) then
+               Formal := Entity (N);
+
+               --  The formal parameter is subject to pragma Unreferenced.
+               --  Prevent the generation of a reference by resetting the
+               --  Comes_From_Source flag.
+
+               if Is_Formal (Formal)
+                 and then Has_Pragma_Unreferenced (Formal)
+               then
+                  Set_Comes_From_Source (N, False);
+               end if;
+            end if;
+
+            return OK;
+         end Suppress_Reference;
+
+         procedure Suppress_References is
+           new Traverse_Proc (Suppress_Reference);
+
+         --  Local variables
+
          Loc          : constant Source_Ptr := Sloc (Prag);
          Prag_Nam     : constant Name_Id    := Pragma_Name (Prag);
          Check_Prag   : Node_Id;
@@ -7146,6 +7261,8 @@ package body Exp_Ch6 is
          Msg_Arg      : Node_Id;
          Nam          : Name_Id;
          Subp_Formal  : Entity_Id;
+
+      --  Start of processing for Build_Pragma_Check_Equivalent
 
       begin
          Formals_Map := No_Elist;
@@ -7183,16 +7300,26 @@ package body Exp_Ch6 is
          --  Mark the pragma as being internally generated and reset the
          --  Analyzed flag.
 
-         Set_Comes_From_Source (Check_Prag, False);
          Set_Analyzed          (Check_Prag, False);
+         Set_Comes_From_Source (Check_Prag, False);
 
-         --  For a postcondition pragma within a generic, preserve the pragma
-         --  for later expansion. This is also used when an error was detected,
-         --  thus setting Expander_Active to False.
+         --  The tree of the original pragma may contain references to the
+         --  formal parameters of the related subprogram. At the same time
+         --  the corresponding body may mark the formals as unreferenced:
 
-         if Prag_Nam = Name_Postcondition and then not Expander_Active then
-            return Check_Prag;
-         end if;
+         --     procedure Proc (Formal : ...)
+         --       with Pre => Formal ...;
+
+         --     procedure Proc (Formal : ...) is
+         --        pragma Unreferenced (Formal);
+         --     ...
+
+         --  This creates problems because all pragma Check equivalents are
+         --  analyzed at the end of the body declarations. Since all source
+         --  references have already been accounted for, reset any references
+         --  to such formals in the generated pragma Check equivalent.
+
+         Suppress_References (Check_Prag);
 
          if Present (Corresponding_Aspect (Prag)) then
             Nam := Chars (Identifier (Corresponding_Aspect (Prag)));
@@ -7230,61 +7357,105 @@ package body Exp_Ch6 is
          return Check_Prag;
       end Build_Pragma_Check_Equivalent;
 
-      ---------------------------------
-      -- Collect_Body_Postconditions --
-      ---------------------------------
+      ----------------------------
+      -- Process_Contract_Cases --
+      ----------------------------
 
-      procedure Collect_Body_Postconditions (Stmts : in out List_Id) is
-         procedure Collect_Body_Postconditions_Of_Kind (Post_Nam : Name_Id);
-         --  Process all postconditions of the kind denoted by Post_Nam
+      procedure Process_Contract_Cases (Stmts : in out List_Id) is
+         procedure Process_Contract_Cases_For (Subp_Id : Entity_Id);
+         --  Process pragma Contract_Cases for subprogram Subp_Id
 
-         -----------------------------------------
-         -- Collect_Body_Postconditions_Of_Kind --
-         -----------------------------------------
+         --------------------------------
+         -- Process_Contract_Cases_For --
+         --------------------------------
 
-         procedure Collect_Body_Postconditions_Of_Kind (Post_Nam : Name_Id) is
-            procedure Collect_Body_Postconditions_In_Decls
-              (First_Decl : Node_Id);
-            --  Process all postconditions found in a declarative list starting
-            --  with declaration First_Decl.
+         procedure Process_Contract_Cases_For (Subp_Id : Entity_Id) is
+            Items : constant Node_Id := Contract (Subp_Id);
+            Prag  : Node_Id;
 
-            ------------------------------------------
-            -- Collect_Body_Postconditions_In_Decls --
-            ------------------------------------------
+         begin
+            if Present (Items) then
+               Prag := Contract_Test_Cases (Items);
+               while Present (Prag) loop
+                  if Pragma_Name (Prag) = Name_Contract_Cases then
+                     Expand_Contract_Cases
+                       (CCs     => Prag,
+                        Subp_Id => Subp_Id,
+                        Decls   => Declarations (N),
+                        Stmts   => Stmts);
+                  end if;
 
-            procedure Collect_Body_Postconditions_In_Decls
-              (First_Decl : Node_Id)
-            is
-               Check_Prag : Node_Id;
-               Decl       : Node_Id;
+                  Prag := Next_Pragma (Prag);
+               end loop;
+            end if;
+         end Process_Contract_Cases_For;
 
-            begin
-               --  Inspect the declarative list looking for a pragma that
-               --  matches the desired name.
+      --  Start of processing for Process_Contract_Cases
 
-               Decl := First_Decl;
+      begin
+         Process_Contract_Cases_For (Body_Id);
+
+         if Present (Spec_Id) then
+            Process_Contract_Cases_For (Spec_Id);
+         end if;
+      end Process_Contract_Cases;
+
+      ----------------------------
+      -- Process_Postconditions --
+      ----------------------------
+
+      procedure Process_Postconditions (Stmts : in out List_Id) is
+         procedure Process_Body_Postconditions (Post_Nam : Name_Id);
+         --  Collect all [refined] postconditions of a specific kind denoted
+         --  by Post_Nam that belong to the body and generate pragma Check
+         --  equivalents in list Stmts.
+
+         procedure Process_Spec_Postconditions;
+         --  Collect all [inherited] postconditions of the spec and generate
+         --  pragma Check equivalents in list Stmts.
+
+         ---------------------------------
+         -- Process_Body_Postconditions --
+         ---------------------------------
+
+         procedure Process_Body_Postconditions (Post_Nam : Name_Id) is
+            Items     : constant Node_Id := Contract (Body_Id);
+            Unit_Decl : constant Node_Id := Parent (N);
+            Decl      : Node_Id;
+            Prag      : Node_Id;
+
+         begin
+            --  Process the contract
+
+            if Present (Items) then
+               Prag := Pre_Post_Conditions (Items);
+               while Present (Prag) loop
+                  if Pragma_Name (Prag) = Post_Nam then
+                     Append_Enabled_Item
+                       (Item => Build_Pragma_Check_Equivalent (Prag),
+                        List => Stmts);
+                  end if;
+
+                  Prag := Next_Pragma (Prag);
+               end loop;
+            end if;
+
+            --  The subprogram body being processed is actually the proper body
+            --  of a stub with a corresponding spec. The subprogram stub may
+            --  carry a postcondition pragma in which case it must be taken
+            --  into account. The pragma appears after the stub.
+
+            if Present (Spec_Id) and then Nkind (Unit_Decl) = N_Subunit then
+               Decl := Next (Corresponding_Stub (Unit_Decl));
                while Present (Decl) loop
 
                   --  Note that non-matching pragmas are skipped
 
                   if Nkind (Decl) = N_Pragma then
                      if Pragma_Name (Decl) = Post_Nam then
-                        if not Analyzed (Decl) then
-                           Analyze (Decl);
-                        end if;
-
-                        Check_Prag := Build_Pragma_Check_Equivalent (Decl);
-
-                        if Expander_Active then
-                           Append_Enabled_Item
-                             (Item => Check_Prag,
-                              List => Stmts);
-
-                        --  If analyzing a generic unit, save pragma for later
-
-                        else
-                           Prepend_To_Declarations (Check_Prag);
-                        end if;
+                        Append_Enabled_Item
+                          (Item => Build_Pragma_Check_Equivalent (Decl),
+                           List => Stmts);
                      end if;
 
                   --  Skip internally generated code
@@ -7301,156 +7472,117 @@ package body Exp_Ch6 is
 
                   Next (Decl);
                end loop;
-            end Collect_Body_Postconditions_In_Decls;
+            end if;
+         end Process_Body_Postconditions;
 
-            --  Local variables
+         ---------------------------------
+         -- Process_Spec_Postconditions --
+         ---------------------------------
 
-            Unit_Decl : constant Node_Id := Parent (N);
-
-         --  Start of processing for Collect_Body_Postconditions_Of_Kind
+         procedure Process_Spec_Postconditions is
+            Subps   : constant Subprogram_List :=
+                        Inherited_Subprograms (Spec_Id);
+            Items   : Node_Id;
+            Prag    : Node_Id;
+            Subp_Id : Entity_Id;
 
          begin
-            pragma Assert (Nam_In (Post_Nam, Name_Postcondition,
-                                             Name_Refined_Post));
+            --  Process the contract
 
-            --  Inspect the declarations of the subprogram body looking for a
-            --  pragma that matches the desired name.
+            Items := Contract (Spec_Id);
 
-            Collect_Body_Postconditions_In_Decls
-              (First_Decl => First (Declarations (N)));
-
-            --  The subprogram body being processed is actually the proper body
-            --  of a stub with a corresponding spec. The subprogram stub may
-            --  carry a postcondition pragma in which case it must be taken
-            --  into account. The pragma appears after the stub.
-
-            if Present (Spec_Id) and then Nkind (Unit_Decl) = N_Subunit then
-               Collect_Body_Postconditions_In_Decls
-                 (First_Decl => Next (Corresponding_Stub (Unit_Decl)));
-            end if;
-         end Collect_Body_Postconditions_Of_Kind;
-
-      --  Start of processing for Collect_Body_Postconditions
-
-      begin
-         Collect_Body_Postconditions_Of_Kind (Name_Refined_Post);
-         Collect_Body_Postconditions_Of_Kind (Name_Postcondition);
-      end Collect_Body_Postconditions;
-
-      ---------------------------------
-      -- Collect_Spec_Postconditions --
-      ---------------------------------
-
-      procedure Collect_Spec_Postconditions
-        (Subp_Id : Entity_Id;
-         Stmts   : in out List_Id)
-      is
-         Inher_Subps   : constant Subprogram_List :=
-                           Inherited_Subprograms (Subp_Id);
-         Check_Prag    : Node_Id;
-         Prag          : Node_Id;
-         Inher_Subp_Id : Entity_Id;
-
-      begin
-         --  Process the contract of the spec
-
-         Prag := Pre_Post_Conditions (Contract (Subp_Id));
-         while Present (Prag) loop
-            if Pragma_Name (Prag) = Name_Postcondition then
-               Check_Prag := Build_Pragma_Check_Equivalent (Prag);
-
-               if Expander_Active then
-                  Append_Enabled_Item
-                    (Item => Check_Prag,
-                     List => Stmts);
-
-               --  When analyzing a generic unit, save the pragma for later
-
-               else
-                  Prepend_To_Declarations (Check_Prag);
-               end if;
-            end if;
-
-            Prag := Next_Pragma (Prag);
-         end loop;
-
-         --  Process the contracts of all inherited subprograms, looking for
-         --  class-wide postconditions.
-
-         for Index in Inher_Subps'Range loop
-            Inher_Subp_Id := Inher_Subps (Index);
-
-            Prag := Pre_Post_Conditions (Contract (Inher_Subp_Id));
-            while Present (Prag) loop
-               if Pragma_Name (Prag) = Name_Postcondition
-                 and then Class_Present (Prag)
-               then
-                  Check_Prag :=
-                    Build_Pragma_Check_Equivalent
-                      (Prag     => Prag,
-                       Subp_Id  => Subp_Id,
-                       Inher_Id => Inher_Subp_Id);
-
-                  if Expander_Active then
+            if Present (Items) then
+               Prag := Pre_Post_Conditions (Items);
+               while Present (Prag) loop
+                  if Pragma_Name (Prag) = Name_Postcondition then
                      Append_Enabled_Item
-                       (Item => Check_Prag,
+                       (Item => Build_Pragma_Check_Equivalent (Prag),
                         List => Stmts);
-
-                  --  When analyzing a generic unit, save the pragma for later
-
-                  else
-                     Prepend_To_Declarations (Check_Prag);
                   end if;
+
+                  Prag := Next_Pragma (Prag);
+               end loop;
+            end if;
+
+            --  Process the contracts of all inherited subprograms, looking for
+            --  class-wide postconditions.
+
+            for Index in Subps'Range loop
+               Subp_Id := Subps (Index);
+               Items   := Contract (Subp_Id);
+
+               if Present (Items) then
+                  Prag := Pre_Post_Conditions (Items);
+                  while Present (Prag) loop
+                     if Pragma_Name (Prag) = Name_Postcondition
+                       and then Class_Present (Prag)
+                     then
+                        Append_Enabled_Item
+                          (Item =>
+                             Build_Pragma_Check_Equivalent
+                               (Prag     => Prag,
+                                Subp_Id  => Spec_Id,
+                                Inher_Id => Subp_Id),
+                           List => Stmts);
+                     end if;
+
+                     Prag := Next_Pragma (Prag);
+                  end loop;
                end if;
-
-               Prag := Next_Pragma (Prag);
             end loop;
-         end loop;
-      end Collect_Spec_Postconditions;
+         end Process_Spec_Postconditions;
 
-      --------------------------------
-      -- Collect_Spec_Preconditions --
-      --------------------------------
+      --  Start of processing for Process_Postconditions
 
-      procedure Collect_Spec_Preconditions (Subp_Id : Entity_Id) is
+      begin
+         --  The processing of postconditions is done in reverse order (body
+         --  first) to ensure the following arrangement:
+
+         --    <refined postconditions from body>
+         --    <postconditions from body>
+         --    <postconditions from spec>
+         --    <inherited postconditions>
+
+         Process_Body_Postconditions (Name_Refined_Post);
+         Process_Body_Postconditions (Name_Postcondition);
+
+         if Present (Spec_Id) then
+            Process_Spec_Postconditions;
+         end if;
+      end Process_Postconditions;
+
+      ---------------------------
+      -- Process_Preconditions --
+      ---------------------------
+
+      procedure Process_Preconditions is
          Class_Pre : Node_Id := Empty;
-         --  The sole class-wide precondition pragma that applies to the
-         --  subprogram.
+         --  The sole [inherited] class-wide precondition pragma that applies
+         --  to the subprogram.
 
-         procedure Add_Or_Save_Precondition (Prag : Node_Id);
-         --  Save a class-wide precondition or add a regulat precondition to
-         --  the declarative list of the body.
+         Insert_Node : Node_Id := Empty;
+         --  The insertion node after which all pragma Check equivalents are
+         --  inserted.
 
          procedure Merge_Preconditions (From : Node_Id; Into : Node_Id);
          --  Merge two class-wide preconditions by "or else"-ing them. The
          --  changes are accumulated in parameter Into. Update the error
          --  message of Into.
 
-         ------------------------------
-         -- Add_Or_Save_Precondition --
-         ------------------------------
+         procedure Prepend_To_Decls (Item : Node_Id);
+         --  Prepend a single item to the declarations of the subprogram body
 
-         procedure Add_Or_Save_Precondition (Prag : Node_Id) is
-            Check_Prag : Node_Id;
+         procedure Prepend_To_Decls_Or_Save (Prag : Node_Id);
+         --  Save a class-wide precondition into Class_Pre or prepend a normal
+         --  precondition ot the declarations of the body and analyze it.
 
-         begin
-            Check_Prag := Build_Pragma_Check_Equivalent (Prag);
+         procedure Process_Inherited_Preconditions;
+         --  Collect all inherited class-wide preconditions and merge them into
+         --  one big precondition to be evaluated as pragma Check.
 
-            --  Save the sole class-wide precondition (if any) for the next
-            --  step where it will be merged with inherited preconditions.
-
-            if Class_Present (Prag) then
-               pragma Assert (No (Class_Pre));
-               Class_Pre := Check_Prag;
-
-            --  Accumulate the corresponding Check pragmas to the top of the
-            --  declarations. Prepending the items ensures that they will be
-            --  evaluated in their original order.
-
-            else
-               Prepend_To_Declarations (Check_Prag);
-            end if;
-         end Add_Or_Save_Precondition;
+         procedure Process_Preconditions_For (Subp_Id : Entity_Id);
+         --  Collect all preconditions of subprogram Subp_Id and prepend their
+         --  pragma Check equivalents to the declarations of the body.
 
          -------------------------
          -- Merge_Preconditions --
@@ -7524,188 +7656,287 @@ package body Exp_Ch6 is
             end if;
          end Merge_Preconditions;
 
-         --  Local variables
+         ----------------------
+         -- Prepend_To_Decls --
+         ----------------------
 
-         Inher_Subps   : constant Subprogram_List :=
-                           Inherited_Subprograms (Subp_Id);
-         Subp_Decl     : constant Node_Id := Parent (Parent (Subp_Id));
-         Check_Prag    : Node_Id;
-         Decl          : Node_Id;
-         Inher_Subp_Id : Entity_Id;
-         Prag          : Node_Id;
+         procedure Prepend_To_Decls (Item : Node_Id) is
+            Decls : List_Id := Declarations (N);
 
-      --  Start of processing for Collect_Spec_Preconditions
+         begin
+            --  Ensure that the body has a declarative list
 
-      begin
-         --  Process the contract of the spec
-
-         Prag := Pre_Post_Conditions (Contract (Subp_Id));
-         while Present (Prag) loop
-            if Pragma_Name (Prag) = Name_Precondition then
-               Add_Or_Save_Precondition (Prag);
+            if No (Decls) then
+               Decls := New_List;
+               Set_Declarations (N, Decls);
             end if;
 
-            Prag := Next_Pragma (Prag);
-         end loop;
+            Prepend_To (Decls, Item);
+         end Prepend_To_Decls;
 
-         --  The subprogram declaration being processed is actually a body
-         --  stub. The stub may carry a precondition pragma in which case it
-         --  must be taken into account. The pragma appears after the stub.
+         ------------------------------
+         -- Prepend_To_Decls_Or_Save --
+         ------------------------------
 
-         if Nkind (Subp_Decl) = N_Subprogram_Body_Stub then
+         procedure Prepend_To_Decls_Or_Save (Prag : Node_Id) is
+            Check_Prag : Node_Id;
 
-            --  Inspect the declarations following the body stub
+         begin
+            Check_Prag := Build_Pragma_Check_Equivalent (Prag);
 
-            Decl := Next (Subp_Decl);
-            while Present (Decl) loop
+            --  Save the sole class-wide precondition (if any) for the next
+            --  step where it will be merged with inherited preconditions.
 
-               --  Note that non-matching pragmas are skipped
+            if Class_Present (Prag) then
+               pragma Assert (No (Class_Pre));
+               Class_Pre := Check_Prag;
 
-               if Nkind (Decl) = N_Pragma then
-                  if Pragma_Name (Decl) = Name_Precondition then
-                     if not Analyzed (Decl) then
-                        Analyze (Decl);
-                     end if;
+            --  Accumulate the corresponding Check pragmas at the top of the
+            --  declarations. Prepending the items ensures that they will be
+            --  evaluated in their original order.
 
-                     Add_Or_Save_Precondition (Decl);
-                  end if;
-
-               --  Skip internally generated code
-
-               elsif not Comes_From_Source (Decl) then
-                  null;
-
-               --  Preconditions are usually grouped together. There is no need
-               --  to inspect the whole declarative list.
-
+            else
+               if Present (Insert_Node) then
+                  Insert_After (Insert_Node, Check_Prag);
                else
-                  exit;
+                  Prepend_To_Decls (Check_Prag);
                end if;
 
+               Analyze (Check_Prag);
+            end if;
+         end Prepend_To_Decls_Or_Save;
+
+         -------------------------------------
+         -- Process_Inherited_Preconditions --
+         -------------------------------------
+
+         procedure Process_Inherited_Preconditions is
+            Subps      : constant Subprogram_List :=
+                           Inherited_Subprograms (Spec_Id);
+            Check_Prag : Node_Id;
+            Items      : Node_Id;
+            Prag       : Node_Id;
+            Subp_Id    : Entity_Id;
+
+         begin
+            --  Process the contracts of all inherited subprograms, looking for
+            --  class-wide preconditions.
+
+            for Index in Subps'Range loop
+               Subp_Id := Subps (Index);
+               Items   := Contract (Subp_Id);
+
+               if Present (Items) then
+                  Prag := Pre_Post_Conditions (Items);
+                  while Present (Prag) loop
+                     if Pragma_Name (Prag) = Name_Precondition
+                       and then Class_Present (Prag)
+                     then
+                        Check_Prag :=
+                          Build_Pragma_Check_Equivalent
+                            (Prag     => Prag,
+                             Subp_Id  => Spec_Id,
+                             Inher_Id => Subp_Id);
+
+                        --  The spec or an inherited subprogram already yielded
+                        --  a class-wide precondition. Merge the existing
+                        --  precondition with the current one using "or else".
+
+                        if Present (Class_Pre) then
+                           Merge_Preconditions (Check_Prag, Class_Pre);
+                        else
+                           Class_Pre := Check_Prag;
+                        end if;
+                     end if;
+
+                     Prag := Next_Pragma (Prag);
+                  end loop;
+               end if;
+            end loop;
+
+            --  Add the merged class-wide preconditions
+
+            if Present (Class_Pre) then
+               Prepend_To_Decls (Class_Pre);
+               Analyze (Class_Pre);
+            end if;
+         end Process_Inherited_Preconditions;
+
+         -------------------------------
+         -- Process_Preconditions_For --
+         -------------------------------
+
+         procedure Process_Preconditions_For (Subp_Id : Entity_Id) is
+            Items     : constant Node_Id := Contract (Subp_Id);
+            Decl      : Node_Id;
+            Prag      : Node_Id;
+            Subp_Decl : Node_Id;
+
+         begin
+            --  Process the contract
+
+            if Present (Items) then
+               Prag := Pre_Post_Conditions (Items);
+               while Present (Prag) loop
+                  if Pragma_Name (Prag) = Name_Precondition then
+                     Prepend_To_Decls_Or_Save (Prag);
+                  end if;
+
+                  Prag := Next_Pragma (Prag);
+               end loop;
+            end if;
+
+            --  The subprogram declaration being processed is actually a body
+            --  stub. The stub may carry a precondition pragma in which case it
+            --  must be taken into account. The pragma appears after the stub.
+
+            Subp_Decl := Unit_Declaration_Node (Subp_Id);
+
+            if Nkind (Subp_Decl) = N_Subprogram_Body_Stub then
+
+               --  Inspect the declarations following the body stub
+
+               Decl := Next (Subp_Decl);
+               while Present (Decl) loop
+
+                  --  Note that non-matching pragmas are skipped
+
+                  if Nkind (Decl) = N_Pragma then
+                     if Pragma_Name (Decl) = Name_Precondition then
+                        Prepend_To_Decls_Or_Save (Decl);
+                     end if;
+
+                  --  Skip internally generated code
+
+                  elsif not Comes_From_Source (Decl) then
+                     null;
+
+                  --  Preconditions are usually grouped together. There is no
+                  --  need to inspect the whole declarative list.
+
+                  else
+                     exit;
+                  end if;
+
+                  Next (Decl);
+               end loop;
+            end if;
+         end Process_Preconditions_For;
+
+         --  Local variables
+
+         Decls : constant List_Id := Declarations (N);
+         Decl  : Node_Id;
+
+      --  Start of processing for Process_Preconditions
+
+      begin
+         --  Find the last internally generate declaration starting from the
+         --  top of the body declarations. This ensures that discriminals and
+         --  subtypes are properly visible to the pragma Check equivalents.
+
+         if Present (Decls) then
+            Decl := First (Decls);
+            while Present (Decl) loop
+               exit when Comes_From_Source (Decl);
+               Insert_Node := Decl;
                Next (Decl);
             end loop;
          end if;
 
-         --  Process the contracts of all inherited subprograms, looking for
-         --  class-wide preconditions.
+         --  The processing of preconditions is done in reverse order (body
+         --  first) because each pragma Check equivalent is inserted at the
+         --  top of the declarations. This ensures that the final order is
+         --  consistent with following diagram:
 
-         for Index in Inher_Subps'Range loop
-            Inher_Subp_Id := Inher_Subps (Index);
+         --    <inherited preconditions>
+         --    <preconditions from spec>
+         --    <preconditions from body>
 
-            Prag := Pre_Post_Conditions (Contract (Inher_Subp_Id));
-            while Present (Prag) loop
-               if Pragma_Name (Prag) = Name_Precondition
-                 and then Class_Present (Prag)
-               then
-                  Check_Prag :=
-                    Build_Pragma_Check_Equivalent
-                      (Prag     => Prag,
-                       Subp_Id  => Subp_Id,
-                       Inher_Id => Inher_Subp_Id);
+         Process_Preconditions_For (Body_Id);
 
-                  --  The spec or an inherited subprogram already yielded a
-                  --  class-wide precondition. Merge the existing precondition
-                  --  with the current one using "or else".
-
-                  if Present (Class_Pre) then
-                     Merge_Preconditions (Check_Prag, Class_Pre);
-                  else
-                     Class_Pre := Check_Prag;
-                  end if;
-               end if;
-
-               Prag := Next_Pragma (Prag);
-            end loop;
-         end loop;
-
-         --  Add the merged class-wide preconditions (if any)
-
-         if Present (Class_Pre) then
-            Prepend_To_Declarations (Class_Pre);
+         if Present (Spec_Id) then
+            Process_Preconditions_For (Spec_Id);
+            Process_Inherited_Preconditions;
          end if;
-      end Collect_Spec_Preconditions;
-
-      -----------------------------
-      -- Prepend_To_Declarations --
-      -----------------------------
-
-      procedure Prepend_To_Declarations (Item : Node_Id) is
-         Decls : List_Id := Declarations (N);
-
-      begin
-         --  Ensure that the body has a declarative list
-
-         if No (Decls) then
-            Decls := New_List;
-            Set_Declarations (N, Decls);
-         end if;
-
-         Prepend_To (Decls, Item);
-      end Prepend_To_Declarations;
-
-      ----------------------------
-      -- Process_Contract_Cases --
-      ----------------------------
-
-      procedure Process_Contract_Cases
-        (Subp_Id : Entity_Id;
-         Stmts   : in out List_Id)
-      is
-         Prag : Node_Id;
-
-      begin
-         --  Do not build the Contract_Cases circuitry if no code is being
-         --  generated.
-
-         if not Expander_Active then
-            return;
-         end if;
-
-         Prag := Contract_Test_Cases (Contract (Subp_Id));
-         while Present (Prag) loop
-            if Pragma_Name (Prag) = Name_Contract_Cases then
-               Expand_Contract_Cases
-                 (CCs     => Prag,
-                  Subp_Id => Subp_Id,
-                  Decls   => Declarations (N),
-                  Stmts   => Stmts);
-            end if;
-
-            Prag := Next_Pragma (Prag);
-         end loop;
-      end Process_Contract_Cases;
+      end Process_Preconditions;
 
       --  Local variables
 
-      Post_Stmts : List_Id := No_List;
-      Result     : Entity_Id;
-      Subp_Id    : Entity_Id;
+      Restore_Scope : Boolean := False;
+      Result        : Entity_Id;
+      Stmts         : List_Id := No_List;
+      Subp_Id       : Entity_Id;
 
    --  Start of processing for Expand_Subprogram_Contract
 
    begin
+      --  Obtain the entity of the initial declaration
+
       if Present (Spec_Id) then
          Subp_Id := Spec_Id;
       else
          Subp_Id := Body_Id;
       end if;
 
-      --  Do not process a predicate function as its body will end up with a
-      --  recursive call to itself and blow up the stack.
+      --  Do not perform expansion activity when it is not needed
 
-      if Ekind (Subp_Id) = E_Function
-        and then Is_Predicate_Function (Subp_Id)
-      then
+      if not Expander_Active then
          return;
 
-      --  Do not process TSS subprograms
+      --  ASIS requires an unaltered tree
 
-      elsif Get_TSS_Name (Subp_Id) /= TSS_Null then
+      elsif ASIS_Mode then
+         return;
+
+      --  GNATprove does not need the executable semantics of a contract
+
+      elsif GNATprove_Mode then
+         return;
+
+      --  The contract of a generic subprogram or one declared in a generic
+      --  context is not expanded as the corresponding instance will provide
+      --  the executable semantics of the contract.
+
+      elsif Is_Generic_Subprogram (Subp_Id) or else Inside_A_Generic then
+         return;
+
+      --  All subprograms carry a contract, but for some it is not significant
+      --  and should not be processed. This is a small optimization.
+
+      elsif not Has_Significant_Contract (Subp_Id) then
          return;
       end if;
 
-      --  The expansion of a subprogram contract involves the relocation of
-      --  various contract assertions to the declarations of the body in a
+      --  Do not re-expand the same contract. This scenario occurs when a
+      --  construct is rewritten into something else during its analysis
+      --  (expression functions for instance).
+
+      if Has_Expanded_Contract (Subp_Id) then
+         return;
+
+      --  Otherwise mark the subprogram
+
+      else
+         Set_Has_Expanded_Contract (Subp_Id);
+      end if;
+
+      --  Ensure that the formal parameters are visible when expanding all
+      --  contract items.
+
+      if not In_Open_Scopes (Subp_Id) then
+         Restore_Scope := True;
+         Push_Scope (Subp_Id);
+
+         if Is_Generic_Subprogram (Subp_Id) then
+            Install_Generic_Formals (Subp_Id);
+         else
+            Install_Formals (Subp_Id);
+         end if;
+      end if;
+
+      --  The expansion of a subprogram contract involves the creation of Check
+      --  pragmas to verify the contract assertions of the spec and body in a
       --  particular order. The order is as follows:
 
       --    function Example (...) return ... is
@@ -7716,14 +7947,13 @@ package body Exp_Ch6 is
       --          <postconditions from spec>
       --          <inherited postconditions>
       --          <contract case consequences>
-      --          <invariant check of function result (if applicable)>
+      --          <invariant check of function result>
       --          <invariant and predicate checks of parameters>
       --       end _Postconditions;
 
       --       <inherited preconditions>
       --       <preconditions from spec>
       --       <preconditions from body>
-      --       <refined preconditions from body>
       --       <contract case conditions>
 
       --       <source declarations>
@@ -7735,41 +7965,38 @@ package body Exp_Ch6 is
       --    end Example;
 
       --  Routine _Postconditions holds all contract assertions that must be
-      --  verified on exit from the related routine.
+      --  verified on exit from the related subprogram.
 
-      --  Collect all [inherited] preconditions from the spec, transform them
-      --  into Check pragmas and add them to the declarations of the body in
-      --  the order outlined above.
+      --  Step 1: Handle all preconditions. This action must come before the
+      --  processing of pragma Contract_Cases because the pragma prepends items
+      --  to the body declarations.
 
-      if Present (Spec_Id) then
-         Collect_Spec_Preconditions (Spec_Id);
+      Process_Preconditions;
+
+      --  Step 2: Handle all postconditions. This action must come before the
+      --  processing of pragma Contract_Cases because the pragma appends items
+      --  to list Stmts.
+
+      Process_Postconditions (Stmts);
+
+      --  Step 3: Handle pragma Contract_Cases. This action must come before
+      --  the processing of invariants and predicates because those append
+      --  items to list Smts.
+
+      Process_Contract_Cases (Stmts);
+
+      --  Step 4: Apply invariant and predicate checks on a function result and
+      --  all formals. The resulting checks are accumulated in list Stmts.
+
+      Add_Invariant_And_Predicate_Checks (Subp_Id, Stmts, Result);
+
+      --  Step 5: Construct procedure _Postconditions
+
+      Build_Postconditions_Procedure (Subp_Id, Stmts, Result);
+
+      if Restore_Scope then
+         End_Scope;
       end if;
-
-      --  Transform all [refined] postconditions of the body into Check
-      --  pragmas. The resulting pragmas are accumulated in list Post_Stmts.
-
-      Collect_Body_Postconditions (Post_Stmts);
-
-      --  Transform all [inherited] postconditions from the spec into Check
-      --  pragmas. The resulting pragmas are accumulated in list Post_Stmts.
-
-      if Present (Spec_Id) then
-         Collect_Spec_Postconditions (Spec_Id, Post_Stmts);
-
-         --  Transform pragma Contract_Cases from the spec into its circuitry
-
-         Process_Contract_Cases (Spec_Id, Post_Stmts);
-      end if;
-
-      --  Apply invariant and predicate checks on the result of a function (if
-      --  applicable) and all formals. The resulting checks are accumulated in
-      --  list Post_Stmts.
-
-      Add_Invariant_And_Predicate_Checks (Subp_Id, Post_Stmts, Result);
-
-      --  Construct procedure _Postconditions
-
-      Build_Postconditions_Procedure (Subp_Id, Post_Stmts, Result);
    end Expand_Subprogram_Contract;
 
    --------------------------------

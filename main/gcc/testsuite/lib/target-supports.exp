@@ -41,6 +41,14 @@ proc check_compile {basename type contents args} {
     global tool
     verbose "check_compile tool: $tool for $basename" 
 
+    # Save additional_sources to avoid compiling testsuite's sources
+    # against check_compile's source.
+    global additional_sources
+    if [info exists additional_sources] {
+	set tmp_additional_sources "$additional_sources"
+	set additional_sources ""
+    }
+
     if { [llength $args] > 0 } {
 	set options [list "additional_flags=[lindex $args 0]"]
     } else {
@@ -84,6 +92,11 @@ proc check_compile {basename type contents args} {
     if [regexp "rtl-(.*)" $type dummy rtl_type] {
 	set scan_output "[glob $src.\[0-9\]\[0-9\]\[0-9\]r.$rtl_type]"
 	file delete $output
+    }
+
+    # Restore additional_sources.
+    if [info exists additional_sources] {
+	set additional_sources "$tmp_additional_sources"
     }
 
     return [list $lines $scan_output]
@@ -1124,8 +1137,8 @@ proc check_effective_target_nonpic { } {
 
 # Return 1 if the current multilib generates PIE by default.
 
-proc check_effective_target_pie { } {
-    return [check_no_compiler_messages pie assembly {
+proc check_effective_target_pie_enabled { } {
+    return [check_no_compiler_messages pie_enabled assembly {
 	#ifndef __PIE__
 	#error unsupported
 	#endif
@@ -2384,6 +2397,10 @@ proc check_effective_target_aarch64_big_endian { } {
 
 # Return 1 if this is a AArch64 target supporting little endian
 proc check_effective_target_aarch64_little_endian { } {
+    if { ![istarget aarch64*-*-*] } {
+	return 0
+    }
+
     return [check_no_compiler_messages aarch64_little_endian assembly {
         #if !defined(__aarch64__) || defined(__AARCH64EB__)
         #error FOO
@@ -2393,6 +2410,10 @@ proc check_effective_target_aarch64_little_endian { } {
 
 # Return 1 if this is an arm target using 32-bit instructions
 proc check_effective_target_arm32 { } {
+    if { ![istarget arm*-*-*] } {
+	return 0
+    }
+
     return [check_no_compiler_messages arm32 assembly {
 	#if !defined(__arm__) || (defined(__thumb__) && !defined(__thumb2__))
 	#error !__arm || __thumb__ && !__thumb2__
@@ -2402,6 +2423,10 @@ proc check_effective_target_arm32 { } {
 
 # Return 1 if this is an arm target not using Thumb
 proc check_effective_target_arm_nothumb { } {
+    if { ![istarget arm*-*-*] } {
+	return 0
+    }
+
     return [check_no_compiler_messages arm_nothumb assembly {
 	#if !defined(__arm__) || (defined(__thumb__) || defined(__thumb2__))
 	#error !__arm__ || __thumb || __thumb2__
@@ -2411,6 +2436,10 @@ proc check_effective_target_arm_nothumb { } {
 
 # Return 1 if this is a little-endian ARM target
 proc check_effective_target_arm_little_endian { } {
+    if { ![istarget arm*-*-*] } {
+	return 0
+    }
+
     return [check_no_compiler_messages arm_little_endian assembly {
 	#if !defined(__arm__) || !defined(__ARMEL__)
 	#error !__arm__ || !__ARMEL__
@@ -2420,6 +2449,10 @@ proc check_effective_target_arm_little_endian { } {
 
 # Return 1 if this is an ARM target that only supports aligned vector accesses
 proc check_effective_target_arm_vect_no_misalign { } {
+    if { ![istarget arm*-*-*] } {
+	return 0
+    }
+
     return [check_no_compiler_messages arm_vect_no_misalign assembly {
 	#if !defined(__arm__) \
 	    || (defined(__ARM_FEATURE_UNALIGNED) \
@@ -2963,6 +2996,14 @@ proc check_effective_target_arm_cortex_m { } {
 	#endif
 	int i;
     } "-mthumb"]
+}
+
+# Return 1 if this compilation turns on string_ops_prefer_neon on.
+
+proc check_effective_target_arm_tune_string_ops_prefer_neon { } {
+    return [check_no_messages_and_pattern arm_tune_string_ops_prefer_neon "@string_ops_prefer_neon:\t1" assembly {
+	int foo (void) { return 0; }
+    } "-O2 -mprint-tune-info" ]
 }
 
 # Return 1 if the target supports executing NEON instructions, 0

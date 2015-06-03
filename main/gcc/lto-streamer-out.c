@@ -385,9 +385,7 @@ lto_write_tree_1 (struct output_block *ob, tree expr, bool ref_p)
 {
   /* Pack all the non-pointer fields in EXPR into a bitpack and write
      the resulting bitpack.  */
-  bitpack_d bp = bitpack_create (ob->main_stream);
-  streamer_pack_tree_bitfields (ob, &bp, expr);
-  streamer_write_bitpack (&bp);
+  streamer_write_tree_bitfields (ob, expr);
 
   /* Write all the pointer fields in EXPR.  */
   streamer_write_tree_body (ob, expr, ref_p);
@@ -487,31 +485,225 @@ private:
     unsigned int dfsnum;
     unsigned int low;
   };
+  struct worklist
+  {
+    tree expr;
+    sccs *from_state;
+    sccs *cstate;
+    bool ref_p;
+    bool this_ref_p;
+  };
 
   static int scc_entry_compare (const void *, const void *);
 
   void DFS_write_tree_body (struct output_block *ob,
-			    tree expr, sccs *expr_state, bool ref_p,
-			    bool single_p);
+			    tree expr, sccs *expr_state, bool ref_p);
 
   void DFS_write_tree (struct output_block *ob, sccs *from_state,
-		       tree expr, bool ref_p, bool this_ref_p,
-		       bool single_p);
+		       tree expr, bool ref_p, bool this_ref_p);
+
   hashval_t
   hash_scc (struct output_block *ob, unsigned first, unsigned size);
 
-  unsigned int next_dfs_num;
   hash_map<tree, sccs *> sccstate;
+  vec<worklist> worklist_vec;
   struct obstack sccstate_obstack;
 };
 
 DFS::DFS (struct output_block *ob, tree expr, bool ref_p, bool this_ref_p,
 	  bool single_p)
 {
+  unsigned int next_dfs_num = 1;
   sccstack.create (0);
   gcc_obstack_init (&sccstate_obstack);
-  next_dfs_num = 1;
-  DFS_write_tree (ob, NULL, expr, ref_p, this_ref_p, single_p);
+  worklist_vec = vNULL;
+  DFS_write_tree (ob, NULL, expr, ref_p, this_ref_p);
+  while (!worklist_vec.is_empty ())
+    {
+      worklist &w = worklist_vec.last ();
+      expr = w.expr;
+      sccs *from_state = w.from_state;
+      sccs *cstate = w.cstate;
+      ref_p = w.ref_p;
+      this_ref_p = w.this_ref_p;
+      if (cstate == NULL)
+	{
+	  sccs **slot = &sccstate.get_or_insert (expr);
+	  cstate = *slot;
+	  if (cstate)
+	    {
+	      gcc_checking_assert (from_state);
+	      if (cstate->dfsnum < from_state->dfsnum)
+		from_state->low = MIN (cstate->dfsnum, from_state->low);
+	      worklist_vec.pop ();
+	      continue;
+	    }
+
+	  scc_entry e = { expr, 0 };
+	  /* Not yet visited.  DFS recurse and push it onto the stack.  */
+	  *slot = cstate = XOBNEW (&sccstate_obstack, struct sccs);
+	  sccstack.safe_push (e);
+	  cstate->dfsnum = next_dfs_num++;
+	  cstate->low = cstate->dfsnum;
+	  w.cstate = cstate;
+
+	  if (streamer_handle_as_builtin_p (expr))
+	    ;
+	  else if (TREE_CODE (expr) == INTEGER_CST
+		   && !TREE_OVERFLOW (expr))
+	    DFS_write_tree (ob, cstate, TREE_TYPE (expr), ref_p, ref_p);
+	  else
+	    {
+	      DFS_write_tree_body (ob, expr, cstate, ref_p);
+
+	      /* Walk any LTO-specific edges.  */
+	      if (DECL_P (expr)
+		  && TREE_CODE (expr) != FUNCTION_DECL
+		  && TREE_CODE (expr) != TRANSLATION_UNIT_DECL)
+		{
+		  /* Handle DECL_INITIAL for symbols.  */
+		  tree initial
+		    = get_symbol_initial_value (ob->decl_state->symtab_node_encoder,
+						expr);
+		  DFS_write_tree (ob, cstate, initial, ref_p, ref_p);
+		}
+	    }
+	  continue;
+	}
+
+      /* See if we found an SCC.  */
+      if (cstate->low == cstate->dfsnum)
+	{
+	  unsigned first, size;
+	  tree x;
+
+	  /* If we are re-walking a single leaf-SCC just pop it,
+	     let earlier worklist item access the sccstack.  */
+	  if (single_p)
+	    {
+	      worklist_vec.pop ();
+	      continue;
+	    }
+
+	  /* Pop the SCC and compute its size.  */
+	  first = sccstack.length ();
+	  do
+	    {
+	      x = sccstack[--first].t;
+	    }
+	  while (x != expr);
+	  size = sccstack.length () - first;
+
+	  /* No need to compute hashes for LTRANS units, we don't perform
+	     any merging there.  */
+	  hashval_t scc_hash = 0;
+	  unsigned scc_entry_len = 0;
+	  if (!flag_wpa)
+	    {
+	      scc_hash = hash_scc (ob, first, size);
+
+	      /* Put the entries with the least number of collisions first.  */
+	      unsigned entry_start = 0;
+	      scc_entry_len = size + 1;
+	      for (unsigned i = 0; i < size;)
+		{
+		  unsigned from = i;
+		  for (i = i + 1; i < size
+		       && (sccstack[first + i].hash
+			   == sccstack[first + from].hash); ++i)
+		    ;
+		  if (i - from < scc_entry_len)
+		    {
+		      scc_entry_len = i - from;
+		      entry_start = from;
+		    }
+		}
+	      for (unsigned i = 0; i < scc_entry_len; ++i)
+		{
+		  scc_entry tem = sccstack[first + i];
+		  sccstack[first + i] = sccstack[first + entry_start + i];
+		  sccstack[first + entry_start + i] = tem;
+		}
+
+	      if (scc_entry_len == 1)
+		; /* We already sorted SCC deterministically in hash_scc.  */
+	      else
+		/* Check that we have only one SCC.
+		   Naturally we may have conflicts if hash function is not
+ 		   strong enough.  Lets see how far this gets.  */
+		{
+#ifdef ENABLE_CHECKING
+		  gcc_unreachable ();
+#endif
+		}
+	    }
+
+	  /* Write LTO_tree_scc.  */
+	  streamer_write_record_start (ob, LTO_tree_scc);
+	  streamer_write_uhwi (ob, size);
+	  streamer_write_uhwi (ob, scc_hash);
+
+	  /* Write size-1 SCCs without wrapping them inside SCC bundles.
+	     All INTEGER_CSTs need to be handled this way as we need
+	     their type to materialize them.  Also builtins are handled
+	     this way.
+	     ???  We still wrap these in LTO_tree_scc so at the
+	     input side we can properly identify the tree we want
+	     to ultimatively return.  */
+	  if (size == 1)
+	    lto_output_tree_1 (ob, expr, scc_hash, ref_p, this_ref_p);
+	  else
+	    {
+	      /* Write the size of the SCC entry candidates.  */
+	      streamer_write_uhwi (ob, scc_entry_len);
+
+	      /* Write all headers and populate the streamer cache.  */
+	      for (unsigned i = 0; i < size; ++i)
+		{
+		  hashval_t hash = sccstack[first+i].hash;
+		  tree t = sccstack[first+i].t;
+		  bool exists_p = streamer_tree_cache_insert (ob->writer_cache,
+							      t, hash, NULL);
+		  gcc_assert (!exists_p);
+
+		  if (!lto_is_streamable (t))
+		    internal_error ("tree code %qs is not supported "
+				    "in LTO streams",
+				    get_tree_code_name (TREE_CODE (t)));
+
+		  gcc_checking_assert (!streamer_handle_as_builtin_p (t));
+
+		  /* Write the header, containing everything needed to
+		     materialize EXPR on the reading side.  */
+		  streamer_write_tree_header (ob, t);
+		}
+
+	      /* Write the bitpacks and tree references.  */
+	      for (unsigned i = 0; i < size; ++i)
+		{
+		  lto_write_tree_1 (ob, sccstack[first+i].t, ref_p);
+
+		  /* Mark the end of the tree.  */
+		  streamer_write_zero (ob);
+		}
+	    }
+
+	  /* Finally truncate the vector.  */
+	  sccstack.truncate (first);
+
+	  if (from_state)
+	    from_state->low = MIN (from_state->low, cstate->low);
+	  worklist_vec.pop ();
+	  continue;
+	}
+
+      gcc_checking_assert (from_state);
+      from_state->low = MIN (from_state->low, cstate->low);
+      if (cstate->dfsnum < from_state->dfsnum)
+	from_state->low = MIN (cstate->dfsnum, from_state->low);
+      worklist_vec.pop ();
+    }
+  worklist_vec.release ();
 }
 
 DFS::~DFS ()
@@ -525,11 +717,10 @@ DFS::~DFS ()
 
 void
 DFS::DFS_write_tree_body (struct output_block *ob,
-			  tree expr, sccs *expr_state, bool ref_p,
-			  bool single_p)
+			  tree expr, sccs *expr_state, bool ref_p)
 {
 #define DFS_follow_tree_edge(DEST) \
-  DFS_write_tree (ob, expr_state, DEST, ref_p, ref_p, single_p)
+  DFS_write_tree (ob, expr_state, DEST, ref_p, ref_p)
 
   enum tree_code code;
 
@@ -682,7 +873,7 @@ DFS::DFS_write_tree_body (struct output_block *ob,
 	  /* We have to stream externals in the block chain as
 	     non-references.  See also
 	     tree-streamer-out.c:streamer_write_chain.  */
-	  DFS_write_tree (ob, expr_state, t, ref_p, false, single_p);
+	  DFS_write_tree (ob, expr_state, t, ref_p, false);
 	else
 	  DFS_follow_tree_edge (t);
 
@@ -1341,10 +1532,8 @@ DFS::hash_scc (struct output_block *ob,
 
 void
 DFS::DFS_write_tree (struct output_block *ob, sccs *from_state,
-		     tree expr, bool ref_p, bool this_ref_p, bool single_p)
+		     tree expr, bool ref_p, bool this_ref_p)
 {
-  unsigned ix;
-
   /* Handle special cases.  */
   if (expr == NULL_TREE)
     return;
@@ -1354,169 +1543,16 @@ DFS::DFS_write_tree (struct output_block *ob, sccs *from_state,
     return;
 
   /* Check if we already streamed EXPR.  */
-  if (streamer_tree_cache_lookup (ob->writer_cache, expr, &ix))
+  if (streamer_tree_cache_lookup (ob->writer_cache, expr, NULL))
     return;
 
-  sccs **slot = &sccstate.get_or_insert (expr);
-  sccs *cstate = *slot;
-  if (!cstate)
-    {
-      scc_entry e = { expr, 0 };
-      /* Not yet visited.  DFS recurse and push it onto the stack.  */
-      *slot = cstate = XOBNEW (&sccstate_obstack, struct sccs);
-      sccstack.safe_push (e);
-      cstate->dfsnum = next_dfs_num++;
-      cstate->low = cstate->dfsnum;
-
-      if (streamer_handle_as_builtin_p (expr))
-	;
-      else if (TREE_CODE (expr) == INTEGER_CST
-	       && !TREE_OVERFLOW (expr))
-	DFS_write_tree (ob, cstate, TREE_TYPE (expr), ref_p, ref_p, single_p);
-      else
-	{
-	  DFS_write_tree_body (ob, expr, cstate, ref_p, single_p);
-
-	  /* Walk any LTO-specific edges.  */
-	  if (DECL_P (expr)
-	      && TREE_CODE (expr) != FUNCTION_DECL
-	      && TREE_CODE (expr) != TRANSLATION_UNIT_DECL)
-	    {
-	      /* Handle DECL_INITIAL for symbols.  */
-	      tree initial = get_symbol_initial_value (ob->decl_state->symtab_node_encoder,
-						       expr);
-	      DFS_write_tree (ob, cstate, initial, ref_p, ref_p, single_p);
-	    }
-	}
-
-      /* See if we found an SCC.  */
-      if (cstate->low == cstate->dfsnum)
-	{
-	  unsigned first, size;
-	  tree x;
-
-	  /* If we are re-walking a single leaf-SCC just return and
-	     let the caller access the sccstack.  */
-	  if (single_p)
-	    return;
-
-	  /* Pop the SCC and compute its size.  */
-	  first = sccstack.length ();
-	  do
-	    {
-	      x = sccstack[--first].t;
-	    }
-	  while (x != expr);
-	  size = sccstack.length () - first;
-
-	  /* No need to compute hashes for LTRANS units, we don't perform
-	     any merging there.  */
-	  hashval_t scc_hash = 0;
-	  unsigned scc_entry_len = 0;
-	  if (!flag_wpa)
-	    {
-	      scc_hash = hash_scc (ob, first, size);
-
-	      /* Put the entries with the least number of collisions first.  */
-	      unsigned entry_start = 0;
-	      scc_entry_len = size + 1;
-	      for (unsigned i = 0; i < size;)
-		{
-		  unsigned from = i;
-		  for (i = i + 1; i < size
-		       && (sccstack[first + i].hash
-			   == sccstack[first + from].hash); ++i)
-		    ;
-		  if (i - from < scc_entry_len)
-		    {
-		      scc_entry_len = i - from;
-		      entry_start = from;
-		    }
-		}
-	      for (unsigned i = 0; i < scc_entry_len; ++i)
-		{
-		  scc_entry tem = sccstack[first + i];
-		  sccstack[first + i] = sccstack[first + entry_start + i];
-		  sccstack[first + entry_start + i] = tem;
-		}
-
-	      if (scc_entry_len == 1)
-		; /* We already sorted SCC deterministically in hash_scc.  */
-	      else
-		/* Check that we have only one SCC.
-		   Naturally we may have conflicts if hash function is not
- 		   strong enough.  Lets see how far this gets.  */
-		{
-#ifdef ENABLE_CHECKING
-		  gcc_unreachable ();
-#endif
-		}
-	    }
-
-	  /* Write LTO_tree_scc.  */
-	  streamer_write_record_start (ob, LTO_tree_scc);
-	  streamer_write_uhwi (ob, size);
-	  streamer_write_uhwi (ob, scc_hash);
-
-	  /* Write size-1 SCCs without wrapping them inside SCC bundles.
-	     All INTEGER_CSTs need to be handled this way as we need
-	     their type to materialize them.  Also builtins are handled
-	     this way.
-	     ???  We still wrap these in LTO_tree_scc so at the
-	     input side we can properly identify the tree we want
-	     to ultimatively return.  */
-	  if (size == 1)
-	    lto_output_tree_1 (ob, expr, scc_hash, ref_p, this_ref_p);
-	  else
-	    {
-	      /* Write the size of the SCC entry candidates.  */
-	      streamer_write_uhwi (ob, scc_entry_len);
-
-	      /* Write all headers and populate the streamer cache.  */
-	      for (unsigned i = 0; i < size; ++i)
-		{
-		  hashval_t hash = sccstack[first+i].hash;
-		  tree t = sccstack[first+i].t;
-		  bool exists_p = streamer_tree_cache_insert (ob->writer_cache,
-							      t, hash, &ix);
-		  gcc_assert (!exists_p);
-
-		  if (!lto_is_streamable (t))
-		    internal_error ("tree code %qs is not supported "
-				    "in LTO streams",
-				    get_tree_code_name (TREE_CODE (t)));
-
-		  gcc_checking_assert (!streamer_handle_as_builtin_p (t));
-
-		  /* Write the header, containing everything needed to
-		     materialize EXPR on the reading side.  */
-		  streamer_write_tree_header (ob, t);
-		}
-
-	      /* Write the bitpacks and tree references.  */
-	      for (unsigned i = 0; i < size; ++i)
-		{
-		  lto_write_tree_1 (ob, sccstack[first+i].t, ref_p);
-
-		  /* Mark the end of the tree.  */
-		  streamer_write_zero (ob);
-		}
-	    }
-
-	  /* Finally truncate the vector.  */
-	  sccstack.truncate (first);
-
-	  if (from_state)
-	    from_state->low = MIN (from_state->low, cstate->low);
-	  return;
-	}
-
-      if (from_state)
-	from_state->low = MIN (from_state->low, cstate->low);
-    }
-  gcc_checking_assert (from_state);
-  if (cstate->dfsnum < from_state->dfsnum)
-    from_state->low = MIN (cstate->dfsnum, from_state->low);
+  worklist w;
+  w.expr = expr;
+  w.from_state = from_state;
+  w.cstate = NULL;
+  w.ref_p = ref_p;
+  w.this_ref_p = this_ref_p;
+  worklist_vec.safe_push (w);
 }
 
 
@@ -2644,6 +2680,96 @@ produce_symtab (struct output_block *ob)
 }
 
 
+/* Init the streamer_mode_table for output, where we collect info on what
+   machine_mode values have been streamed.  */
+void
+lto_output_init_mode_table (void)
+{
+  memset (streamer_mode_table, '\0', MAX_MACHINE_MODE);
+}
+
+
+/* Write the mode table.  */
+static void
+lto_write_mode_table (void)
+{
+  struct output_block *ob;
+  ob = create_output_block (LTO_section_mode_table);
+  bitpack_d bp = bitpack_create (ob->main_stream);
+
+  /* Ensure that for GET_MODE_INNER (m) != VOIDmode we have
+     also the inner mode marked.  */
+  for (int i = 0; i < (int) MAX_MACHINE_MODE; i++)
+    if (streamer_mode_table[i])
+      {
+	machine_mode m = (machine_mode) i;
+	if (GET_MODE_INNER (m) != VOIDmode)
+	  streamer_mode_table[(int) GET_MODE_INNER (m)] = 1;
+      }
+  /* First stream modes that have GET_MODE_INNER (m) == VOIDmode,
+     so that we can refer to them afterwards.  */
+  for (int pass = 0; pass < 2; pass++)
+    for (int i = 0; i < (int) MAX_MACHINE_MODE; i++)
+      if (streamer_mode_table[i] && i != (int) VOIDmode && i != (int) BLKmode)
+	{
+	  machine_mode m = (machine_mode) i;
+	  if ((GET_MODE_INNER (m) == VOIDmode) ^ (pass == 0))
+	    continue;
+	  bp_pack_value (&bp, m, 8);
+	  bp_pack_enum (&bp, mode_class, MAX_MODE_CLASS, GET_MODE_CLASS (m));
+	  bp_pack_value (&bp, GET_MODE_SIZE (m), 8);
+	  bp_pack_value (&bp, GET_MODE_PRECISION (m), 16);
+	  bp_pack_value (&bp, GET_MODE_INNER (m), 8);
+	  bp_pack_value (&bp, GET_MODE_NUNITS (m), 8);
+	  switch (GET_MODE_CLASS (m))
+	    {
+	    case MODE_FRACT:
+	    case MODE_UFRACT:
+	    case MODE_ACCUM:
+	    case MODE_UACCUM:
+	      bp_pack_value (&bp, GET_MODE_IBIT (m), 8);
+	      bp_pack_value (&bp, GET_MODE_FBIT (m), 8);
+	      break;
+	    case MODE_FLOAT:
+	    case MODE_DECIMAL_FLOAT:
+	      bp_pack_string (ob, &bp, REAL_MODE_FORMAT (m)->name, true);
+	      break;
+	    default:
+	      break;
+	    }
+	  bp_pack_string (ob, &bp, GET_MODE_NAME (m), true);
+	}
+  bp_pack_value (&bp, VOIDmode, 8);
+
+  streamer_write_bitpack (&bp);
+
+  char *section_name
+    = lto_get_section_name (LTO_section_mode_table, NULL, NULL);
+  lto_begin_section (section_name, !flag_wpa);
+  free (section_name);
+
+  /* The entire header stream is computed here.  */
+  struct lto_simple_header_with_strings header;
+  memset (&header, 0, sizeof (header));
+
+  /* Write the header.  */
+  header.major_version = LTO_major_version;
+  header.minor_version = LTO_minor_version;
+
+  header.main_size = ob->main_stream->total_size;
+  header.string_size = ob->string_stream->total_size;
+  lto_write_data (&header, sizeof header);
+
+  /* Put all of the gimple and the string table out the asm file as a
+     block of text.  */
+  lto_write_stream (ob->main_stream);
+  lto_write_stream (ob->string_stream);
+
+  lto_end_section ();
+  destroy_output_block (ob);
+}
+
+
 /* This pass is run after all of the functions are serialized and all
    of the IPA passes have written their serialized forms.  This pass
    causes the vector of all of the global decls and types used from
@@ -2751,4 +2877,6 @@ produce_asm_for_decls (void)
   lto_symtab_encoder_delete (ob->decl_state->symtab_node_encoder);
   lto_function_decl_states.release ();
   destroy_output_block (ob);
+  if (lto_stream_offload_p)
+    lto_write_mode_table ();
 }

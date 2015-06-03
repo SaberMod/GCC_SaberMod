@@ -359,19 +359,24 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
       tree addr = TREE_OPERAND (exp, 0);
       unsigned ptr_align;
       unsigned HOST_WIDE_INT ptr_bitpos;
+      unsigned HOST_WIDE_INT ptr_bitmask = ~0;
 
+      /* If the address is explicitely aligned, handle that.  */
       if (TREE_CODE (addr) == BIT_AND_EXPR
 	  && TREE_CODE (TREE_OPERAND (addr, 1)) == INTEGER_CST)
 	{
-	  align = (TREE_INT_CST_LOW (TREE_OPERAND (addr, 1))
-		    & -TREE_INT_CST_LOW (TREE_OPERAND (addr, 1)));
-	  align *= BITS_PER_UNIT;
+	  ptr_bitmask = TREE_INT_CST_LOW (TREE_OPERAND (addr, 1));
+	  ptr_bitmask *= BITS_PER_UNIT;
+	  align = ptr_bitmask & -ptr_bitmask;
 	  addr = TREE_OPERAND (addr, 0);
 	}
 
       known_alignment
 	= get_pointer_alignment_1 (addr, &ptr_align, &ptr_bitpos);
       align = MAX (ptr_align, align);
+
+      /* Re-apply explicit alignment to the bitpos.  */
+      ptr_bitpos &= ptr_bitmask;
 
       /* The alignment of the pointer operand in a TARGET_MEM_REF
 	 has to take the variable offset parts into account.  */
@@ -797,10 +802,8 @@ expand_builtin_return_addr (enum built_in_function fndecl_code, int count)
      register.  There is no way to access it off of the current frame
      pointer, but it can be accessed off the previous frame pointer by
      reading the value from the register window save area.  */
-#ifdef RETURN_ADDR_IN_PREVIOUS_FRAME
-  if (fndecl_code == BUILT_IN_RETURN_ADDRESS)
+  if (RETURN_ADDR_IN_PREVIOUS_FRAME && fndecl_code == BUILT_IN_RETURN_ADDRESS)
     count--;
-#endif
 
   /* Scan back COUNT frames to the specified frame.  */
   for (i = 0; i < count; i++)
@@ -5960,6 +5963,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
   machine_mode target_mode = TYPE_MODE (TREE_TYPE (exp));
   int flags;
 
+  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
+    return targetm.expand_builtin (exp, target, subtarget, mode, ignore);
+
   /* When ASan is enabled, we don't want to expand some memory/string
      builtins and rely on libsanitizer's hooks.  This allows us to avoid
      redundant checks and be sure, that possible overflow will be detected
@@ -5967,9 +5973,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
 
   if ((flag_sanitize & SANITIZE_ADDRESS) && asan_intercepted_p (fcode))
     return expand_call (exp, target, ignore);
-
-  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
-    return targetm.expand_builtin (exp, target, subtarget, mode, ignore);
 
   /* When not optimizing, generate calls to library functions for a certain
      set of builtins.  */

@@ -155,7 +155,7 @@ ARM_CORE("cortex-r4",		cortexr4, cortexr4,		7R,  FL_LDSCHED, cortex)
 ARM_CORE("cortex-r4f",		cortexr4f, cortexr4f,		7R,  FL_LDSCHED, cortex)
 ARM_CORE("cortex-r5",		cortexr5, cortexr5,		7R,  FL_LDSCHED | FL_ARM_DIV, cortex)
 ARM_CORE("cortex-r7",		cortexr7, cortexr7,		7R,  FL_LDSCHED | FL_ARM_DIV, cortex)
-ARM_CORE("cortex-m7",		cortexm7, cortexm7,		7EM, FL_LDSCHED, cortex_m7)
+ARM_CORE("cortex-m7",		cortexm7, cortexm7,		7EM, FL_LDSCHED | FL_NO_VOLATILE_CE, cortex_m7)
 ARM_CORE("cortex-m4",		cortexm4, cortexm4,		7EM, FL_LDSCHED, v7m)
 ARM_CORE("cortex-m3",		cortexm3, cortexm3,		7M,  FL_LDSCHED, v7m)
 ARM_CORE("marvell-pj4",		marvell_pj4, marvell_pj4,	7A,  FL_LDSCHED, 9e)
@@ -168,6 +168,7 @@ ARM_CORE("cortex-a17.cortex-a7", cortexa17cortexa7, cortexa7,	7A,  FL_LDSCHED | 
 ARM_CORE("cortex-a53",	cortexa53, cortexa53,	8A, FL_LDSCHED | FL_CRC32, cortex_a53)
 ARM_CORE("cortex-a57",	cortexa57, cortexa57,	8A, FL_LDSCHED | FL_CRC32, cortex_a57)
 ARM_CORE("cortex-a72",	cortexa72, cortexa57,	8A, FL_LDSCHED | FL_CRC32, cortex_a57)
+ARM_CORE("exynos-m1",	exynosm1,  cortexa57,	8A, FL_LDSCHED | FL_CRC32, cortex_a57)
 ARM_CORE("xgene1",      xgene1,    xgene1,      8A, FL_LDSCHED,            xgene1)
 
 /* V8 big.LITTLE implementations */
