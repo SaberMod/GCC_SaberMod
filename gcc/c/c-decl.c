@@ -35,8 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "symtab.h"
 #include "input.h"
 #include "alias.h"
-#include "double-int.h"
-#include "machmode.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -50,7 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "hash-set.h"
 #include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "c-tree.h"
@@ -2630,6 +2627,12 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
     DECL_PRESERVE_P (newdecl) = 1;
   else if (DECL_PRESERVE_P (newdecl))
     DECL_PRESERVE_P (olddecl) = 1;
+
+  /* Merge DECL_COMMON */
+  if (VAR_P (olddecl) && VAR_P (newdecl)
+      && !lookup_attribute ("common", DECL_ATTRIBUTES (newdecl))
+      && !lookup_attribute ("nocommon", DECL_ATTRIBUTES (newdecl)))
+    DECL_COMMON (newdecl) = DECL_COMMON (newdecl) && DECL_COMMON (olddecl);
 
   /* Copy most of the decl-specific fields of NEWDECL into OLDDECL.
      But preserve OLDDECL's DECL_UID, DECL_CONTEXT and
@@ -7519,11 +7522,22 @@ detect_field_duplicates (tree fieldlist)
 /* Finish up struct info used by -Wc++-compat.  */
 
 static void
-warn_cxx_compat_finish_struct (tree fieldlist)
+warn_cxx_compat_finish_struct (tree fieldlist, enum tree_code code,
+			       location_t record_loc)
 {
   unsigned int ix;
   tree x;
   struct c_binding *b;
+
+  if (fieldlist == NULL_TREE)
+    {
+      if (code == RECORD_TYPE)
+	warning_at (record_loc, OPT_Wc___compat,
+		    "empty struct has size 0 in C, size 1 in C++");
+      else
+	warning_at (record_loc, OPT_Wc___compat,
+		    "empty union has size 0 in C, size 1 in C++");
+    }
 
   /* Set the C_TYPE_DEFINED_IN_STRUCT flag for each type defined in
      the current struct.  We do this now at the end of the struct
@@ -7823,10 +7837,18 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
     }
 
   /* If this structure or union completes the type of any previous
-     variable declaration, lay it out and output its rtl.  */
-  for (x = C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t));
-       x;
-       x = TREE_CHAIN (x))
+     variable declaration, lay it out and output its rtl.
+
+     Note: C_TYPE_INCOMPLETE_VARS overloads TYPE_VFIELD which is used
+     in dwarf2out via rest_of_decl_compilation below and means
+     something totally different.  Since we will be clearing
+     C_TYPE_INCOMPLETE_VARS shortly after we iterate through them,
+     clear it ahead of time and avoid problems in dwarf2out.  Ideally,
+     C_TYPE_INCOMPLETE_VARS should use some language specific
+     node.  */
+  tree incomplete_vars = C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t));
+  C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t)) = 0;
+  for (x = incomplete_vars; x; x = TREE_CHAIN (x))
     {
       tree decl = TREE_VALUE (x);
       if (TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
@@ -7839,7 +7861,6 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
 	  rest_of_decl_compilation (decl, toplevel, 0);
 	}
     }
-  C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t)) = 0;
 
   /* Update type location to the one of the definition, instead of e.g.
      a forward declaration.  */
@@ -7857,7 +7878,7 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
 			  DECL_EXPR, build_decl (loc, TYPE_DECL, NULL, t)));
 
   if (warn_cxx_compat)
-    warn_cxx_compat_finish_struct (fieldlist);
+    warn_cxx_compat_finish_struct (fieldlist, TREE_CODE (t), loc);
 
   struct_parse_info->struct_types.release ();
   struct_parse_info->fields.release ();
@@ -8233,6 +8254,7 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
 
   decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, true, NULL,
 			  &attributes, NULL, NULL, DEPRECATED_NORMAL);
+  invoke_plugin_callbacks (PLUGIN_START_PARSE_FUNCTION, decl1);
 
   /* If the declarator is not suitable for a function definition,
      cause a syntax error.  */
@@ -9077,6 +9099,7 @@ finish_function (void)
      It's still in DECL_STRUCT_FUNCTION, and we'll restore it in
      tree_rest_of_compilation.  */
   set_cfun (NULL);
+  invoke_plugin_callbacks (PLUGIN_FINISH_PARSE_FUNCTION, current_function_decl);
   current_function_decl = NULL;
 }
 
@@ -10663,9 +10686,8 @@ finish_declspecs (struct c_declspecs *specs)
   return specs;
 }
 
-/* A subroutine of c_write_global_declarations.  Perform final processing
-   on one file scope's declarations (or the external scope's declarations),
-   GLOBALS.  */
+/* Perform final processing on one file scope's declarations (or the
+   external scope's declarations), GLOBALS.  */
 
 static void
 c_write_global_declarations_1 (tree globals)
@@ -10678,7 +10700,7 @@ c_write_global_declarations_1 (tree globals)
     {
       /* Check for used but undefined static functions using the C
 	 standard's definition of "used", and set TREE_NO_WARNING so
-	 that check_global_declarations doesn't repeat the check.  */
+	 that check_global_declaration doesn't repeat the check.  */
       if (TREE_CODE (decl) == FUNCTION_DECL
 	  && DECL_INITIAL (decl) == 0
 	  && DECL_EXTERNAL (decl)
@@ -10699,21 +10721,6 @@ c_write_global_declarations_1 (tree globals)
 	reconsider |= wrapup_global_declaration_2 (decl);
     }
   while (reconsider);
-
-  for (decl = globals; decl; decl = DECL_CHAIN (decl))
-    check_global_declaration_1 (decl);
-}
-
-/* A subroutine of c_write_global_declarations Emit debug information for each
-   of the declarations in GLOBALS.  */
-
-static void
-c_write_global_declarations_2 (tree globals)
-{
-  tree decl;
-
-  for (decl = globals; decl ; decl = DECL_CHAIN (decl))
-    debug_hooks->global_decl (decl);
 }
 
 /* Callback to collect a source_ref from a DECL.  */
@@ -10763,8 +10770,11 @@ for_each_global_decl (void (*callback) (tree decl))
     callback (decl);
 }
 
+/* Perform any final parser cleanups and generate initial debugging
+   information.  */
+
 void
-c_write_global_declarations (void)
+c_parse_final_cleanups (void)
 {
   tree t;
   unsigned i;
@@ -10773,6 +10783,7 @@ c_write_global_declarations (void)
   if (pch_file)
     return;
 
+  timevar_stop (TV_PHASE_PARSING);
   timevar_start (TV_PHASE_DEFERRED);
 
   /* Do the Objective-C stuff.  This is where all the Objective-C
@@ -10811,34 +10822,15 @@ c_write_global_declarations (void)
     }
 
   /* Process all file scopes in this compilation, and the external_scope,
-     through wrapup_global_declarations and check_global_declarations.  */
+     through wrapup_global_declarations.  */
   FOR_EACH_VEC_ELT (*all_translation_units, i, t)
     c_write_global_declarations_1 (BLOCK_VARS (DECL_INITIAL (t)));
   c_write_global_declarations_1 (BLOCK_VARS (ext_block));
 
   timevar_stop (TV_PHASE_DEFERRED);
-  timevar_start (TV_PHASE_OPT_GEN);
-
-  /* We're done parsing; proceed to optimize and emit assembly.
-     FIXME: shouldn't be the front end's responsibility to call this.  */
-  symtab->finalize_compilation_unit ();
-
-  timevar_stop (TV_PHASE_OPT_GEN);
-  timevar_start (TV_PHASE_DBGINFO);
-
-  /* After cgraph has had a chance to emit everything that's going to
-     be emitted, output debug information for globals.  */
-  if (!seen_error ())
-    {
-      timevar_push (TV_SYMOUT);
-      FOR_EACH_VEC_ELT (*all_translation_units, i, t)
-	c_write_global_declarations_2 (BLOCK_VARS (DECL_INITIAL (t)));
-      c_write_global_declarations_2 (BLOCK_VARS (ext_block));
-      timevar_pop (TV_SYMOUT);
-    }
+  timevar_start (TV_PHASE_PARSING);
 
   ext_block = NULL;
-  timevar_stop (TV_PHASE_DBGINFO);
 }
 
 /* Register reserved keyword WORD as qualifier for address space AS.  */

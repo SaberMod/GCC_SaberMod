@@ -13112,24 +13112,48 @@
    (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "<MODE>")])
 
-(define_insn "avx2_pmovmskb"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(unspec:SI [(match_operand:V32QI 1 "register_operand" "x")]
-		   UNSPEC_MOVMSK))]
-  "TARGET_AVX2"
-  "vpmovmskb\t{%1, %0|%0, %1}"
+(define_insn "*<sse>_movmsk<ssemodesuffix><avxsizesuffix>_zext"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(zero_extend:DI
+	  (unspec:SI
+	    [(match_operand:VF_128_256 1 "register_operand" "x")]
+	    UNSPEC_MOVMSK)))]
+  "TARGET_64BIT && TARGET_SSE"
+  "%vmovmsk<ssemodesuffix>\t{%1, %k0|%k0, %1}"
   [(set_attr "type" "ssemov")
-   (set_attr "prefix" "vex")
-   (set_attr "mode" "DI")])
+   (set_attr "prefix" "maybe_vex")
+   (set_attr "mode" "<MODE>")])
 
-(define_insn "sse2_pmovmskb"
+(define_insn "<sse2_avx2>_pmovmskb"
   [(set (match_operand:SI 0 "register_operand" "=r")
-	(unspec:SI [(match_operand:V16QI 1 "register_operand" "x")]
-		   UNSPEC_MOVMSK))]
+	(unspec:SI
+	  [(match_operand:VI1_AVX2 1 "register_operand" "x")]
+	  UNSPEC_MOVMSK))]
   "TARGET_SSE2"
   "%vpmovmskb\t{%1, %0|%0, %1}"
   [(set_attr "type" "ssemov")
-   (set_attr "prefix_data16" "1")
+   (set (attr "prefix_data16")
+     (if_then_else
+       (match_test "TARGET_AVX")
+     (const_string "*")
+     (const_string "1")))
+   (set_attr "prefix" "maybe_vex")
+   (set_attr "mode" "SI")])
+
+(define_insn "*<sse2_avx2>_pmovmskb_zext"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(zero_extend:DI
+	  (unspec:SI
+	    [(match_operand:VI1_AVX2 1 "register_operand" "x")]
+	    UNSPEC_MOVMSK)))]
+  "TARGET_64BIT && TARGET_SSE2"
+  "%vpmovmskb\t{%1, %k0|%k0, %1}"
+  [(set_attr "type" "ssemov")
+   (set (attr "prefix_data16")
+     (if_then_else
+       (match_test "TARGET_AVX")
+     (const_string "*")
+     (const_string "1")))
    (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "SI")])
 
@@ -13194,10 +13218,12 @@
    (set_attr "atom_sse_attr" "fence")
    (set_attr "memory" "unknown")])
 
-
+;; As per AMD and Intel ISA manuals, the first operand is extensions
+;; and it goes to %ecx. The second operand received is hints and it goes
+;; to %eax.
 (define_insn "sse3_mwait"
-  [(unspec_volatile [(match_operand:SI 0 "register_operand" "a")
-		     (match_operand:SI 1 "register_operand" "c")]
+  [(unspec_volatile [(match_operand:SI 0 "register_operand" "c")
+		     (match_operand:SI 1 "register_operand" "a")]
 		    UNSPECV_MWAIT)]
   "TARGET_SSE3"
 ;; 64bit version is "mwait %rax,%rcx". But only lower 32bits are used.

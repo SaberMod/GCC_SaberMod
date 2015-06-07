@@ -24,13 +24,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tm.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -1116,19 +1113,6 @@ lto_getdecls (void)
   return NULL_TREE;
 }
 
-static void
-lto_write_globals (void)
-{
-  if (flag_wpa)
-    return;
-
-  /* Output debug info for global variables.  */  
-  varpool_node *vnode;
-  FOR_EACH_DEFINED_VARIABLE (vnode)
-    if (!decl_function_context (vnode->decl))
-      debug_hooks->global_decl (vnode->decl);
-}
-
 static tree
 lto_builtin_function (tree decl)
 {
@@ -1334,8 +1318,6 @@ static void lto_init_ts (void)
 #define LANG_HOOKS_PUSHDECL lto_pushdecl
 #undef LANG_HOOKS_GETDECLS
 #define LANG_HOOKS_GETDECLS lto_getdecls
-#undef LANG_HOOKS_WRITE_GLOBALS
-#define LANG_HOOKS_WRITE_GLOBALS lto_write_globals
 #undef LANG_HOOKS_REGISTER_BUILTIN_TYPE
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE lto_register_builtin_type
 #undef LANG_HOOKS_BUILTIN_FUNCTION

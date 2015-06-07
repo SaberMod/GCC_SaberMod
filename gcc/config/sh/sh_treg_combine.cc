@@ -21,7 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "machmode.h"
 #include "predict.h"
 #include "vec.h"
 #include "hashtab.h"
@@ -52,11 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "flags.h"
 #include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -1617,7 +1612,7 @@ sh_treg_combine::execute (function *fun)
 	log_msg ("trying to split insn:\n");
 	log_insn (*i);
 	log_msg ("\n");
-	try_split (PATTERN (*i), *i, 0);
+	try_split (PATTERN (*i), safe_as_a <rtx_insn *> (*i), 0);
       }
 
   m_touched_insns.clear ();

@@ -25,14 +25,11 @@
 #include <gmp.h>
 
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -55,7 +52,6 @@
 #include "langhooks.h"
 #include "toplev.h"
 #include "output.h"
-#include "real.h"
 #include "realmpfr.h"
 #include "builtins.h"
 
@@ -3024,7 +3020,8 @@ Gcc_backend::lookup_builtin(const std::string& name)
 }
 
 // Write the definitions for all TYPE_DECLS, CONSTANT_DECLS,
-// FUNCTION_DECLS, and VARIABLE_DECLS declared globally.
+// FUNCTION_DECLS, and VARIABLE_DECLS declared globally, as well as
+// emit early debugging information.
 
 void
 Gcc_backend::write_global_definitions(
@@ -3096,11 +3093,6 @@ Gcc_backend::write_global_definitions(
   // Pass everything back to the middle-end.
 
   wrapup_global_declarations(defs, i);
-
-  symtab->finalize_compilation_unit();
-
-  check_global_declarations(defs, i);
-  emit_debug_global_declarations(defs, i);
 
   delete[] defs;
 }

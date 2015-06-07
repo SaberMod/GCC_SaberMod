@@ -32,13 +32,10 @@
 #include "output.h"
 #include "insn-attr.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -51,8 +48,6 @@
 #include "target-def.h"
 #include "hashtab.h"
 #include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -3882,7 +3877,7 @@ hwloop_fail (hwloop_info loop)
   else
     {
       splitting_loops = 1;  
-      try_split (PATTERN (insn), insn, 1);
+      try_split (PATTERN (insn), safe_as_a <rtx_insn *> (insn), 1);
       splitting_loops = 0;
     }
 }

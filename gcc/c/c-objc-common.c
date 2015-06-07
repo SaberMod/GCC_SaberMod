@@ -25,8 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "symtab.h"
 #include "input.h"
 #include "alias.h"
-#include "double-int.h"
-#include "machmode.h"
 #include "flags.h"
 #include "inchash.h"
 #include "tree.h"
@@ -51,7 +49,7 @@ c_missing_noreturn_ok_p (tree decl)
   return flag_hosted && MAIN_NAME_P (DECL_ASSEMBLER_NAME (decl));
 }
 
-/* Called from check_global_declarations.  */
+/* Called from check_global_declaration.  */
 
 bool
 c_warn_unused_global_decl (const_tree decl)

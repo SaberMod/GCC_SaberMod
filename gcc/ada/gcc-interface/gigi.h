@@ -531,8 +531,9 @@ extern tree gnat_type_for_size (unsigned precision, int unsignedp);
    an unsigned type; otherwise a signed type is returned.  */
 extern tree gnat_type_for_mode (machine_mode mode, int unsignedp);
 
-/* Emit debug info for all global variable declarations.  */
-extern void gnat_write_global_declarations (void);
+/* Keep track of types used at the global level and emit debug info
+   for all global types.  */
+extern void note_types_used_by_globals (void);
 
 /* Return the unsigned version of a TYPE_NODE, a scalar type.  */
 extern tree gnat_unsigned_type (tree type_node);
@@ -914,6 +915,11 @@ extern tree gnat_build_constructor (tree type, vec<constructor_elt, va_gc> *v);
 /* Return a COMPONENT_REF to access a field that is given by COMPONENT,
    an IDENTIFIER_NODE giving the name of the field, FIELD, a FIELD_DECL,
    for the field, or both.  Don't fold the result if NO_FOLD_P.  */
+extern tree build_simple_component_ref (tree record_variable, tree component,
+					tree field, bool no_fold_p);
+
+/* Likewise, but generate a Constraint_Error if the reference could not be
+   found.  */
 extern tree build_component_ref (tree record_variable, tree component,
                                  tree field, bool no_fold_p);
 

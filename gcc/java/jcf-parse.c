@@ -27,15 +27,11 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "coretypes.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "real.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
@@ -59,7 +55,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "cgraph.h"
 #include "bitmap.h"
 #include "target.h"
-#include "wide-int.h"
+#include "toplev.h"
 
 #ifdef HAVE_LOCALE_H
 #include <locale.h>
@@ -2001,6 +1997,9 @@ java_parse_file (void)
   /* Arrange for any necessary initialization to happen.  */
   java_emit_static_constructor ();
   gcc_assert (global_bindings_p ());
+
+  /* Do final processing on globals.  */
+  global_decl_processing ();
 }
 
 

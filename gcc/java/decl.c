@@ -28,15 +28,11 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "coretypes.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "real.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
@@ -1971,11 +1967,7 @@ java_mark_class_local (tree klass)
 
   for (t = TYPE_FIELDS (klass); t ; t = DECL_CHAIN (t))
     if (FIELD_STATIC (t))
-      {
-	if (DECL_EXTERNAL (t))
-	  vec_safe_push (pending_static_fields, t);
-	java_mark_decl_local (t);
-      }
+      java_mark_decl_local (t);
 
   for (t = TYPE_METHODS (klass); t ; t = DECL_CHAIN (t))
     if (!METHOD_ABSTRACT (t))

@@ -81,13 +81,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
@@ -106,8 +103,6 @@ along with GCC; see the file COPYING3.  If not see
 /* Include expr.h after insn-config.h so we get HAVE_conditional_move.  */
 #include "hashtab.h"
 #include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -559,7 +554,7 @@ combine_split_insns (rtx pattern, rtx_insn *insn)
   rtx_insn *ret;
   unsigned int nregs;
 
-  ret = safe_as_a <rtx_insn *> (split_insns (pattern, insn));
+  ret = split_insns (pattern, insn);
   nregs = max_reg_num ();
   if (nregs > reg_stat.length ())
     reg_stat.safe_grow_cleared (nregs);

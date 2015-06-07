@@ -25,15 +25,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "rtl.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
-#include "real.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "hard-reg-set.h"
@@ -52,7 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"		/* expand_builtin_dwarf_sp_column */
 #include "hashtab.h"
 #include "statistics.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -2247,7 +2242,6 @@ add_cfis_to_fde (void)
 	      int num = dwarf2out_cfi_label_num;
 	      const char *label = dwarf2out_cfi_label ();
 	      dw_cfi_ref xcfi;
-	      rtx tmp;
 
 	      /* Set the location counter to the new label.  */
 	      xcfi = new_cfi ();
@@ -2256,7 +2250,7 @@ add_cfis_to_fde (void)
 	      xcfi->dw_cfi_oprnd1.dw_cfi_addr = label;
 	      vec_safe_push (fde->dw_fde_cfi, xcfi);
 
-	      tmp = emit_note_before (NOTE_INSN_CFI_LABEL, insn);
+	      rtx_note *tmp = emit_note_before (NOTE_INSN_CFI_LABEL, insn);
 	      NOTE_LABEL_NUMBER (tmp) = num;
 	    }
 

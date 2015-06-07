@@ -20,13 +20,10 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "debug.h"
@@ -36,6 +33,7 @@ const struct gcc_debug_hooks do_nothing_debug_hooks =
 {
   debug_nothing_charstar,
   debug_nothing_charstar,
+  debug_nothing_void,			/* early_finish */
   debug_nothing_void,
   debug_nothing_int_charstar,
   debug_nothing_int_charstar,
@@ -52,7 +50,8 @@ const struct gcc_debug_hooks do_nothing_debug_hooks =
   debug_nothing_tree,		         /* begin_function */
   debug_nothing_int,		         /* end_function */
   debug_nothing_tree,		         /* function_decl */
-  debug_nothing_tree,		         /* global_decl */
+  debug_nothing_tree,	         	 /* early_global_decl */
+  debug_nothing_tree,	         	 /* late_global_decl */
   debug_nothing_tree_int,		 /* type_decl */
   debug_nothing_tree_tree_tree_bool,	 /* imported_module_or_decl */
   debug_nothing_tree,		         /* deferred_inline_function */

@@ -47,13 +47,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "varasm.h"
@@ -83,8 +80,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "hashtab.h"
 #include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -662,13 +657,13 @@ align_fuzz (rtx start, rtx end, int known_align_log, unsigned int growth)
 int
 insn_current_reference_address (rtx_insn *branch)
 {
-  rtx dest, seq;
+  rtx dest;
   int seq_uid;
 
   if (! INSN_ADDRESSES_SET_P ())
     return 0;
 
-  seq = NEXT_INSN (PREV_INSN (branch));
+  rtx_insn *seq = NEXT_INSN (PREV_INSN (branch));
   seq_uid = INSN_UID (seq);
   if (!JUMP_P (branch))
     /* This can happen for example on the PA; the objective is to know the

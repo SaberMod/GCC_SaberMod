@@ -23,13 +23,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -49,8 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "flags.h"
 #include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -226,10 +221,16 @@ prepare_call_address (tree fndecl_or_type, rtx funexp, rtx static_chain_value,
 	       && targetm.small_register_classes_for_mode_p (FUNCTION_MODE))
 	      ? force_not_mem (memory_address (FUNCTION_MODE, funexp))
 	      : memory_address (FUNCTION_MODE, funexp));
-  else if (flag_pic && !flag_plt && fndecl_or_type
+  else if (flag_pic
+	   && fndecl_or_type
 	   && TREE_CODE (fndecl_or_type) == FUNCTION_DECL
+	   && (!flag_plt
+	       || lookup_attribute ("noplt", DECL_ATTRIBUTES (fndecl_or_type)))
 	   && !targetm.binds_local_p (fndecl_or_type))
     {
+      /* This is done only for PIC code.  There is no easy interface to force the
+	 function address into GOT for non-PIC case.  non-PIC case needs to be
+	 handled specially by the backend.  */
       funexp = force_reg (Pmode, funexp);
     }
   else if (! sibcallp)
@@ -308,7 +309,6 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 	     cumulative_args_t args_so_far ATTRIBUTE_UNUSED)
 {
   rtx rounded_stack_size_rtx = GEN_INT (rounded_stack_size);
-  rtx_insn *call_insn;
   rtx call, funmem;
   int already_popped = 0;
   HOST_WIDE_INT n_popped
@@ -434,7 +434,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
     gcc_unreachable ();
 
   /* Find the call we just emitted.  */
-  call_insn = last_call_insn ();
+  rtx_call_insn *call_insn = last_call_insn ();
 
   /* Some target create a fresh MEM instead of reusing the one provided
      above.  Set its MEM_EXPR.  */
@@ -4436,9 +4436,9 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
   if (flag_ipa_ra)
     {
-      rtx last, datum = orgfun;
+      rtx datum = orgfun;
       gcc_assert (GET_CODE (datum) == SYMBOL_REF);
-      last = last_call_insn ();
+      rtx_call_insn *last = last_call_insn ();
       add_reg_note (last, REG_CALL_DECL, datum);
     }
 

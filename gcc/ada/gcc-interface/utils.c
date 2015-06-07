@@ -28,13 +28,10 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -227,8 +224,8 @@ static GTY((deletable)) struct gnat_binding_level *free_binding_level;
 /* The context to be used for global declarations.  */
 static GTY(()) tree global_context;
 
-/* An array of global declarations.  */
-static GTY(()) vec<tree, va_gc> *global_decls;
+/* An array of global type declarations.  */
+static GTY(()) vec<tree, va_gc> *type_decls;
 
 /* An array of builtin function declarations.  */
 static GTY(()) vec<tree, va_gc> *builtin_decls;
@@ -759,7 +756,10 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
 	    vec_safe_push (builtin_decls, decl);
 	}
       else if (global_bindings_p ())
-	vec_safe_push (global_decls, decl);
+	{
+	  if (TREE_CODE (decl) == TYPE_DECL)
+	    vec_safe_push (type_decls, decl);
+	}
       else
 	{
 	  DECL_CHAIN (decl) = BLOCK_VARS (current_binding_level->block);
@@ -2191,6 +2191,7 @@ copy_type (tree type)
   TYPE_REFERENCE_TO (new_type) = 0;
   TYPE_MAIN_VARIANT (new_type) = new_type;
   TYPE_NEXT_VARIANT (new_type) = 0;
+  TYPE_CANONICAL (new_type) = new_type;
 
   return new_type;
 }
@@ -2428,7 +2429,13 @@ create_var_decl_1 (tree var_name, tree asm_name, tree type, tree var_init,
   if (TREE_CODE (var_decl) == VAR_DECL)
     {
       if (asm_name)
-	SET_DECL_ASSEMBLER_NAME (var_decl, asm_name);
+	{
+	  /* Let the target mangle the name if this isn't a verbatim asm.  */
+	  if (*IDENTIFIER_POINTER (asm_name) != '*')
+	    asm_name = targetm.mangle_decl_assembler_name (var_decl, asm_name);
+
+	  SET_DECL_ASSEMBLER_NAME (var_decl, asm_name);
+	}
 
       if (global_bindings_p ())
 	rest_of_decl_compilation (var_decl, true, 0);
@@ -2902,7 +2909,24 @@ process_deferred_decl_context (bool force)
 static unsigned int
 scale_by_factor_of (tree expr, unsigned int value)
 {
+  unsigned HOST_WIDE_INT addend = 0;
+  unsigned HOST_WIDE_INT factor = 1;
+
+  /* Peel conversions around EXPR and try to extract bodies from function
+     calls: it is possible to get the scale factor from size functions.  */
   expr = remove_conversions (expr, true);
+  if (TREE_CODE (expr) == CALL_EXPR)
+    expr = maybe_inline_call_in_expr (expr);
+
+  /* Sometimes we get PLUS_EXPR (BIT_AND_EXPR (..., X), Y), where Y is a
+     multiple of the scale factor we are looking for.  */
+  if (TREE_CODE (expr) == PLUS_EXPR
+      && TREE_CODE (TREE_OPERAND (expr, 1)) == INTEGER_CST
+      && tree_fits_uhwi_p (TREE_OPERAND (expr, 1)))
+    {
+      addend = TREE_INT_CST_LOW (TREE_OPERAND (expr, 1));
+      expr = TREE_OPERAND (expr, 0);
+    }
 
   /* An expression which is a bitwise AND with a mask has a power-of-2 factor
      corresponding to the number of trailing zeros of the mask.  */
@@ -2915,12 +2939,21 @@ scale_by_factor_of (tree expr, unsigned int value)
       while ((mask & 1) == 0 && i < HOST_BITS_PER_WIDE_INT)
 	{
 	  mask >>= 1;
-	  value *= 2;
+	  factor *= 2;
 	  i++;
 	}
     }
 
-  return value;
+  /* If the addend is not a multiple of the factor we found, give up.  In
+     theory we could find a smaller common factor but it's useless for our
+     needs.  This situation arises when dealing with a field F1 with no
+     alignment requirement but that is following a field F2 with such
+     requirements.  As long as we have F2's offset, we don't need alignment
+     information to compute F1's.  */
+  if (addend % factor != 0)
+    factor = 1;
+
+  return factor * value;
 }
 
 /* Given two consecutive field decls PREV_FIELD and CURR_FIELD, return true
@@ -3047,8 +3080,17 @@ create_subprog_decl (tree subprog_name, tree asm_name, tree subprog_type,
   DECL_BY_REFERENCE (result_decl) = TREE_ADDRESSABLE (subprog_type);
   DECL_RESULT (subprog_decl) = result_decl;
 
+  process_attributes (&subprog_decl, &attr_list, true, gnat_node);
+
+  /* Add this decl to the current binding level.  */
+  gnat_pushdecl (subprog_decl, gnat_node);
+
   if (asm_name)
     {
+      /* Let the target mangle the name if this isn't a verbatim asm.  */
+      if (*IDENTIFIER_POINTER (asm_name) != '*')
+	asm_name = targetm.mangle_decl_assembler_name (subprog_decl, asm_name);
+
       SET_DECL_ASSEMBLER_NAME (subprog_decl, asm_name);
 
       /* The expand_main_function circuitry expects "main_identifier_node" to
@@ -3060,11 +3102,6 @@ create_subprog_decl (tree subprog_name, tree asm_name, tree subprog_type,
       if (asm_name == main_identifier_node)
 	DECL_NAME (subprog_decl) = main_identifier_node;
     }
-
-  process_attributes (&subprog_decl, &attr_list, true, gnat_node);
-
-  /* Add this decl to the current binding level.  */
-  gnat_pushdecl (subprog_decl, gnat_node);
 
   /* Output the assembler code and/or RTL for the declaration.  */
   rest_of_decl_compilation (subprog_decl, global_bindings_p (), 0);
@@ -4092,8 +4129,9 @@ convert (tree type, tree expr)
       CONSTRUCTOR_APPEND_ELT (v, TYPE_FIELDS (type),
 			      build_template (TREE_TYPE (TYPE_FIELDS (type)),
 					      obj_type, NULL_TREE));
-      CONSTRUCTOR_APPEND_ELT (v, DECL_CHAIN (TYPE_FIELDS (type)),
-			      convert (obj_type, expr));
+      if (expr)
+	CONSTRUCTOR_APPEND_ELT (v, DECL_CHAIN (TYPE_FIELDS (type)),
+				convert (obj_type, expr));
       return gnat_build_constructor (type, v);
     }
 
@@ -4699,14 +4737,13 @@ maybe_unconstrained_array (tree exp)
 
       if (TYPE_CONTAINS_TEMPLATE_P (type))
 	{
-	  exp = build_component_ref (exp, NULL_TREE,
-				     DECL_CHAIN (TYPE_FIELDS (type)),
-				     false);
-	  type = TREE_TYPE (exp);
+	  exp = build_simple_component_ref (exp, NULL_TREE,
+					    DECL_CHAIN (TYPE_FIELDS (type)),
+					    false);
 
 	  /* If the array type is padded, convert to the unpadded type.  */
-	  if (TYPE_IS_PADDING_P (type))
-	    exp = convert (TREE_TYPE (TYPE_FIELDS (type)), exp);
+	  if (exp && TYPE_IS_PADDING_P (TREE_TYPE (exp)))
+	    exp = convert (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (exp))), exp);
 	}
       break;
 
@@ -5145,12 +5182,13 @@ smaller_form_type_p (tree type, tree orig_type)
   return tree_int_cst_lt (size, osize) != 0;
 }
 
-/* Perform final processing on global variables.  */
+/* Keep track of types used at the global level and emit debug info
+   for all global types.  */
 
 static GTY (()) tree dummy_global;
 
 void
-gnat_write_global_declarations (void)
+note_types_used_by_globals (void)
 {
   unsigned int i;
   tree iter;
@@ -5179,27 +5217,13 @@ gnat_write_global_declarations (void)
 	}
     }
 
-  /* Output debug information for all global type declarations first.  This
-     ensures that global types whose compilation hasn't been finalized yet,
-     for example pointers to Taft amendment types, have their compilation
-     finalized in the right context.  */
-  FOR_EACH_VEC_SAFE_ELT (global_decls, i, iter)
-    if (TREE_CODE (iter) == TYPE_DECL && !DECL_IGNORED_P (iter))
+  /* Output debug information for all global type declarations.  This ensures
+     that global types whose compilation cannot been finalized earlier, e.g.
+     pointers to Taft amendment types, have their compilation finalized in
+     the right context.  */
+  FOR_EACH_VEC_SAFE_ELT (type_decls, i, iter)
+    if (!DECL_IGNORED_P (iter))
       debug_hooks->type_decl (iter, false);
-
-  /* Proceed to optimize and emit assembly. */
-  symtab->finalize_compilation_unit ();
-
-  /* After cgraph has had a chance to emit everything that's going to
-     be emitted, output debug information for the rest of globals.  */
-  if (!seen_error ())
-    {
-      timevar_push (TV_SYMOUT);
-      FOR_EACH_VEC_SAFE_ELT (global_decls, i, iter)
-	if (TREE_CODE (iter) != TYPE_DECL && !DECL_IGNORED_P (iter))
-	  debug_hooks->global_decl (iter);
-      timevar_pop (TV_SYMOUT);
-    }
 }
 
 /* ************************************************************************

@@ -26,13 +26,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "gfortran.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -4831,7 +4828,7 @@ gfc_emit_parameter_debug_info (gfc_symbol *sym)
 					      TREE_TYPE (decl),
 					      sym->attr.dimension,
 					      false, false);
-  debug_hooks->global_decl (decl);
+  debug_hooks->early_global_decl (decl);
 }
 
 

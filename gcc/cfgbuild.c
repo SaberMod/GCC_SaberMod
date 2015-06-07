@@ -23,13 +23,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "rtl.h"
@@ -47,8 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "except.h"
 #include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -179,7 +174,7 @@ rtl_make_eh_edge (sbitmap edge_cache, basic_block src, rtx insn)
 
   if (lp)
     {
-      rtx label = lp->landing_pad;
+      rtx_insn *label = lp->landing_pad;
 
       /* During initial rtl generation, use the post_landing_pad.  */
       if (label == NULL)

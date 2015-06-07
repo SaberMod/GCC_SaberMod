@@ -21,15 +21,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "machmode.h"
 #include "rtl.h"
 #include "hash-set.h"
 #include "vec.h"
-#include "double-int.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
@@ -46,8 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "hashtab.h"
 #include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -10564,7 +10559,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	      if ((icode = optab_handler (movmisalign_optab, mode))
 		  != CODE_FOR_nothing)
 		{
-		  rtx reg, insn;
+		  rtx reg;
 
 		  op0 = adjust_address (op0, mode, 0);
 		  /* We've already validated the memory, and we're creating a
@@ -10573,7 +10568,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 		  reg = gen_reg_rtx (mode);
 
 		  /* Nor can the insn generator.  */
-		  insn = GEN_FCN (icode) (reg, op0);
+		  rtx_insn *insn = GEN_FCN (icode) (reg, op0);
 		  emit_insn (insn);
 		  return reg;
 		}
