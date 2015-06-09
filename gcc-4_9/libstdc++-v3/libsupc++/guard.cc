@@ -255,6 +255,7 @@ namespace __cxxabiv1
   extern "C"
   int __cxa_guard_acquire (__guard *g) 
   {
+    google_potentially_blocking_region gpbr;  // RAII
 
 #ifdef __GTHREADS
     // If the target can reorder loads, we need to insert a read memory
@@ -262,8 +263,6 @@ namespace __cxxabiv1
     // guard test.
     if (_GLIBCXX_GUARD_TEST_AND_ACQUIRE (g))
       return 0;
-
-    google_potentially_blocking_region gpbr;  // RAII
 
 # ifdef _GLIBCXX_USE_FUTEX
     // If __atomic_* and futex syscall are supported, don't use any global
@@ -356,8 +355,6 @@ namespace __cxxabiv1
 	  }
       }
 # endif
-# else
-    google_potentially_blocking_region gpbr;  // RAII
 #endif
 
     return acquire (g);
