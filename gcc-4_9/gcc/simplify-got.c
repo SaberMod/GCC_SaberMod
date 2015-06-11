@@ -169,7 +169,7 @@ rest_of_handle_simplify_got (void)
 
   /* Since there is no usage of pic_reg now, we can remove it.  */
   if (use)
-    remove_insn (use);
+    delete_insn (use);
   targetm.got_access.clear_pic_reg ();
   free (got_accesses);
   htab_delete (var_table);
