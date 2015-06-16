@@ -1,3 +1,90 @@
+2015-06-12  Michael Matz  <matz@suse.de>
+
+	Backported from mainline
+	2014-10-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/63623
+	* var-tracking.c (stack_adjust_offset_pre_post_cb): New function.
+	(stack_adjust_offset_pre_post): Use it through for_each_inc_dec,
+	instead of only handling autoinc in dest if it is a MEM.
+
+2015-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2014-12-15  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/62642
+	* ira.c (rtx_moveable_p): Prevent UNSPEC_VOLATILE moves.
+
+2015-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/63608
+	Backported from mainline
+	2014-05-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* fold-const (fold_unary_loc) <NON_LVALUE_EXPR>: New case.
+	<CASE_CONVERT>: Pass arg0 instead of op0 to fold_convert_const.
+
+2015-06-11  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_output_global_address): Handle LABEL_REF plus
+	CONST_INT for goto.
+
+2015-06-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR bootstrap/66252
+	* config/sparc/sparc.c (hard_regno_mode_classes): Add ??? comment.
+	* config/sparc/sparc.md (zero_extendsidi2_insn_sp32): Use single order.
+	(*addx_extend_sp32): Fix pasto.
+	(*subx_extend): Rename into...
+	(*subx_extend_sp32): ...this.
+	(*adddi3_extend_sp32): Add earlyclobber.
+	(*subdi3_insn_sp32): Likewise.
+	(*subdi3_extend_sp32): Likewise.
+	(*and_not_di_sp32): Likewise.
+	(*or_not_di_sp32): Likewise.
+	(*xor_not_di_sp32): Likewise.
+	(*negdi2_sp32): Likewise.
+	(*one_cmpldi2_sp32): Likewise.
+
+2015-06-11  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/66503
+	* dwarf2out.c (resolve_addr): Guard backport of PR66549
+	with in_lto_p.
+
+2015-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline:
+	2015-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/66474
+	* doc/md.texi (Machine Constraints): Document that on the PowerPC
+	if you use a constraint that targets a VSX register, you must use
+	%x<n> in the template.
+
+2015-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/66470
+	* config/i386/i386.c (ix86_split_long_move): For collisions
+	involving direct tls segment refs, move the UNSPEC_TP possibly
+	wrapped in ZERO_EXTEND out of the address for lea, to each of
+	the memory loads.
+
+2015-06-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2015-06-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66275
+	* config/i386/i386.c (ix86_function_arg_regno): Use ix86_cfun_abi
+	to determine current function ABI.
+	(ix86_function_value_regno_p): Ditto.
+
+2015-06-08  Venkataramanan Kumar  <venkataramanan.kumar@amd.com>
+
+	* config/i386/sse.md (sse3_mwait): Swap the operand constriants.
+
 2015-06-03  Jakub Jelinek  <jakub@redhat.com>
 
 	Backported from mainline
@@ -14,7 +101,7 @@
 	GIMPLE_OMP_TASK add an EDGE_ABNORMAL edge from entry to exit.
 
 	2015-05-04  Jakub Jelinek  <jakub@redhat.com>
- 
+
 	PR tree-optimization/65984
 	* ubsan.c: Include tree-cfg.h.
 	(instrument_bool_enum_load): Use stmt_ends_bb_p instead of

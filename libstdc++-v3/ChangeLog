@@ -1,3 +1,37 @@
+2015-06-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backport from mainline
+	2015-01-20  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64650
+	* include/experimental/optional (bad_optional_access): Add default
+	constructor.
+	* testsuite/experimental/optional/requirements.cc: Test for default
+	constructor.
+
+2015-06-08  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backported from mainline
+	2015-06-01  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Unset LANGUAGE
+	environment variable.
+
+	PR libstdc++/66354
+	* include/bits/stl_algobase.h (__fill_a): Check length before calling
+	memset.
+
+	PR libstdc++/66327
+	* include/bits/stl_algobase.h (__equal<true>::equal): Do not call
+	memcmp for empty ranges.
+	(__lexicographical_compare<true>::__lc): Likewise.
+
+	Backport from mainline
+	2015-04-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/evolution.xml: Document changes since 4.5 release.
+	* doc/html/*: Regenerate.
+
 2015-06-05  Tim Shen  <timshen@google.com>
 
 	PR libstdc++/66359
