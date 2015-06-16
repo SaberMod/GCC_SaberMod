@@ -1,3 +1,34 @@
+2015-06-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65719
+	* pt.c (tsubst_decl) [VAR_DECL]: Mark namespace-scope
+	variables as DECL_NOT_REALLY_EXTERN.
+
+2015-06-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66445
+	* constexpr.c (potential_constant_expression_1): Handle a
+	DECL_EXPR of TYPE_DECL.
+
+2015-06-11  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* decl.c (cxx_init_decl_processing): Register the main
+	translation unit through the new debug hook.
+
+2015-06-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66387
+	* semantics.c (process_outer_var_ref): Make sure the value is
+	actually constant before returning it.
+	* typeck.c (cp_build_array_ref): Allow subscripting non-lvalue
+	array.
+
+	PR c++/66383
+	* tree.c (replace_placeholders_r): Handle placeholders for an
+	outer object.
+	* typeck2.c (store_init_value): Only replace_placeholders for
+	objects of class type.
+
 2015-06-05  Jason Merrill  <jason@redhat.com>
 
 	PR c++/66405
