@@ -161,12 +161,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
@@ -179,6 +176,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "function.h"
 #include "basic-block.h"
+#include "dominance.h"
+#include "cfgcleanup.h"
+#include "cfg.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
@@ -201,7 +201,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "params.h"
 #include "intl.h"
-#include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -507,6 +506,23 @@ cgraph_node::add_new_function (tree fndecl, bool lowered)
 {
   gcc::pass_manager *passes = g->get_passes ();
   cgraph_node *node;
+
+  if (dump_file)
+    {
+      struct function *fn = DECL_STRUCT_FUNCTION (fndecl);
+      const char *function_type = ((gimple_has_body_p (fndecl))
+				   ? (lowered
+				      ? (gimple_in_ssa_p (fn)
+					 ? "ssa gimple"
+					 : "low gimple")
+				      : "high gimple")
+				   : "to-be-gimplified");
+      fprintf (dump_file,
+	       "Added new %s function %s to callgraph\n",
+	       function_type,
+	       fndecl_name (fndecl));
+    }
+
   switch (symtab->state)
     {
       case PARSING:
@@ -635,7 +651,6 @@ cgraph_node::analyze (void)
 	 body.  */
       if (!gimple_has_body_p (decl))
 	gimplify_function_tree (decl);
-      dump_function (TDI_generic, decl);
 
       /* Lower the function.  */
       if (!lowered)

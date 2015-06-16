@@ -1,3 +1,125 @@
+2015-06-15  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/58583
+	* cp-tree.h (DECL_INSTANTIATING_NSDMI_P): New.
+	* init.c (get_nsdmi): Check for DEFAULT_ARG in template case and
+	protect it from recursive instantiation.
+
+2015-06-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51048
+	* decl2.c (no_linkage_error): Do not issue a permerror if the DECL
+	using a local type is pure virtual.
+
+2015-06-13  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* call.c: Remove comment documenting the long-deleted
+	function build_method_call.
+
+2015-06-13  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/65168
+	* typeck.c (cp_build_binary_op): Warn when comparing an address
+	of a reference against NULL.
+
+2015-06-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65719
+	* pt.c (tsubst_decl) [VAR_DECL]: Mark namespace-scope
+	variables as DECL_NOT_REALLY_EXTERN.
+
+2015-06-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66445
+	* constexpr.c (potential_constant_expression_1): Handle a
+	DECL_EXPR of TYPE_DECL.
+
+	PR c++/66450
+	* constexpr.c (cxx_eval_store_expression): Avoid messing up outer
+	ctx->ctor.
+
+2015-06-11  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* decl.c (cxx_init_decl_processing): Register the main
+	translation unit through the new debug hook.
+
+2015-06-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66289
+	* cp-tree.h (TEMPLATE_DECL_COMPLEX_ALIAS_P): New.
+	* pt.c (push_template_decl_real): Set it.
+	(dependent_alias_template_spec_p): Use it.
+	(dependent_type_p_r): Use dependent_alias_template_spec_p.
+	(uses_all_template_parms_data, uses_all_template_parms_r)
+	(complex_alias_template_p): New.
+	(get_template_parm_index): Handle BOUND_TEMPLATE_TEMPLATE_PARM.
+
+2015-06-09  Jason Merrill  <jason@redhat.com>
+
+	DR 1467
+	PR c++/51747
+	* typeck2.c (digest_init_r): Replace previous change with
+	gcc_unreachable.
+
+	PR c++/66387
+	* semantics.c (process_outer_var_ref): Make sure the value is
+	actually constant before returning it.
+	* typeck.c (cp_build_array_ref): Allow subscripting non-lvalue
+	array.
+
+2015-06-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/65815
+	* typeck2.c (digest_nsdmi_init): On aggregates use reshape_init.
+	* init.c (expand_default_init): Likewise.
+
+2015-06-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66383
+	* tree.c (replace_placeholders_r): Handle placeholders for an
+	outer object.
+	* typeck2.c (store_init_value): Only replace_placeholders for
+	objects of class type.
+
+2015-06-08  Andrew MacLeod  <amacleod@redhat.com>
+
+	* call.c : Adjust include files.
+	* class.c : Likewise.
+	* constexpr.c : Likewise.
+	* cp-array-notation.c : Likewise.
+	* cp-cilkplus.c : Likewise.
+	* cp-gimplify.c : Likewise.
+	* cp-lang.c : Likewise.
+	* cp-objcp-common.c : Likewise.
+	* cp-tree.h : Likewise.
+	* cp-ubsan.c : Likewise.
+	* cvt.c : Likewise.
+	* decl.c : Likewise.
+	* decl2.c : Likewise.
+	* dump.c : Likewise.
+	* error.c : Likewise.
+	* except.c : Likewise.
+	* expr.c : Likewise.
+	* friend.c : Likewise.
+	* init.c : Likewise.
+	* lambda.c : Likewise.
+	* lex.c : Likewise.
+	* mangle.c : Likewise.
+	* method.c : Likewise.
+	* name-lookup.c : Likewise.
+	* optimize.c : Likewise.
+	* parser.c : Likewise.
+	* pt.c : Likewise.
+	* ptree.c : Likewise.
+	* repo.c : Likewise.
+	* rtti.c : Likewise.
+	* search.c : Likewise.
+	* semantics.c : Likewise.
+	* tree.c : Likewise.
+	* typeck.c : Likewise.
+	* typeck2.c : Likewise.
+	* vtable-class-hierarchy.c : Likewise.
+
 2015-06-05  Jason Merrill  <jason@redhat.com>
 
 	PR c++/66405

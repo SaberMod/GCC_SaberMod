@@ -21,15 +21,10 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CP_TREE_H
 #define GCC_CP_TREE_H
 
-#include "ggc.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
-#include "hash-map.h"
 
 /* In order for the format checking to accept the C++ front end
    diagnostic framework extensions, you must include this file before
@@ -160,6 +155,8 @@ c-common.h, not after.
       LABEL_DECL_CONTINUE (in LABEL_DECL)
    2: DECL_THIS_EXTERN (in VAR_DECL or FUNCTION_DECL).
       DECL_IMPLICIT_TYPEDEF_P (in a TYPE_DECL)
+      TEMPLATE_DECL_COMPLEX_ALIAS_P (in TEMPLATE_DECL)
+      DECL_INSTANTIATING_NSDMI_P (in a FIELD_DECL)
    3: DECL_IN_AGGR_P.
    4: DECL_C_BIT_FIELD (in a FIELD_DECL)
       DECL_ANON_UNION_VAR_P (in a VAR_DECL)
@@ -2737,6 +2734,10 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 #define TYPE_DECL_ALIAS_P(NODE) \
   DECL_LANG_FLAG_6 (TYPE_DECL_CHECK (NODE))
 
+/* Nonzero for TEMPLATE_DECL means that it is a 'complex' alias template.  */
+#define TEMPLATE_DECL_COMPLEX_ALIAS_P(NODE) \
+  DECL_LANG_FLAG_2 (TEMPLATE_DECL_CHECK (NODE))
+
 /* Nonzero for a type which is an alias for another type; i.e, a type
    which declaration was written 'using name-of-type =
    another-type'.  */
@@ -3784,6 +3785,11 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    parameter, i.e, a[] rather than *a.  */
 #define DECL_ARRAY_PARAMETER_P(NODE) \
   DECL_LANG_FLAG_1 (PARM_DECL_CHECK (NODE))
+
+/* Nonzero for a FIELD_DECL who's NSMDI is currently being
+   instantiated.  */
+#define DECL_INSTANTIATING_NSDMI_P(NODE) \
+  DECL_LANG_FLAG_2 (FIELD_DECL_CHECK (NODE))
 
 /* Nonzero for FIELD_DECL node means that this field is a base class
    of the parent object, as opposed to a member field.  */

@@ -26,12 +26,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "trans-mem.h"
@@ -46,7 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "c-family/c-objc.h"
 #include "timevar.h"
-#include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
 #include "hard-reg-set.h"
@@ -414,37 +410,6 @@ build_call_a (tree function, int n, tree *argarray)
 
   return function;
 }
-
-/* Build something of the form ptr->method (args)
-   or object.method (args).  This can also build
-   calls to constructors, and find friends.
-
-   Member functions always take their class variable
-   as a pointer.
-
-   INSTANCE is a class instance.
-
-   NAME is the name of the method desired, usually an IDENTIFIER_NODE.
-
-   PARMS help to figure out what that NAME really refers to.
-
-   BASETYPE_PATH, if non-NULL, contains a chain from the type of INSTANCE
-   down to the real instance type to use for access checking.  We need this
-   information to get protected accesses correct.
-
-   FLAGS is the logical disjunction of zero or more LOOKUP_
-   flags.  See cp-tree.h for more info.
-
-   If this is all OK, calls build_function_call with the resolved
-   member function.
-
-   This function must also handle being called to perform
-   initialization, promotion/coercion of arguments, and
-   instantiation of default parameters.
-
-   Note that NAME may refer to an instance variable name.  If
-   `operator()()' is defined for the type of that field, then we return
-   that result.  */
 
 /* New overloading code.  */
 

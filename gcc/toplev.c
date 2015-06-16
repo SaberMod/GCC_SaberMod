@@ -28,11 +28,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "line-map.h"
 #include "input.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
@@ -51,8 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "function.h"
 #include "toplev.h"
-#include "hashtab.h"
-#include "statistics.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -79,7 +74,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hosthooks.h"
 #include "predict.h"
 #include "basic-block.h"
-#include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
@@ -534,6 +528,8 @@ check_global_declaration (tree decl)
 	 to handle multiple external decls in different scopes.  */
       && ! (DECL_NAME (decl) && TREE_USED (DECL_NAME (decl)))
       && ! DECL_EXTERNAL (decl)
+      && ! DECL_ARTIFICIAL (decl)
+      && ! DECL_ABSTRACT_ORIGIN (decl)
       && ! TREE_PUBLIC (decl)
       /* A volatile variable might be used in some non-obvious way.  */
       && ! TREE_THIS_VOLATILE (decl)

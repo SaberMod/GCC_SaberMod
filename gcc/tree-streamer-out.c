@@ -24,12 +24,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "diagnostic.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -43,7 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "is-a.h"
 #include "gimple.h"
-#include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -322,7 +318,8 @@ pack_ts_type_common_value_fields (struct bitpack_d *bp, tree expr)
 {
   bp_pack_machine_mode (bp, TYPE_MODE (expr));
   bp_pack_value (bp, TYPE_STRING_FLAG (expr), 1);
-  bp_pack_value (bp, TYPE_NO_FORCE_BLK (expr), 1);
+  /* TYPE_NO_FORCE_BLK is private to stor-layout and need
+     no streaming.  */
   bp_pack_value (bp, TYPE_NEEDS_CONSTRUCTING (expr), 1);
   if (RECORD_OR_UNION_TYPE_P (expr))
     {

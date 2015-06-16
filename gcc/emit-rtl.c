@@ -37,12 +37,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "diagnostic-core.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
@@ -55,8 +52,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "flags.h"
 #include "stringpool.h"
-#include "hashtab.h"
-#include "statistics.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -5309,43 +5304,6 @@ set_dst_reg_note (rtx insn, enum reg_note kind, rtx datum, rtx dst)
   return NULL_RTX;
 }
 
-/* Return an indication of which type of insn should have X as a body.
-   The value is CODE_LABEL, INSN, CALL_INSN or JUMP_INSN.  */
-
-static enum rtx_code
-classify_insn (rtx x)
-{
-  if (LABEL_P (x))
-    return CODE_LABEL;
-  if (GET_CODE (x) == CALL)
-    return CALL_INSN;
-  if (ANY_RETURN_P (x))
-    return JUMP_INSN;
-  if (GET_CODE (x) == SET)
-    {
-      if (SET_DEST (x) == pc_rtx)
-	return JUMP_INSN;
-      else if (GET_CODE (SET_SRC (x)) == CALL)
-	return CALL_INSN;
-      else
-	return INSN;
-    }
-  if (GET_CODE (x) == PARALLEL)
-    {
-      int j;
-      for (j = XVECLEN (x, 0) - 1; j >= 0; j--)
-	if (GET_CODE (XVECEXP (x, 0, j)) == CALL)
-	  return CALL_INSN;
-	else if (GET_CODE (XVECEXP (x, 0, j)) == SET
-		 && SET_DEST (XVECEXP (x, 0, j)) == pc_rtx)
-	  return JUMP_INSN;
-	else if (GET_CODE (XVECEXP (x, 0, j)) == SET
-		 && GET_CODE (SET_SRC (XVECEXP (x, 0, j))) == CALL)
-	  return CALL_INSN;
-    }
-  return INSN;
-}
-
 /* Emit the rtl pattern X as an appropriate kind of insn.
    If X is a label, it is simply added into the insn chain.  */
 
@@ -6320,20 +6278,17 @@ insn_location (const rtx_insn *insn)
 bool
 need_atomic_barrier_p (enum memmodel model, bool pre)
 {
-  switch (model & MEMMODEL_MASK)
+  switch (model & MEMMODEL_BASE_MASK)
     {
     case MEMMODEL_RELAXED:
     case MEMMODEL_CONSUME:
       return false;
     case MEMMODEL_RELEASE:
-    case MEMMODEL_SYNC_RELEASE:
       return pre;
     case MEMMODEL_ACQUIRE:
-    case MEMMODEL_SYNC_ACQUIRE:
       return !pre;
     case MEMMODEL_ACQ_REL:
     case MEMMODEL_SEQ_CST:
-    case MEMMODEL_SYNC_SEQ_CST:
       return true;
     default:
       gcc_unreachable ();

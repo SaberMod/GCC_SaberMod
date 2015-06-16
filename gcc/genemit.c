@@ -268,6 +268,23 @@ gen_exp (rtx x, enum rtx_code subroutine_type, char *used)
     }
   printf (")");
 }
+
+/* Output code to emit the instruction patterns in VEC, with each element
+   becoming a separate instruction.  USED is as for gen_exp.  */
+
+static void
+gen_emit_seq (rtvec vec, char *used)
+{
+  for (int i = 0, len = GET_NUM_ELEM (vec); i < len; ++i)
+    {
+      rtx next = RTVEC_ELT (vec, i);
+      printf ("  %s (", get_emit_function (next));
+      gen_exp (next, DEFINE_EXPAND, used);
+      printf (");\n");
+      if (needs_barrier_p (next))
+	printf ("  emit_barrier ();");
+    }
+}
 
 /* Generate the `gen_...' function for a DEFINE_INSN.  */
 
@@ -378,27 +395,15 @@ gen_insn (rtx insn, int lineno)
 
   /* Output code to construct and return the rtl for the instruction body.  */
 
-  if (XVECLEN (insn, 1) == 1)
-    {
-      printf ("  return ");
-      gen_exp (XVECEXP (insn, 1, 0), DEFINE_INSN, NULL);
-      printf (";\n}\n\n");
-    }
-  else
-    {
-      char *used = XCNEWVEC (char, stats.num_generator_args);
-
-      printf ("  return gen_rtx_PARALLEL (VOIDmode, gen_rtvec (%d",
-	      XVECLEN (insn, 1));
-
-      for (i = 0; i < XVECLEN (insn, 1); i++)
-	{
-	  printf (",\n\t\t");
-	  gen_exp (XVECEXP (insn, 1, i), DEFINE_INSN, used);
-	}
-      printf ("));\n}\n\n");
-      XDELETEVEC (used);
-    }
+  rtx pattern = add_implicit_parallel (XVEC (insn, 1));
+  /* ??? This is the traditional behavior, but seems suspect.  */
+  char *used = (XVECLEN (insn, 1) == 1
+		? NULL
+		: XCNEWVEC (char, stats.num_generator_args));
+  printf ("  return ");
+  gen_exp (pattern, DEFINE_INSN, used);
+  printf (";\n}\n\n");
+  XDELETEVEC (used);
 }
 
 /* Generate the `gen_...' function for a DEFINE_EXPAND.  */
@@ -487,49 +492,8 @@ gen_expand (rtx expand)
       printf ("  }\n");
     }
 
-  /* Output code to construct the rtl for the instruction bodies.
-     Use emit_insn to add them to the sequence being accumulated.
-     But don't do this if the user's code has set `no_more' nonzero.  */
-
   used = XCNEWVEC (char, stats.num_operand_vars);
-
-  for (i = 0; i < XVECLEN (expand, 1); i++)
-    {
-      rtx next = XVECEXP (expand, 1, i);
-      if ((GET_CODE (next) == SET && GET_CODE (SET_DEST (next)) == PC)
-	  || (GET_CODE (next) == PARALLEL
-	      && ((GET_CODE (XVECEXP (next, 0, 0)) == SET
-		   && GET_CODE (SET_DEST (XVECEXP (next, 0, 0))) == PC)
-		  || ANY_RETURN_P (XVECEXP (next, 0, 0))))
-	  || ANY_RETURN_P (next))
-	printf ("  emit_jump_insn (");
-      else if ((GET_CODE (next) == SET && GET_CODE (SET_SRC (next)) == CALL)
-	       || GET_CODE (next) == CALL
-	       || (GET_CODE (next) == PARALLEL
-		   && GET_CODE (XVECEXP (next, 0, 0)) == SET
-		   && GET_CODE (SET_SRC (XVECEXP (next, 0, 0))) == CALL)
-	       || (GET_CODE (next) == PARALLEL
-		   && GET_CODE (XVECEXP (next, 0, 0)) == CALL))
-	printf ("  emit_call_insn (");
-      else if (LABEL_P (next))
-	printf ("  emit_label (");
-      else if (GET_CODE (next) == MATCH_OPERAND
-	       || GET_CODE (next) == MATCH_DUP
-	       || GET_CODE (next) == MATCH_OPERATOR
-	       || GET_CODE (next) == MATCH_OP_DUP
-	       || GET_CODE (next) == MATCH_PARALLEL
-	       || GET_CODE (next) == MATCH_PAR_DUP
-	       || GET_CODE (next) == PARALLEL)
-	printf ("  emit (");
-      else
-	printf ("  emit_insn (");
-      gen_exp (next, DEFINE_EXPAND, used);
-      printf (");\n");
-      if (GET_CODE (next) == SET && GET_CODE (SET_DEST (next)) == PC
-	  && GET_CODE (SET_SRC (next)) == LABEL_REF)
-	printf ("  emit_barrier ();");
-    }
-
+  gen_emit_seq (XVEC (expand, 1), used);
   XDELETEVEC (used);
 
   /* Call `get_insns' to extract the list of all the
@@ -613,44 +577,7 @@ gen_split (rtx split)
       printf ("  (void) operand%d;\n", i);
     }
 
-  /* Output code to construct the rtl for the instruction bodies.
-     Use emit_insn to add them to the sequence being accumulated.
-     But don't do this if the user's code has set `no_more' nonzero.  */
-
-  for (i = 0; i < XVECLEN (split, 2); i++)
-    {
-      rtx next = XVECEXP (split, 2, i);
-      if ((GET_CODE (next) == SET && GET_CODE (SET_DEST (next)) == PC)
-	  || (GET_CODE (next) == PARALLEL
-	      && GET_CODE (XVECEXP (next, 0, 0)) == SET
-	      && GET_CODE (SET_DEST (XVECEXP (next, 0, 0))) == PC)
-	  || ANY_RETURN_P (next))
-	printf ("  emit_jump_insn (");
-      else if ((GET_CODE (next) == SET && GET_CODE (SET_SRC (next)) == CALL)
-	       || GET_CODE (next) == CALL
-	       || (GET_CODE (next) == PARALLEL
-		   && GET_CODE (XVECEXP (next, 0, 0)) == SET
-		   && GET_CODE (SET_SRC (XVECEXP (next, 0, 0))) == CALL)
-	       || (GET_CODE (next) == PARALLEL
-		   && GET_CODE (XVECEXP (next, 0, 0)) == CALL))
-	printf ("  emit_call_insn (");
-      else if (LABEL_P (next))
-	printf ("  emit_label (");
-      else if (GET_CODE (next) == MATCH_OPERAND
-	       || GET_CODE (next) == MATCH_OPERATOR
-	       || GET_CODE (next) == MATCH_PARALLEL
-	       || GET_CODE (next) == MATCH_OP_DUP
-	       || GET_CODE (next) == MATCH_DUP
-	       || GET_CODE (next) == PARALLEL)
-	printf ("  emit (");
-      else
-	printf ("  emit_insn (");
-      gen_exp (next, GET_CODE (split), used);
-      printf (");\n");
-      if (GET_CODE (next) == SET && GET_CODE (SET_DEST (next)) == PC
-	  && GET_CODE (SET_SRC (next)) == LABEL_REF)
-	printf ("  emit_barrier ();");
-    }
+  gen_emit_seq (XVEC (split, 2), used);
 
   /* Call `get_insns' to make a list of all the
      insns emitted within this gen_... function.  */
@@ -808,28 +735,18 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"system.h\"\n");
   printf ("#include \"coretypes.h\"\n");
   printf ("#include \"tm.h\"\n");
-  printf ("#include \"hash-set.h\"\n");
-  printf ("#include \"machmode.h\"\n");
-  printf ("#include \"vec.h\"\n");
-  printf ("#include \"double-int.h\"\n");
   printf ("#include \"input.h\"\n");
   printf ("#include \"alias.h\"\n");
   printf ("#include \"symtab.h\"\n");
-  printf ("#include \"wide-int.h\"\n");
-  printf ("#include \"inchash.h\"\n");
   printf ("#include \"tree.h\"\n");
   printf ("#include \"varasm.h\"\n");
   printf ("#include \"stor-layout.h\"\n");
   printf ("#include \"calls.h\"\n");
   printf ("#include \"rtl.h\"\n");
   printf ("#include \"tm_p.h\"\n");
-  printf ("#include \"hashtab.h\"\n");
   printf ("#include \"hard-reg-set.h\"\n");
   printf ("#include \"function.h\"\n");
   printf ("#include \"flags.h\"\n");
-  printf ("#include \"statistics.h\"\n");
-  printf ("#include \"real.h\"\n");
-  printf ("#include \"fixed-value.h\"\n");
   printf ("#include \"insn-config.h\"\n");
   printf ("#include \"expmed.h\"\n");
   printf ("#include \"dojump.h\"\n");

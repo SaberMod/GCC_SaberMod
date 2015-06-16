@@ -28,12 +28,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -3144,15 +3141,6 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
 	    return error_mark_node;
 	}
 
-      if (!lvalue_p (array))
-	{
-	  if (complain & tf_error)
-	    pedwarn (loc, OPT_Wpedantic, 
-		     "ISO C++ forbids subscripting non-lvalue array");
-	  else
-	    return error_mark_node;
-	}
-
       /* Note in C++ it is valid to subscript a `register' array, since
 	 it is valid to take the address of something with that
 	 storage specification.  */
@@ -4442,6 +4430,23 @@ cp_build_binary_op (location_t location,
 		warning (OPT_Waddress, "the address of %qD will never be NULL",
 			 TREE_OPERAND (op0, 0));
 	    }
+
+	  if (CONVERT_EXPR_P (op0)
+	      && TREE_CODE (TREE_TYPE (TREE_OPERAND (op0, 0)))
+		 == REFERENCE_TYPE)
+	    {
+	      tree inner_op0 = op0;
+	      STRIP_NOPS (inner_op0);
+
+	      if ((complain & tf_warning)
+		  && c_inhibit_evaluation_warnings == 0
+		  && !TREE_NO_WARNING (op0)
+		  && DECL_P (inner_op0))
+		warning_at (location, OPT_Waddress,
+			    "the compiler can assume that the address of "
+			    "%qD will never be NULL",
+			    inner_op0);
+	    }
 	}
       else if (((code1 == POINTER_TYPE || TYPE_PTRDATAMEM_P (type1))
 		&& null_ptr_cst_p (op0))
@@ -4463,6 +4468,23 @@ cp_build_binary_op (location_t location,
 		  && !TREE_NO_WARNING (op1))
 		warning (OPT_Waddress, "the address of %qD will never be NULL",
 			 TREE_OPERAND (op1, 0));
+	    }
+
+	  if (CONVERT_EXPR_P (op1)
+	      && TREE_CODE (TREE_TYPE (TREE_OPERAND (op1, 0)))
+		 == REFERENCE_TYPE)
+	    {
+	      tree inner_op1 = op1;
+	      STRIP_NOPS (inner_op1);
+
+	      if ((complain & tf_warning)
+		  && c_inhibit_evaluation_warnings == 0
+		  && !TREE_NO_WARNING (op1)
+		  && DECL_P (inner_op1))
+		warning_at (location, OPT_Waddress,
+			    "the compiler can assume that the address of "
+			    "%qD will never be NULL",
+			    inner_op1);
 	    }
 	}
       else if ((code0 == POINTER_TYPE && code1 == POINTER_TYPE)

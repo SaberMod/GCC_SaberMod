@@ -21,13 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef hash_map_h
 #define hash_map_h
 
-#include <new>
-#include <utility>
-#include "hash-table.h"
-#include "hash-map-traits.h"
-#include "mem-stats.h"
-#include "vec.h"
-
 template<typename Key, typename Value,
 	 typename Traits>
 class GTY((user)) hash_map
@@ -114,7 +107,7 @@ class GTY((user)) hash_map
 public:
   explicit hash_map (size_t n = 13, bool ggc = false,
 		     bool gather_mem_stats = true CXX_MEM_STAT_INFO)
-    : m_table (n, ggc, gather_mem_stats, HASH_MAP PASS_MEM_STAT) {}
+    : m_table (n, ggc, gather_mem_stats, HASH_MAP_ORIGIN PASS_MEM_STAT) {}
 
   /* Create a hash_map in ggc memory.  */
   static hash_map *create_ggc (size_t size, bool gather_mem_stats = true

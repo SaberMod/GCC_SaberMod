@@ -29,12 +29,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "conditions.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -44,9 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "dbxout.h"
 #include "except.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -57,7 +52,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "reload.h"
 #include "diagnostic-core.h"
-#include "ggc.h"
 #include "recog.h"
 #include "predict.h"
 #include "tm_p.h"
@@ -5461,6 +5455,7 @@ pa_output_global_address (FILE *file, rtx x, int round_constant)
 
       switch (GET_CODE (XEXP (XEXP (x, 0), 0)))
 	{
+	case LABEL_REF:
 	case SYMBOL_REF:
 	  base = XEXP (XEXP (x, 0), 0);
 	  output_addr_const (file, base);
@@ -5474,6 +5469,7 @@ pa_output_global_address (FILE *file, rtx x, int round_constant)
 
       switch (GET_CODE (XEXP (XEXP (x, 0), 1)))
 	{
+	case LABEL_REF:
 	case SYMBOL_REF:
 	  base = XEXP (XEXP (x, 0), 1);
 	  output_addr_const (file, base);

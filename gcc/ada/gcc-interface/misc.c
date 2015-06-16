@@ -29,7 +29,6 @@
 #include "opts.h"
 #include "options.h"
 #include "tm.h"
-#include "hash-set.h"
 #include "vec.h"
 #include "input.h"
 #include "alias.h"
@@ -49,10 +48,7 @@
 #include "langhooks-def.h"
 #include "plugin.h"
 #include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"	/* For pass_by_reference.  */
 #include "dwarf2out.h"
 

@@ -30,13 +30,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "double-int.h"
 #include "real.h"
 #include "fixed-value.h"
+#include "statistics.h"
+#include "vec.h"
+#include "hash-table.h"
+#include "hash-set.h"
 #endif  /* GENERATOR_FILE */
 
-#include "statistics.h"
 #include "input.h"
-#include "vec.h"
 #include "alias.h"
-#include "hashtab.h"
 #include "flags.h"
 #include "is-a.h"
 
@@ -2665,6 +2666,7 @@ extern rtvec rtvec_alloc (int);
 extern rtvec shallow_copy_rtvec (rtvec);
 extern bool shared_const_p (const_rtx);
 extern rtx copy_rtx (rtx);
+extern enum rtx_code classify_insn (rtx);
 extern void dump_rtx_statistics (void);
 
 /* In emit-rtl.c */

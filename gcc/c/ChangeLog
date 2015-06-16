@@ -1,3 +1,27 @@
+2015-06-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR middle-end/66325
+	* c-decl.c (start_enum): Set TYPE_PACKED consistently among type
+	variants.
+
+2015-06-11  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* c-decl.c (pop_scope): Register the main translation unit
+	through the new debug hook.
+
+2015-06-08  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-array-notation.c : Adjust include files.
+	* c-aux-info.c : Likewise.
+	* c-convert.c : Likewise.
+	* c-decl.c : Likewise.
+	* c-errors.c : Likewise.
+	* c-lang.c : Likewise.
+	* c-lang.h : Likewise.
+	* c-objc-common.c : Likewise.
+	* c-parser.c : Likewise.
+	* c-typeck.c : Likewise.
+
 2015-06-05  Aldy Hernandez  <aldyh@redhat.com>
 
 	* c-decl.c (finish_struct): Save C_TYPE_INCOMPLETE_VARS and

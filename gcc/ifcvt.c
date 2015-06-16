@@ -24,9 +24,6 @@
 
 #include "rtl.h"
 #include "regs.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "hard-reg-set.h"
 #include "input.h"
 #include "function.h"
@@ -42,9 +39,7 @@
 #include "cfgcleanup.h"
 #include "basic-block.h"
 #include "symtab.h"
-#include "statistics.h"
 #include "alias.h"
-#include "inchash.h"
 #include "tree.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -1222,7 +1217,7 @@ noce_try_store_flag_constants (struct noce_if_info *if_info)
 
       if (reversep)
 	{
-	  tmp = itrue; itrue = ifalse; ifalse = tmp;
+	  std::swap (itrue, ifalse);
 	  diff = trunc_int_for_mode (-(unsigned HOST_WIDE_INT) diff, mode);
 	}
 
@@ -1684,11 +1679,9 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
 
       if (reversep)
 	{
-	  rtx tmp;
-	  rtx_insn *tmp_insn;
 	  code = reversed_comparison_code (if_info->cond, if_info->jump);
-	  tmp = a, a = b, b = tmp;
-	  tmp_insn = insn_a, insn_a = insn_b, insn_b = tmp_insn;
+	  std::swap (a, b);
+	  std::swap (insn_a, insn_b);
 	}
     }
 
@@ -1870,9 +1863,7 @@ noce_get_alt_condition (struct noce_if_info *if_info, rtx target,
 
 	      if (CONST_INT_P (op_a))
 		{
-		  rtx tmp = op_a;
-		  op_a = op_b;
-		  op_b = tmp;
+		  std::swap (op_a, op_b);
 		  code = swap_condition (code);
 		}
 	    }

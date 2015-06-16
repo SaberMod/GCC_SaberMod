@@ -21,18 +21,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "inchash.h"
 #include "tree.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "c-family/c-common.h"
-#include "ggc.h"
 #include "target.h"
 #include "target-def.h"
 #include "cpplib.h"
@@ -429,6 +425,8 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__PCOMMIT__");
   if (isa_flag & OPTION_MASK_ISA_CLWB)
     def_or_undef (parse_in, "__CLWB__");
+  if (isa_flag & OPTION_MASK_ISA_MWAITX)
+    def_or_undef (parse_in, "__MWAITX__");
 }
 
 

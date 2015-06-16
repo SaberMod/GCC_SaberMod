@@ -44,17 +44,12 @@ AT&T C compiler.  From the example below I would conclude the following:
 #include "coretypes.h"
 #include "tm.h"
 #include "debug.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "varasm.h"
 #include "stor-layout.h"
-#include "ggc.h"
-#include "vec.h"
 
 static GTY(()) tree anonymous_types;
 
@@ -301,6 +296,7 @@ const struct gcc_debug_hooks sdb_debug_hooks =
   sdbout_end_epilogue,		         /* end_epilogue */
   sdbout_begin_function,	         /* begin_function */
   sdbout_end_function,		         /* end_function */
+  debug_nothing_tree,		         /* register_main_translation_unit */
   debug_nothing_tree,		         /* function_decl */
   sdbout_early_global_decl,		 /* early_global_decl */
   sdbout_late_global_decl,		 /* late_global_decl */

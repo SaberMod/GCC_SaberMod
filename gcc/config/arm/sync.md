@@ -50,14 +50,11 @@
   {
     if (TARGET_HAVE_DMB)
       {
-	/* Note we issue a system level barrier. We should consider issuing
-	   a inner shareabilty zone barrier here instead, ie. "DMB ISH".  */
-	/* ??? Differentiate based on SEQ_CST vs less strict?  */
-	return "dmb\tsy";
+	return "dmb\\tish";
       }
 
     if (TARGET_HAVE_DMB_MCR)
-      return "mcr\tp15, 0, r0, c7, c10, 5";
+      return "mcr\\tp15, 0, r0, c7, c10, 5";
 
     gcc_unreachable ();
   }
@@ -75,11 +72,12 @@
   {
     enum memmodel model = memmodel_from_int (INTVAL (operands[2]));
     if (is_mm_relaxed (model) || is_mm_consume (model) || is_mm_release (model))
-      return \"ldr<sync_sfx>\\t%0, %1\";
+      return \"ldr%(<sync_sfx>%)\\t%0, %1\";
     else
-      return \"lda<sync_sfx>\\t%0, %1\";
+      return \"lda<sync_sfx>%?\\t%0, %1\";
   }
-)
+  [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")])
 
 (define_insn "atomic_store<mode>"
   [(set (match_operand:QHSI 0 "memory_operand" "=Q")
@@ -91,11 +89,12 @@
   {
     enum memmodel model = memmodel_from_int (INTVAL (operands[2]));
     if (is_mm_relaxed (model) || is_mm_consume (model) || is_mm_acquire (model))
-      return \"str<sync_sfx>\t%1, %0\";
+      return \"str%(<sync_sfx>%)\t%1, %0\";
     else
-      return \"stl<sync_sfx>\t%1, %0\";
+      return \"stl<sync_sfx>%?\t%1, %0\";
   }
-)
+  [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")])
 
 ;; Note that ldrd and vldr are *not* guaranteed to be single-copy atomic,
 ;; even for a 64-bit aligned address.  Instead we use a ldrexd unparied

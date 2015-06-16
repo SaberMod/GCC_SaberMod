@@ -28,11 +28,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "line-map.h"
 #include "input.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
@@ -48,8 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "function.h"
 #include "toplev.h"
-#include "hashtab.h"
-#include "statistics.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -90,7 +85,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "tree-dump.h"
 #include "df.h"
-#include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -100,6 +94,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h" /* for dump_function_header */
 #include "context.h"
 #include "pass_manager.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
 #include "tree-ssa-live.h"  /* For remove_unused_locals.  */
 #include "tree-cfgcleanup.h"
 
@@ -335,7 +332,7 @@ rest_of_decl_compilation (tree decl,
       */
       && !decl_function_context (decl)
       && !current_function_decl
-
+      && DECL_SOURCE_LOCATION (decl) != BUILTINS_LOCATION
       && !decl_type_context (decl))
     (*debug_hooks->early_global_decl) (decl);
 }

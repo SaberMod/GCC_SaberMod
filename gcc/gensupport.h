@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 struct obstack;
 extern struct obstack *rtl_obstack;
 
+extern rtx add_implicit_parallel (rtvec);
 extern bool init_rtx_reader_args_cb (int, char **, bool (*)(const char *));
 extern bool init_rtx_reader_args (int, char **);
 extern rtx read_md_rtx (int *, int *);
@@ -110,5 +111,7 @@ struct pattern_stats
 
 extern void get_pattern_stats (struct pattern_stats *ranges, rtvec vec);
 extern void compute_test_codes (rtx, int, char *);
+extern const char *get_emit_function (rtx);
+extern bool needs_barrier_p (rtx);
 
 #endif /* GCC_GENSUPPORT_H */

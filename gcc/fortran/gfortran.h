@@ -52,7 +52,6 @@ not after.
 #include "intl.h"
 #include "input.h"
 #include "splay-tree.h"
-#include "vec.h"
 
 /* Major control parameters.  */
 
@@ -2396,6 +2395,9 @@ typedef struct gfc_code
     {
       gfc_typespec ts;
       gfc_alloc *list;
+      /* Take the array specification from expr3 to allocate arrays
+	 without an explicit array specification.  */
+      unsigned arr_spec_from_expr3:1;
     }
     alloc;
 

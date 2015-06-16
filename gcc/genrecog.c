@@ -112,8 +112,6 @@
 #include "errors.h"
 #include "read-md.h"
 #include "gensupport.h"
-#include "hash-table.h"
-#include "inchash.h"
 #include <algorithm>
 
 #undef GENERATOR_FILE
@@ -5185,22 +5183,6 @@ print_subroutine_group (output_state *os, routine_type type, state *root)
     }
   /* Output the main routine.  */
   print_subroutine (os, root, 0);
-}
-
-/* Return the rtx pattern specified by the list of rtxes in a
-   define_insn or define_split.  */
-
-static rtx
-add_implicit_parallel (rtvec vec)
-{
-  if (GET_NUM_ELEM (vec) == 1)
-    return RTVEC_ELT (vec, 0);
-  else
-    {
-      rtx pattern = rtx_alloc (PARALLEL);
-      XVEC (pattern, 0) = vec;
-      return pattern;
-    }
 }
 
 /* Return the rtx pattern for the list of rtxes in a define_peephole2.  */

@@ -30,12 +30,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "tree-hasher.h"
 #include "stringpool.h"
@@ -50,7 +47,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "decl.h"
 #include "intl.h"
 #include "toplev.h"
-#include "hashtab.h"
 #include "tm_p.h"
 #include "target.h"
 #include "c-family/c-common.h"
@@ -64,7 +60,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "splay-tree.h"
 #include "plugin.h"
-#include "hash-map.h"
 #include "is-a.h"
 #include "plugin-api.h"
 #include "hard-reg-set.h"
@@ -3836,6 +3831,8 @@ cxx_init_decl_processing (void)
   global_namespace = build_lang_decl (NAMESPACE_DECL, global_scope_name,
 				      void_type_node);
   DECL_CONTEXT (global_namespace) = build_translation_unit_decl (NULL_TREE);
+  debug_hooks->register_main_translation_unit
+    (DECL_CONTEXT (global_namespace));
   TREE_PUBLIC (global_namespace) = 1;
   begin_scope (sk_namespace, global_namespace);
 

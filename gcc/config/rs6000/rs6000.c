@@ -31,12 +31,9 @@
 #include "flags.h"
 #include "recog.h"
 #include "obstack.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -44,9 +41,7 @@
 #include "calls.h"
 #include "print-tree.h"
 #include "varasm.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -69,7 +64,6 @@
 #include "basic-block.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -78,7 +72,6 @@
 #include "reload.h"
 #include "cfgloop.h"
 #include "sched-int.h"
-#include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
@@ -96,7 +89,6 @@
 #include "opts.h"
 #include "tree-vectorizer.h"
 #include "dumpfile.h"
-#include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -20566,15 +20558,12 @@ rs6000_pre_atomic_barrier (rtx mem, enum memmodel model)
     case MEMMODEL_RELAXED:
     case MEMMODEL_CONSUME:
     case MEMMODEL_ACQUIRE:
-    case MEMMODEL_SYNC_ACQUIRE:
       break;
     case MEMMODEL_RELEASE:
-    case MEMMODEL_SYNC_RELEASE:
     case MEMMODEL_ACQ_REL:
       emit_insn (gen_lwsync ());
       break;
     case MEMMODEL_SEQ_CST:
-    case MEMMODEL_SYNC_SEQ_CST:
       emit_insn (gen_hwsync ());
       break;
     default:
@@ -20591,13 +20580,10 @@ rs6000_post_atomic_barrier (enum memmodel model)
     case MEMMODEL_RELAXED:
     case MEMMODEL_CONSUME:
     case MEMMODEL_RELEASE:
-    case MEMMODEL_SYNC_RELEASE:
       break;
     case MEMMODEL_ACQUIRE:
-    case MEMMODEL_SYNC_ACQUIRE:
     case MEMMODEL_ACQ_REL:
     case MEMMODEL_SEQ_CST:
-    case MEMMODEL_SYNC_SEQ_CST:
       emit_insn (gen_isync ());
       break;
     default:
@@ -20698,8 +20684,8 @@ rs6000_expand_atomic_compare_and_swap (rtx operands[])
   oldval = operands[3];
   newval = operands[4];
   is_weak = (INTVAL (operands[5]) != 0);
-  mod_s = memmodel_from_int (INTVAL (operands[6]));
-  mod_f = memmodel_from_int (INTVAL (operands[7]));
+  mod_s = memmodel_base (INTVAL (operands[6]));
+  mod_f = memmodel_base (INTVAL (operands[7]));
   orig_mode = mode = GET_MODE (mem);
 
   mask = shift = NULL_RTX;
@@ -20818,7 +20804,7 @@ rs6000_expand_atomic_exchange (rtx operands[])
   retval = operands[0];
   mem = operands[1];
   val = operands[2];
-  model = (enum memmodel) INTVAL (operands[3]);
+  model = memmodel_base (INTVAL (operands[3]));
   mode = GET_MODE (mem);
 
   mask = shift = NULL_RTX;
@@ -20869,7 +20855,7 @@ void
 rs6000_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
 			 rtx orig_before, rtx orig_after, rtx model_rtx)
 {
-  enum memmodel model = (enum memmodel) INTVAL (model_rtx);
+  enum memmodel model = memmodel_base (INTVAL (model_rtx));
   machine_mode mode = GET_MODE (mem);
   machine_mode store_mode = mode;
   rtx label, x, cond, mask, shift;

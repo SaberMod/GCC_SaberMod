@@ -1,3 +1,45 @@
+2015-06-11  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* gcc-interface/utils.c (get_global_context): Register the main
+	translation unit through the new debug hook.
+
+2015-06-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/misc.c: Remove duplicate include directives.
+	* gcc-interface/trans.c: Likewise.
+	* gcc-interface/utils.c: Likewise.
+
+2015-06-08  Andrew MacLeod  <amacleod@redhat.com>
+
+	* gcc-interface/cuintp.c : Adjust include files.
+	* gcc-interface/decl.c : Likewise.
+	* gcc-interface/misc.c : Likewise.
+	* gcc-interface/targtyps.c : Likewise.
+	* gcc-interface/trans.c : Likewise.
+	* gcc-interface/utils.c : Likewise.
+	* gcc-interface/utils2.c : Likewise.
+	
+2015-06-08  John Marino  <gnugcc@marino.st>
+
+	* a-intnam-dragonfly.ads: New.
+	* s-osinte-dragonfly.adb: Likewise.
+	* s-osinte-dragonfly.ads: Likewise.
+	* system-dragonfly-x86_64.ads: Likewise.
+	* adaint.c: Add BSD macros.
+	* cstreams.c: Likewise.
+	* gsocket.h: Likewise.
+	* link.c: Likewise.
+	* socket.c: Likewise.
+	* env.c: Add __DragonFly__, remove __FreeBSD__ macro.
+	* init.c: Add __DragonFly__, change __gnat_install_handler
+	prototype from empty to void.
+	* initialize.c: Add __DragonFly__.
+	* sysdep.c: Likewise.
+	* s-osinte-freebsd.adb: Use __get_errno instead of __error.
+	* tracebak.c: Set unwinder for i386 BSD.
+	* gcc-interface/Makefile.in: Add x86_64 DragonFly, tweak
+	x86_64 FreeBSD and x86 FreeBSD.
+
 2015-06-06  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gcc-interface/utils.c (note_types_used_by_globals): Tweak comment.

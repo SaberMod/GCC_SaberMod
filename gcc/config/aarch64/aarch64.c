@@ -25,12 +25,9 @@
 #include "insn-codes.h"
 #include "rtl.h"
 #include "insn-attr.h"
-#include "hash-set.h"
-#include "vec.h"
 #include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -50,10 +47,8 @@
 #include "df.h"
 #include "hard-reg-set.h"
 #include "output.h"
-#include "hashtab.h"
 #include "function.h"
 #include "flags.h"
-#include "statistics.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -66,12 +61,10 @@
 #include "target.h"
 #include "target-def.h"
 #include "targhooks.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "recog.h"
 #include "langhooks.h"
 #include "diagnostic-core.h"
-#include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
@@ -7435,16 +7428,13 @@ aarch64_valid_floating_const (machine_mode mode, rtx x)
   if (!CONST_DOUBLE_P (x))
     return false;
 
-  /* TODO: We could handle moving 0.0 to a TFmode register,
-     but first we would like to refactor the movtf_aarch64
-     to be more amicable to split moves properly and
-     correctly gate on TARGET_SIMD.  For now - reject all
-     constants which are not to SFmode or DFmode registers.  */
+  if (aarch64_float_const_zero_rtx_p (x))
+    return true;
+
+  /* We only handle moving 0.0 to a TFmode register.  */
   if (!(mode == SFmode || mode == DFmode))
     return false;
 
-  if (aarch64_float_const_zero_rtx_p (x))
-    return true;
   return aarch64_float_const_representable_p (x);
 }
 
@@ -8908,9 +8898,9 @@ aarch64_simd_lane_bounds (rtx operand, HOST_WIDE_INT low, HOST_WIDE_INT high,
   if (lane < low || lane >= high)
   {
     if (exp)
-      error ("%Klane %ld out of range %ld - %ld", exp, lane, low, high - 1);
+      error ("%Klane %wd out of range %wd - %wd", exp, lane, low, high - 1);
     else
-      error ("lane %ld out of range %ld - %ld", lane, low, high - 1);
+      error ("lane %wd out of range %wd - %wd", lane, low, high - 1);
   }
 }
 
