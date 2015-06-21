@@ -3846,6 +3846,8 @@ cxx_init_decl_processing (void)
   global_namespace = build_lang_decl (NAMESPACE_DECL, global_scope_name,
 				      void_type_node);
   DECL_CONTEXT (global_namespace) = build_translation_unit_decl (NULL_TREE);
+  debug_hooks->register_main_translation_unit
+    (DECL_CONTEXT (global_namespace));
   TREE_PUBLIC (global_namespace) = 1;
   begin_scope (sk_namespace, global_namespace);
 
@@ -8234,13 +8236,6 @@ build_ptrmemfunc_type (tree type)
   if (type == error_mark_node)
     return type;
 
-  /* If a canonical type already exists for this type, use it.  We use
-     this method instead of type_hash_canon, because it only does a
-     simple equality check on the list of field members.  */
-
-  if ((t = TYPE_GET_PTRMEMFUNC_TYPE (type)))
-    return t;
-
   /* Make sure that we always have the unqualified pointer-to-member
      type first.  */
   if (cp_cv_quals quals = cp_type_quals (type))
@@ -8248,6 +8243,13 @@ build_ptrmemfunc_type (tree type)
       tree unqual = build_ptrmemfunc_type (TYPE_MAIN_VARIANT (type));
       return cp_build_qualified_type (unqual, quals);
     }
+
+  /* If a canonical type already exists for this type, use it.  We use
+     this method instead of type_hash_canon, because it only does a
+     simple equality check on the list of field members.  */
+
+  if ((t = TYPE_GET_PTRMEMFUNC_TYPE (type)))
+    return t;
 
   t = make_node (RECORD_TYPE);
 
