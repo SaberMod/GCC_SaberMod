@@ -22,6 +22,10 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_GRAPHITE_POLY_H
 #define GCC_GRAPHITE_POLY_H
 
+#include <isl/constraint.h>
+#include <isl/set.h>
+#include <isl/map.h>
+
 typedef struct poly_dr *poly_dr_p;
 
 typedef struct poly_bb *poly_bb_p;
