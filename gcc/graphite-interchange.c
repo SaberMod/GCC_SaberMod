@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include <isl/union_map.h>
 #include <isl/ilp.h>
 #include <isl/val.h>
+#include <isl/constraint.h>
 
 /* Since ISL-0.13, the extern is in val_gmp.h.  */
 #if !defined(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE) && defined(__cplusplus)
