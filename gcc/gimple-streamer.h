@@ -22,13 +22,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_GIMPLE_STREAMER_H
 #define GCC_GIMPLE_STREAMER_H
 
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "lto-streamer.h"
 

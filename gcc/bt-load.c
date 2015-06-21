@@ -27,20 +27,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "regs.h"
 #include "target.h"
 #include "symtab.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "flags.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -443,7 +432,7 @@ note_btr_set (rtx dest, const_rtx set ATTRIBUTE_UNUSED, void *data)
   if (!REG_P (dest))
     return;
   regno = REGNO (dest);
-  end_regno = END_HARD_REGNO (dest);
+  end_regno = END_REGNO (dest);
   for (; regno < end_regno; regno++)
     if (TEST_HARD_REG_BIT (all_btrs, regno))
       {
@@ -1212,7 +1201,7 @@ move_btr_def (basic_block new_def_bb, int btr, btr_def def, bitmap live_range,
   btr_mode = GET_MODE (SET_DEST (set));
   btr_rtx = gen_rtx_REG (btr_mode, btr);
 
-  new_insn = as_a <rtx_insn *> (gen_move_insn (btr_rtx, src));
+  new_insn = gen_move_insn (btr_rtx, src);
 
   /* Insert target register initialization at head of basic block.  */
   def->insn = emit_insn_after (new_insn, insp);

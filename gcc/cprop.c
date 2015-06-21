@@ -24,15 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "toplev.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "tm_p.h"
 #include "regs.h"
@@ -41,7 +34,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "recog.h"
 #include "predict.h"
-#include "hashtab.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -50,9 +42,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "lcm.h"
 #include "cfgcleanup.h"
 #include "basic-block.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -63,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "except.h"
 #include "params.h"
+#include "alloc-pool.h"
 #include "cselib.h"
 #include "intl.h"
 #include "obstack.h"
@@ -765,12 +755,37 @@ try_replace_reg (rtx from, rtx to, rtx_insn *insn)
   int success = 0;
   rtx set = single_set (insn);
 
+  bool check_rtx_costs = true;
+  bool speed = optimize_bb_for_speed_p (BLOCK_FOR_INSN (insn));
+  int old_cost = set ? set_rtx_cost (set, speed) : 0;
+
+  if ((note != 0
+      && REG_NOTE_KIND (note) == REG_EQUAL
+      && (GET_CODE (XEXP (note, 0)) == CONST
+	  || CONSTANT_P (XEXP (note, 0))))
+      || (set && CONSTANT_P (SET_SRC (set))))
+    check_rtx_costs = false;
+
   /* Usually we substitute easy stuff, so we won't copy everything.
      We however need to take care to not duplicate non-trivial CONST
      expressions.  */
   to = copy_rtx (to);
 
   validate_replace_src_group (from, to, insn);
+
+  /* If TO is a constant, check the cost of the set after propagation
+     to the cost of the set before the propagation.  If the cost is
+     higher, then do not replace FROM with TO.  */
+
+  if (check_rtx_costs
+      && CONSTANT_P (to)
+      && (set_rtx_cost (set, speed) > old_cost))
+    {
+      cancel_changes (0);
+      return false;
+    }
+
+
   if (num_changes_pending () && apply_change_group ())
     success = 1;
 

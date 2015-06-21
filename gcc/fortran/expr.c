@@ -2841,6 +2841,18 @@ check_references (gfc_ref* ref, bool (*checker) (gfc_expr*))
   return check_references (ref->next, checker);
 }
 
+/*  Return true if ns is a parent of the current ns.  */
+
+static bool
+is_parent_of_current_ns (gfc_namespace *ns)
+{
+  gfc_namespace *p;
+  for (p = gfc_current_ns->parent; p; p = p->parent)
+    if (ns == p)
+      return true;
+
+  return false;
+}
 
 /* Verify that an expression is a restricted expression.  Like its
    cousin check_init_expr(), an error message is generated if we
@@ -2929,9 +2941,7 @@ check_restricted (gfc_expr *e)
 	    || sym->attr.dummy
 	    || sym->attr.implied_index
 	    || sym->attr.flavor == FL_PARAMETER
-	    || (sym->ns && sym->ns == gfc_current_ns->parent)
-	    || (sym->ns && gfc_current_ns->parent
-		  && sym->ns == gfc_current_ns->parent->parent)
+	    || is_parent_of_current_ns (sym->ns)
 	    || (sym->ns->proc_name != NULL
 		  && sym->ns->proc_name->attr.flavor == FL_MODULE)
 	    || (gfc_is_formal_arg () && (sym->ns == gfc_current_ns)))
@@ -3118,19 +3128,22 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
 	bad_proc = true;
 
       /* (ii) The assignment is in the main program; or  */
-      if (gfc_current_ns->proc_name->attr.is_main_program)
+      if (gfc_current_ns->proc_name
+	  && gfc_current_ns->proc_name->attr.is_main_program)
 	bad_proc = true;
 
       /* (iii) A module or internal procedure...  */
-      if ((gfc_current_ns->proc_name->attr.proc == PROC_INTERNAL
-	   || gfc_current_ns->proc_name->attr.proc == PROC_MODULE)
+      if (gfc_current_ns->proc_name
+	  && (gfc_current_ns->proc_name->attr.proc == PROC_INTERNAL
+	      || gfc_current_ns->proc_name->attr.proc == PROC_MODULE)
 	  && gfc_current_ns->parent
 	  && (!(gfc_current_ns->parent->proc_name->attr.function
 		|| gfc_current_ns->parent->proc_name->attr.subroutine)
 	      || gfc_current_ns->parent->proc_name->attr.is_main_program))
 	{
 	  /* ... that is not a function...  */
-	  if (!gfc_current_ns->proc_name->attr.function)
+	  if (gfc_current_ns->proc_name
+	      && !gfc_current_ns->proc_name->attr.function)
 	    bad_proc = true;
 
 	  /* ... or is not an entry and has a different name.  */
@@ -3231,55 +3244,6 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
 		       ". This check can be disabled with the option "
 		       "%<-fno-range-check%>", &rvalue->where);
 	  return false;
-	}
-    }
-
-  /*  Warn about type-changing conversions for REAL or COMPLEX constants.
-      If lvalue and rvalue are mixed REAL and complex, gfc_compare_types
-      will warn anyway, so there is no need to to so here.  */
-
-  if (rvalue->expr_type == EXPR_CONSTANT && lvalue->ts.type == rvalue->ts.type
-      && (lvalue->ts.type == BT_REAL || lvalue->ts.type == BT_COMPLEX))
-    {
-      if (lvalue->ts.kind < rvalue->ts.kind && warn_conversion)
-	{
-	  /* As a special bonus, don't warn about REAL rvalues which are not
-	     changed by the conversion if -Wconversion is specified.  */
-	  if (rvalue->ts.type == BT_REAL && mpfr_number_p (rvalue->value.real))
-	    {
-	      /* Calculate the difference between the constant and the rounded
-		 value and check it against zero.  */
-	      mpfr_t rv, diff;
-	      gfc_set_model_kind (lvalue->ts.kind);
-	      mpfr_init (rv);
-	      gfc_set_model_kind (rvalue->ts.kind);
-	      mpfr_init (diff);
-
-	      mpfr_set (rv, rvalue->value.real, GFC_RND_MODE);
-	      mpfr_sub (diff, rv, rvalue->value.real, GFC_RND_MODE);
-
-	      if (!mpfr_zero_p (diff))
-		gfc_warning (OPT_Wconversion, 
-			     "Change of value in conversion from "
-			     " %qs to %qs at %L", gfc_typename (&rvalue->ts),
-			     gfc_typename (&lvalue->ts), &rvalue->where);
-
-	      mpfr_clear (rv);
-	      mpfr_clear (diff);
-	    }
-	  else
-	    gfc_warning (OPT_Wconversion,
-			 "Possible change of value in conversion from %qs "
-			 "to %qs at %L", gfc_typename (&rvalue->ts),
-			 gfc_typename (&lvalue->ts), &rvalue->where);
-
-	}
-      else if (warn_conversion_extra && lvalue->ts.kind > rvalue->ts.kind)
-	{
-	  gfc_warning (OPT_Wconversion_extra,
-		       "Conversion from %qs to %qs at %L",
-		       gfc_typename (&rvalue->ts),
-		       gfc_typename (&lvalue->ts), &rvalue->where);
 	}
     }
 
@@ -4981,7 +4945,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
       if (!gfc_check_vardef_context (assoc->target, pointer, false, false, NULL))
 	{
 	  if (context)
-	    gfc_error_1 ("Associate-name '%s' can not appear in a variable"
+	    gfc_error ("Associate-name %qs can not appear in a variable"
 		       " definition context (%s) at %L because its target"
 		       " at %L can not, either",
 		       name, context, &e->where,
@@ -5023,12 +4987,12 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
 			  if (gfc_dep_compare_expr (ec, en) == 0)
 			    {
 			      if (context)
-				gfc_error_now_1 ("Elements with the same value "
-						 "at %L and %L in vector "
-						 "subscript in a variable "
-						 "definition context (%s)",
-						 &(ec->where), &(en->where),
-						 context);
+				gfc_error_now ("Elements with the same value "
+					       "at %L and %L in vector "
+					       "subscript in a variable "
+					       "definition context (%s)",
+					       &(ec->where), &(en->where),
+					       context);
 			      return false;
 			    }
 			}

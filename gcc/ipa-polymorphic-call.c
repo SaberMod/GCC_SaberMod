@@ -22,27 +22,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "print-tree.h"
 #include "calls.h"
-#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -56,8 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 #include "predict.h"
 #include "basic-block.h"
-#include "hash-map.h"
-#include "is-a.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -269,7 +256,8 @@ ipa_polymorphic_call_context::restrict_to_inner_class (tree otr_type,
 		 types.  Testing it here may help us to avoid speculation.  */
 	      if (otr_type && TREE_CODE (outer_type) == RECORD_TYPE
 		  && (!in_lto_p || odr_type_p (outer_type))
-		  && type_known_to_have_no_deriavations_p (outer_type))
+		  && type_with_linkage_p (outer_type)
+		  && type_known_to_have_no_derivations_p (outer_type))
 		maybe_derived_type = false;
 
 	      /* Type can not contain itself on an non-zero offset.  In that case
@@ -393,7 +381,7 @@ ipa_polymorphic_call_context::restrict_to_inner_class (tree otr_type,
 	    goto no_useful_type_info;
 
 	  cur_offset = new_offset;
-	  type = subtype;
+	  type = TYPE_MAIN_VARIANT (subtype);
 	  if (!speculative)
 	    {
 	      outer_type = type;
@@ -587,7 +575,7 @@ decl_maybe_in_construction_p (tree base, tree outer_type,
        block = BLOCK_SUPERCONTEXT (block))
     if (tree fn = inlined_polymorphic_ctor_dtor_block_p (block, check_clones))
       {
-	tree type = TYPE_MAIN_VARIANT (method_class_type (TREE_TYPE (fn)));
+	tree type = TYPE_METHOD_BASETYPE (TREE_TYPE (fn));
 
 	if (!outer_type || !types_odr_comparable (type, outer_type))
 	  {
@@ -617,7 +605,7 @@ decl_maybe_in_construction_p (tree base, tree outer_type,
 		  && !DECL_CXX_DESTRUCTOR_P (function)))
 	    return false;
 	}
-      tree type = TYPE_MAIN_VARIANT (method_class_type (TREE_TYPE (function)));
+      tree type = TYPE_METHOD_BASETYPE (TREE_TYPE (function));
       if (!outer_type || !types_odr_comparable (type, outer_type))
 	{
 	  if (TREE_CODE (type) == RECORD_TYPE
@@ -1398,7 +1386,7 @@ check_stmt_for_type_change (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
 	  && gimple_call_num_args (stmt))
       {
 	tree op = walk_ssa_copies (gimple_call_arg (stmt, 0));
-	tree type = method_class_type (TREE_TYPE (fn));
+	tree type = TYPE_METHOD_BASETYPE (TREE_TYPE (fn));
 	HOST_WIDE_INT offset = 0, size, max_size;
 
 	if (dump_file)
@@ -1559,6 +1547,11 @@ ipa_polymorphic_call_context::get_dynamic_type (tree instance,
 	{
 	  ref = OBJ_TYPE_REF_EXPR (ref);
 	  ref = walk_ssa_copies (ref);
+
+	  /* If call target is already known, no need to do the expensive
+ 	     memory walk.  */
+	  if (is_gimple_min_invariant (ref))
+	    return false;
 
 	  /* Check if definition looks like vtable lookup.  */
 	  if (TREE_CODE (ref) == SSA_NAME

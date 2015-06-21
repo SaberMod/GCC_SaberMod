@@ -32,16 +32,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 				   MODIFY_JNI_METHOD_CALL and
 				   PARM_BOUNDARY.  */
 				   
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "real.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -54,7 +46,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "java-except.h"
 #include "parse.h"
 #include "diagnostic-core.h"
-#include "ggc.h"
 #include "tree-iterator.h"
 #include "target.h"
 

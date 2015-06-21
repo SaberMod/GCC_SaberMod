@@ -26,15 +26,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "parse.h"
 #include "flags.h"
 #include "constructor.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 
@@ -921,17 +914,17 @@ get_proc_name (const char *name, gfc_symbol **result, bool module_fcn_entry)
 	  && sym->attr.proc != 0
 	  && (sym->attr.subroutine || sym->attr.function)
 	  && sym->attr.if_source != IFSRC_UNKNOWN)
-	gfc_error_now_1 ("Procedure '%s' at %C is already defined at %L",
-			 name, &sym->declared_at);
+	gfc_error_now ("Procedure %qs at %C is already defined at %L",
+		       name, &sym->declared_at);
 
       /* Trap a procedure with a name the same as interface in the
 	 encompassing scope.  */
       if (sym->attr.generic != 0
 	  && (sym->attr.subroutine || sym->attr.function)
 	  && !sym->attr.mod_proc)
-	gfc_error_now_1 ("Name '%s' at %C is already defined"
-			 " as a generic interface at %L",
-			 name, &sym->declared_at);
+	gfc_error_now ("Name %qs at %C is already defined"
+		       " as a generic interface at %L",
+		       name, &sym->declared_at);
 
       /* Trap declarations of attributes in encompassing scope.  The
 	 signature for this is that ts.kind is set.  Legitimate
@@ -942,9 +935,9 @@ get_proc_name (const char *name, gfc_symbol **result, bool module_fcn_entry)
 	  && gfc_current_ns->parent != NULL
 	  && sym->attr.access == 0
 	  && !module_fcn_entry)
-	gfc_error_now_1 ("Procedure '%s' at %C has an explicit interface "
-			 "and must not have attributes declared at %L",
-			 name, &sym->declared_at);
+	gfc_error_now ("Procedure %qs at %C has an explicit interface "
+		       "and must not have attributes declared at %L",
+		       name, &sym->declared_at);
     }
 
   if (gfc_current_ns->parent == NULL || *result == NULL)
@@ -1126,7 +1119,7 @@ gfc_verify_c_interop_param (gfc_symbol *sym)
 	     either assumed size or explicit shape. Deferred shape is already
 	     covered by the pointer/allocatable attribute.  */
 	  if (sym->as != NULL && sym->as->type == AS_ASSUMED_SHAPE
-	      && !gfc_notify_std_1 (GFC_STD_F2008_TS, "Assumed-shape array '%s' "
+	      && !gfc_notify_std (GFC_STD_F2008_TS, "Assumed-shape array %qs "
 				  "at %L as dummy argument to the BIND(C) "
 				  "procedure '%s' at %L", sym->name, 
 				  &(sym->declared_at), 
@@ -2868,9 +2861,9 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
        && !(sym->attr.flavor == FL_PROCEDURE && sym->attr.generic))
       || sym->attr.subroutine)
     {
-      gfc_error_1 ("Type name '%s' at %C conflicts with previously declared "
-		   "entity at %L, which has the same name", name,
-		   &sym->declared_at);
+      gfc_error ("Type name %qs at %C conflicts with previously declared "
+		 "entity at %L, which has the same name", name,
+		 &sym->declared_at);
       return MATCH_ERROR;
     }
 
@@ -5592,7 +5585,7 @@ gfc_match_entry (void)
 		       "a contained subprogram");
 	    break;
 	  default:
-	    gfc_internal_error ("gfc_match_entry(): Bad state");
+	    gfc_error ("Unexpected ENTRY statement at %C");
 	}
       return MATCH_ERROR;
     }
@@ -6968,7 +6961,8 @@ gfc_match_protected (void)
   gfc_symbol *sym;
   match m;
 
-  if (gfc_current_ns->proc_name->attr.flavor != FL_MODULE)
+  if (!gfc_current_ns->proc_name
+      || gfc_current_ns->proc_name->attr.flavor != FL_MODULE)
     {
        gfc_error ("PROTECTED at %C only allowed in specification "
 		  "part of a module");
@@ -8508,6 +8502,11 @@ gfc_match_generic (void)
     case INTERFACE_INTRINSIC_OP:
       snprintf (bind_name, sizeof (bind_name), "OPERATOR(%s)",
 		gfc_op2string (op));
+      break;
+
+    case INTERFACE_NAMELESS:
+      gfc_error ("Malformed GENERIC statement at %C");
+      goto error;
       break;
 
     default:

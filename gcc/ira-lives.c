@@ -30,11 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "hard-reg-set.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "basic-block.h"
 #include "insn-config.h"
@@ -352,7 +347,7 @@ mark_hard_reg_live (rtx reg)
 
   if (! TEST_HARD_REG_BIT (ira_no_alloc_regs, regno))
     {
-      int last = regno + hard_regno_nregs[regno][GET_MODE (reg)];
+      int last = END_REGNO (reg);
       enum reg_class aclass, pclass;
 
       while (regno < last)
@@ -478,7 +473,7 @@ mark_hard_reg_dead (rtx reg)
 
   if (! TEST_HARD_REG_BIT (ira_no_alloc_regs, regno))
     {
-      int last = regno + hard_regno_nregs[regno][GET_MODE (reg)];
+      int last = END_REGNO (reg);
       enum reg_class aclass, pclass;
 
       while (regno < last)

@@ -96,22 +96,11 @@ a register with any other reload.  */
 #include "tm_p.h"
 #include "insn-config.h"
 #include "symtab.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -3064,9 +3053,6 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 
 	  if (swapped)
 	    {
-	      enum reg_class tclass;
-	      int t;
-
 	      recog_data.operand[commutative] = substed_operand[commutative + 1];
 	      recog_data.operand[commutative + 1] = substed_operand[commutative];
 	      /* Swap the duplicates too.  */
@@ -3076,17 +3062,12 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 		  *recog_data.dup_loc[i]
 		    = recog_data.operand[(int) recog_data.dup_num[i]];
 
-	      tclass = preferred_class[commutative];
-	      preferred_class[commutative] = preferred_class[commutative + 1];
-	      preferred_class[commutative + 1] = tclass;
-
-	      t = pref_or_nothing[commutative];
-	      pref_or_nothing[commutative] = pref_or_nothing[commutative + 1];
-	      pref_or_nothing[commutative + 1] = t;
-
-	      t = address_reloaded[commutative];
-	      address_reloaded[commutative] = address_reloaded[commutative + 1];
-	      address_reloaded[commutative + 1] = t;
+	      std::swap (preferred_class[commutative],
+			 preferred_class[commutative + 1]);
+	      std::swap (pref_or_nothing[commutative],
+			 pref_or_nothing[commutative + 1]);
+	      std::swap (address_reloaded[commutative],
+			 address_reloaded[commutative + 1]);
 	    }
 
 	  this_earlyclobber = 0;
@@ -3818,9 +3799,6 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 
 	  if (swapped)
 	    {
-	      enum reg_class tclass;
-	      int t;
-
 	      /* If the commutative operands have been swapped, swap
 		 them back in order to check the next alternative.  */
 	      recog_data.operand[commutative] = substed_operand[commutative];
@@ -3833,17 +3811,12 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 		    = recog_data.operand[(int) recog_data.dup_num[i]];
 
 	      /* Unswap the operand related information as well.  */
-	      tclass = preferred_class[commutative];
-	      preferred_class[commutative] = preferred_class[commutative + 1];
-	      preferred_class[commutative + 1] = tclass;
-
-	      t = pref_or_nothing[commutative];
-	      pref_or_nothing[commutative] = pref_or_nothing[commutative + 1];
-	      pref_or_nothing[commutative + 1] = t;
-
-	      t = address_reloaded[commutative];
-	      address_reloaded[commutative] = address_reloaded[commutative + 1];
-	      address_reloaded[commutative + 1] = t;
+	      std::swap (preferred_class[commutative],
+			 preferred_class[commutative + 1]);
+	      std::swap (pref_or_nothing[commutative],
+			 pref_or_nothing[commutative + 1]);
+	      std::swap (address_reloaded[commutative],
+			 address_reloaded[commutative + 1]);
 	    }
 	}
     }
@@ -3892,18 +3865,12 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 
   if (goal_alternative_swapped)
     {
-      rtx tem;
-
-      tem = substed_operand[commutative];
-      substed_operand[commutative] = substed_operand[commutative + 1];
-      substed_operand[commutative + 1] = tem;
-      tem = recog_data.operand[commutative];
-      recog_data.operand[commutative] = recog_data.operand[commutative + 1];
-      recog_data.operand[commutative + 1] = tem;
-      tem = *recog_data.operand_loc[commutative];
-      *recog_data.operand_loc[commutative]
-	= *recog_data.operand_loc[commutative + 1];
-      *recog_data.operand_loc[commutative + 1] = tem;
+      std::swap (substed_operand[commutative],
+		 substed_operand[commutative + 1]);
+      std::swap (recog_data.operand[commutative],
+		 recog_data.operand[commutative + 1]);
+      std::swap (*recog_data.operand_loc[commutative],
+		 *recog_data.operand_loc[commutative + 1]);
 
       for (i = 0; i < n_reloads; i++)
 	{
@@ -5206,9 +5173,8 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 #if !HARD_FRAME_POINTER_IS_FRAME_POINTER
 	   || operand == hard_frame_pointer_rtx
 #endif
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-	   || operand == arg_pointer_rtx
-#endif
+	   || (FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+	       && operand == arg_pointer_rtx)
 	   || operand == stack_pointer_rtx)
 	  && ! maybe_memory_address_addr_space_p
 		(mode, ad, as, &XEXP (XEXP (ad, 0), 1 - op_index)))
@@ -6612,7 +6578,7 @@ reg_overlap_mentioned_for_reload_p (rtx x, rtx in)
 	  return 0;
 	}
 
-      endregno = END_HARD_REGNO (x);
+      endregno = END_REGNO (x);
 
       return refers_to_regno_for_reload_p (regno, endregno, in, (rtx*) 0);
     }

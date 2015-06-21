@@ -22,25 +22,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "flags.h"
 #include "tree-pretty-print.h"
 #include "bitmap.h"
 #include "dumpfile.h"
-#include "hash-table.h"
 #include "predict.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -48,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -433,15 +423,13 @@ sort_coalesce_list (coalesce_list_p cl)
   if (num == 2)
     {
       if (cl->sorted[0]->cost > cl->sorted[1]->cost)
-        {
-	  p = cl->sorted[0];
-	  cl->sorted[0] = cl->sorted[1];
-	  cl->sorted[1] = p;
-	}
+	std::swap (cl->sorted[0], cl->sorted[1]);
       return;
     }
 
-  /* Only call qsort if there are more than 2 items.  */
+  /* Only call qsort if there are more than 2 items.
+     ??? Maybe std::sort will do better, provided that compare_pairs
+     can be inlined.  */
   if (num > 2)
       qsort (cl->sorted, num, sizeof (coalesce_pair_p), compare_pairs);
 }

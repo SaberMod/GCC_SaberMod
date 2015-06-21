@@ -1,5 +1,5 @@
 # Makefile for GNU Ada Compiler (GNAT).
-#   Copyright (C) 1994-2014 Free Software Foundation, Inc.
+#   Copyright (C) 1994-2015 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -266,6 +266,9 @@ TGT_LIB =
 TOOLS_LIBS = ../link.o ../targext.o ../../ggc-none.o ../../libcommon-target.a \
   ../../libcommon.a ../../../libcpp/libcpp.a $(LIBGNAT) $(LIBINTL) $(LIBICONV) \
   ../$(LIBBACKTRACE) ../$(LIBIBERTY) $(SYSLIBS) $(TGT_LIB)
+
+# Add -no-pie to TOOLS_LIBS since some of them are compiled with -fno-PIE.
+TOOLS_LIBS += @NO_PIE_FLAG@
 
 # Specify the directories to be searched for header files.
 # Both . and srcdir are used, in that order,
@@ -1422,6 +1425,7 @@ ifeq ($(strip $(filter-out %86 freebsd%,$(target_cpu) $(target_os))),)
   a-intnam.ads<a-intnam-freebsd.ads \
   s-inmaop.adb<s-inmaop-posix.adb \
   s-intman.adb<s-intman-posix.adb \
+  s-mudido.adb<s-mudido-affinity.adb \
   s-osinte.adb<s-osinte-freebsd.adb \
   s-osinte.ads<s-osinte-freebsd.ads \
   s-osprim.adb<s-osprim-posix.adb \
@@ -1451,6 +1455,7 @@ ifeq ($(strip $(filter-out %86_64 freebsd%,$(target_cpu) $(target_os))),)
   a-intnam.ads<a-intnam-freebsd.ads \
   s-inmaop.adb<s-inmaop-posix.adb \
   s-intman.adb<s-intman-posix.adb \
+  s-mudido.adb<s-mudido-affinity.adb \
   s-osinte.adb<s-osinte-freebsd.adb \
   s-osinte.ads<s-osinte-freebsd.ads \
   s-osprim.adb<s-osprim-posix.adb \
@@ -1460,6 +1465,36 @@ ifeq ($(strip $(filter-out %86_64 freebsd%,$(target_cpu) $(target_os))),)
   $(ATOMICS_TARGET_PAIRS) \
   $(X86_64_TARGET_PAIRS) \
   system.ads<system-freebsd-x86_64.ads
+
+  TOOLS_TARGET_PAIRS = \
+  mlib-tgt-specific.adb<mlib-tgt-specific-linux.adb
+  GNATLIB_SHARED = gnatlib-shared-dual
+
+  EXTRA_GNATRTL_NONTASKING_OBJS=g-sse.o g-ssvety.o
+
+  EH_MECHANISM=-gcc
+  THREADSLIB= -lpthread
+  GMEM_LIB = gmemlib
+  LIBRARY_VERSION := $(LIB_VERSION)
+  MISCLIB = -lutil
+endif
+
+# x86-64 DragonFly
+ifeq ($(strip $(filter-out %86_64 dragonfly%,$(target_cpu) $(target_os))),)
+  LIBGNAT_TARGET_PAIRS = \
+  a-intnam.ads<a-intnam-dragonfly.ads \
+  s-inmaop.adb<s-inmaop-posix.adb \
+  s-intman.adb<s-intman-posix.adb \
+  s-mudido.adb<s-mudido-affinity.adb \
+  s-osinte.adb<s-osinte-dragonfly.adb \
+  s-osinte.ads<s-osinte-dragonfly.ads \
+  s-osprim.adb<s-osprim-posix.adb \
+  s-taprop.adb<s-taprop-posix.adb \
+  s-taspri.ads<s-taspri-posix.ads \
+  s-tpopsp.adb<s-tpopsp-posix.adb \
+  $(ATOMICS_TARGET_PAIRS) \
+  $(X86_64_TARGET_PAIRS) \
+  system.ads<system-dragonfly-x86_64.ads
 
   TOOLS_TARGET_PAIRS = \
   mlib-tgt-specific.adb<mlib-tgt-specific-linux.adb
@@ -2335,11 +2370,12 @@ ifeq ($(strip $(filter-out darwin%,$(target_os))),)
     endif
   endif
 
-  ifeq ($(strip $(filter-out arm,$(arch))),)
+  ifeq ($(strip $(filter-out arm,$(target_cpu))),)
     LIBGNAT_TARGET_PAIRS += \
       s-intman.adb<s-intman-susv3.adb \
       s-osprim.adb<s-osprim-darwin.adb \
-      $(ATOMICS_TARGET_PAIRS)
+      $(ATOMICS_TARGET_PAIRS) \
+      $(ATOMICS_BUILTINS_TARGET_PAIRS)
 
     LIBGNAT_TARGET_PAIRS += \
       system.ads<system-darwin-arm.ads

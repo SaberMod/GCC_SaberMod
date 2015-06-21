@@ -1,3 +1,59 @@
+2015-06-02  Steve Ellcey  <sellcey@imgtec.com>
+
+	* test_installed (--target=): New option.
+
+2015-05-30  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* gimple.vim: New file.
+
+2015-05-18  Tom de Vries  <tom@codesourcery.com>
+
+	* check_GNU_style.sh: Add temp files tmp2 and tmp3.
+	(cat_with_prefix): New function, using global variable prefix.
+	(col): Make prefix a global variable. Rewrite to process file at a time
+	rather than line at a time.  Print part longer than 80 chars in red.
+
+2015-05-18  Tom de Vries  <tom@codesourcery.com>
+
+	* check_GNU_style.sh (g, ag, vg): Don't cat empty file.
+
+2015-05-18  Tom de Vries  <tom@codesourcery.com>
+
+	* check_GNU_style.sh (g, ag, vg, col): Declare local vars with local.
+
+2015-05-18  Tom de Vries  <tom@codesourcery.com>
+
+	* check_GNU_style.sh: Improve readability function calls.
+
+2015-05-16  James Bowman  <james.bowman@ftdichip.com>
+
+	* config-list.mk: Add FT32.
+
+2015-05-12  Tom de Vries  <tom@codesourcery.com>
+
+	* check_GNU_style.sh (col): Fix tab size.
+
+2015-05-12  Tom de Vries  <tom@codesourcery.com>
+
+	* check_GNU_style.sh: Put stdin into a temp file.
+
+2015-05-12  Tom de Vries  <tom@codesourcery.com>
+
+	* check_GNU_style.sh: Read either from stdin, or from files.
+
+2015-05-12  Tom de Vries  <tom@codesourcery.com>
+
+	* check_GNU_style.sh: Check if files exists.
+
+2015-05-12  Tom de Vries  <tom@codesourcery.com>
+
+	* check_GNU_style.sh: Don't use a filename prefix if we're only
+	processing one patch file.
+
+2015-05-12  Yury Gribov  <y.gribov@samsung.com>
+
+	* mklog: Ignore preprocessor directives.
+
 2015-04-22  Jakub Jelinek  <jakub@redhat.com>
 
 	* gennews (files): Add files for GCC 5.

@@ -24,27 +24,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "stringpool.h"
-#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -62,7 +51,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -71,7 +59,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "except.h"
 #include "lto-symtab.h"
-#include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -207,8 +194,10 @@ lto_output_location (struct output_block *ob, struct bitpack_d *bp,
   expanded_location xloc;
 
   loc = LOCATION_LOCUS (loc);
-  bp_pack_value (bp, loc == UNKNOWN_LOCATION, 1);
-  if (loc == UNKNOWN_LOCATION)
+  bp_pack_int_in_range (bp, 0, RESERVED_LOCATION_COUNT,
+		        loc < RESERVED_LOCATION_COUNT
+			? loc : RESERVED_LOCATION_COUNT);
+  if (loc < RESERVED_LOCATION_COUNT)
     return;
 
   xloc = expand_location (loc);
@@ -749,7 +738,7 @@ DFS::DFS_write_tree_body (struct output_block *ob,
       /* Drop names that were created for anonymous entities.  */
       if (DECL_NAME (expr)
 	  && TREE_CODE (DECL_NAME (expr)) == IDENTIFIER_NODE
-	  && ANON_AGGRNAME_P (DECL_NAME (expr)))
+	  && anon_aggrname_p (DECL_NAME (expr)))
 	;
       else
 	DFS_follow_tree_edge (DECL_NAME (expr));
@@ -1128,7 +1117,8 @@ hash_tree (struct streamer_tree_cache_d *cache, hash_map<tree, hashval_t> *map, 
     {
       hstate.add_wide_int (TYPE_MODE (t));
       hstate.add_flag (TYPE_STRING_FLAG (t));
-      hstate.add_flag (TYPE_NO_FORCE_BLK (t));
+      /* TYPE_NO_FORCE_BLK is private to stor-layout and need
+ 	 no streaming.  */
       hstate.add_flag (TYPE_NEEDS_CONSTRUCTING (t));
       hstate.add_flag (TYPE_PACKED (t));
       hstate.add_flag (TYPE_RESTRICT (t));
@@ -1189,7 +1179,7 @@ hash_tree (struct streamer_tree_cache_d *cache, hash_map<tree, hashval_t> *map, 
       /* Drop names that were created for anonymous entities.  */
       if (DECL_NAME (t)
 	  && TREE_CODE (DECL_NAME (t)) == IDENTIFIER_NODE
-	  && ANON_AGGRNAME_P (DECL_NAME (t)))
+	  && anon_aggrname_p (DECL_NAME (t)))
 	;
       else
 	visit (DECL_NAME (t));

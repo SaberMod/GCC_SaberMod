@@ -55,16 +55,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include <list>
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "predict.h"
@@ -77,14 +70,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
-#include "hashtab.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -103,7 +91,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "tree-pass.h"
 #include "gimple-pretty-print.h"
-#include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -113,7 +100,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-inline.h"
 #include "cfgloop.h"
 #include "except.h"
-#include "hash-table.h"
 #include "coverage.h"
 #include "attribs.h"
 #include "print-tree.h"
@@ -123,6 +109,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-icf-gimple.h"
 #include "ipa-icf.h"
 #include "stor-layout.h"
+#include "dbgcnt.h"
 
 using namespace ipa_icf_gimple;
 
@@ -662,8 +649,8 @@ sem_function::equals_wpa (sem_item *item,
       if (TREE_CODE (TREE_TYPE (item->decl)) != METHOD_TYPE)
         return return_false_with_msg ("DECL_CXX_CONSTURCTOR type mismatch");
       else if (!func_checker::compatible_polymorphic_types_p
-		 (method_class_type (TREE_TYPE (decl)),
-		  method_class_type (TREE_TYPE (item->decl)), false))
+		 (TYPE_METHOD_BASETYPE (TREE_TYPE (decl)),
+		  TYPE_METHOD_BASETYPE (TREE_TYPE (item->decl)), false))
         return return_false_with_msg ("ctor polymorphic type mismatch");
     }
 
@@ -752,8 +739,8 @@ sem_function::equals_wpa (sem_item *item,
       if (TREE_CODE (TREE_TYPE (decl)) != TREE_CODE (TREE_TYPE (item->decl)))
 	return return_false_with_msg ("METHOD_TYPE and FUNCTION_TYPE mismatch");
       if (!func_checker::compatible_polymorphic_types_p
-	   (method_class_type (TREE_TYPE (decl)),
-	    method_class_type (TREE_TYPE (item->decl)), false))
+	   (TYPE_METHOD_BASETYPE (TREE_TYPE (decl)),
+	    TYPE_METHOD_BASETYPE (TREE_TYPE (item->decl)), false))
 	return return_false_with_msg ("THIS pointer ODR type mismatch");
     }
 
@@ -2721,14 +2708,14 @@ sem_item_optimizer::update_hash_by_addr_refs ()
 	{
 	  if (TREE_CODE (TREE_TYPE (m_items[i]->decl)) == METHOD_TYPE
 	      && contains_polymorphic_type_p
-		   (method_class_type (TREE_TYPE (m_items[i]->decl)))
+		   (TYPE_METHOD_BASETYPE (TREE_TYPE (m_items[i]->decl)))
 	      && (DECL_CXX_CONSTRUCTOR_P (m_items[i]->decl)
 		  || (static_cast<sem_function *> (m_items[i])->param_used_p (0)
 		      && static_cast<sem_function *> (m_items[i])
 			   ->compare_polymorphic_p ())))
 	     {
 	        tree class_type
-		  = method_class_type (TREE_TYPE (m_items[i]->decl));
+		  = TYPE_METHOD_BASETYPE (TREE_TYPE (m_items[i]->decl));
 		inchash::hash hstate (m_items[i]->hash);
 
 		if (TYPE_NAME (class_type)
@@ -3453,7 +3440,8 @@ sem_item_optimizer::merge_classes (unsigned int prev_class_count)
 		alias->dump_to_file (dump_file);
 	      }
 
-	    merged_p |= source->merge (alias);
+	    if (dbg_cnt (merged_ipa_icf))
+	      merged_p |= source->merge (alias);
 	  }
       }
 

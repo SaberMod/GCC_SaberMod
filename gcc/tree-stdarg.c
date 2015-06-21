@@ -22,19 +22,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "langhooks.h"
 #include "gimple-pretty-print.h"
@@ -47,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
@@ -1037,6 +1028,7 @@ expand_ifn_va_arg_1 (function *fun)
   bool modified = false;
   basic_block bb;
   gimple_stmt_iterator i;
+  location_t saved_location;
 
   FOR_EACH_BB_FN (bb, fun)
     for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
@@ -1052,24 +1044,32 @@ expand_ifn_va_arg_1 (function *fun)
 
 	type = TREE_TYPE (TREE_TYPE (gimple_call_arg (stmt, 1)));
 	ap = gimple_call_arg (stmt, 0);
+
+	/* Balanced out the &ap, usually added by build_va_arg.  */
 	ap = build_fold_indirect_ref (ap);
 
 	push_gimplify_context (false);
+	saved_location = input_location;
+	input_location = gimple_location (stmt);
 
-	expr = gimplify_va_arg_internal (ap, type, gimple_location (stmt),
-					 &pre, &post);
+	/* Make it easier for the backends by protecting the valist argument
+	   from multiple evaluations.  */
+	gimplify_expr (&ap, &pre, &post, is_gimple_min_lval, fb_lvalue);
+
+	expr = targetm.gimplify_va_arg_expr (ap, type, &pre, &post);
 
 	lhs = gimple_call_lhs (stmt);
 	if (lhs != NULL_TREE)
 	  {
+	    unsigned int nargs = gimple_call_num_args (stmt);
 	    gcc_assert (useless_type_conversion_p (TREE_TYPE (lhs), type));
 
-	    if (gimple_call_num_args (stmt) == 3)
+	    if (nargs == 3)
 	      {
 		/* We've transported the size of with WITH_SIZE_EXPR here as
-		   the 3rd argument of the internal fn call.  Now reinstate
+		   the last argument of the internal fn call.  Now reinstate
 		   it.  */
-		tree size = gimple_call_arg (stmt, 2);
+		tree size = gimple_call_arg (stmt, nargs - 1);
 		expr = build2 (WITH_SIZE_EXPR, TREE_TYPE (expr), expr, size);
 	      }
 
@@ -1081,6 +1081,7 @@ expand_ifn_va_arg_1 (function *fun)
 	else
 	  gimplify_expr (&expr, &pre, &post, is_gimple_lvalue, fb_lvalue);
 
+	input_location = saved_location;
 	pop_gimplify_context (NULL);
 
 	gimple_seq_add_seq (&pre, post);

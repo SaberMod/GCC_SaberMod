@@ -26,15 +26,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "output.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -42,16 +35,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tm_p.h"
 #include "diagnostic-core.h"
-#include "hash-table.h"
 #include "langhooks.h"
-#include "ggc.h"
 #include "target.h"
 #include "except.h"
-#include "hash-table.h"
-#include "vec.h"
 #include "predict.h"
-#include "input.h"
 #include "function.h"
+#include "emit-rtl.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "cfgrtl.h"
@@ -65,9 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
-#include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -339,20 +326,6 @@ i386_pe_encode_section_info (tree decl, rtx rtl, int first)
   switch (TREE_CODE (decl))
     {
     case FUNCTION_DECL:
-      /* FIXME:  Imported stdcall names are not modified by the Ada frontend.
-	 Check and decorate the RTL name now.  */
-      if  (strcmp (lang_hooks.name, "GNU Ada") == 0)
-	{
-	  tree new_id;
-	  tree old_id = DECL_ASSEMBLER_NAME (decl);
-	  const char* asm_str = IDENTIFIER_POINTER (old_id);
-	  /* Do not change the identifier if a verbatim asmspec
-	     or if stdcall suffix already added. */
-	  if (!(*asm_str == '*' || strchr (asm_str, '@'))
-	      && (new_id = i386_pe_maybe_mangle_decl_assembler_name (decl,
-								     old_id)))
-	    XSTR (symbol, 0) = IDENTIFIER_POINTER (new_id);
-	}
       break;
 
     case VAR_DECL:
@@ -738,11 +711,11 @@ i386_pe_record_stub (const char *name)
 
 struct wrapped_symbol_hasher : typed_noop_remove <char>
 {
-  typedef char *value_type;
-  typedef char *compare_type;
+  typedef const char *value_type;
+  typedef const char *compare_type;
   static inline hashval_t hash (const char *);
   static inline bool equal (const char *, const char *);
-  static inline void remove (char *);
+  static inline void remove (const char *);
 };
 
 inline hashval_t

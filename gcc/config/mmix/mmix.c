@@ -25,14 +25,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
-#include "hashtab.h"
 #include "insn-config.h"
 #include "output.h"
 #include "predict.h"
-#include "vec.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -44,16 +39,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "flags.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "calls.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -63,7 +52,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "diagnostic-core.h"
 #include "recog.h"
-#include "ggc.h"
 #include "dwarf2.h"
 #include "debug.h"
 #include "tm_p.h"
@@ -2520,7 +2508,7 @@ mmix_output_shiftvalue_op_from_str (FILE *stream,
   if (! mmix_shiftable_wyde_value (value))
     {
       char s[sizeof ("0xffffffffffffffff")];
-      sprintf (s, "%#"PRIx64, value);
+      sprintf (s, "%#" PRIx64, value);
       internal_error ("MMIX Internal: %s is not a shiftable int", s);
     }
 
@@ -2562,7 +2550,7 @@ mmix_output_octa (FILE *stream, int64_t value, int do_begin_end)
     fprintf (stream, "#" HOST_WIDE_INT_PRINT_HEX_PURE,
 	     (HOST_WIDE_INT) value);
   else /* Need to avoid the hex output; there's no ...WIDEST...HEX_PURE.  */
-    fprintf (stream, "%"PRIu64, value);
+    fprintf (stream, "%" PRIu64, value);
 
   if (do_begin_end)
     fprintf (stream, "\n");
@@ -2579,7 +2567,7 @@ mmix_output_shifted_value (FILE *stream, int64_t value)
   if (! mmix_shiftable_wyde_value (value))
     {
       char s[16+2+1];
-      sprintf (s, "%#"PRIx64, value);
+      sprintf (s, "%#" PRIx64, value);
       internal_error ("MMIX Internal: %s is not a shiftable int", s);
     }
 

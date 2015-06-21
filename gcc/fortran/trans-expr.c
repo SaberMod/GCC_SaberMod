@@ -25,16 +25,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "gfortran.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -4567,6 +4560,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
   int has_alternate_specifier = 0;
   bool need_interface_mapping;
   bool callee_alloc;
+  bool ulim_copy;
   gfc_typespec ts;
   gfc_charlen cl;
   gfc_expr *e;
@@ -4575,6 +4569,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
   enum {MISSING = 0, ELEMENTAL, SCALAR, SCALAR_POINTER, ARRAY};
   gfc_component *comp = NULL;
   int arglen;
+  unsigned int argc;
 
   arglist = NULL;
   retargs = NULL;
@@ -4630,10 +4625,16 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
     }
 
   base_object = NULL_TREE;
+  /* For _vprt->_copy () routines no formal symbol is present.  Nevertheless
+     is the third and fourth argument to such a function call a value
+     denoting the number of elements to copy (i.e., most of the time the
+     length of a deferred length string).  */
+  ulim_copy = formal == NULL && UNLIMITED_POLY (sym)
+      && strcmp ("_copy", comp->name) == 0;
 
   /* Evaluate the arguments.  */
-  for (arg = args; arg != NULL;
-       arg = arg->next, formal = formal ? formal->next : NULL)
+  for (arg = args, argc = 0; arg != NULL;
+       arg = arg->next, formal = formal ? formal->next : NULL, ++argc)
     {
       e = arg->expr;
       fsym = formal ? formal->sym : NULL;
@@ -4735,7 +4736,14 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  gfc_init_se (&parmse, se);
 	  parm_kind = ELEMENTAL;
 
-	  if (fsym && fsym->attr.value)
+	  /* When no fsym is present, ulim_copy is set and this is a third or
+	     fourth argument, use call-by-value instead of by reference to
+	     hand the length properties to the copy routine (i.e., most of the
+	     time this will be a call to a __copy_character_* routine where the
+	     third and fourth arguments are the lengths of a deferred length
+	     char array).  */
+	  if ((fsym && fsym->attr.value)
+	      || (ulim_copy && (argc == 2 || argc == 3)))
 	    gfc_conv_expr (&parmse, e);
 	  else
 	    gfc_conv_expr_reference (&parmse, e);
@@ -5328,7 +5336,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
       if (e && (e->ts.type == BT_DERIVED || e->ts.type == BT_CLASS)
 	    && e->ts.u.derived->attr.alloc_comp
 	    && !(e->symtree && e->symtree->n.sym->attr.pointer)
-	    && (e->expr_type != EXPR_VARIABLE && !e->rank))
+	    && e->expr_type != EXPR_VARIABLE && !e->rank)
         {
 	  int parm_rank;
 	  tmp = build_fold_indirect_ref_loc (input_location,
@@ -5876,6 +5884,20 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 
   fntype = TREE_TYPE (TREE_TYPE (se->expr));
   se->expr = build_call_vec (TREE_TYPE (fntype), se->expr, arglist);
+
+  /* Allocatable scalar function results must be freed and nullified
+     after use. This necessitates the creation of a temporary to
+     hold the result to prevent duplicate calls.  */
+  if (!byref && sym->ts.type != BT_CHARACTER
+      && sym->attr.allocatable && !sym->attr.dimension)
+    {
+      tmp = gfc_create_var (TREE_TYPE (se->expr), NULL);
+      gfc_add_modify (&se->pre, tmp, se->expr);
+      se->expr = tmp;
+      tmp = gfc_call_free (tmp);
+      gfc_add_expr_to_block (&post, tmp);
+      gfc_add_modify (&post, se->expr, build_int_cst (TREE_TYPE (se->expr), 0));
+    }
 
   /* If we have a pointer function, but we don't want a pointer, e.g.
      something like
@@ -7050,19 +7072,31 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr,
     {
       if (expr->expr_type != EXPR_STRUCTURE)
 	{
+	  tree dealloc = NULL_TREE;
 	  gfc_init_se (&se, NULL);
 	  gfc_conv_expr (&se, expr);
 	  gfc_add_block_to_block (&block, &se.pre);
+	  /* Prevent repeat evaluations in gfc_copy_alloc_comp by fixing the
+	     expression in  a temporary variable and deallocate the allocatable
+	     components. Then we can the copy the expression to the result.  */
 	  if (cm->ts.u.derived->attr.alloc_comp
-	      && expr->expr_type == EXPR_VARIABLE)
+	      && expr->expr_type != EXPR_VARIABLE)
+	    {
+	      se.expr = gfc_evaluate_now (se.expr, &block);
+	      dealloc = gfc_deallocate_alloc_comp (cm->ts.u.derived, se.expr,
+						   expr->rank);
+	    }
+	  gfc_add_modify (&block, dest,
+			  fold_convert (TREE_TYPE (dest), se.expr));
+	  if (cm->ts.u.derived->attr.alloc_comp
+	      && expr->expr_type != EXPR_NULL)
 	    {
 	      tmp = gfc_copy_alloc_comp (cm->ts.u.derived, se.expr,
 					 dest, expr->rank);
 	      gfc_add_expr_to_block (&block, tmp);
+	      if (dealloc != NULL_TREE)
+		gfc_add_expr_to_block (&block, dealloc);
 	    }
-	  else
-	    gfc_add_modify (&block, dest,
-			    fold_convert (TREE_TYPE (dest), se.expr));
 	  gfc_add_block_to_block (&block, &se.post);
 	}
       else

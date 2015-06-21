@@ -2475,6 +2475,8 @@ as below:
 @end smallexample
 @end defmac
 
+@hook TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS
+
 @hook TARGET_LRA_P
 
 @hook TARGET_REGISTER_PRIORITY
@@ -2525,12 +2527,8 @@ This describes the stack layout and calling conventions.
 Here is the basic stack layout.
 
 @defmac STACK_GROWS_DOWNWARD
-Define this macro if pushing a word onto the stack moves the stack
-pointer to a smaller address.
-
-When we say, ``define this macro if @dots{}'', it means that the
-compiler checks this macro only with @code{#ifdef} so the precise
-definition used does not matter.
+Define this macro to be true if pushing a word onto the stack moves the stack
+pointer to a smaller address, and false otherwise.
 @end defmac
 
 @defmac STACK_PUSH_CODE
@@ -2545,7 +2543,7 @@ to the last item on the stack or whether it points to the
 space for the next item on the stack.
 
 The default is @code{PRE_DEC} when @code{STACK_GROWS_DOWNWARD} is
-defined, which is almost always right, and @code{PRE_INC} otherwise,
+true, which is almost always right, and @code{PRE_INC} otherwise,
 which is often wrong.
 @end defmac
 
@@ -6557,7 +6555,7 @@ The default size is @code{FIRST_PSEUDO_REGISTER * sizeof(void *)}.
 This macro need only be defined if the target might save registers in the
 function prologue at an offset to the stack pointer that is not aligned to
 @code{UNITS_PER_WORD}.  The definition should be the negative minimum
-alignment if @code{STACK_GROWS_DOWNWARD} is defined, and the positive
+alignment if @code{STACK_GROWS_DOWNWARD} is true, and the positive
 minimum alignment otherwise.  @xref{SDB and DWARF}.  Only applicable if
 the target supports DWARF 2 frame unwind information.
 @end defmac
@@ -7903,7 +7901,7 @@ from shared libraries (DLLs).
 You need not define this macro if it would always evaluate to zero.
 @end defmac
 
-@hook TARGET_MD_ASM_CLOBBERS
+@hook TARGET_MD_ASM_ADJUST
 
 @defmac MATH_LIBRARY
 Define this macro as a C string constant for the linker argument to link
@@ -8144,8 +8142,6 @@ If defined, this macro specifies the optional initialization
 routine for target specific customizations of the system printf
 and scanf formatter settings.
 @end defmac
-
-@hook TARGET_RELAXED_ORDERING
 
 @hook TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN
 

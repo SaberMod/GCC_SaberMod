@@ -82,29 +82,18 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "rtl.h"
 #include "regs.h"
 #include "flags.h"
 #include "output.h"
 #include "target.h"
-#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "tm_p.h"
 #include "obstack.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -129,8 +118,6 @@
 #include "basic-block.h"
 #include "df.h"
 #include "bb-reorder.h"
-#include "hash-map.h"
-#include "is-a.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -1396,12 +1383,11 @@ copy_bb_p (const_basic_block bb, int code_may_grow)
 int
 get_uncond_jump_length (void)
 {
-  rtx_insn *label, *jump;
   int length;
 
   start_sequence ();
-  label = emit_label (gen_label_rtx ());
-  jump = emit_jump_insn (gen_jump (label));
+  rtx_code_label *label = emit_label (gen_label_rtx ());
+  rtx_insn *jump = emit_jump_insn (gen_jump (label));
   length = get_attr_min_length (jump);
   end_sequence ();
 
@@ -1417,8 +1403,7 @@ fix_up_crossing_landing_pad (eh_landing_pad old_lp, basic_block old_bb)
 {
   eh_landing_pad new_lp;
   basic_block new_bb, last_bb, post_bb;
-  rtx_insn *new_label, *jump;
-  rtx post_label;
+  rtx_insn *jump;
   unsigned new_partition;
   edge_iterator ei;
   edge e;
@@ -1430,13 +1415,13 @@ fix_up_crossing_landing_pad (eh_landing_pad old_lp, basic_block old_bb)
   LABEL_PRESERVE_P (new_lp->landing_pad) = 1;
 
   /* Put appropriate instructions in new bb.  */
-  new_label = emit_label (new_lp->landing_pad);
+  rtx_code_label *new_label = emit_label (new_lp->landing_pad);
 
   expand_dw2_landing_pad_for_region (old_lp->region);
 
   post_bb = BLOCK_FOR_INSN (old_lp->landing_pad);
   post_bb = single_succ (post_bb);
-  post_label = block_label (post_bb);
+  rtx_code_label *post_label = block_label (post_bb);
   jump = emit_jump_insn (gen_jump (post_label));
   JUMP_LABEL (jump) = post_label;
 
@@ -1736,9 +1721,11 @@ set_edge_can_fallthru_flag (void)
 	continue;
       if (!any_condjump_p (BB_END (bb)))
 	continue;
-      if (!invert_jump (BB_END (bb), JUMP_LABEL (BB_END (bb)), 0))
+
+      rtx_jump_insn *bb_end_jump = as_a <rtx_jump_insn *> (BB_END (bb));
+      if (!invert_jump (bb_end_jump, JUMP_LABEL (bb_end_jump), 0))
 	continue;
-      invert_jump (BB_END (bb), JUMP_LABEL (BB_END (bb)), 0);
+      invert_jump (bb_end_jump, JUMP_LABEL (bb_end_jump), 0);
       EDGE_SUCC (bb, 0)->flags |= EDGE_CAN_FALLTHRU;
       EDGE_SUCC (bb, 1)->flags |= EDGE_CAN_FALLTHRU;
     }
@@ -1757,14 +1744,13 @@ add_labels_and_missing_jumps (vec<edge> crossing_edges)
     {
       basic_block src = e->src;
       basic_block dest = e->dest;
-      rtx label;
-      rtx_insn *new_jump;
+      rtx_jump_insn *new_jump;
 
       if (dest == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	continue;
 
       /* Make sure dest has a label.  */
-      label = block_label (dest);
+      rtx_code_label *label = block_label (dest);
 
       /* Nothing to do for non-fallthru edges.  */
       if (src == ENTRY_BLOCK_PTR_FOR_FN (cfun))
@@ -1812,11 +1798,10 @@ fix_up_fall_thru_edges (void)
   edge succ2;
   edge fall_thru;
   edge cond_jump = NULL;
-  edge e;
   bool cond_jump_crosses;
   int invert_worked;
   rtx_insn *old_jump;
-  rtx fall_thru_label;
+  rtx_code_label *fall_thru_label;
 
   FOR_EACH_BB_FN (cur_bb, cfun)
     {
@@ -1893,17 +1878,21 @@ fix_up_fall_thru_edges (void)
 
 		      fall_thru_label = block_label (fall_thru->dest);
 
-		      if (old_jump && JUMP_P (old_jump) && fall_thru_label)
-			invert_worked = invert_jump (old_jump,
-						     fall_thru_label,0);
+		      if (old_jump && fall_thru_label)
+			{
+			  rtx_jump_insn *old_jump_insn =
+				dyn_cast <rtx_jump_insn *> (old_jump);
+			  if (old_jump_insn)
+			    invert_worked = invert_jump (old_jump_insn,
+							 fall_thru_label, 0);
+			}
+
 		      if (invert_worked)
 			{
 			  fall_thru->flags &= ~EDGE_FALLTHRU;
 			  cond_jump->flags |= EDGE_FALLTHRU;
 			  update_br_prob_note (cur_bb);
-			  e = fall_thru;
-			  fall_thru = cond_jump;
-			  cond_jump = e;
+			  std::swap (fall_thru, cond_jump);
 			  cond_jump->flags |= EDGE_CROSSING;
 			  fall_thru->flags &= ~EDGE_CROSSING;
 			}
@@ -2012,10 +2001,9 @@ fix_crossing_conditional_branches (void)
   edge succ2;
   edge crossing_edge;
   edge new_edge;
-  rtx_insn *old_jump;
   rtx set_src;
   rtx old_label = NULL_RTX;
-  rtx new_label;
+  rtx_code_label *new_label;
 
   FOR_EACH_BB_FN (cur_bb, cfun)
     {
@@ -2040,7 +2028,7 @@ fix_crossing_conditional_branches (void)
 
       if (crossing_edge)
 	{
-	  old_jump = BB_END (cur_bb);
+	  rtx_insn *old_jump = BB_END (cur_bb);
 
 	  /* Check to make sure the jump instruction is a
 	     conditional jump.  */
@@ -2063,6 +2051,9 @@ fix_crossing_conditional_branches (void)
 
 	  if (set_src && (GET_CODE (set_src) == IF_THEN_ELSE))
 	    {
+	      rtx_jump_insn *old_jump_insn =
+			as_a <rtx_jump_insn *> (old_jump);
+
 	      if (GET_CODE (XEXP (set_src, 1)) == PC)
 		old_label = XEXP (set_src, 2);
 	      else if (GET_CODE (XEXP (set_src, 2)) == PC)
@@ -2079,7 +2070,8 @@ fix_crossing_conditional_branches (void)
 	      else
 		{
 		  basic_block last_bb;
-		  rtx_insn *new_jump;
+		  rtx_code_label *old_jump_target;
+		  rtx_jump_insn *new_jump;
 
 		  /* Create new basic block to be dest for
 		     conditional jump.  */
@@ -2090,9 +2082,10 @@ fix_crossing_conditional_branches (void)
 		  emit_label (new_label);
 
 		  gcc_assert (GET_CODE (old_label) == LABEL_REF);
-		  old_label = JUMP_LABEL (old_jump);
-		  new_jump = emit_jump_insn (gen_jump (old_label));
-		  JUMP_LABEL (new_jump) = old_label;
+		  old_jump_target = old_jump_insn->jump_target ();
+		  new_jump = as_a <rtx_jump_insn *>
+				(emit_jump_insn (gen_jump (old_jump_target)));
+		  new_jump->set_jump_target (old_jump_target);
 
 		  last_bb = EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb;
 		  new_bb = create_basic_block (new_label, new_jump, last_bb);
@@ -2108,7 +2101,7 @@ fix_crossing_conditional_branches (void)
 
 	      /* Make old jump branch to new bb.  */
 
-	      redirect_jump (old_jump, new_label, 0);
+	      redirect_jump (old_jump_insn, new_label, 0);
 
 	      /* Remove crossing_edge as predecessor of 'dest'.  */
 

@@ -22,15 +22,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"/* FIXME: For hashing DEBUG_EXPR & friends.  */
 #include "tm_p.h"
 #include "regs.h"
@@ -38,14 +31,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "insn-config.h"
 #include "recog.h"
-#include "hashtab.h"
-#include "input.h"
 #include "function.h"
 #include "emit-rtl.h"
 #include "diagnostic-core.h"
-#include "ggc.h"
-#include "hash-table.h"
 #include "dumpfile.h"
+#include "alloc-pool.h"
 #include "cselib.h"
 #include "predict.h"
 #include "basic-block.h"
@@ -56,9 +46,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "bitmap.h"
 
 /* A list of cselib_val structures.  */
-struct elt_list {
-    struct elt_list *next;
-    cselib_val *elt;
+struct elt_list
+{
+  struct elt_list *next;
+  cselib_val *elt;
+
+  /* Pool allocation new operator.  */
+  inline void *operator new (size_t)
+  {
+    return pool.allocate ();
+  }
+
+  /* Delete operator utilizing pool allocation.  */
+  inline void operator delete (void *ptr)
+  {
+    pool.remove ((elt_list *) ptr);
+  }
+
+  /* Memory allocation pool.  */
+  static pool_allocator<elt_list> pool;
 };
 
 static bool cselib_record_memory;
@@ -260,7 +266,13 @@ static unsigned int cfa_base_preserved_regno = INVALID_REGNUM;
    May or may not contain the useless values - the list is compacted
    each time memory is invalidated.  */
 static cselib_val *first_containing_mem = &dummy_val;
-static alloc_pool elt_loc_list_pool, elt_list_pool, cselib_val_pool, value_pool;
+
+pool_allocator<elt_list> elt_list::pool ("elt_list", 10);
+pool_allocator<elt_loc_list> elt_loc_list::pool ("elt_loc_list", 10);
+pool_allocator<cselib_val> cselib_val::pool ("cselib_val_list", 10);
+
+static pool_allocator<rtx_def> value_pool ("value", 100, RTX_CODE_SIZE (VALUE),
+					   true);
 
 /* If nonnull, cselib will call this function before freeing useless
    VALUEs.  A VALUE is deemed useless if its "locs" field is null.  */
@@ -288,8 +300,7 @@ void (*cselib_record_sets_hook) (rtx_insn *insn, struct cselib_set *sets,
 static inline struct elt_list *
 new_elt_list (struct elt_list *next, cselib_val *elt)
 {
-  struct elt_list *el;
-  el = (struct elt_list *) pool_alloc (elt_list_pool);
+  elt_list *el = new elt_list ();
   el->next = next;
   el->elt = elt;
   return el;
@@ -373,14 +384,14 @@ new_elt_loc_list (cselib_val *val, rtx loc)
 	}
 
       /* Chain LOC back to VAL.  */
-      el = (struct elt_loc_list *) pool_alloc (elt_loc_list_pool);
+      el = new elt_loc_list;
       el->loc = val->val_rtx;
       el->setting_insn = cselib_current_insn;
       el->next = NULL;
       CSELIB_VAL_PTR (loc)->locs = el;
     }
 
-  el = (struct elt_loc_list *) pool_alloc (elt_loc_list_pool);
+  el = new elt_loc_list;
   el->loc = loc;
   el->setting_insn = cselib_current_insn;
   el->next = next;
@@ -420,7 +431,7 @@ unchain_one_elt_list (struct elt_list **pl)
   struct elt_list *l = *pl;
 
   *pl = l->next;
-  pool_free (elt_list_pool, l);
+  delete l;
 }
 
 /* Likewise for elt_loc_lists.  */
@@ -431,7 +442,7 @@ unchain_one_elt_loc_list (struct elt_loc_list **pl)
   struct elt_loc_list *l = *pl;
 
   *pl = l->next;
-  pool_free (elt_loc_list_pool, l);
+  delete l;
 }
 
 /* Likewise for cselib_vals.  This also frees the addr_list associated with
@@ -443,7 +454,7 @@ unchain_one_value (cselib_val *v)
   while (v->addr_list)
     unchain_one_elt_list (&v->addr_list);
 
-  pool_free (cselib_val_pool, v);
+  delete v;
 }
 
 /* Remove all entries from the hash table.  Also used during
@@ -976,6 +987,9 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode)
     case LABEL_REF:
       return LABEL_REF_LABEL (x) == LABEL_REF_LABEL (y);
 
+    case REG:
+      return REGNO (x) == REGNO (y);
+
     case MEM:
       /* We have to compare any autoinc operations in the addresses
 	 using this MEM's mode.  */
@@ -1303,7 +1317,7 @@ cselib_hash_rtx (rtx x, int create, machine_mode memmode)
 static inline cselib_val *
 new_cselib_val (unsigned int hash, machine_mode mode, rtx x)
 {
-  cselib_val *e = (cselib_val *) pool_alloc (cselib_val_pool);
+  cselib_val *e = new cselib_val;
 
   gcc_assert (hash);
   gcc_assert (next_uid);
@@ -1315,7 +1329,7 @@ new_cselib_val (unsigned int hash, machine_mode mode, rtx x)
      precisely when we can have VALUE RTXen (when cselib is active)
      so we don't need to put them in garbage collected memory.
      ??? Why should a VALUE be an RTX in the first place?  */
-  e->val_rtx = (rtx) pool_alloc (value_pool);
+  e->val_rtx = value_pool.allocate ();
   memset (e->val_rtx, 0, RTX_HDR_SIZE);
   PUT_CODE (e->val_rtx, VALUE);
   PUT_MODE (e->val_rtx, mode);
@@ -2371,16 +2385,15 @@ cselib_invalidate_rtx_note_stores (rtx dest, const_rtx ignore ATTRIBUTE_UNUSED,
 static void
 cselib_record_set (rtx dest, cselib_val *src_elt, cselib_val *dest_addr_elt)
 {
-  int dreg = REG_P (dest) ? (int) REGNO (dest) : -1;
-
   if (src_elt == 0 || side_effects_p (dest))
     return;
 
-  if (dreg >= 0)
+  if (REG_P (dest))
     {
+      unsigned int dreg = REGNO (dest);
       if (dreg < FIRST_PSEUDO_REGISTER)
 	{
-	  unsigned int n = hard_regno_nregs[dreg][GET_MODE (dest)];
+	  unsigned int n = REG_NREGS (dest);
 
 	  if (n > max_value_regs)
 	    max_value_regs = n;
@@ -2727,13 +2740,6 @@ cselib_process_insn (rtx_insn *insn)
 void
 cselib_init (int record_what)
 {
-  elt_list_pool = create_alloc_pool ("elt_list",
-				     sizeof (struct elt_list), 10);
-  elt_loc_list_pool = create_alloc_pool ("elt_loc_list",
-				         sizeof (struct elt_loc_list), 10);
-  cselib_val_pool = create_alloc_pool ("cselib_val_list",
-				       sizeof (cselib_val), 10);
-  value_pool = create_alloc_pool ("value", RTX_CODE_SIZE (VALUE), 100);
   cselib_record_memory = record_what & CSELIB_RECORD_MEMORY;
   cselib_preserve_constants = record_what & CSELIB_PRESERVE_CONSTANTS;
   cselib_any_perm_equivs = false;
@@ -2775,10 +2781,10 @@ cselib_finish (void)
   cselib_any_perm_equivs = false;
   cfa_base_preserved_val = NULL;
   cfa_base_preserved_regno = INVALID_REGNUM;
-  free_alloc_pool (elt_list_pool);
-  free_alloc_pool (elt_loc_list_pool);
-  free_alloc_pool (cselib_val_pool);
-  free_alloc_pool (value_pool);
+  elt_list::pool.release ();
+  elt_loc_list::pool.release ();
+  cselib_val::pool.release ();
+  value_pool.release ();
   cselib_clear_table ();
   delete cselib_hash_table;
   cselib_hash_table = NULL;

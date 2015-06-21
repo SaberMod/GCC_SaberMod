@@ -1,3 +1,208 @@
+2015-06-19  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/lib-62.c: Only consider for
+	acc_device_nvidia.
+
+	PR libgomp/66518
+	* testsuite/libgomp.oacc-c-c++-common/lib-3.c: XFAIL.
+	* testsuite/libgomp.oacc-c-c++-common/lib-42.c: Likewise.
+
+2015-06-15  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.c/atomic-1.c: Remove dg-options "-O2".  Use
+	dg-additional-options for any remaining options.
+	* testsuite/libgomp.c/atomic-2.c: Same.
+	* testsuite/libgomp.c/atomic-4.c: Same.
+	* testsuite/libgomp.c/atomic-5.c: Same.
+	* testsuite/libgomp.c/atomic-6.c: Same.
+	* testsuite/libgomp.c/autopar-1.c: Same.
+	* testsuite/libgomp.c/copyin-1.c: Same.
+	* testsuite/libgomp.c/copyin-2.c: Same.
+	* testsuite/libgomp.c/copyin-3.c: Same.
+	* testsuite/libgomp.c/examples-4/e.53.5.c: Same.
+	* testsuite/libgomp.c/nestedfn-5.c: Same.
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt-2.c: Same.
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt-3.c: Same.
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt-4.c: Same.
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt.c: Same.
+	* testsuite/libgomp.c/pr32362-1.c: Same.
+	* testsuite/libgomp.c/pr32362-2.c: Same.
+	* testsuite/libgomp.c/pr32362-3.c: Same.
+	* testsuite/libgomp.c/pr39591-1.c: Same.
+	* testsuite/libgomp.c/pr39591-2.c: Same.
+	* testsuite/libgomp.c/pr39591-3.c: Same.
+	* testsuite/libgomp.c/pr58392.c: Same.
+	* testsuite/libgomp.c/pr58756.c: Same.
+	* testsuite/libgomp.c/simd-1.c: Same.
+	* testsuite/libgomp.c/simd-10.c: Same.
+	* testsuite/libgomp.c/simd-11.c: Same.
+	* testsuite/libgomp.c/simd-12.c: Same.
+	* testsuite/libgomp.c/simd-13.c: Same.
+	* testsuite/libgomp.c/simd-14.c: Same.
+	* testsuite/libgomp.c/simd-15.c: Same.
+	* testsuite/libgomp.c/simd-2.c: Same.
+	* testsuite/libgomp.c/simd-3.c: Same.
+	* testsuite/libgomp.c/simd-4.c: Same.
+	* testsuite/libgomp.c/simd-5.c: Same.
+	* testsuite/libgomp.c/simd-6.c: Same.
+	* testsuite/libgomp.c/simd-7.c: Same.
+	* testsuite/libgomp.c/simd-8.c: Same.
+	* testsuite/libgomp.c/simd-9.c: Same.
+
+2015-06-15  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.c/pr35625.c: Fix typo.
+
+2015-06-15  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.c/atomic-18.c: Remove superfluous -fopenmp setting
+	in dg-options.
+	* testsuite/libgomp.c/atomic-3.c: Same.
+	* testsuite/libgomp.c/debug-1.c: Same.
+	* testsuite/libgomp.c/nqueens-1.c: Same.
+	* testsuite/libgomp.c/pr26171.c: Same.
+	* testsuite/libgomp.c/pr48591.c: Same.
+	* testsuite/libgomp.c/pr64824.c: Same.
+	* testsuite/libgomp.c/pr64868.c: Same.
+	* testsuite/libgomp.c/pr66133.c: Same.
+	* testsuite/libgomp.c/pr66199-1.c: Same.
+	* testsuite/libgomp.c/pr66199-2.c: Same.
+	* testsuite/libgomp.c/target-8.c: Same.
+
+2015-06-15  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.c/collapse-3.c: Use dg-additional-options for
+	-std={gnu99,c99}.
+	* testsuite/libgomp.c/for-1.c: Same.
+	* testsuite/libgomp.c/for-2.c: Same.
+	* testsuite/libgomp.c/for-3.c: Same.
+	* testsuite/libgomp.c/pr35625.c: Same.
+	* testsuite/libgomp.c/pr39154.c: Same.
+	* testsuite/libgomp.c/simd-16.c: Same.
+	* testsuite/libgomp.c/simd-17.c: Same.
+
+2015-06-13  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt-4.c: New test.
+
+2015-06-13  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt-2.c: Add comment.
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt.c: Same.
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt-3.c: Add comment.
+	(N): Define.
+	(main): Use N instead of hardcoded constants.
+
+2015-06-05  Tom de Vries  <tom@codesourcery.com>
+
+	merge from gomp4 branch:
+	2015-05-28  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/65443
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt-2.c: New test.
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt-3.c: New test.
+	* testsuite/libgomp.c/parloops-exit-first-loop-alt.c: New test.
+
+2015-05-29  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	* testsuite/libgomp.graphite/bounds.c: Adjust for
+	cleanup-tree-dump removal.
+	* testsuite/libgomp.graphite/force-parallel-1.c: Likewise.
+	* testsuite/libgomp.graphite/force-parallel-2.c: Likewise.
+	* testsuite/libgomp.graphite/force-parallel-3.c: Likewise.
+	* testsuite/libgomp.graphite/force-parallel-4.c: Likewise.
+	* testsuite/libgomp.graphite/force-parallel-5.c: Likewise.
+	* testsuite/libgomp.graphite/force-parallel-6.c: Likewise.
+	* testsuite/libgomp.graphite/force-parallel-7.c: Likewise.
+	* testsuite/libgomp.graphite/force-parallel-8.c: Likewise.
+	* testsuite/libgomp.graphite/force-parallel-9.c: Likewise.
+	* testsuite/libgomp.graphite/pr41118.c: Likewise.
+
+2015-05-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/linux/x86/futex.h (sys_futex0) [!__x86_64__]: Remove function.
+	(futex_wait) [!__x86_64__]: Use __asm operand instead of sys_futex0.
+	(futex_wake) [!__x86_64__]: Ditto.
+
+2015-05-28  Julian Brown  <julian@codesourcery.com>
+
+	* oacc-init.c (resolve_device): Add FAIL_IS_ERROR argument. Update
+	function comment. Only call gomp_fatal if new argument is true.
+	(acc_dev_num_out_of_range): New function.
+	(acc_init_1, acc_shutdown_1): Update call to resolve_device. Call
+	acc_dev_num_out_of_range as appropriate.
+	(acc_get_num_devices, acc_set_device_type, acc_get_device_type)
+	(acc_get_device_num, acc_set_device_num): Update calls to
+	resolve_device.
+	* testsuite/libgomp.oacc-c-c++-common/lib-4.c: Update expected test
+	output.
+
+2015-05-28  Julian Brown  <julian@codesourcery.com>
+
+	PR libgomp/65742
+	* oacc-init.c (plugin/plugin-host.h): Include.
+	(acc_on_device): Check whether we're in an offloaded region for
+	host_nonshm
+	plugin. Don't use __builtin_acc_on_device.
+	* plugin/plugin-host.c (GOMP_OFFLOAD_openacc_parallel): Set
+	nonshm_exec flag in thread-local data.
+	(GOMP_OFFLOAD_openacc_create_thread_data): Allocate thread-local
+	data for host_nonshm plugin.
+	(GOMP_OFFLOAD_openacc_destroy_thread_data): Free thread-local data
+	for host_nonshm plugin.
+	* plugin/plugin-host.h: New.
+
+2015-05-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/linux/ia64/futex.h (sys_futex0) Change operand "op" to int.
+
+2015-05-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/linux/wait.h (gomp_futex_wait, gomp_futex_wake):
+	Declare as int.
+	(FUTEX_PRIVATE_FLAG): Remove L suffix.
+	* config/linux/mutex.c (gomp_futex_wait, gomp_futex_wake):
+	Declare as int.
+
+2015-05-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/linux/x86/futex.h (sys_futex0) [__PIC__]: Remove function.
+
+2015-05-27  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* target.c (gomp_map_pointer): New function abstracting out
+	GOMP_MAP_POINTER handling.
+	(gomp_map_vars): Remove GOMP_MAP_POINTER handling code and use
+	gomp_map_pointer().
+
+2015-05-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/66199
+	* testsuite/libgomp.c/pr66199-1.c: New test.
+	* testsuite/libgomp.c/pr66199-2.c: New test.
+	* testsuite/libgomp.c++/pr66199-1.C: New test.
+	* testsuite/libgomp.c++/pr66199-2.C: New test.
+	* testsuite/libgomp.fortran/pr66199-1.f90: New test.
+	* testsuite/libgomp.fortran/pr66199-2.f90: New test.
+
+2015-05-19  Julian Brown  <julian@codesourcery.com>
+
+	* plugin/plugin-nvptx.c (nvptx_get_num_devices): Return zero
+	on cuInit failure.
+
+2015-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/66133
+	* testsuite/libgomp.c/pr66133.c: New test.
+
+2015-05-13  Michael Haubenwallner  <michael.haubenwallner@ssi-schaefer.com>
+
+	* Makefile.in: Regenerated with automake-1.11.6.
+	* aclocal.m4: Likewise.
+	* config.h.in: Likewise.
+	* configure: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
 2015-05-08  Jason Merrill  <jason@redhat.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/reduction-4.c (main): Use

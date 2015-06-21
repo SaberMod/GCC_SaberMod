@@ -29,16 +29,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -60,7 +53,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "objcp-decl.h"
 #endif  /* OBJCPLUS */
 
-#include "ggc.h"
 #include "target.h"
 #include "tree-iterator.h"
 

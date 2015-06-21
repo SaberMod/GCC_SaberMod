@@ -29,26 +29,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "conditions.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "stmt.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -64,7 +53,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm-constrs.h"
 #include "target.h"
 #include "target-def.h"
-#include "ggc.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "dominance.h"
@@ -78,8 +66,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "df.h"
 #include "opts.h"
-#include "hash-map.h"
-#include "is-a.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -179,7 +165,9 @@ static rtx cris_function_incoming_arg (cumulative_args_t,
 				       machine_mode, const_tree, bool);
 static void cris_function_arg_advance (cumulative_args_t, machine_mode,
 				       const_tree, bool);
-static tree cris_md_asm_clobbers (tree, tree, tree);
+static rtx_insn *cris_md_asm_adjust (vec<rtx> &, vec<rtx> &,
+				     vec<const char *> &,
+				     vec<rtx> &, HARD_REG_SET &);
 static bool cris_cannot_force_const_mem (machine_mode, rtx);
 
 static void cris_option_override (void);
@@ -283,8 +271,8 @@ int cris_cpu_version = CRIS_DEFAULT_CPU_VERSION;
 #define TARGET_FUNCTION_INCOMING_ARG cris_function_incoming_arg
 #undef TARGET_FUNCTION_ARG_ADVANCE
 #define TARGET_FUNCTION_ARG_ADVANCE cris_function_arg_advance
-#undef TARGET_MD_ASM_CLOBBERS
-#define TARGET_MD_ASM_CLOBBERS cris_md_asm_clobbers
+#undef TARGET_MD_ASM_ADJUST
+#define TARGET_MD_ASM_ADJUST cris_md_asm_adjust
 
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM cris_cannot_force_const_mem
@@ -3136,7 +3124,7 @@ cris_expand_prologue (void)
 
 	  mem = gen_rtx_MEM (SImode, stack_pointer_rtx);
 	  set_mem_alias_set (mem, get_varargs_alias_set ());
-	  insn = emit_move_insn (mem, gen_rtx_raw_REG (SImode, regno));
+	  insn = emit_move_insn (mem, gen_raw_REG (SImode, regno));
 
 	  /* Note the absence of RTX_FRAME_RELATED_P on the above insn:
 	     the value isn't restored, so we don't want to tell dwarf2
@@ -3160,7 +3148,7 @@ cris_expand_prologue (void)
 
       mem = gen_rtx_MEM (SImode, stack_pointer_rtx);
       set_mem_alias_set (mem, get_frame_alias_set ());
-      insn = emit_move_insn (mem, gen_rtx_raw_REG (SImode, CRIS_SRP_REGNUM));
+      insn = emit_move_insn (mem, gen_raw_REG (SImode, CRIS_SRP_REGNUM));
       RTX_FRAME_RELATED_P (insn) = 1;
       framesize += 4;
     }
@@ -3258,7 +3246,7 @@ cris_expand_prologue (void)
 
 	      mem = gen_rtx_MEM (SImode, stack_pointer_rtx);
 	      set_mem_alias_set (mem, get_frame_alias_set ());
-	      insn = emit_move_insn (mem, gen_rtx_raw_REG (SImode, regno));
+	      insn = emit_move_insn (mem, gen_raw_REG (SImode, regno));
 	      RTX_FRAME_RELATED_P (insn) = 1;
 
 	      framesize += 4 + size;
@@ -3424,7 +3412,7 @@ cris_expand_epilogue (void)
 	mem = gen_rtx_MEM (SImode, gen_rtx_POST_INC (SImode,
 						     stack_pointer_rtx));
 	set_mem_alias_set (mem, get_frame_alias_set ());
-	insn = emit_move_insn (gen_rtx_raw_REG (SImode, regno), mem);
+	insn = emit_move_insn (gen_raw_REG (SImode, regno), mem);
 
 	/* Whenever we emit insns with post-incremented addresses
 	   ourselves, we must add a post-inc note manually.  */
@@ -3510,7 +3498,7 @@ cris_expand_epilogue (void)
 	{
 	  rtx mem;
 	  rtx insn;
-	  rtx srpreg = gen_rtx_raw_REG (SImode, CRIS_SRP_REGNUM);
+	  rtx srpreg = gen_raw_REG (SImode, CRIS_SRP_REGNUM);
 	  mem = gen_rtx_MEM (SImode,
 			     gen_rtx_POST_INC (SImode,
 					       stack_pointer_rtx));
@@ -3525,8 +3513,7 @@ cris_expand_epilogue (void)
 	  if (crtl->calls_eh_return)
 	    emit_insn (gen_addsi3 (stack_pointer_rtx,
 				   stack_pointer_rtx,
-				   gen_rtx_raw_REG (SImode,
-						    CRIS_STACKADJ_REG)));
+				   gen_raw_REG (SImode, CRIS_STACKADJ_REG)));
 	  cris_expand_return (false);
 	}
       else
@@ -3543,7 +3530,7 @@ cris_expand_epilogue (void)
       if (return_address_on_stack)
 	{
 	  rtx mem;
-	  rtx srpreg = gen_rtx_raw_REG (SImode, CRIS_SRP_REGNUM);
+	  rtx srpreg = gen_raw_REG (SImode, CRIS_SRP_REGNUM);
 	  rtx insn;
 
 	  mem = gen_rtx_MEM (SImode,
@@ -3567,8 +3554,7 @@ cris_expand_epilogue (void)
   if (crtl->calls_eh_return)
     emit_insn (gen_addsi3 (stack_pointer_rtx,
 			   stack_pointer_rtx,
-			   gen_rtx_raw_REG (SImode,
-					    CRIS_STACKADJ_REG)));
+			   gen_raw_REG (SImode, CRIS_STACKADJ_REG)));
   cris_expand_return (false);
 }
 
@@ -4189,55 +4175,41 @@ cris_function_arg_advance (cumulative_args_t ca_v, machine_mode mode,
   ca->regs += (3 + CRIS_FUNCTION_ARG_SIZE (mode, type)) / 4;
 }
 
-/* Worker function for TARGET_MD_ASM_CLOBBERS.  */
+/* Worker function for TARGET_MD_ASM_ADJUST.  */
 
-static tree
-cris_md_asm_clobbers (tree outputs, tree inputs, tree in_clobbers)
+static rtx_insn *
+cris_md_asm_adjust (vec<rtx> &outputs, vec<rtx> &inputs,
+		    vec<const char *> &constraints,
+		    vec<rtx> &clobbers, HARD_REG_SET &clobbered_regs)
 {
-  HARD_REG_SET mof_set;
-  tree clobbers;
-  tree t;
+  /* For the time being, all asms clobber condition codes.
+     Revisit when there's a reasonable use for inputs/outputs
+     that mention condition codes.  */
+  clobbers.safe_push (gen_rtx_REG (CCmode, CRIS_CC0_REGNUM));
+  SET_HARD_REG_BIT (clobbered_regs, CRIS_CC0_REGNUM);
 
-  CLEAR_HARD_REG_SET (mof_set);
-  SET_HARD_REG_BIT (mof_set, CRIS_MOF_REGNUM);
+  /* Determine if the source using MOF.  If it is, automatically
+     clobbering MOF would cause it to have impossible constraints.  */
 
-  /* For the time being, all asms clobber condition codes.  Revisit when
-     there's a reasonable use for inputs/outputs that mention condition
-     codes.  */
-  clobbers
-    = tree_cons (NULL_TREE,
-		 build_string (strlen (reg_names[CRIS_CC0_REGNUM]),
-			       reg_names[CRIS_CC0_REGNUM]),
-		 in_clobbers);
+  /* Look for a use of the MOF constraint letter: h.  */
+  for (unsigned i = 0, n = constraints.length(); i < n; ++i)
+    if (strchr (constraints[i], 'h') != NULL)
+      return NULL;
 
-  for (t = outputs; t != NULL; t = TREE_CHAIN (t))
-    {
-      tree val = TREE_VALUE (t);
+  /* Look for an output or an input that touches MOF.  */
+  rtx mof_reg = gen_rtx_REG (SImode, CRIS_MOF_REGNUM);
+  for (unsigned i = 0, n = outputs.length(); i < n; ++i)
+    if (reg_overlap_mentioned_p (mof_reg, outputs[i]))
+      return NULL;
+  for (unsigned i = 0, n = inputs.length(); i < n; ++i)
+    if (reg_overlap_mentioned_p (mof_reg, inputs[i]))
+      return NULL;
 
-      /* The constraint letter for the singleton register class of MOF
-	 is 'h'.  If it's mentioned in the constraints, the asm is
-	 MOF-aware and adding it to the clobbers would cause it to have
-	 impossible constraints.  */
-      if (strchr (TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t))),
-		  'h') != NULL
-	  || tree_overlaps_hard_reg_set (val, &mof_set) != NULL_TREE)
-	return clobbers;
-    }
-
-  for (t = inputs; t != NULL; t = TREE_CHAIN (t))
-    {
-      tree val = TREE_VALUE (t);
-
-      if (strchr (TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t))),
-		  'h') != NULL
-	  || tree_overlaps_hard_reg_set (val, &mof_set) != NULL_TREE)
-	return clobbers;
-    }
-
-  return tree_cons (NULL_TREE,
-		    build_string (strlen (reg_names[CRIS_MOF_REGNUM]),
-				  reg_names[CRIS_MOF_REGNUM]),
-		    clobbers);
+  /* No direct reference to MOF or its constraint.
+     Clobber it for backward compatibility.  */
+  clobbers.safe_push (mof_reg);
+  SET_HARD_REG_BIT (clobbered_regs, CRIS_MOF_REGNUM);
+  return NULL;
 }
 
 /* Implement TARGET_FRAME_POINTER_REQUIRED.

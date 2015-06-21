@@ -25,14 +25,10 @@ along with GCC; see the file COPYING3.  If not see
 #include <new>
 #include "system.h"
 #include "coretypes.h"
-#include "ggc.h"
 #include <cpplib.h>
 #include "errors.h"
-#include "hashtab.h"
 #include "hash-table.h"
-#include "hash-map.h"
 #include "hash-set.h"
-#include "vec.h"
 #include "is-a.h"
 
 
@@ -58,7 +54,7 @@ __attribute__((format (printf, 6, 0)))
 error_cb (cpp_reader *, int errtype, int, source_location location,
 	  unsigned int, const char *msg, va_list *ap)
 {
-  const line_map *map;
+  const line_map_ordinary *map;
   linemap_resolve_location (line_table, location, LRK_SPELLING_LOCATION, &map);
   expanded_location loc = linemap_expand_location (line_table, map, location);
   fprintf (stderr, "%s:%d:%d %s: ", loc.file, loc.line, loc.column,
@@ -134,7 +130,7 @@ static void
 output_line_directive (FILE *f, source_location location,
 		       bool dumpfile = false)
 {
-  const line_map *map;
+  const line_map_ordinary *map;
   linemap_resolve_location (line_table, location, LRK_SPELLING_LOCATION, &map);
   expanded_location loc = linemap_expand_location (line_table, map, location);
   if (dumpfile)
@@ -1708,6 +1704,13 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
       sprintf (optype, "boolean_type_node");
       type = optype;
     }
+  else if (*operation == COND_EXPR
+	   || *operation == VEC_COND_EXPR)
+    {
+      /* Conditions are of the same type as their first alternative.  */
+      sprintf (optype, "TREE_TYPE (ops%d[1])", depth);
+      type = optype;
+    }
   else
     {
       /* Other operations are of the same type as their first operand.  */
@@ -2913,7 +2916,12 @@ parser::parse_operation ()
 
   user_id *p = dyn_cast<user_id *> (op);
   if (p && p->is_oper_list)
-    record_operlist (id_tok->src_loc, p);
+    {
+      if (active_fors.length() == 0)
+	record_operlist (id_tok->src_loc, p);
+      else
+	fatal_at (id_tok, "operator-list %s cannot be exapnded inside 'for'", id);
+    }
   return op;
 }
 
@@ -3329,8 +3337,13 @@ parser::parse_for (source_location)
 		      "others with arity %d", oper, idb->nargs, arity);
 
 	  user_id *p = dyn_cast<user_id *> (idb);
-	  if (p && p->is_oper_list)
-	    op->substitutes.safe_splice (p->substitutes);
+	  if (p)
+	    {
+	      if (p->is_oper_list)
+		op->substitutes.safe_splice (p->substitutes);
+	      else
+		fatal_at (token, "iterator cannot be used as operator-list");
+	    }
 	  else 
 	    op->substitutes.safe_push (idb);
 	}
@@ -3426,6 +3439,11 @@ parser::parse_operator_list (source_location)
       else
 	op->substitutes.safe_push (idb);
     }
+
+  // Check that there is no junk after id-list
+  token = peek();
+  if (token->type != CPP_CLOSE_PAREN)
+    fatal_at (token, "expected identifier got %s", cpp_type2name (token->type, 0));
 
   if (op->substitutes.length () == 0)
     fatal_at (token, "operator-list cannot be empty");

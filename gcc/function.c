@@ -36,15 +36,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl-error.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -52,13 +45,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "flags.h"
 #include "except.h"
-#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -2170,7 +2159,7 @@ use_register_for_decl (const_tree decl)
       /* When not optimizing, disregard register keyword for variables with
 	 types containing methods, otherwise the methods won't be callable
 	 from the debugger.  */
-      if (TYPE_METHODS (TREE_TYPE (decl)))
+      if (TYPE_METHODS (TYPE_MAIN_VARIANT (TREE_TYPE (decl))))
 	return false;
       break;
     default:
@@ -3114,8 +3103,8 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 	    }
 	  else
 	    t = op1;
-	  rtx pat = gen_extend_insn (op0, t, promoted_nominal_mode,
-				     data->passed_mode, unsignedp);
+	  rtx_insn *pat = gen_extend_insn (op0, t, promoted_nominal_mode,
+					   data->passed_mode, unsignedp);
 	  emit_insn (pat);
 	  insns = get_insns ();
 
@@ -3500,9 +3489,11 @@ assign_parm_load_bounds (struct assign_parm_data_one *data,
 
 static void
 assign_bounds (vec<bounds_parm_data> &bndargs,
-	       struct assign_parm_data_all &all)
+	       struct assign_parm_data_all &all,
+	       bool assign_regs, bool assign_special,
+	       bool assign_bt)
 {
-  unsigned i, pass, handled = 0;
+  unsigned i, pass;
   bounds_parm_data *pbdata;
 
   if (!bndargs.exists ())
@@ -3516,17 +3507,20 @@ assign_bounds (vec<bounds_parm_data> &bndargs,
       {
 	/* Pass 0 => regs only.  */
 	if (pass == 0
-	    && (!pbdata->parm_data.entry_parm
-		|| GET_CODE (pbdata->parm_data.entry_parm) != REG))
+	    && (!assign_regs
+		||(!pbdata->parm_data.entry_parm
+		   || GET_CODE (pbdata->parm_data.entry_parm) != REG)))
 	  continue;
 	/* Pass 1 => slots only.  */
 	else if (pass == 1
-		 && (!pbdata->parm_data.entry_parm
-		     || GET_CODE (pbdata->parm_data.entry_parm) == REG))
+		 && (!assign_special
+		     || (!pbdata->parm_data.entry_parm
+			 || GET_CODE (pbdata->parm_data.entry_parm) == REG)))
 	  continue;
 	/* Pass 2 => BT only.  */
 	else if (pass == 2
-		 && pbdata->parm_data.entry_parm)
+		 && (!assign_bt
+		     || pbdata->parm_data.entry_parm))
 	  continue;
 
 	if (!pbdata->parm_data.entry_parm
@@ -3547,14 +3541,7 @@ assign_bounds (vec<bounds_parm_data> &bndargs,
 	else
 	  assign_parm_setup_stack (&all, pbdata->bounds_parm,
 				   &pbdata->parm_data);
-
-	/* Count handled bounds to make sure we miss nothing.  */
-	handled++;
       }
-
-  gcc_assert (handled == bndargs.length ());
-
-  bndargs.release ();
 }
 
 /* Assign RTL expressions to the function's parameters.  This may involve
@@ -3679,12 +3666,14 @@ assign_parms (tree fndecl)
 	      /* We expect this is the last parm.  Otherwise it is wrong
 		 to assign bounds right now.  */
 	      gcc_assert (i == (fnargs.length () - 1));
-	      assign_bounds (bndargs, all);
+	      assign_bounds (bndargs, all, true, false, false);
 	      targetm.calls.setup_incoming_vararg_bounds (all.args_so_far,
 							  data.promoted_mode,
 							  data.passed_type,
 							  &pretend_bytes,
 							  false);
+	      assign_bounds (bndargs, all, false, true, true);
+	      bndargs.release ();
 	    }
 	}
 
@@ -3696,7 +3685,8 @@ assign_parms (tree fndecl)
 	bound_no++;
     }
 
-  assign_bounds (bndargs, all);
+  assign_bounds (bndargs, all, true, true, true);
+  bndargs.release ();
 
   if (targetm.calls.split_complex_arg)
     assign_parms_unsplit_complex (&all, fnargs);
@@ -5224,8 +5214,8 @@ diddle_return_value_1 (void (*doit) (rtx, void *), void *arg, rtx outgoing)
 void
 diddle_return_value (void (*doit) (rtx, void *), void *arg)
 {
-  diddle_return_value_1 (doit, arg, crtl->return_rtx);
   diddle_return_value_1 (doit, arg, crtl->return_bnd);
+  diddle_return_value_1 (doit, arg, crtl->return_rtx);
 }
 
 static void
@@ -5295,8 +5285,6 @@ set_insn_locations (rtx_insn *insn, int loc)
 void
 expand_function_end (void)
 {
-  rtx clobber_after;
-
   /* If arg_pointer_save_area was referenced only from a nested
      function, we will not have initialized it yet.  Do that now.  */
   if (arg_pointer_save_area && ! crtl->arg_pointer_save_area_init)
@@ -5345,7 +5333,7 @@ expand_function_end (void)
 
      We delay actual code generation after the current_function_value_rtx
      is computed.  */
-  clobber_after = get_last_insn ();
+  rtx_insn *clobber_after = get_last_insn ();
 
   /* Output the label for the actual return from the function.  */
   emit_label (return_label);
@@ -5495,11 +5483,9 @@ expand_function_end (void)
      certainly doesn't fall thru into the exit block.  */
   if (!BARRIER_P (clobber_after))
     {
-      rtx seq;
-
       start_sequence ();
       clobber_return_register ();
-      seq = get_insns ();
+      rtx_insn *seq = get_insns ();
       end_sequence ();
 
       emit_insn_after (seq, clobber_after);
@@ -5526,11 +5512,11 @@ expand_function_end (void)
   if (! EXIT_IGNORE_STACK
       && cfun->calls_alloca)
     {
-      rtx tem = 0, seq;
+      rtx tem = 0;
 
       start_sequence ();
       emit_stack_save (SAVE_FUNCTION, &tem);
-      seq = get_insns ();
+      rtx_insn *seq = get_insns ();
       end_sequence ();
       emit_insn_before (seq, parm_birth_insn);
 
@@ -5557,15 +5543,13 @@ get_arg_pointer_save_area (void)
 
   if (! crtl->arg_pointer_save_area_init)
     {
-      rtx seq;
-
       /* Save the arg pointer at the beginning of the function.  The
 	 generated stack slot may not be a valid memory address, so we
 	 have to check it and fix it if necessary.  */
       start_sequence ();
       emit_move_insn (validize_mem (copy_rtx (ret)),
                       crtl->args.internal_arg_pointer);
-      seq = get_insns ();
+      rtx_insn *seq = get_insns ();
       end_sequence ();
 
       push_topmost_sequence ();
@@ -5658,13 +5642,11 @@ prologue_epilogue_contains (const_rtx insn)
 static void
 emit_use_return_register_into_block (basic_block bb)
 {
-  rtx seq;
- rtx_insn *insn;
   start_sequence ();
   use_return_register ();
-  seq = get_insns ();
+  rtx_insn *seq = get_insns ();
   end_sequence ();
-  insn = BB_END (bb);
+  rtx_insn *insn = BB_END (bb);
   if (HAVE_cc0 && reg_mentioned_p (cc0_rtx, PATTERN (insn)))
     insn = prev_cc0_setter (insn);
 
@@ -5691,9 +5673,9 @@ gen_return_pattern (bool simple_p)
 void
 emit_return_into_block (bool simple_p, basic_block bb)
 {
-  rtx jump, pat;
-  jump = emit_jump_insn_after (gen_return_pattern (simple_p), BB_END (bb));
-  pat = PATTERN (jump);
+  rtx_jump_insn *jump = emit_jump_insn_after (gen_return_pattern (simple_p),
+					      BB_END (bb));
+  rtx pat = PATTERN (jump);
   if (GET_CODE (pat) == PARALLEL)
     pat = XVECEXP (pat, 0, 0);
   gcc_assert (ANY_RETURN_P (pat));
@@ -5738,7 +5720,6 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 {
   int i;
   basic_block bb;
-  rtx label;
   edge_iterator ei;
   edge e;
   auto_vec<basic_block> src_bbs (EDGE_COUNT (last_bb->preds));
@@ -5747,7 +5728,7 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
     if (e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun))
       src_bbs.quick_push (e->src);
 
-  label = BB_HEAD (last_bb);
+  rtx_insn *label = BB_HEAD (last_bb);
 
   FOR_EACH_VEC_ELT (src_bbs, i, bb)
     {
@@ -5786,7 +5767,7 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 	    dest = simple_return_rtx;
 	  else
 	    dest = ret_rtx;
-	  if (!redirect_jump (jump, dest, 0))
+	  if (!redirect_jump (as_a <rtx_jump_insn *> (jump), dest, 0))
 	    {
 	      if (HAVE_simple_return && simple_p)
 		{

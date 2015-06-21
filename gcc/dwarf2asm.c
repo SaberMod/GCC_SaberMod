@@ -23,16 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "flags.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "real.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -41,8 +33,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "dwarf2asm.h"
 #include "dwarf2.h"
-#include "hash-map.h"
-#include "ggc.h"
 #include "tm_p.h"
 
 

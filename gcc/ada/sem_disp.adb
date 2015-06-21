@@ -336,7 +336,7 @@ package body Sem_Disp is
          --  Ada 2005 (AI-50217)
 
          elsif From_Limited_With (Designated_Type (T))
-           and then Present (Non_Limited_View (Designated_Type (T)))
+           and then Has_Non_Limited_View (Designated_Type (T))
            and then Scope (Designated_Type (T)) = Scope (Subp)
          then
             if Is_First_Subtype (Non_Limited_View (Designated_Type (T))) then
@@ -818,8 +818,13 @@ package body Sem_Disp is
                   --  (the only current case of a tag-indeterminate attribute
                   --  is the stream Input attribute).
 
-                  elsif
-                    Nkind (Original_Node (Actual)) = N_Attribute_Reference
+                  elsif Nkind (Original_Node (Actual)) = N_Attribute_Reference
+                  then
+                     Func := Empty;
+
+                  --  Ditto if it is an explicit dereference.
+
+                  elsif Nkind (Original_Node (Actual)) = N_Explicit_Dereference
                   then
                      Func := Empty;
 
@@ -828,9 +833,8 @@ package body Sem_Disp is
 
                   else
                      Func :=
-                       Entity (Name
-                         (Original_Node
-                           (Expression (Original_Node (Actual)))));
+                       Entity (Name (Original_Node
+                                       (Expression (Original_Node (Actual)))));
                   end if;
 
                   if Present (Func) and then Is_Abstract_Subprogram (Func) then
@@ -1334,7 +1338,11 @@ package body Sem_Disp is
 
       elsif Is_Concurrent_Type (Tagged_Type) then
          pragma Assert (not Expander_Active);
-         null;
+
+         --  Attach operation to list of primitives of the synchronized type
+         --  itself, for ASIS use.
+
+         Append_Elmt (Subp, Direct_Primitive_Operations (Tagged_Type));
 
       --  If no old subprogram, then we add this as a dispatching operation,
       --  but we avoid doing this if an error was posted, to prevent annoying
@@ -2053,7 +2061,8 @@ package body Sem_Disp is
    function Inherited_Subprograms
      (S               : Entity_Id;
       No_Interfaces   : Boolean := False;
-      Interfaces_Only : Boolean := False) return Subprogram_List
+      Interfaces_Only : Boolean := False;
+      One_Only        : Boolean := False) return Subprogram_List
    is
       Result : Subprogram_List (1 .. 6000);
       --  6000 here is intended to be infinity. We could use an expandable
@@ -2106,6 +2115,10 @@ package body Sem_Disp is
 
                if Is_Subprogram_Or_Generic_Subprogram (Parent_Op) then
                   Store_IS (Parent_Op);
+
+                  if One_Only then
+                     goto Done;
+                  end if;
                end if;
             end loop;
          end if;
@@ -2120,6 +2133,14 @@ package body Sem_Disp is
 
             begin
                Tag_Typ := Find_Dispatching_Type (S);
+
+               --  In the presence of limited views there may be no visible
+               --  dispatching type. Primitives will be inherited when non-
+               --  limited view is frozen.
+
+               if No (Tag_Typ) then
+                  return Result (1 .. 0);
+               end if;
 
                if Is_Concurrent_Type (Tag_Typ) then
                   Tag_Typ := Corresponding_Record_Type (Tag_Typ);
@@ -2148,6 +2169,10 @@ package body Sem_Disp is
                         --  We have found a primitive covered by S
 
                         Store_IS (Interface_Alias (Prim));
+
+                        if One_Only then
+                           goto Done;
+                        end if;
                      end if;
 
                      Next_Elmt (Elmt);
@@ -2156,6 +2181,8 @@ package body Sem_Disp is
             end;
          end if;
       end if;
+
+      <<Done>>
 
       return Result (1 .. N);
    end Inherited_Subprograms;
@@ -2222,6 +2249,17 @@ package body Sem_Disp is
          return False;
       end if;
    end Is_Inherited_Public_Operation;
+
+   ------------------------------
+   -- Is_Overriding_Subprogram --
+   ------------------------------
+
+   function Is_Overriding_Subprogram (E : Entity_Id) return Boolean is
+      Inherited : constant Subprogram_List :=
+                    Inherited_Subprograms (E, One_Only => True);
+   begin
+      return Inherited'Length > 0;
+   end Is_Overriding_Subprogram;
 
    --------------------------
    -- Is_Tag_Indeterminate --

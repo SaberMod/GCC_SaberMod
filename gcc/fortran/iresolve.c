@@ -29,16 +29,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "gfortran.h"
@@ -218,6 +211,9 @@ gfc_resolve_adjustl (gfc_expr *f, gfc_expr *string)
 {
   f->ts.type = BT_CHARACTER;
   f->ts.kind = string->ts.kind;
+  if (string->ts.u.cl)
+    f->ts.u.cl = gfc_new_charlen (gfc_current_ns, string->ts.u.cl);
+
   f->value.function.name = gfc_get_string ("__adjustl_s%d", f->ts.kind);
 }
 
@@ -227,6 +223,9 @@ gfc_resolve_adjustr (gfc_expr *f, gfc_expr *string)
 {
   f->ts.type = BT_CHARACTER;
   f->ts.kind = string->ts.kind;
+  if (string->ts.u.cl)
+    f->ts.u.cl = gfc_new_charlen (gfc_current_ns, string->ts.u.cl);
+
   f->value.function.name = gfc_get_string ("__adjustr_s%d", f->ts.kind);
 }
 

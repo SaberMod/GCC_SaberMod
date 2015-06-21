@@ -30,6 +30,7 @@ extern void arm_load_pic_register (unsigned long);
 extern int arm_volatile_func (void);
 extern void arm_expand_prologue (void);
 extern void arm_expand_epilogue (bool);
+extern void arm_declare_function_name (FILE *, const char *, tree);
 extern void thumb2_expand_return (bool);
 extern const char *arm_strip_name_encoding (const char *);
 extern void arm_asm_output_labelref (FILE *, const char *);
@@ -181,9 +182,6 @@ extern const char *thumb1_unexpanded_epilogue (void);
 extern void thumb1_expand_prologue (void);
 extern void thumb1_expand_epilogue (void);
 extern const char *thumb1_output_interwork (void);
-#ifdef TREE_CODE
-extern int is_called_in_ARM_mode (tree);
-#endif
 extern int thumb_shiftable_const (unsigned HOST_WIDE_INT);
 #ifdef RTX_CODE
 extern enum arm_cond_code maybe_get_arm_condition_code (rtx);
@@ -212,13 +210,14 @@ extern int arm_dllexport_p (tree);
 extern int arm_dllimport_p (tree);
 extern void arm_mark_dllexport (tree);
 extern void arm_mark_dllimport (tree);
+extern bool arm_change_mode_p (tree);
 #endif
 
+extern tree arm_valid_target_attribute_tree (tree, struct gcc_options *,
+					     struct gcc_options *);
 extern void arm_pr_long_calls (struct cpp_reader *);
 extern void arm_pr_no_long_calls (struct cpp_reader *);
 extern void arm_pr_long_calls_off (struct cpp_reader *);
-
-extern void arm_lang_object_attributes_init(void);
 
 extern const char *arm_mangle_type (const_tree);
 extern const char *arm_mangle_builtin_type (const_tree);
@@ -253,13 +252,6 @@ struct cpu_vec_costs {
 
 struct cpu_cost_table;
 
-enum arm_sched_autopref
-  {
-    ARM_SCHED_AUTOPREF_OFF,
-    ARM_SCHED_AUTOPREF_RANK,
-    ARM_SCHED_AUTOPREF_FULL
-  };
-
 /* Dump function ARM_PRINT_TUNE_INFO should be updated whenever this
    structure is modified.  */
 
@@ -268,40 +260,57 @@ struct tune_params
   bool (*rtx_costs) (rtx, RTX_CODE, RTX_CODE, int *, bool);
   const struct cpu_cost_table *insn_extra_cost;
   bool (*sched_adjust_cost) (rtx_insn *, rtx, rtx_insn *, int *);
+  int (*branch_cost) (bool, bool);
+  /* Vectorizer costs.  */
+  const struct cpu_vec_costs* vec_costs;
   int constant_limit;
   /* Maximum number of instructions to conditionalise.  */
   int max_insns_skipped;
-  int num_prefetch_slots;
-  int l1_cache_size;
-  int l1_cache_line_size;
-  bool prefer_constant_pool;
-  int (*branch_cost) (bool, bool);
+  /* Maximum number of instructions to inline calls to memset.  */
+  int max_insns_inline_memset;
+  /* Issue rate of the processor.  */
+  unsigned int issue_rate;
+  /* Explicit prefetch data.  */
+  struct
+    {
+      int num_slots;
+      int l1_cache_size;
+      int l1_cache_line_size;
+    } prefetch;
+  enum {PREF_CONST_POOL_FALSE, PREF_CONST_POOL_TRUE}
+    prefer_constant_pool: 1;
   /* Prefer STRD/LDRD instructions over PUSH/POP/LDM/STM.  */
-  bool prefer_ldrd_strd;
+  enum {PREF_LDRD_FALSE, PREF_LDRD_TRUE} prefer_ldrd_strd: 1;
   /* The preference for non short cirtcuit operation when optimizing for
      performance. The first element covers Thumb state and the second one
      is for ARM state.  */
-  bool logical_op_non_short_circuit[2];
-  /* Vectorizer costs.  */
-  const struct cpu_vec_costs* vec_costs;
-  /* Prefer Neon for 64-bit bitops.  */
-  bool prefer_neon_for_64bits;
+  enum log_op_non_short_circuit {LOG_OP_NON_SHORT_CIRCUIT_FALSE,
+				 LOG_OP_NON_SHORT_CIRCUIT_TRUE};
+  log_op_non_short_circuit logical_op_non_short_circuit_thumb: 1;
+  log_op_non_short_circuit logical_op_non_short_circuit_arm: 1;
   /* Prefer 32-bit encoding instead of flag-setting 16-bit encoding.  */
-  bool disparage_flag_setting_t16_encodings;
-  /* Prefer 32-bit encoding instead of 16-bit encoding where subset of flags
-     would be set.  */
-  bool disparage_partial_flag_setting_t16_encodings;
+  enum {DISPARAGE_FLAGS_NEITHER, DISPARAGE_FLAGS_PARTIAL, DISPARAGE_FLAGS_ALL}
+    disparage_flag_setting_t16_encodings: 2;
+  enum {PREF_NEON_64_FALSE, PREF_NEON_64_TRUE} prefer_neon_for_64bits: 1;
   /* Prefer to inline string operations like memset by using Neon.  */
-  bool string_ops_prefer_neon;
-  /* Maximum number of instructions to inline calls to memset.  */
-  int max_insns_inline_memset;
-  /* Bitfield encoding the fuseable pairs of instructions.  */
-  unsigned int fuseable_ops;
+  enum {PREF_NEON_STRINGOPS_FALSE, PREF_NEON_STRINGOPS_TRUE}
+    string_ops_prefer_neon: 1;
+  /* Bitfield encoding the fusible pairs of instructions.  Use FUSE_OPS
+     in an initializer if multiple fusion operations are supported on a
+     target.  */
+  enum fuse_ops
+  {
+    FUSE_NOTHING   = 0,
+    FUSE_MOVW_MOVT = 1 << 0
+  } fusible_ops: 1;
   /* Depth of scheduling queue to check for L2 autoprefetcher.  */
-  enum arm_sched_autopref sched_autopref;
-  /* Issue rate of the processor.  */
-  unsigned int issue_rate;
+  enum {SCHED_AUTOPREF_OFF, SCHED_AUTOPREF_RANK, SCHED_AUTOPREF_FULL}
+    sched_autopref: 2;
 };
+
+/* Smash multiple fusion operations into a type that can be used for an
+   initializer.  */
+#define FUSE_OPS(x) ((tune_params::fuse_ops) (x))
 
 extern const struct tune_params *current_tune;
 extern int vfp3_const_double_for_fract_bits (rtx);
@@ -321,8 +330,16 @@ extern bool arm_autoinc_modes_ok_p (machine_mode, enum arm_auto_incmodes);
 
 extern void arm_emit_eabi_attribute (const char *, int, int);
 
+extern void arm_reset_previous_fndecl (void);
+
 /* Defined in gcc/common/config/arm-common.c.  */
 extern const char *arm_rewrite_selected_cpu (const char *name);
+
+/* Defined in gcc/common/config/arm-c.c.  */
+extern void arm_lang_object_attributes_init (void);
+extern void arm_register_target_pragmas (void);
+extern void arm_cpu_cpp_builtins (struct cpp_reader *);
+extern void arm_cpu_builtins (struct cpp_reader *, int);
 
 extern bool arm_is_constant_pool_ref (rtx);
 
@@ -463,12 +480,6 @@ extern int arm_tune_wbuf;
 
 /* Nonzero if tuning for Cortex-A9.  */
 extern int arm_tune_cortex_a9;
-
-/* Nonzero if generating Thumb instructions.  */
-extern int thumb_code;
-
-/* Nonzero if generating Thumb-1 instructions.  */
-extern int thumb1_code;
 
 /* Nonzero if we should define __THUMB_INTERWORK__ in the
    preprocessor.

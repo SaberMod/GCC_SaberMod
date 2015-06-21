@@ -112,8 +112,6 @@
 #include "errors.h"
 #include "read-md.h"
 #include "gensupport.h"
-#include "hash-table.h"
-#include "inchash.h"
 #include <algorithm>
 
 #undef GENERATOR_FILE
@@ -172,17 +170,17 @@ static const bool force_unique_params_p = true;
 /* The maximum (approximate) depth of block nesting that an individual
    routine or subroutine should have.  This limit is about keeping the
    output readable rather than reducing compile time.  */
-static const int MAX_DEPTH = 6;
+static const unsigned int MAX_DEPTH = 6;
 
 /* The minimum number of pseudo-statements that a state must have before
    we split it out into a subroutine.  */
-static const int MIN_NUM_STATEMENTS = 5;
+static const unsigned int MIN_NUM_STATEMENTS = 5;
 
 /* The number of pseudo-statements a state can have before we consider
    splitting out substates into subroutines.  This limit is about avoiding
    compile-time problems with very big functions (and also about keeping
    functions within --param optimization limits, etc.).  */
-static const int MAX_NUM_STATEMENTS = 200;
+static const unsigned int MAX_NUM_STATEMENTS = 200;
 
 /* The minimum number of pseudo-statements that can be used in a pattern
    routine.  */
@@ -396,7 +394,7 @@ find_operand (rtx pattern, int n, rtx stop)
 	      return r;
 	  break;
 
-	case 'i': case 'w': case '0': case 's':
+	case 'i': case 'r': case 'w': case '0': case 's':
 	  break;
 
 	default:
@@ -447,7 +445,7 @@ find_matching_operand (rtx pattern, int n)
 	      return r;
 	  break;
 
-	case 'i': case 'w': case '0': case 's':
+	case 'i': case 'r': case 'w': case '0': case 's':
 	  break;
 
 	default:
@@ -747,7 +745,7 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
 	    validate_pattern (XVECEXP (pattern, i, j), insn, NULL_RTX, 0);
 	  break;
 
-	case 'i': case 'w': case '0': case 's':
+	case 'i': case 'r': case 'w': case '0': case 's':
 	  break;
 
 	default:
@@ -967,6 +965,9 @@ struct parameter
     /* An int parameter.  */
     INT,
 
+    /* An unsigned int parameter.  */
+    UINT,
+
     /* A HOST_WIDE_INT parameter.  */
     WIDE_INT
   };
@@ -1063,6 +1064,9 @@ struct rtx_test
     /* Check GET_MODE (X) == LABEL.  */
     MODE,
 
+    /* Check REGNO (X) == LABEL.  */
+    REGNO_FIELD,
+
     /* Check XINT (X, u.opno) == LABEL.  */
     INT_FIELD,
 
@@ -1142,6 +1146,7 @@ struct rtx_test
 
   static rtx_test code (position *);
   static rtx_test mode (position *);
+  static rtx_test regno_field (position *);
   static rtx_test int_field (position *, int);
   static rtx_test wide_int_field (position *, int);
   static rtx_test veclen (position *);
@@ -1177,6 +1182,13 @@ rtx_test
 rtx_test::mode (position *pos)
 {
   return rtx_test (pos, rtx_test::MODE);
+}
+
+rtx_test
+rtx_test::regno_field (position *pos)
+{
+  rtx_test res (pos, rtx_test::REGNO_FIELD);
+  return res;
 }
 
 rtx_test
@@ -1299,6 +1311,7 @@ operator == (const rtx_test &a, const rtx_test &b)
     {
     case rtx_test::CODE:
     case rtx_test::MODE:
+    case rtx_test::REGNO_FIELD:
     case rtx_test::VECLEN:
     case rtx_test::HAVE_NUM_CLOBBERS:
       return true;
@@ -1753,6 +1766,7 @@ safe_to_hoist_p (decision *d, const rtx_test &test, known_conditions *kc)
 	}
       gcc_unreachable ();
 
+    case rtx_test::REGNO_FIELD:
     case rtx_test::INT_FIELD:
     case rtx_test::WIDE_INT_FIELD:
     case rtx_test::VECLEN:
@@ -1958,6 +1972,9 @@ transition_parameter_type (rtx_test::kind_enum kind)
 
     case rtx_test::MODE:
       return parameter::MODE;
+
+    case rtx_test::REGNO_FIELD:
+      return parameter::UINT;
 
     case rtx_test::INT_FIELD:
     case rtx_test::VECLEN:
@@ -3970,6 +3987,13 @@ match_pattern_2 (state *s, rtx top_pattern, position *pos, rtx pattern)
 				      XINT (pattern, i), false);
 		    break;
 
+		  case 'r':
+		    /* Make sure that REGNO (X) has the right value.  */
+		    gcc_assert (i == 0);
+		    s = add_decision (s, rtx_test::regno_field (pos),
+				      REGNO (pattern), false);
+		    break;
+
 		  case 'w':
 		    /* Make sure that XWINT (X, I) has the right value.  */
 		    s = add_decision (s, rtx_test::wide_int_field (pos, i),
@@ -4080,14 +4104,14 @@ match_pattern_2 (state *s, rtx top_pattern, position *pos, rtx pattern)
    (2) the rtx matches TOP_PATTERN and
    (3) C_TEST is true.
 
-   For peephole2, TOP_PATTERN is the DEFINE_PEEPHOLE2 itself, otherwise
-   it is the rtx pattern to match (PARALLEL, SET, etc.).  */
+   For peephole2, TOP_PATTERN is a SEQUENCE of the instruction patterns
+   to match, otherwise it is a single instruction pattern.  */
 
 static void
 match_pattern_1 (state *s, rtx top_pattern, const char *c_test,
 		 acceptance_type acceptance)
 {
-  if (GET_CODE (top_pattern) == DEFINE_PEEPHOLE2)
+  if (acceptance.type == PEEPHOLE2)
     {
       /* Match each individual instruction.  */
       position **subpos_ptr = &peep2_insn_pos_list;
@@ -4095,18 +4119,14 @@ match_pattern_1 (state *s, rtx top_pattern, const char *c_test,
       for (int i = 0; i < XVECLEN (top_pattern, 0); ++i)
 	{
 	  rtx x = XVECEXP (top_pattern, 0, i);
-	  /* Ignore scratch register requirements.  */
-	  if (GET_CODE (x) != MATCH_SCRATCH && GET_CODE (x) != MATCH_DUP)
-	    {
-	      position *subpos = next_position (subpos_ptr, &root_pos,
-						POS_PEEP2_INSN, count);
-	      if (count > 0)
-		s = add_decision (s, rtx_test::peep2_count (count + 1),
-				  true, false);
-	      s = match_pattern_2 (s, top_pattern, subpos, x);
-	      subpos_ptr = &subpos->next;
-	      count += 1;
-	    }
+	  position *subpos = next_position (subpos_ptr, &root_pos,
+					    POS_PEEP2_INSN, count);
+	  if (count > 0)
+	    s = add_decision (s, rtx_test::peep2_count (count + 1),
+			      true, false);
+	  s = match_pattern_2 (s, top_pattern, subpos, x);
+	  subpos_ptr = &subpos->next;
+	  count += 1;
 	}
       acceptance.u.full.u.match_len = count - 1;
     }
@@ -4171,6 +4191,7 @@ write_header (void)
 #include \"hard-reg-set.h\"\n\
 #include \"input.h\"\n\
 #include \"function.h\"\n\
+#include \"emit-rtl.h\"\n\
 #include \"insn-config.h\"\n\
 #include \"recog.h\"\n\
 #include \"output.h\"\n\
@@ -4236,6 +4257,9 @@ parameter_type_string (parameter::type_enum type)
     case parameter::INT:
       return "int";
 
+    case parameter::UINT:
+      return "unsigned int";
+
     case parameter::WIDE_INT:
       return "HOST_WIDE_INT";
     }
@@ -4282,7 +4306,7 @@ get_failure_return (routine_type type)
 
     case SPLIT:
     case PEEPHOLE2:
-      return "NULL_RTX";
+      return "NULL";
     }
   gcc_unreachable ();
 }
@@ -4455,6 +4479,10 @@ print_parameter_value (const parameter &param)
 	printf ("%d", (int) param.value);
 	break;
 
+      case parameter::UINT:
+	printf ("%u", (unsigned int) param.value);
+	break;
+
       case parameter::WIDE_INT:
 	print_host_wide_int (param.value);
 	break;
@@ -4501,6 +4529,12 @@ print_nonbool_test (output_state *os, const rtx_test &test)
       printf ("XINT (");
       print_test_rtx (os, test);
       printf (", %d)", test.u.opno);
+      break;
+
+    case rtx_test::REGNO_FIELD:
+      printf ("REGNO (");
+      print_test_rtx (os, test);
+      printf (")");
       break;
 
     case rtx_test::WIDE_INT_FIELD:
@@ -4576,6 +4610,7 @@ print_test (output_state *os, const rtx_test &test, bool is_param,
     case rtx_test::CODE:
     case rtx_test::MODE:
     case rtx_test::VECLEN:
+    case rtx_test::REGNO_FIELD:
     case rtx_test::INT_FIELD:
     case rtx_test::WIDE_INT_FIELD:
     case rtx_test::PATTERN:
@@ -5025,7 +5060,7 @@ print_subroutine_start (output_state *os, state *s, position *root)
   if (os->type == SUBPATTERN || os->type == RECOG)
     printf ("  int res ATTRIBUTE_UNUSED;\n");
   else
-    printf ("  rtx res ATTRIBUTE_UNUSED;\n");
+    printf ("  rtx_insn *res ATTRIBUTE_UNUSED;\n");
 }
 
 /* Output the definition of pattern routine ROUTINE.  */
@@ -5075,7 +5110,7 @@ print_pattern (output_state *os, pattern_routine *routine)
 static void
 print_subroutine (output_state *os, state *s, int proc_id)
 {
-  /* For now, the top-level functions take a plain "rtx", and perform a
+  /* For now, the top-level "recog" takes a plain "rtx", and performs a
      checked cast to "rtx_insn *" for use throughout the rest of the
      function and the code it calls.  */
   const char *insn_param
@@ -5098,29 +5133,31 @@ print_subroutine (output_state *os, state *s, int proc_id)
 
     case SPLIT:
       if (proc_id)
-	printf ("static rtx\nsplit_%d", proc_id);
+	printf ("static rtx_insn *\nsplit_%d", proc_id);
       else
-	printf ("rtx\nsplit_insns");
-      printf (" (rtx x1 ATTRIBUTE_UNUSED, %s ATTRIBUTE_UNUSED)\n",
-	      insn_param);
+	printf ("rtx_insn *\nsplit_insns");
+      printf (" (rtx x1 ATTRIBUTE_UNUSED, rtx_insn *insn ATTRIBUTE_UNUSED)\n");
       break;
 
     case PEEPHOLE2:
       if (proc_id)
-	printf ("static rtx\npeephole2_%d", proc_id);
+	printf ("static rtx_insn *\npeephole2_%d", proc_id);
       else
-	printf ("rtx\npeephole2_insns");
+	printf ("rtx_insn *\npeephole2_insns");
       printf (" (rtx x1 ATTRIBUTE_UNUSED,\n"
-	      "\t%s ATTRIBUTE_UNUSED,\n"
-	      "\tint *pmatch_len_ ATTRIBUTE_UNUSED)\n", insn_param);
+	      "\trtx_insn *insn ATTRIBUTE_UNUSED,\n"
+	      "\tint *pmatch_len_ ATTRIBUTE_UNUSED)\n");
       break;
     }
   print_subroutine_start (os, s, &root_pos);
   if (proc_id == 0)
     {
       printf ("  recog_data.insn = NULL;\n");
-      printf ("  rtx_insn *insn ATTRIBUTE_UNUSED;\n");
-      printf ("  insn = safe_as_a <rtx_insn *> (uncast_insn);\n");
+      if (os->type == RECOG)
+	{
+	  printf ("  rtx_insn *insn ATTRIBUTE_UNUSED;\n");
+	  printf ("  insn = safe_as_a <rtx_insn *> (uncast_insn);\n");
+	}
     }
   print_state (os, s, 2, true);
   printf ("}\n");
@@ -5149,20 +5186,28 @@ print_subroutine_group (output_state *os, routine_type type, state *root)
   print_subroutine (os, root, 0);
 }
 
-/* Return the rtx pattern specified by the list of rtxes in a
-   define_insn or define_split.  */
+/* Return the rtx pattern for the list of rtxes in a define_peephole2.  */
 
 static rtx
-add_implicit_parallel (rtvec vec)
+get_peephole2_pattern (rtvec vec)
 {
-  if (GET_NUM_ELEM (vec) == 1)
-    return RTVEC_ELT (vec, 0);
-  else
+  int i, j;
+  rtx pattern = rtx_alloc (SEQUENCE);
+  XVEC (pattern, 0) = rtvec_alloc (GET_NUM_ELEM (vec));
+  for (i = j = 0; i < GET_NUM_ELEM (vec); i++)
     {
-      rtx pattern = rtx_alloc (PARALLEL);
-      XVEC (pattern, 0) = vec;
-      return pattern;
+      rtx x = RTVEC_ELT (vec, i);
+      /* Ignore scratch register requirements.  */
+      if (GET_CODE (x) != MATCH_SCRATCH && GET_CODE (x) != MATCH_DUP)
+	{
+	  XVECEXP (pattern, 0, j) = x;
+	  j++;
+	}
     }
+  XVECLEN (pattern, 0) = j;
+  if (j == 0)
+    error_with_line (pattern_lineno, "empty define_peephole2");
+  return pattern;
 }
 
 /* Return true if *PATTERN_PTR is a PARALLEL in which at least one trailing
@@ -5231,20 +5276,20 @@ main (int argc, char **argv)
       if (desc == NULL)
 	break;
 
-      rtx pattern;
-
       acceptance_type acceptance;
       acceptance.partial_p = false;
       acceptance.u.full.code = next_insn_code;
 
+      rtx pattern;
       switch (GET_CODE (desc))
 	{
 	case DEFINE_INSN:
 	  {
 	    /* Match the instruction in the original .md form.  */
-	    pattern = add_implicit_parallel (XVEC (desc, 1));
 	    acceptance.type = RECOG;
 	    acceptance.u.full.u.num_clobbers = 0;
+	    pattern = add_implicit_parallel (XVEC (desc, 1));
+	    validate_pattern (pattern, desc, NULL_RTX, 0);
 	    match_pattern (&insn_root, pattern, XSTR (desc, 2), acceptance);
 
 	    /* If the pattern is a PARALLEL with trailing CLOBBERs,
@@ -5258,21 +5303,24 @@ main (int argc, char **argv)
 	case DEFINE_SPLIT:
 	  acceptance.type = SPLIT;
 	  pattern = add_implicit_parallel (XVEC (desc, 0));
+	  validate_pattern (pattern, desc, NULL_RTX, 0);
 	  match_pattern (&split_root, pattern, XSTR (desc, 1), acceptance);
 
 	  /* Declare the gen_split routine that we'll call if the
 	     pattern matches.  The definition comes from insn-emit.c.  */
-	  printf ("extern rtx gen_split_%d (rtx_insn *, rtx *);\n",
+	  printf ("extern rtx_insn *gen_split_%d (rtx_insn *, rtx *);\n",
 		  next_insn_code);
 	  break;
 
 	case DEFINE_PEEPHOLE2:
 	  acceptance.type = PEEPHOLE2;
-	  match_pattern (&peephole2_root, desc, XSTR (desc, 1), acceptance);
+	  pattern = get_peephole2_pattern (XVEC (desc, 0));
+	  validate_pattern (pattern, desc, NULL_RTX, 0);
+	  match_pattern (&peephole2_root, pattern, XSTR (desc, 1), acceptance);
 
 	  /* Declare the gen_peephole2 routine that we'll call if the
 	     pattern matches.  The definition comes from insn-emit.c.  */
-	  printf ("extern rtx gen_peephole2_%d (rtx_insn *, rtx *);\n",
+	  printf ("extern rtx_insn *gen_peephole2_%d (rtx_insn *, rtx *);\n",
 		  next_insn_code);
 	  break;
 

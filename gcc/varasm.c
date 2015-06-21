@@ -30,15 +30,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -47,10 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "hard-reg-set.h"
 #include "function.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -62,7 +51,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "regs.h"
 #include "output.h"
 #include "diagnostic-core.h"
-#include "ggc.h"
 #include "langhooks.h"
 #include "tm_p.h"
 #include "debug.h"
@@ -73,8 +61,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
-#include "hash-map.h"
-#include "is-a.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -1429,7 +1415,7 @@ make_decl_rtl (tree decl)
 	     confused with that register and be eliminated.  This usage is
 	     somewhat suspect...  */
 
-	  SET_DECL_RTL (decl, gen_rtx_raw_REG (mode, reg_number));
+	  SET_DECL_RTL (decl, gen_raw_REG (mode, reg_number));
 	  ORIGINAL_REGNO (DECL_RTL (decl)) = reg_number;
 	  REG_USERVAR_P (DECL_RTL (decl)) = 1;
 
@@ -3968,8 +3954,12 @@ output_constant_pool_1 (struct constant_descriptor_rtx *desc,
   /* Output the label.  */
   targetm.asm_out.internal_label (asm_out_file, "LC", desc->labelno);
 
-  /* Output the data.  */
-  output_constant_pool_2 (desc->mode, x, align);
+  /* Output the data.
+     Pass actual alignment value while emitting string constant to asm code
+     as function 'output_constant_pool_1' explicitly passes the alignment as 1
+     assuming that the data is already aligned which prevents the generation 
+     of fix-up table entries.  */
+  output_constant_pool_2 (desc->mode, x, desc->align);
 
   /* Make sure all constants in SECTION_MERGE and not SECTION_STRINGS
      sections have proper size.  */
@@ -7380,6 +7370,8 @@ output_object_block (struct object_block *block)
       if (CONSTANT_POOL_ADDRESS_P (symbol))
 	{
 	  desc = SYMBOL_REF_CONSTANT (symbol);
+	  /* Pass 1 for align as we have already laid out everything in the block.
+	     So aligning shouldn't be necessary.  */
 	  output_constant_pool_1 (desc, 1);
 	  offset += GET_MODE_SIZE (desc->mode);
 	}
@@ -7419,14 +7411,31 @@ output_object_block (struct object_block *block)
     }
 }
 
-/* A htab_traverse callback used to call output_object_block for
-   each member of object_block_htab.  */
+/* A callback for qsort to compare object_blocks.  */
 
-int
-output_object_block_htab (object_block **slot, void *)
+static int
+output_object_block_compare (const void *x, const void *y)
 {
-  output_object_block (*slot);
-  return 1;
+  object_block *p1 = *(object_block * const*)x;
+  object_block *p2 = *(object_block * const*)y;
+
+  if (p1->sect->common.flags & SECTION_NAMED
+      && !(p2->sect->common.flags & SECTION_NAMED))
+    return 1;
+
+  if (!(p1->sect->common.flags & SECTION_NAMED)
+      && p2->sect->common.flags & SECTION_NAMED)
+    return -1;
+
+  if (p1->sect->common.flags & SECTION_NAMED
+      && p2->sect->common.flags & SECTION_NAMED)
+    return strcmp (p1->sect->named.name, p2->sect->named.name);
+
+  unsigned f1 = p1->sect->common.flags;
+  unsigned f2 = p2->sect->common.flags;
+  if (f1 == f2)
+    return 0;
+  return f1 < f2 ? -1 : 1;
 }
 
 /* Output the definitions of all object_blocks.  */
@@ -7434,7 +7443,23 @@ output_object_block_htab (object_block **slot, void *)
 void
 output_object_blocks (void)
 {
-  object_block_htab->traverse<void *, output_object_block_htab> (NULL);
+  vec<object_block *, va_heap> v;
+  v.create (object_block_htab->elements ());
+  object_block *obj;
+  hash_table<object_block_hasher>::iterator hi;
+
+  FOR_EACH_HASH_TABLE_ELEMENT (*object_block_htab, obj, object_block *, hi)
+    v.quick_push (obj);
+
+  /* Sort them in order to output them in a deterministic manner,
+     otherwise we may get .rodata sections in different orders with
+     and without -g.  */
+  v.qsort (output_object_block_compare);
+  unsigned i;
+  FOR_EACH_VEC_ELT (v, i, obj)
+    output_object_block (obj);
+
+  v.release ();
 }
 
 /* This function provides a possible implementation of the

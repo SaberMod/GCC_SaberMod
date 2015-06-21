@@ -55,6 +55,7 @@ package body Aspects is
       Aspect_Unchecked_Union         => True,
       Aspect_Variable_Indexing       => True,
       Aspect_Volatile                => True,
+      Aspect_Volatile_Full_Access    => True,
       others                         => False);
 
    --  The following array indicates type aspects that are inherited and apply
@@ -516,6 +517,7 @@ package body Aspects is
     Aspect_Depends                      => Aspect_Depends,
     Aspect_Dimension                    => Aspect_Dimension,
     Aspect_Dimension_System             => Aspect_Dimension_System,
+    Aspect_Disable_Controlled           => Aspect_Disable_Controlled,
     Aspect_Discard_Names                => Aspect_Discard_Names,
     Aspect_Dispatching_Domain           => Aspect_Dispatching_Domain,
     Aspect_Dynamic_Predicate            => Aspect_Predicate,
@@ -606,6 +608,7 @@ package body Aspects is
     Aspect_Value_Size                   => Aspect_Value_Size,
     Aspect_Volatile                     => Aspect_Volatile,
     Aspect_Volatile_Components          => Aspect_Volatile_Components,
+    Aspect_Volatile_Full_Access         => Aspect_Volatile_Full_Access,
     Aspect_Warnings                     => Aspect_Warnings,
     Aspect_Write                        => Aspect_Write);
 

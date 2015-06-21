@@ -3050,6 +3050,15 @@ package body Sem_Res is
       F_Typ  : Entity_Id;
       Prev   : Node_Id := Empty;
       Orig_A : Node_Id;
+      Real_F : Entity_Id;
+
+      Real_Subp : Entity_Id;
+      --  If the subprogram being called is an inherited operation for
+      --  a formal derived type in an instance, Real_Subp is the subprogram
+      --  that will be called. It may have different formal names than the
+      --  operation of the formal in the generic, so after actual is resolved
+      --  the name of the actual in a named association must carry the name
+      --  of the actual of the subprogram being called.
 
       procedure Check_Aliased_Parameter;
       --  Check rules on aliased parameters and related accessibility rules
@@ -3558,7 +3567,17 @@ package body Sem_Res is
 
    begin
       Check_Argument_Order;
-      Check_Function_Writable_Actuals (N);
+
+      if Is_Overloadable (Nam)
+        and then Is_Inherited_Operation (Nam)
+        and then In_Instance
+        and then Present (Alias (Nam))
+        and then Present (Overridden_Operation (Alias (Nam)))
+      then
+         Real_Subp := Alias (Nam);
+      else
+         Real_Subp := Empty;
+      end if;
 
       if Present (First_Actual (N)) then
          Check_Prefixed_Call;
@@ -3566,6 +3585,11 @@ package body Sem_Res is
 
       A := First_Actual (N);
       F := First_Formal (Nam);
+
+      if Present (Real_Subp) then
+         Real_F := First_Formal (Real_Subp);
+      end if;
+
       while Present (F) loop
          if No (A) and then Needs_No_Actuals (Nam) then
             null;
@@ -4400,10 +4424,19 @@ package body Sem_Res is
 
               and then not GNATprove_Mode
             then
-               Set_Entity (Selector_Name (Parent (A)), F);
-               Generate_Reference (F, Selector_Name (Parent (A)));
-               Set_Etype (Selector_Name (Parent (A)), F_Typ);
-               Generate_Reference (F_Typ, N, ' ');
+               --  If subprogram is overridden, use name of formal that
+               --  is being called.
+
+               if Present (Real_Subp) then
+                  Set_Entity (Selector_Name (Parent (A)), Real_F);
+                  Set_Etype (Selector_Name (Parent (A)), Etype (Real_F));
+
+               else
+                  Set_Entity (Selector_Name (Parent (A)), F);
+                  Generate_Reference (F, Selector_Name (Parent (A)));
+                  Set_Etype (Selector_Name (Parent (A)), F_Typ);
+                  Generate_Reference (F_Typ, N, ' ');
+               end if;
             end if;
 
             Prev := A;
@@ -4510,6 +4543,10 @@ package body Sem_Res is
          end if;
 
          Next_Formal (F);
+
+         if Present (Real_Subp) then
+            Next_Formal (Real_F);
+         end if;
       end loop;
    end Resolve_Actuals;
 
@@ -5472,7 +5509,6 @@ package body Sem_Res is
 
       Check_Unset_Reference (L);
       Check_Unset_Reference (R);
-      Check_Function_Writable_Actuals (N);
    end Resolve_Arithmetic_Op;
 
    ------------------
@@ -6957,18 +6993,12 @@ package body Sem_Res is
          Set_Entity_With_Checks (N, E);
          Eval_Entity_Name (N);
 
-      --  Case of subtype name appearing as an operand in expression
+      --  Case of (sub)type name appearing in a context where an expression
+      --  is expected. This is legal if occurrence is a current instance.
+      --  See RM 8.6 (17/3).
 
       elsif Is_Type (E) then
-
-         --  Allow use of subtype if it is a concurrent type where we are
-         --  currently inside the body. This will eventually be expanded into a
-         --  call to Self (for tasks) or _object (for protected objects). Any
-         --  other use of a subtype is invalid.
-
-         if Is_Concurrent_Type (E)
-           and then In_Open_Scopes (E)
-         then
+         if Is_Current_Instance (N) then
             null;
 
          --  Any other use is an error
@@ -8564,8 +8594,6 @@ package body Sem_Res is
             end if;
          end;
       end if;
-
-      Check_Function_Writable_Actuals (N);
    end Resolve_Logical_Op;
 
    ---------------------------
@@ -8757,7 +8785,6 @@ package body Sem_Res is
       <<SM_Exit>>
 
       Eval_Membership_Op (N);
-      Check_Function_Writable_Actuals (N);
    end Resolve_Membership_Op;
 
    ------------------
@@ -10744,19 +10771,11 @@ package body Sem_Res is
             --  view when available. If it is a class-wide type, recover the
             --  class-wide type of the nonlimited view.
 
-            if From_Limited_With (Opnd) then
-               if Ekind (Opnd) in Incomplete_Kind
-                 and then Present (Non_Limited_View (Opnd))
-               then
-                  Opnd := Non_Limited_View (Opnd);
-                  Set_Etype (Expression (N), Opnd);
-
-               elsif Is_Class_Wide_Type (Opnd)
-                 and then Present (Non_Limited_View (Etype (Opnd)))
-               then
-                  Opnd := Class_Wide_Type (Non_Limited_View (Etype (Opnd)));
-                  Set_Etype (Expression (N), Opnd);
-               end if;
+            if From_Limited_With (Opnd)
+              and then Has_Non_Limited_View (Opnd)
+            then
+               Opnd := Non_Limited_View (Opnd);
+               Set_Etype (Expression (N), Opnd);
             end if;
 
             if Is_Access_Type (Opnd) then
@@ -12342,9 +12361,8 @@ package body Sem_Res is
             begin
                --  Handle the limited view of a type
 
-               if Is_Incomplete_Type (Desig)
-                 and then From_Limited_With (Desig)
-                 and then Present (Non_Limited_View (Desig))
+               if From_Limited_With (Desig)
+                 and then Has_Non_Limited_View (Desig)
                then
                   return Available_View (Desig);
                else

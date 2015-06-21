@@ -29,26 +29,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "sbitmap.h"
 #include "bitmap.h"
-#include "hash-table.h"
 #include "hard-reg-set.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "basic-block.h"
 #include "symtab.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -123,6 +111,21 @@ struct update_cost_record
   int divisor;
   /* Next record for given allocno.  */
   struct update_cost_record *next;
+
+  /* Pool allocation new operator.  */
+  inline void *operator new (size_t)
+  {
+    return pool.allocate ();
+  }
+
+  /* Delete operator utilizing pool allocation.  */
+  inline void operator delete (void *ptr)
+  {
+    pool.remove ((update_cost_record *) ptr);
+  }
+
+  /* Memory allocation pool.  */
+  static pool_allocator<update_cost_record> pool;
 };
 
 /* To decrease footprint of ira_allocno structure we store all data
@@ -1166,16 +1169,8 @@ setup_profitable_hard_regs (void)
    allocnos.  */
 
 /* Pool for update cost records.  */
-static alloc_pool update_cost_record_pool;
-
-/* Initiate update cost records.  */
-static void
-init_update_cost_records (void)
-{
-  update_cost_record_pool
-    = create_alloc_pool ("update cost records",
-			 sizeof (struct update_cost_record), 100);
-}
+static pool_allocator<update_cost_record> update_cost_record_pool
+  ("update cost records", 100);
 
 /* Return new update cost record with given params.  */
 static struct update_cost_record *
@@ -1184,7 +1179,7 @@ get_update_cost_record (int hard_regno, int divisor,
 {
   struct update_cost_record *record;
 
-  record = (struct update_cost_record *) pool_alloc (update_cost_record_pool);
+  record = update_cost_record_pool.allocate ();
   record->hard_regno = hard_regno;
   record->divisor = divisor;
   record->next = next;
@@ -1200,7 +1195,7 @@ free_update_cost_record_list (struct update_cost_record *list)
   while (list != NULL)
     {
       next = list->next;
-      pool_free (update_cost_record_pool, list);
+      update_cost_record_pool.remove (list);
       list = next;
     }
 }
@@ -1209,7 +1204,7 @@ free_update_cost_record_list (struct update_cost_record *list)
 static void
 finish_update_cost_records (void)
 {
-  free_alloc_pool (update_cost_record_pool);
+  update_cost_record_pool.release ();
 }
 
 /* Array whose element value is TRUE if the corresponding hard
@@ -1264,7 +1259,6 @@ initiate_cost_update (void)
     = (struct update_cost_queue_elem *) ira_allocate (size);
   memset (update_cost_queue_elems, 0, size);
   update_cost_check = 0;
-  init_update_cost_records ();
 }
 
 /* Deallocate data used by function update_costs_from_copies.  */
@@ -3853,14 +3847,6 @@ coalesced_pseudo_reg_freq_compare (const void *v1p, const void *v2p)
 /* Widest width in which each pseudo reg is referred to (via subreg).
    It is used for sorting pseudo registers.  */
 static unsigned int *regno_max_ref_width;
-
-/* Redefine STACK_GROWS_DOWNWARD in terms of 0 or 1.  */
-#ifdef STACK_GROWS_DOWNWARD
-# undef STACK_GROWS_DOWNWARD
-# define STACK_GROWS_DOWNWARD 1
-#else
-# define STACK_GROWS_DOWNWARD 0
-#endif
 
 /* Sort pseudos according their slot numbers (putting ones with
   smaller numbers first, or last when the frame pointer is not

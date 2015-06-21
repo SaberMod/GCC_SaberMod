@@ -55,11 +55,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -67,13 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "symtab.h"
 #include "flags.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -87,7 +76,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "diagnostic-core.h"
 #include "df.h"
-#include "hash-table.h"
 #include "dumpfile.h"
 #include "rtl-iter.h"
 
@@ -977,7 +965,7 @@ bool
 iv_analyze_expr (rtx_insn *insn, rtx rhs, machine_mode mode,
 		 struct rtx_iv *iv)
 {
-  rtx mby = NULL_RTX, tmp;
+  rtx mby = NULL_RTX;
   rtx op0 = NULL_RTX, op1 = NULL_RTX;
   struct rtx_iv iv0, iv1;
   enum rtx_code code = GET_CODE (rhs);
@@ -1028,11 +1016,7 @@ iv_analyze_expr (rtx_insn *insn, rtx rhs, machine_mode mode,
       op0 = XEXP (rhs, 0);
       mby = XEXP (rhs, 1);
       if (!CONSTANT_P (mby))
-	{
-	  tmp = op0;
-	  op0 = mby;
-	  mby = tmp;
-	}
+	std::swap (op0, mby);
       if (!CONSTANT_P (mby))
 	return false;
       break;
@@ -1544,7 +1528,7 @@ replace_in_expr (rtx *expr, rtx dest, rtx src)
 static bool
 implies_p (rtx a, rtx b)
 {
-  rtx op0, op1, opb0, opb1, r;
+  rtx op0, op1, opb0, opb1;
   machine_mode mode;
 
   if (rtx_equal_p (a, b))
@@ -1559,7 +1543,7 @@ implies_p (rtx a, rtx b)
 	  || (GET_CODE (op0) == SUBREG
 	      && REG_P (SUBREG_REG (op0))))
 	{
-	  r = simplify_replace_rtx (b, op0, op1);
+	  rtx r = simplify_replace_rtx (b, op0, op1);
 	  if (r == const_true_rtx)
 	    return true;
 	}
@@ -1568,7 +1552,7 @@ implies_p (rtx a, rtx b)
 	  || (GET_CODE (op1) == SUBREG
 	      && REG_P (SUBREG_REG (op1))))
 	{
-	  r = simplify_replace_rtx (b, op1, op0);
+	  rtx r = simplify_replace_rtx (b, op1, op0);
 	  if (r == const_true_rtx)
 	    return true;
 	}
@@ -1604,18 +1588,10 @@ implies_p (rtx a, rtx b)
     {
 
       if (GET_CODE (a) == GT)
-	{
-	  r = op0;
-	  op0 = op1;
-	  op1 = r;
-	}
+	std::swap (op0, op1);
 
       if (GET_CODE (b) == GE)
-	{
-	  r = opb0;
-	  opb0 = opb1;
-	  opb1 = r;
-	}
+	std::swap (opb0, opb1);
 
       if (SCALAR_INT_MODE_P (mode)
 	  && rtx_equal_p (op1, opb1)
@@ -1707,7 +1683,6 @@ implies_p (rtx a, rtx b)
 rtx
 canon_condition (rtx cond)
 {
-  rtx tem;
   rtx op0, op1;
   enum rtx_code code;
   machine_mode mode;
@@ -1719,9 +1694,7 @@ canon_condition (rtx cond)
   if (swap_commutative_operands_p (op0, op1))
     {
       code = swap_condition (code);
-      tem = op0;
-      op0 = op1;
-      op1 = tem;
+      std::swap (op0, op1);
     }
 
   mode = GET_MODE (op0);
@@ -2056,7 +2029,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 
 	      for (pnote = &cond_list; *pnote; pnote = pnote_next)
 		{
-		  rtx note = *pnote;
+		  rtx_expr_list *note = *pnote;
 		  rtx old_cond = XEXP (note, 0);
 
 		  pnote_next = (rtx_expr_list **)&XEXP (note, 1);
@@ -2090,7 +2063,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	      /* Likewise for the conditions.  */
 	      for (pnote = &cond_list; *pnote; pnote = pnote_next)
 		{
-		  rtx note = *pnote;
+		  rtx_expr_list *note = *pnote;
 		  rtx old_cond = XEXP (note, 0);
 
 		  pnote_next = (rtx_expr_list **)&XEXP (note, 1);

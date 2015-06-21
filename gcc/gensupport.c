@@ -24,7 +24,6 @@
 #include "rtl.h"
 #include "obstack.h"
 #include "errors.h"
-#include "hashtab.h"
 #include "read-md.h"
 #include "gensupport.h"
 
@@ -143,6 +142,22 @@ gen_rtx_CONST_INT (machine_mode ARG_UNUSED (mode),
   XWINT (rt, 0) = arg;
   return rt;
 }
+
+/* Return the rtx pattern specified by the list of rtxes in a
+   define_insn or define_split.  */
+
+rtx
+add_implicit_parallel (rtvec vec)
+{
+  if (GET_NUM_ELEM (vec) == 1)
+    return RTVEC_ELT (vec, 0);
+  else
+    {
+      rtx pattern = rtx_alloc (PARALLEL);
+      XVEC (pattern, 0) = vec;
+      return pattern;
+    }
+}
 
 /* Predicate handling.
 
@@ -204,8 +219,8 @@ static char did_you_mean_codes[NUM_RTX_CODE];
    predicate expression EXP, writing the result to CODES.  LINENO is
    the line number on which the directive containing EXP appeared.  */
 
-static void
-compute_predicate_codes (rtx exp, int lineno, char codes[NUM_RTX_CODE])
+void
+compute_test_codes (rtx exp, int lineno, char *codes)
 {
   char op0_codes[NUM_RTX_CODE];
   char op1_codes[NUM_RTX_CODE];
@@ -215,29 +230,29 @@ compute_predicate_codes (rtx exp, int lineno, char codes[NUM_RTX_CODE])
   switch (GET_CODE (exp))
     {
     case AND:
-      compute_predicate_codes (XEXP (exp, 0), lineno, op0_codes);
-      compute_predicate_codes (XEXP (exp, 1), lineno, op1_codes);
+      compute_test_codes (XEXP (exp, 0), lineno, op0_codes);
+      compute_test_codes (XEXP (exp, 1), lineno, op1_codes);
       for (i = 0; i < NUM_RTX_CODE; i++)
 	codes[i] = TRISTATE_AND (op0_codes[i], op1_codes[i]);
       break;
 
     case IOR:
-      compute_predicate_codes (XEXP (exp, 0), lineno, op0_codes);
-      compute_predicate_codes (XEXP (exp, 1), lineno, op1_codes);
+      compute_test_codes (XEXP (exp, 0), lineno, op0_codes);
+      compute_test_codes (XEXP (exp, 1), lineno, op1_codes);
       for (i = 0; i < NUM_RTX_CODE; i++)
 	codes[i] = TRISTATE_OR (op0_codes[i], op1_codes[i]);
       break;
     case NOT:
-      compute_predicate_codes (XEXP (exp, 0), lineno, op0_codes);
+      compute_test_codes (XEXP (exp, 0), lineno, op0_codes);
       for (i = 0; i < NUM_RTX_CODE; i++)
 	codes[i] = TRISTATE_NOT (op0_codes[i]);
       break;
 
     case IF_THEN_ELSE:
       /* a ? b : c  accepts the same codes as (a & b) | (!a & c).  */
-      compute_predicate_codes (XEXP (exp, 0), lineno, op0_codes);
-      compute_predicate_codes (XEXP (exp, 1), lineno, op1_codes);
-      compute_predicate_codes (XEXP (exp, 2), lineno, op2_codes);
+      compute_test_codes (XEXP (exp, 0), lineno, op0_codes);
+      compute_test_codes (XEXP (exp, 1), lineno, op1_codes);
+      compute_test_codes (XEXP (exp, 2), lineno, op2_codes);
       for (i = 0; i < NUM_RTX_CODE; i++)
 	codes[i] = TRISTATE_OR (TRISTATE_AND (op0_codes[i], op1_codes[i]),
 				TRISTATE_AND (TRISTATE_NOT (op0_codes[i]),
@@ -321,7 +336,7 @@ compute_predicate_codes (rtx exp, int lineno, char codes[NUM_RTX_CODE])
 
     default:
       error_with_line (lineno,
-		       "'%s' cannot be used in a define_predicate expression",
+		       "'%s' cannot be used in predicates or constraints",
 		       GET_RTX_NAME (GET_CODE (exp)));
       memset (codes, I, NUM_RTX_CODE);
       break;
@@ -373,7 +388,7 @@ process_define_predicate (rtx desc, int lineno)
   if (GET_CODE (desc) == DEFINE_SPECIAL_PREDICATE)
     pred->special = true;
 
-  compute_predicate_codes (XEXP (desc, 1), lineno, codes);
+  compute_test_codes (XEXP (desc, 1), lineno, codes);
 
   for (i = 0; i < NUM_RTX_CODE; i++)
     if (codes[i] != N)
@@ -880,7 +895,7 @@ subst_pattern_match (rtx x, rtx pt, int lineno)
 
       switch (fmt[i])
 	{
-	case 'i': case 'w': case 's':
+	case 'i': case 'r': case 'w': case 's':
 	  continue;
 
 	case 'e': case 'u':
@@ -1045,7 +1060,7 @@ get_alternatives_number (rtx pattern, int *n_alt, int lineno)
 		return 0;
 	  break;
 
-	case 'i': case 'w': case '0': case 's': case 'S': case 'T':
+	case 'i': case 'r': case 'w': case '0': case 's': case 'S': case 'T':
 	  break;
 
 	default:
@@ -1104,7 +1119,7 @@ collect_insn_data (rtx pattern, int *palt, int *pmax)
 	    collect_insn_data (XVECEXP (pattern, i, j), palt, pmax);
 	  break;
 
-	case 'i': case 'w': case '0': case 's': case 'S': case 'T':
+	case 'i': case 'r': case 'w': case '0': case 's': case 'S': case 'T':
 	  break;
 
 	default:
@@ -1188,7 +1203,7 @@ alter_predicate_for_insn (rtx pattern, int alt, int max_op, int lineno)
 	    }
 	  break;
 
-	case 'i': case 'w': case '0': case 's':
+	case 'i': case 'r': case 'w': case '0': case 's':
 	  break;
 
 	default:
@@ -1246,7 +1261,7 @@ alter_constraints (rtx pattern, int n_dup, constraints_handler_t alter)
 	    }
 	  break;
 
-	case 'i': case 'w': case '0': case 's':
+	case 'i': case 'r': case 'w': case '0': case 's':
 	  break;
 
 	default:
@@ -1703,19 +1718,9 @@ process_one_cond_exec (struct queue_elem *ce_elem)
       XSTR (insn, 0) = new_name;
       pattern = rtx_alloc (COND_EXEC);
       XEXP (pattern, 0) = pred;
-      if (XVECLEN (insn, 1) == 1)
-	{
-	  XEXP (pattern, 1) = XVECEXP (insn, 1, 0);
-	  XVECEXP (insn, 1, 0) = pattern;
-	  PUT_NUM_ELEM (XVEC (insn, 1), 1);
-	}
-      else
-	{
-	  XEXP (pattern, 1) = rtx_alloc (PARALLEL);
-	  XVEC (XEXP (pattern, 1), 0) = XVEC (insn, 1);
-	  XVEC (insn, 1) = rtvec_alloc (1);
-	  XVECEXP (insn, 1, 0) = pattern;
-	}
+      XEXP (pattern, 1) = add_implicit_parallel (XVEC (insn, 1));
+      XVEC (insn, 1) = rtvec_alloc (1);
+      XVECEXP (insn, 1, 0) = pattern;
 
        if (XVEC (ce_elem->data, 3) != NULL)
 	{
@@ -1760,19 +1765,10 @@ process_one_cond_exec (struct queue_elem *ce_elem)
       /* Predicate the pattern matched by the split.  */
       pattern = rtx_alloc (COND_EXEC);
       XEXP (pattern, 0) = pred;
-      if (XVECLEN (split, 0) == 1)
-	{
-	  XEXP (pattern, 1) = XVECEXP (split, 0, 0);
-	  XVECEXP (split, 0, 0) = pattern;
-	  PUT_NUM_ELEM (XVEC (split, 0), 1);
-	}
-      else
-	{
-	  XEXP (pattern, 1) = rtx_alloc (PARALLEL);
-	  XVEC (XEXP (pattern, 1), 0) = XVEC (split, 0);
-	  XVEC (split, 0) = rtvec_alloc (1);
-	  XVECEXP (split, 0, 0) = pattern;
-	}
+      XEXP (pattern, 1) = add_implicit_parallel (XVEC (split, 0));
+      XVEC (split, 0) = rtvec_alloc (1);
+      XVECEXP (split, 0, 0) = pattern;
+
       /* Predicate all of the insns generated by the split.  */
       for (i = 0; i < XVECLEN (split, 2); i++)
 	{
@@ -2184,7 +2180,7 @@ subst_dup (rtx pattern, int n_alt, int n_subst_alt)
 						   n_alt, n_subst_alt);
 	  break;
 
-	case 'i': case 'w': case '0': case 's': case 'S': case 'T':
+	case 'i': case 'r': case 'w': case '0': case 's': case 'S': case 'T':
 	  break;
 
 	default:
@@ -2985,4 +2981,38 @@ get_pattern_stats (struct pattern_stats *stats, rtvec pattern)
   stats->num_operand_vars = MAX (stats->max_opno,
 				  MAX (stats->max_dup_opno,
 				       stats->max_scratch_opno)) + 1;
+}
+
+/* Return the emit_* function that should be used for pattern X.  */
+
+const char *
+get_emit_function (rtx x)
+{
+  switch (classify_insn (x))
+    {
+    case INSN:
+      return "emit_insn";
+
+    case CALL_INSN:
+      return "emit_call_insn";
+
+    case JUMP_INSN:
+      return "emit_jump_insn";
+
+    case UNKNOWN:
+      return "emit";
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* Return true if we must emit a barrier after pattern X.  */
+
+bool
+needs_barrier_p (rtx x)
+{
+  return (GET_CODE (x) == SET
+	  && GET_CODE (SET_DEST (x)) == PC
+	  && GET_CODE (SET_SRC (x)) == LABEL_REF);
 }

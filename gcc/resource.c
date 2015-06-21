@@ -25,11 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "regs.h"
 #include "flags.h"
@@ -43,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "params.h"
 #include "df.h"
+#include "emit-rtl.h"
 
 /* This structure is used to record liveness information at the targets or
    fallthrough insns of branches.  We will most likely need the information
@@ -115,7 +111,7 @@ update_live_status (rtx dest, const_rtx x, void *data ATTRIBUTE_UNUSED)
   else
     {
       first_regno = REGNO (dest);
-      last_regno = END_HARD_REGNO (dest);
+      last_regno = END_REGNO (dest);
     }
 
   if (GET_CODE (x) == CLOBBER)
@@ -439,7 +435,7 @@ find_dead_or_set_registers (rtx_insn *target, struct resources *res,
 
   for (insn = target; insn; insn = next_insn)
     {
-      rtx_insn *this_jump_insn = insn;
+      rtx_insn *this_insn = insn;
 
       next_insn = NEXT_INSN (insn);
 
@@ -487,8 +483,8 @@ find_dead_or_set_registers (rtx_insn *target, struct resources *res,
 		 of a call, so search for a JUMP_INSN in any position.  */
 	      for (i = 0; i < seq->len (); i++)
 		{
-		  this_jump_insn = seq->insn (i);
-		  if (JUMP_P (this_jump_insn))
+		  this_insn = seq->insn (i);
+		  if (JUMP_P (this_insn))
 		    break;
 		}
 	    }
@@ -497,14 +493,15 @@ find_dead_or_set_registers (rtx_insn *target, struct resources *res,
 	  break;
 	}
 
-      if (JUMP_P (this_jump_insn))
+      if (rtx_jump_insn *this_jump_insn =
+	    dyn_cast <rtx_jump_insn *> (this_insn))
 	{
 	  if (jump_count++ < 10)
 	    {
 	      if (any_uncondjump_p (this_jump_insn)
 		  || ANY_RETURN_P (PATTERN (this_jump_insn)))
 		{
-		  rtx lab_or_return = JUMP_LABEL (this_jump_insn);
+		  rtx lab_or_return = this_jump_insn->jump_label ();
 		  if (ANY_RETURN_P (lab_or_return))
 		    next_insn = NULL;
 		  else
@@ -577,10 +574,10 @@ find_dead_or_set_registers (rtx_insn *target, struct resources *res,
 		  AND_COMPL_HARD_REG_SET (scratch, needed.regs);
 		  AND_COMPL_HARD_REG_SET (fallthrough_res.regs, scratch);
 
-		  if (!ANY_RETURN_P (JUMP_LABEL (this_jump_insn)))
-		    find_dead_or_set_registers (JUMP_LABEL_AS_INSN (this_jump_insn),
-						&target_res, 0, jump_count,
-						target_set, needed);
+		  if (!ANY_RETURN_P (this_jump_insn->jump_label ()))
+		    find_dead_or_set_registers
+			  (this_jump_insn->jump_target (),
+			   &target_res, 0, jump_count, target_set, needed);
 		  find_dead_or_set_registers (next_insn,
 					      &fallthrough_res, 0, jump_count,
 					      set, needed);
@@ -894,7 +891,6 @@ mark_target_live_regs (rtx_insn *insns, rtx target_maybe_return, struct resource
   unsigned int i;
   struct target_info *tinfo = NULL;
   rtx_insn *insn;
-  rtx jump_insn = 0;
   rtx jump_target;
   HARD_REG_SET scratch;
   struct resources set, needed;
@@ -1122,8 +1118,8 @@ mark_target_live_regs (rtx_insn *insns, rtx target_maybe_return, struct resource
   CLEAR_RESOURCE (&set);
   CLEAR_RESOURCE (&needed);
 
-  jump_insn = find_dead_or_set_registers (target, res, &jump_target, 0,
-					  set, needed);
+  rtx_insn *jump_insn = find_dead_or_set_registers (target, res, &jump_target,
+						    0, set, needed);
 
   /* If we hit an unconditional branch, we have another way of finding out
      what is live: we can see what is live at the branch target and include

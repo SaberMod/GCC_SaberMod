@@ -46,15 +46,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "calls.h"
@@ -70,7 +63,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -82,12 +74,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssanames.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-into-ssa.h"
-#include "hashtab.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -1149,7 +1137,12 @@ remove_dead_stmt (gimple_stmt_iterator *i, basic_block bb)
 	if (e != e2)
 	  {
 	    cfg_altered = true;
-            remove_edge (e2);
+	    /* If we made a BB unconditionally exit a loop then this
+	       transform alters the set of BBs in the loop.  Schedule
+	       a fixup.  */
+	    if (loop_exit_edge_p (bb->loop_father, e))
+	      loops_state_set (LOOPS_NEED_FIXUP);
+	    remove_edge (e2);
 	  }
 	else
 	  ei_next (&ei);

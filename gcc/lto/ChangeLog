@@ -1,3 +1,101 @@
+2015-06-17  Andrew MacLeod  <amacleod@redhat.com>
+
+	* lto-lang.c: Do not include input.h, line-map.h or is-a.h.
+	* lto-object.c: Likewise.
+	* lto-partition.c: Likewise.
+	* lto-symtab.c: Likewise.
+	* lto.c: Likewise.
+
+2015-06-14  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/66181
+	* lto.c (compare_tree_sccs_1): Do not compare TYPE_NO_FORCE_BLK.
+
+2015-06-12  DJ Delorie  <dj@redhat.com>
+
+	* lto-lang.c (lto_type_for_size): Include intN types.
+	(lto_type_for_mode): Likewise.
+
+2015-06-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (hash_canonical_type): Drop hashing of TYPE_STRING_FLAG.
+
+2015-06-08  Andrew MacLeod  <amacleod@redhat.com>
+
+	* lto-lang.c : Adjust include files.
+	* lto-object.c : Likewise.
+	* lto-partition.c : Likewise.
+	* lto-partition.h : Likewise.
+	* lto-symtab.c : Likewise.
+	* lto.c : Likewise.
+	* lto.h : Likewise.
+
+2015-06-06  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/65378
+	* lto-symtab.c (warn_type_compatibility_p): Fix call of
+	odr_or_derived_type_p.
+	(lto_symtab_merge_decls_2): Update call of warn_types_mismatch.
+
+2015-06-08  Jan Hubicka  <hubicka@ucw.cz>
+
+
+	* lto.c (hash_canonical_type): Do not hash TREE_CODE of TREE_TYPE of
+	pointers.
+
+2015-06-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* lto-lang.c (lto_write_globals): Remove.
+	(LANG_HOOKS_WRITE_GLOBALS): Same.
+
+2015-06-04  Andrew MacLeod  <amacleod@redhat.com>
+
+	* lto-lang.c: Adjust includes for restructured coretypes.h.
+	* lto-object.c: Likewise.
+	* lto-partition.c: Likewise.
+	* lto-symtab.c: Likewise.
+	* lto.c: Likewise.
+
+2015-06-04  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (hash_canonical_type): Use tree_code_for_canonical_type_merging.
+
+2015-06-03  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (iterative_hash_canonical_type,
+	gimple_register_canonical_type): only hash main variants of types
+
+2015-05-27  Martin Liska  <mliska@suse.cz>
+
+	* lto-partition.c (new_partition): Reset number of symbols.
+	(add_symbol_to_partition_1): Increment number of symbols.
+	(undo_partition): Decrement number of symbols.
+	(lto_balanced_map): Dump number of symbols and insns that
+	belong to a partition.
+	* lto-partition.h (struct ltrans_partition_def): Add symbol counter.
+
+2015-05-22  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (hash_canonical_type): Be sure we hash only types that
+	need alias set.
+	(gimple_register_canonical_type_1): Do not produce canonical
+	types for types that do not need alias sets.
+
+2015-05-22  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (hash_canonical_type): Drop hashing of METHOD_BASETYPE.
+
+2015-05-19  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (gimple_canonical_types_compatible_p): Move to tree.c
+
+2015-05-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto-symtab.c (warn_type_compatibility_p): Break out from ...;
+	compare ODR types (if available) and function types.
+	(lto_symtab_merge): ... here; output ODR violation warnings
+	and call warn_types_mismatch.
+
 2015-04-29  Jan Hubicka  <hubicka@ucw.cz>
 
 	* lto.c (lto_fixup_state): Call verify_type.

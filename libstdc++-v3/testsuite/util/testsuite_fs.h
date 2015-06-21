@@ -1,7 +1,7 @@
 // -*- C++ -*-
 // Filesystem utils for the C++ library testsuite.
 //
-// Copyright (C) 2014 Free Software Foundation, Inc.
+// Copyright (C) 2014-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -25,6 +25,9 @@
 #include <experimental/filesystem>
 #include <iostream>
 #include <string>
+#include <cstdio>
+#include <stdlib.h>
+#include <unistd.h>
 
 namespace __gnu_test
 {
@@ -62,6 +65,29 @@ namespace __gnu_test
     "", "/", "//", "/.", "/./", "/a", "/a/", "/a//", "/a/b/c/d", "/a//b",
     "a", "a/b", "a/b/", "a/b/c", "a/b/c.d", "a/b/..", "a/b/c.", "a/b/.c"
   };
+
+  // This is NOT supposed to be a secure way to get a unique name!
+  // We just need a path that doesn't exist for testing purposes.
+  std::experimental::filesystem::path
+  nonexistent_path()
+  {
+    std::experimental::filesystem::path p;
+#if defined(_GNU_SOURCE) || _XOPEN_SOURCE >= 500 || _POSIX_C_SOURCE >= 200112L
+    char tmp[] = "test.XXXXXX";
+    int fd = ::mkstemp(tmp);
+    if (fd == -1)
+      throw std::experimental::filesystem::filesystem_error("mkstemp failed",
+	  std::error_code(errno, std::generic_category()));
+    ::unlink(tmp);
+    ::close(fd);
+    p = tmp;
+#else
+    char buf[64];
+    std::sprintf(buf, "test.%lu", (unsigned long)::getpid());
+    p = buf;
+#endif
+    return p;
+  }
 
 } // namespace __gnu_test
 #endif

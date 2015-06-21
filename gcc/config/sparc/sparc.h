@@ -106,17 +106,6 @@ extern enum cmodel sparc_cmodel;
 
 #define SPARC_DEFAULT_CMODEL CM_32
 
-/* The SPARC-V9 architecture defines a relaxed memory ordering model (RMO)
-   which requires the following macro to be true if enabled.  Prior to V9,
-   there are no instructions to even talk about memory synchronization.
-   Note that the UltraSPARC III processors don't implement RMO, unlike the
-   UltraSPARC II processors.  Niagara, Niagara-2, and Niagara-3 do not
-   implement RMO either.
-
-   Default to false; for example, Solaris never enables RMO, only ever uses
-   total memory ordering (TMO).  */
-#define SPARC_RELAXED_ORDERING false
-
 /* Do not use the .note.GNU-stack convention by default.  */
 #define NEED_INDICATE_EXEC_STACK 0
 
@@ -380,7 +369,7 @@ extern enum cmodel sparc_cmodel;
 /* Special flags to the Sun-4 assembler when using pipe for input.  */
 
 #define ASM_SPEC "\
-%{!pg:%{!p:%{fpic|fPIC|fpie|fPIE:-k}}} %{keep-local-as-symbols:-L} \
+%{!pg:%{!p:%{" FPIE_OR_FPIC_SPEC ":-k}}} %{keep-local-as-symbols:-L} \
 %(asm_cpu) %(asm_relax)"
 
 /* This macro defines names of additional specifications to put in the specs
@@ -1074,7 +1063,7 @@ extern char leaf_reg_remap[];
 
 /* Define this if pushing a word on the stack
    makes the stack pointer a smaller address.  */
-#define STACK_GROWS_DOWNWARD
+#define STACK_GROWS_DOWNWARD 1
 
 /* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;

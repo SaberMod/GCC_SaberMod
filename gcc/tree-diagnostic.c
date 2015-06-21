@@ -22,16 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "diagnostic.h"
 #include "tree-pretty-print.h"
@@ -39,7 +32,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "dumpfile.h" /* TDF_DIAGNOSTIC */
 #include "langhooks.h"
 #include "langhooks-def.h"
-#include "vec.h"
 #include "intl.h"
 
 /* Prints out, if necessary, the name of the current function
@@ -48,7 +40,7 @@ void
 diagnostic_report_current_function (diagnostic_context *context,
 				    diagnostic_info *diagnostic)
 {
-  diagnostic_report_current_module (context, diagnostic->location);
+  diagnostic_report_current_module (context, diagnostic_location (diagnostic));
   lang_hooks.print_error_function (context, LOCATION_FILE (input_location),
 				   diagnostic);
 }
@@ -67,7 +59,7 @@ default_tree_diagnostic_starter (diagnostic_context *context,
    below.  */
 typedef struct
 {
-  const struct line_map *map;
+  const line_map_macro *map;
   source_location where;
 } loc_map_pair;
 
@@ -133,7 +125,7 @@ maybe_unwind_expanded_macro_loc (diagnostic_context *context,
   do
     {
       loc.where = where;
-      loc.map = map;
+      loc.map = linemap_check_macro (map);
 
       loc_vec.safe_push (loc);
 
@@ -148,14 +140,15 @@ maybe_unwind_expanded_macro_loc (diagnostic_context *context,
 
   /* Now map is set to the map of the location in the source that
      first triggered the macro expansion.  This must be an ordinary map.  */
+  const line_map_ordinary *ord_map = linemap_check_ordinary (map);
 
   /* Walk LOC_VEC and print the macro expansion trace, unless the
      first macro which expansion triggered this trace was expanded
      inside a system header.  */
   int saved_location_line =
-    expand_location_to_spelling_point (diagnostic->location).line;
+    expand_location_to_spelling_point (diagnostic_location (diagnostic)).line;
 
-  if (!LINEMAP_SYSP (map))
+  if (!LINEMAP_SYSP (ord_map))
     FOR_EACH_VEC_ELT (loc_vec, ix, iter)
       {
 	/* Sometimes, in the unwound macro expansion trace, we want to
@@ -195,7 +188,7 @@ maybe_unwind_expanded_macro_loc (diagnostic_context *context,
 
 	/* Don't print trace for locations that are reserved or from
 	   within a system header.  */
-        const struct line_map *m = NULL;
+        const line_map_ordinary *m = NULL;
         source_location l = 
           linemap_resolve_location (line_table, resolved_def_loc,
                                     LRK_SPELLING_LOCATION,  &m);
@@ -252,7 +245,7 @@ virt_loc_aware_diagnostic_finalizer (diagnostic_context *context,
 				     diagnostic_info *diagnostic)
 {
   maybe_unwind_expanded_macro_loc (context, diagnostic,
-				   diagnostic->location);
+				   diagnostic_location (diagnostic));
 }
 
 /* Default tree printer.   Handles declarations only.  */
@@ -296,8 +289,8 @@ default_tree_printer (pretty_printer *pp, text_info *text, const char *spec,
       return false;
     }
 
-  if (set_locus && text->locus)
-    *text->locus = DECL_SOURCE_LOCATION (t);
+  if (set_locus)
+    text->set_location (0, DECL_SOURCE_LOCATION (t));
 
   if (DECL_P (t))
     {

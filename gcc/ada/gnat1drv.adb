@@ -142,6 +142,13 @@ procedure Gnat1drv is
          Modify_Tree_For_C := True;
       end if;
 
+      --  Other flags set if we are generating C code
+
+      if Debug_Flag_Dot_VV then
+         Generate_C_Code := True;
+         Unnest_Subprogram_Mode := True;
+      end if;
+
       --  -gnatd.E sets Error_To_Warning mode, causing selected error messages
       --  to be treated as warnings instead of errors.
 
@@ -194,6 +201,16 @@ procedure Gnat1drv is
 
          GNATprove_Mode := False;
          Debug_Flag_Dot_FF := False;
+
+         --  Turn off C tree generation, not compatible with CodePeer mode. We
+         --  do not expect this to happen in normal use, since both modes are
+         --  enabled by special tools, but it is useful to turn off these flags
+         --  this way when we are doing CodePeer tests on existing test suites
+         --  that may have -gnatd.V set, to avoid the need for special casing.
+
+         Modify_Tree_For_C := False;
+         Generate_C_Code := False;
+         Unnest_Subprogram_Mode := False;
 
          --  Turn off inlining, confuses CodePeer output and gains nothing
 
@@ -565,6 +582,14 @@ procedure Gnat1drv is
       Suppress_Options.Suppress (Atomic_Synchronization) :=
         not Atomic_Sync_Default_On_Target;
 
+      --  Set default for Alignment_Check, if we are on a machine with non-
+      --  strict alignment, then we suppress this check, since it is over-
+      --  zealous for such machines.
+
+      if not Ttypes.Target_Strict_Alignment then
+         Suppress_Options.Suppress (Alignment_Check) := True;
+      end if;
+
       --  Set switch indicating if back end can handle limited types, and
       --  guarantee that no incorrect copies are made (e.g. in the context
       --  of an if or case expression).
@@ -929,13 +954,20 @@ begin
                System_Source_File_Index := S;
             end if;
 
+            --  Call to get target parameters. Note that the actual interface
+            --  routines are in Tbuild. They can't be in this procedure because
+            --  of accessibility issues.
+
             Targparm.Get_Target_Parameters
               (System_Text  => Source_Text  (S),
                Source_First => Source_First (S),
                Source_Last  => Source_Last  (S),
                Make_Id      => Tbuild.Make_Id'Access,
                Make_SC      => Tbuild.Make_SC'Access,
-               Set_RND      => Tbuild.Set_RND'Access);
+               Set_NOD      => Tbuild.Set_NOD'Access,
+               Set_NSA      => Tbuild.Set_NSA'Access,
+               Set_NUA      => Tbuild.Set_NUA'Access,
+               Set_NUP      => Tbuild.Set_NUP'Access);
 
             --  Acquire configuration pragma information from Targparm
 

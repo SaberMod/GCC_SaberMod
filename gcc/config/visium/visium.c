@@ -22,21 +22,10 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
-#include "statistics.h"
-#include "vec.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
 #include "flags.h"
 #include "symtab.h"
 #include "tree-core.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "fold-const.h"
 #include "tree-check.h"
 #include "tree.h"
@@ -61,7 +50,6 @@
 #include "recog.h"
 #include "diagnostic-core.h"
 #include "tm_p.h"
-#include "ggc.h"
 #include "optabs.h"
 #include "target.h"
 #include "target-def.h"
@@ -172,7 +160,9 @@ static bool visium_frame_pointer_required (void);
 
 static tree visium_build_builtin_va_list (void);
 
-static tree visium_md_asm_clobbers (tree, tree, tree);
+static rtx_insn *visium_md_asm_adjust (vec<rtx> &, vec<rtx> &,
+				       vec<const char *> &,
+				       vec<rtx> &, HARD_REG_SET &);
 
 static bool visium_legitimate_constant_p (enum machine_mode, rtx);
 
@@ -299,8 +289,8 @@ static unsigned int visium_reorg (void);
 #undef  TARGET_TRAMPOLINE_INIT
 #define TARGET_TRAMPOLINE_INIT visium_trampoline_init
 
-#undef TARGET_MD_ASM_CLOBBERS
-#define TARGET_MD_ASM_CLOBBERS visium_md_asm_clobbers
+#undef TARGET_MD_ASM_ADJUST
+#define TARGET_MD_ASM_ADJUST visium_md_asm_adjust
 
 #undef TARGET_FLAGS_REGNUM
 #define TARGET_FLAGS_REGNUM FLAGS_REGNUM
@@ -720,13 +710,14 @@ visium_conditional_register_usage (void)
    an asm   We do this for the FLAGS to maintain source compatibility with
    the original cc0-based compiler.  */
 
-static tree
-visium_md_asm_clobbers (tree outputs ATTRIBUTE_UNUSED,
-			tree inputs ATTRIBUTE_UNUSED,
-			tree clobbers)
+static rtx_insn *
+visium_md_asm_adjust (vec<rtx> &/*outputs*/, vec<rtx> &/*inputs*/,
+		      vec<const char *> &/*constraints*/,
+		      vec<rtx> &clobbers, HARD_REG_SET &clobbered_regs)
 {
-  const char *flags = reg_names[FLAGS_REGNUM];
-  return tree_cons (NULL_TREE, build_string (strlen (flags), flags), clobbers);
+  clobbers.safe_push (gen_rtx_REG (CCmode, FLAGS_REGNUM));
+  SET_HARD_REG_BIT (clobbered_regs, FLAGS_REGNUM);
+  return NULL;
 }
 
 /* Return true if X is a legitimate constant for a MODE immediate operand.

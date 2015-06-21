@@ -24,15 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -46,11 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -63,15 +52,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "obstack.h"
 #include "except.h"
 #include "diagnostic-core.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
 #include "common/common-target.h"
 #include "debug.h"
 #include "langhooks.h"
-#include "hash-map.h"
-#include "hash-table.h"
 #include "predict.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -86,7 +72,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "tree-pass.h"
 #include "context.h"
@@ -1352,7 +1337,7 @@ alpha_legitimize_reload_address (rtx x,
       && REG_P (XEXP (x, 0))
       && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER
       && REGNO_OK_FOR_BASE_P (REGNO (XEXP (x, 0)))
-      && GET_CODE (XEXP (x, 1)) == CONST_INT)
+      && CONST_INT_P (XEXP (x, 1)))
     {
       HOST_WIDE_INT val = INTVAL (XEXP (x, 1));
       HOST_WIDE_INT low = ((val & 0xffff) ^ 0x8000) - 0x8000;
@@ -1412,6 +1397,7 @@ alpha_rtx_costs (rtx x, int code, int outer_code, int opno, int *total,
       /* FALLTHRU */
 
     case CONST_DOUBLE:
+    case CONST_WIDE_INT:
       if (x == CONST0_RTX (mode))
 	*total = 0;
       else if ((outer_code == PLUS && add_operand (x, VOIDmode))
@@ -1555,8 +1541,7 @@ get_aligned_mem (rtx ref, rtx *paligned_mem, rtx *pbitnum)
 
   gcc_assert (MEM_P (ref));
 
-  if (reload_in_progress
-      && ! memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
+  if (reload_in_progress)
     {
       base = find_replacement (&XEXP (ref, 0));
       gcc_assert (memory_address_p (GET_MODE (ref), base));
@@ -1601,11 +1586,9 @@ get_unaligned_address (rtx ref)
 
   gcc_assert (MEM_P (ref));
 
-  if (reload_in_progress
-      && ! memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
+  if (reload_in_progress)
     {
       base = find_replacement (&XEXP (ref, 0));
-
       gcc_assert (memory_address_p (GET_MODE (ref), base));
     }
   else
@@ -1646,8 +1629,8 @@ alpha_preferred_reload_class(rtx x, enum reg_class rclass)
     return rclass;
 
   /* These sorts of constants we can easily drop to memory.  */
-  if (CONST_INT_P (x)
-      || GET_CODE (x) == CONST_DOUBLE
+  if (CONST_SCALAR_INT_P (x)
+      || CONST_DOUBLE_P (x)
       || GET_CODE (x) == CONST_VECTOR)
     {
       if (rclass == FLOAT_REGS)
@@ -1771,11 +1754,9 @@ alpha_emit_set_const_1 (rtx target, machine_mode mode,
   rtx temp, insn;
 
   /* If this is a sign-extended 32-bit constant, we can do this in at most
-     three insns, so do it if we have enough insns left.  We always have
-     a sign-extended 32-bit constant when compiling on a narrow machine.  */
+     three insns, so do it if we have enough insns left.  */
 
-  if (HOST_BITS_PER_WIDE_INT != 64
-      || c >> 31 == -1 || c >> 31 == 0)
+  if (c >> 31 == -1 || c >> 31 == 0)
     {
       HOST_WIDE_INT low = ((c & 0xffff) ^ 0x8000) - 0x8000;
       HOST_WIDE_INT tmp1 = c - low;
@@ -1917,11 +1898,9 @@ alpha_emit_set_const_1 (rtx target, machine_mode mode,
       /* Now try high-order zero bits.  Here we try the shifted-in bits as
 	 all zero and all ones.  Be careful to avoid shifting outside the
 	 mode and to avoid shifting outside the host wide int size.  */
-      /* On narrow hosts, don't shift a 1 into the high bit, since we'll
-	 confuse the recursive call and set all of the high 32 bits.  */
 
       bits = (MIN (HOST_BITS_PER_WIDE_INT, GET_MODE_SIZE (mode) * 8)
-	      - floor_log2 (c) - 1 - (HOST_BITS_PER_WIDE_INT < 64));
+	      - floor_log2 (c) - 1);
       if (bits > 0)
 	for (; bits > 0; bits--)
 	  {
@@ -1929,7 +1908,7 @@ alpha_emit_set_const_1 (rtx target, machine_mode mode,
 	    temp = alpha_emit_set_const (subtarget, mode, new_const, i, no_output);
 	    if (!temp)
 	      {
-		new_const = (c << bits) | (((HOST_WIDE_INT) 1 << bits) - 1);
+		new_const = (c << bits) | ((HOST_WIDE_INT_1U << bits) - 1);
 	        temp = alpha_emit_set_const (subtarget, mode, new_const,
 					     i, no_output);
 	      }
@@ -1955,7 +1934,7 @@ alpha_emit_set_const_1 (rtx target, machine_mode mode,
 	    temp = alpha_emit_set_const (subtarget, mode, new_const, i, no_output);
 	    if (!temp)
 	      {
-		new_const = (c << bits) | (((HOST_WIDE_INT) 1 << bits) - 1);
+		new_const = (c << bits) | ((HOST_WIDE_INT_1U << bits) - 1);
 	        temp = alpha_emit_set_const (subtarget, mode, new_const,
 					     i, no_output);
 	      }
@@ -1969,7 +1948,6 @@ alpha_emit_set_const_1 (rtx target, machine_mode mode,
 	  }
     }
 
-#if HOST_BITS_PER_WIDE_INT == 64
   /* Finally, see if can load a value into the target that is the same as the
      constant except that all bytes that are 0 are changed to be 0xff.  If we
      can, then we can do a ZAPNOT to obtain the desired constant.  */
@@ -1996,7 +1974,6 @@ alpha_emit_set_const_1 (rtx target, machine_mode mode,
 			       target, 0, OPTAB_WIDEN);
 	}
     }
-#endif
 
   return 0;
 }
@@ -2072,13 +2049,12 @@ alpha_emit_set_const (rtx target, machine_mode mode,
    with alpha_emit_set_const.  */
 
 static rtx
-alpha_emit_set_long_const (rtx target, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
+alpha_emit_set_long_const (rtx target, HOST_WIDE_INT c1)
 {
   HOST_WIDE_INT d1, d2, d3, d4;
 
   /* Decompose the entire word */
-#if HOST_BITS_PER_WIDE_INT >= 64
-  gcc_assert (c2 == -(c1 < 0));
+
   d1 = ((c1 & 0xffff) ^ 0x8000) - 0x8000;
   c1 -= d1;
   d2 = ((c1 & 0xffffffff) ^ 0x80000000) - 0x80000000;
@@ -2087,17 +2063,6 @@ alpha_emit_set_long_const (rtx target, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
   c1 -= d3;
   d4 = ((c1 & 0xffffffff) ^ 0x80000000) - 0x80000000;
   gcc_assert (c1 == d4);
-#else
-  d1 = ((c1 & 0xffff) ^ 0x8000) - 0x8000;
-  c1 -= d1;
-  d2 = ((c1 & 0xffffffff) ^ 0x80000000) - 0x80000000;
-  gcc_assert (c1 == d2);
-  c2 += (d2 < 0);
-  d3 = ((c2 & 0xffff) ^ 0x8000) - 0x8000;
-  c2 -= d3;
-  d4 = ((c2 & 0xffffffff) ^ 0x80000000) - 0x80000000;
-  gcc_assert (c2 == d4);
-#endif
 
   /* Construct the high word */
   if (d4)
@@ -2121,36 +2086,17 @@ alpha_emit_set_long_const (rtx target, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
   return target;
 }
 
-/* Given an integral CONST_INT, CONST_DOUBLE, or CONST_VECTOR, return 
-   the low 64 bits.  */
+/* Given an integral CONST_INT or CONST_VECTOR, return the low 64 bits.  */
 
-static void
-alpha_extract_integer (rtx x, HOST_WIDE_INT *p0, HOST_WIDE_INT *p1)
+static HOST_WIDE_INT
+alpha_extract_integer (rtx x)
 {
-  HOST_WIDE_INT i0, i1;
-
   if (GET_CODE (x) == CONST_VECTOR)
     x = simplify_subreg (DImode, x, GET_MODE (x), 0);
 
+  gcc_assert (CONST_INT_P (x));
 
-  if (CONST_INT_P (x))
-    {
-      i0 = INTVAL (x);
-      i1 = -(i0 < 0);
-    }
-  else if (HOST_BITS_PER_WIDE_INT >= 64)
-    {
-      i0 = CONST_DOUBLE_LOW (x);
-      i1 = -(i0 < 0);
-    }
-  else
-    {
-      i0 = CONST_DOUBLE_LOW (x);
-      i1 = CONST_DOUBLE_HIGH (x);
-    }
-
-  *p0 = i0;
-  *p1 = i1;
+  return INTVAL (x);
 }
 
 /* Implement TARGET_LEGITIMATE_CONSTANT_P.  This is all constants for which
@@ -2161,7 +2107,7 @@ alpha_extract_integer (rtx x, HOST_WIDE_INT *p0, HOST_WIDE_INT *p1)
 bool
 alpha_legitimate_constant_p (machine_mode mode, rtx x)
 {
-  HOST_WIDE_INT i0, i1;
+  HOST_WIDE_INT i0;
 
   switch (GET_CODE (x))
     {
@@ -2171,26 +2117,36 @@ alpha_legitimate_constant_p (machine_mode mode, rtx x)
 
     case CONST:
       if (GET_CODE (XEXP (x, 0)) == PLUS
-	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
+	  && CONST_INT_P (XEXP (XEXP (x, 0), 1)))
 	x = XEXP (XEXP (x, 0), 0);
       else
 	return true;
 
       if (GET_CODE (x) != SYMBOL_REF)
 	return true;
-
       /* FALLTHRU */
 
     case SYMBOL_REF:
       /* TLS symbols are never valid.  */
       return SYMBOL_REF_TLS_MODEL (x) == 0;
 
+    case CONST_WIDE_INT:
+      if (TARGET_BUILD_CONSTANTS)
+	return true;
+      if (x == CONST0_RTX (mode))
+	return true;
+      mode = DImode;
+      gcc_assert (CONST_WIDE_INT_NUNITS (x) == 2);
+      i0 = CONST_WIDE_INT_ELT (x, 1);
+      if (alpha_emit_set_const_1 (NULL_RTX, mode, i0, 3, true) == NULL)
+	return false;
+      i0 = CONST_WIDE_INT_ELT (x, 0);
+      goto do_integer;
+
     case CONST_DOUBLE:
       if (x == CONST0_RTX (mode))
 	return true;
-      if (FLOAT_MODE_P (mode))
-	return false;
-      goto do_integer;
+      return false;
 
     case CONST_VECTOR:
       if (x == CONST0_RTX (mode))
@@ -2199,16 +2155,14 @@ alpha_legitimate_constant_p (machine_mode mode, rtx x)
 	return false;
       if (GET_MODE_SIZE (mode) != 8)
 	return false;
-      goto do_integer;
+      /* FALLTHRU */
 
     case CONST_INT:
-    do_integer:
       if (TARGET_BUILD_CONSTANTS)
 	return true;
-      alpha_extract_integer (x, &i0, &i1);
-      if (HOST_BITS_PER_WIDE_INT >= 64 || i1 == (-i0 < 0))
-        return alpha_emit_set_const_1 (x, mode, i0, 3, true) != NULL;
-      return false;
+      i0 = alpha_extract_integer (x);
+    do_integer:
+      return alpha_emit_set_const_1 (NULL_RTX, mode, i0, 3, true) != NULL;
 
     default:
       return false;
@@ -2221,16 +2175,15 @@ alpha_legitimate_constant_p (machine_mode mode, rtx x)
 bool
 alpha_split_const_mov (machine_mode mode, rtx *operands)
 {
-  HOST_WIDE_INT i0, i1;
+  HOST_WIDE_INT i0;
   rtx temp = NULL_RTX;
 
-  alpha_extract_integer (operands[1], &i0, &i1);
+  i0 = alpha_extract_integer (operands[1]);
 
-  if (HOST_BITS_PER_WIDE_INT >= 64 || i1 == -(i0 < 0))
-    temp = alpha_emit_set_const (operands[0], mode, i0, 3, false);
+  temp = alpha_emit_set_const (operands[0], mode, i0, 3, false);
 
   if (!temp && TARGET_BUILD_CONSTANTS)
-    temp = alpha_emit_set_long_const (operands[0], i0, i1);
+    temp = alpha_emit_set_long_const (operands[0], i0);
 
   if (temp)
     {
@@ -2274,7 +2227,6 @@ alpha_expand_mov (machine_mode mode, rtx *operands)
 
   /* Split large integers.  */
   if (CONST_INT_P (operands[1])
-      || GET_CODE (operands[1]) == CONST_DOUBLE
       || GET_CODE (operands[1]) == CONST_VECTOR)
     {
       if (alpha_split_const_mov (mode, operands))
@@ -3315,7 +3267,7 @@ alpha_split_tmode_pair (rtx operands[4], machine_mode mode,
       operands[2] = adjust_address (operands[1], DImode, 0);
       break;
 
-    case CONST_INT:
+    CASE_CONST_SCALAR_INT:
     case CONST_DOUBLE:
       gcc_assert (operands[1] == CONST0_RTX (mode));
       operands[2] = operands[3] = const0_rtx;
@@ -4099,7 +4051,6 @@ alpha_expand_block_clear (rtx operands[])
 
   if (alignofs > 0)
     {
-#if HOST_BITS_PER_WIDE_INT >= 64
       /* Given that alignofs is bounded by align, the only time BWX could
 	 generate three stores is for a 7 byte fill.  Prefer two individual
 	 stores over a load/mask/store sequence.  */
@@ -4134,7 +4085,6 @@ alpha_expand_block_clear (rtx operands[])
 
 	  emit_move_insn (mem, tmp);
 	}
-#endif
 
       if (TARGET_BWX && (alignofs & 1) && bytes >= 1)
 	{
@@ -4246,7 +4196,6 @@ alpha_expand_block_clear (rtx operands[])
 
   /* Next clean up any trailing pieces.  */
 
-#if HOST_BITS_PER_WIDE_INT >= 64
   /* Count the number of bits in BYTES for which aligned stores could
      be emitted.  */
   words = 0;
@@ -4291,7 +4240,6 @@ alpha_expand_block_clear (rtx operands[])
 	  return 1;
 	}
     }
-#endif
 
   if (!TARGET_BWX && bytes >= 4)
     {
@@ -4336,43 +4284,16 @@ alpha_expand_zap_mask (HOST_WIDE_INT value)
 {
   rtx result;
   int i;
+  HOST_WIDE_INT mask = 0;
 
-  if (HOST_BITS_PER_WIDE_INT >= 64)
+  for (i = 7; i >= 0; --i)
     {
-      HOST_WIDE_INT mask = 0;
-
-      for (i = 7; i >= 0; --i)
-	{
-	  mask <<= 8;
-	  if (!((value >> i) & 1))
-	    mask |= 0xff;
-	}
-
-      result = gen_int_mode (mask, DImode);
-    }
-  else
-    {
-      HOST_WIDE_INT mask_lo = 0, mask_hi = 0;
-
-      gcc_assert (HOST_BITS_PER_WIDE_INT == 32);
-      
-      for (i = 7; i >= 4; --i)
-	{
-	  mask_hi <<= 8;
-	  if (!((value >> i) & 1))
-	    mask_hi |= 0xff;
-	}
-
-      for (i = 3; i >= 0; --i)
-	{
-	  mask_lo <<= 8;
-	  if (!((value >> i) & 1))
-	    mask_lo |= 0xff;
-	}
-
-      result = immed_double_const (mask_lo, mask_hi, DImode);
+      mask <<= 8;
+      if (!((value >> i) & 1))
+	mask |= 0xff;
     }
 
+  result = gen_int_mode (mask, DImode);
   return result;
 }
 
@@ -4549,8 +4470,8 @@ alpha_split_compare_and_swap (rtx operands[])
   oldval = operands[3];
   newval = operands[4];
   is_weak = (operands[5] != const0_rtx);
-  mod_s = (enum memmodel) INTVAL (operands[6]);
-  mod_f = (enum memmodel) INTVAL (operands[7]);
+  mod_s = memmodel_from_int (INTVAL (operands[6]));
+  mod_f = memmodel_from_int (INTVAL (operands[7]));
   mode = GET_MODE (mem);
 
   alpha_pre_atomic_barrier (mod_s);
@@ -4588,12 +4509,12 @@ alpha_split_compare_and_swap (rtx operands[])
       emit_unlikely_jump (x, label1);
     }
 
-  if (mod_f != MEMMODEL_RELAXED)
+  if (!is_mm_relaxed (mod_f))
     emit_label (XEXP (label2, 0));
 
   alpha_post_atomic_barrier (mod_s);
 
-  if (mod_f == MEMMODEL_RELAXED)
+  if (is_mm_relaxed (mod_f))
     emit_label (XEXP (label2, 0));
 }
 
@@ -4654,8 +4575,8 @@ alpha_split_compare_and_swap_12 (rtx operands[])
   newval = operands[4];
   align = operands[5];
   is_weak = (operands[6] != const0_rtx);
-  mod_s = (enum memmodel) INTVAL (operands[7]);
-  mod_f = (enum memmodel) INTVAL (operands[8]);
+  mod_s = memmodel_from_int (INTVAL (operands[7]));
+  mod_f = memmodel_from_int (INTVAL (operands[8]));
   scratch = operands[9];
   mode = GET_MODE (orig_mem);
   addr = XEXP (orig_mem, 0);
@@ -4707,12 +4628,12 @@ alpha_split_compare_and_swap_12 (rtx operands[])
       emit_unlikely_jump (x, label1);
     }
 
-  if (mod_f != MEMMODEL_RELAXED)
+  if (!is_mm_relaxed (mod_f))
     emit_label (XEXP (label2, 0));
 
   alpha_post_atomic_barrier (mod_s);
 
-  if (mod_f == MEMMODEL_RELAXED)
+  if (is_mm_relaxed (mod_f))
     emit_label (XEXP (label2, 0));
 }
 
@@ -5207,13 +5128,6 @@ print_operand (FILE *file, rtx x, int code)
       fprintf (file, "%d", alpha_this_gpdisp_sequence_number);
       break;
 
-    case 'H':
-      if (GET_CODE (x) == HIGH)
-	output_addr_const (file, XEXP (x, 0));
-      else
-	output_operand_lossage ("invalid %%H value");
-      break;
-
     case 'J':
       {
 	const char *lituse;
@@ -5288,7 +5202,7 @@ print_operand (FILE *file, rtx x, int code)
       if (!CONST_INT_P (x))
 	output_operand_lossage ("invalid %%P value");
 
-      fprintf (file, HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT) 1 << INTVAL (x));
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, HOST_WIDE_INT_1 << INTVAL (x));
       break;
 
     case 'h':
@@ -5310,27 +5224,7 @@ print_operand (FILE *file, rtx x, int code)
 
     case 'm':
       /* Write mask for ZAP insn.  */
-      if (GET_CODE (x) == CONST_DOUBLE)
-	{
-	  HOST_WIDE_INT mask = 0;
-	  HOST_WIDE_INT value;
-
-	  value = CONST_DOUBLE_LOW (x);
-	  for (i = 0; i < HOST_BITS_PER_WIDE_INT / HOST_BITS_PER_CHAR;
-	       i++, value >>= 8)
-	    if (value & 0xff)
-	      mask |= (1 << i);
-
-	  value = CONST_DOUBLE_HIGH (x);
-	  for (i = 0; i < HOST_BITS_PER_WIDE_INT / HOST_BITS_PER_CHAR;
-	       i++, value >>= 8)
-	    if (value & 0xff)
-	      mask |= (1 << (i + sizeof (int)));
-
-	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, mask & 0xff);
-	}
-
-      else if (CONST_INT_P (x))
+      if (CONST_INT_P (x))
 	{
 	  HOST_WIDE_INT mask = 0, value = INTVAL (x);
 
@@ -5346,9 +5240,7 @@ print_operand (FILE *file, rtx x, int code)
 
     case 'M':
       /* 'b', 'w', 'l', or 'q' as the value of the constant.  */
-      if (!CONST_INT_P (x)
-	  || (INTVAL (x) != 8 && INTVAL (x) != 16
-	      && INTVAL (x) != 32 && INTVAL (x) != 64))
+      if (!mode_width_operand (x, VOIDmode))
 	output_operand_lossage ("invalid %%M value");
 
       fprintf (file, "%s",
@@ -5385,14 +5277,7 @@ print_operand (FILE *file, rtx x, int code)
 	      break;
 	    }
 	}
-      else if (HOST_BITS_PER_WIDE_INT == 32
-	       && GET_CODE (x) == CONST_DOUBLE
-	       && CONST_DOUBLE_LOW (x) == 0xffffffff
-	       && CONST_DOUBLE_HIGH (x) == 0)
-	{
-	  fputc ('l', file);
-	  break;
-	}
+
       output_operand_lossage ("invalid %%U value");
       break;
 
@@ -6787,13 +6672,6 @@ alpha_expand_builtin (tree exp, rtx target,
   else
     return const0_rtx;
 }
-
-
-/* Several bits below assume HWI >= 64 bits.  This should be enforced
-   by config.gcc.  */
-#if HOST_BITS_PER_WIDE_INT < 64
-# error "HOST_WIDE_INT too small"
-#endif
 
 /* Fold the builtin for the CMPBGE instruction.  This is a vector comparison
    with an 8-bit output vector.  OPINT contains the integer operands; bit N
@@ -8353,8 +8231,7 @@ alpha_expand_epilogue (void)
 	    {
 	      /* We can't drop new things to memory this late, afaik,
 		 so build it up by pieces.  */
-	      sp_adj2 = alpha_emit_set_long_const (tmp, frame_size,
-						   -(frame_size < 0));
+	      sp_adj2 = alpha_emit_set_long_const (tmp, frame_size);
 	      gcc_assert (sp_adj2);
 	    }
 	}
@@ -8481,8 +8358,7 @@ alpha_output_mi_thunk_osf (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
     }
   else
     {
-      rtx tmp = alpha_emit_set_long_const (gen_rtx_REG (Pmode, 0),
-					   delta, -(delta < 0));
+      rtx tmp = alpha_emit_set_long_const (gen_rtx_REG (Pmode, 0), delta);
       emit_insn (gen_adddi3 (this_rtx, this_rtx, tmp));
     }
 
@@ -8504,7 +8380,7 @@ alpha_output_mi_thunk_osf (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
       else
 	{
 	  tmp2 = alpha_emit_set_long_const (gen_rtx_REG (Pmode, 1),
-					    vcall_offset, -(vcall_offset < 0));
+					    vcall_offset);
           emit_insn (gen_adddi3 (tmp, tmp, tmp2));
 	  lo = 0;
 	}
@@ -8672,8 +8548,8 @@ summarize_insn (rtx x, struct shadow_summary *sum, int set)
       summarize_insn (XEXP (x, 0), sum, 0);
       break;
 
-    case CONST_INT:   case CONST_DOUBLE:
-    case SYMBOL_REF:  case LABEL_REF:     case CONST:
+    case CONST_INT:   case CONST_WIDE_INT:  case CONST_DOUBLE:
+    case SYMBOL_REF:  case LABEL_REF:       case CONST:
     case SCRATCH:     case ASM_INPUT:
       break;
 
@@ -10095,12 +9971,6 @@ alpha_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
 #undef TARGET_EXPAND_BUILTIN_VA_START
 #define TARGET_EXPAND_BUILTIN_VA_START alpha_va_start
-
-/* The Alpha architecture does not require sequential consistency.  See
-   http://www.cs.umd.edu/~pugh/java/memoryModel/AlphaReordering.html
-   for an example of how it can be violated in practice.  */
-#undef TARGET_RELAXED_ORDERING
-#define TARGET_RELAXED_ORDERING true
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE alpha_option_override

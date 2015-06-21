@@ -21,16 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -43,17 +36,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-ssa.h"
 #include "tree-ssanames.h"
 #include "gimple-fold.h"
 #include "gimple-iterator.h"
-#include "hashtab.h"
 #include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -862,11 +850,17 @@ do_valueize (tree (*valueize)(tree), tree op)
 }
 
 /* Routine to determine if the types T1 and T2 are effectively
-   the same for GIMPLE.  */
+   the same for GIMPLE.  If T1 or T2 is not a type, the test
+   applies to their TREE_TYPE.  */
 
 static inline bool
 types_match (tree t1, tree t2)
 {
+  if (!TYPE_P (t1))
+    t1 = TREE_TYPE (t1);
+  if (!TYPE_P (t2))
+    t2 = TREE_TYPE (t2);
+
   return types_compatible_p (t1, t2);
 }
 

@@ -36,21 +36,10 @@ along with GCC; see the file COPYING3.	If not see
 #include "recog.h"
 #include "output.h"
 #include "regs.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "symtab.h"
 #include "flags.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -121,14 +110,7 @@ static sparseset unused_set, dead_set;
 static bitmap_head temp_bitmap;
 
 /* Pool for pseudo live ranges.	 */
-static alloc_pool live_range_pool;
-
-/* Free live range LR.	*/
-static void
-free_live_range (lra_live_range_t lr)
-{
-  pool_free (live_range_pool, lr);
-}
+pool_allocator <lra_live_range> lra_live_range::pool ("live ranges", 100);
 
 /* Free live range list LR.  */
 static void
@@ -139,7 +121,7 @@ free_live_range_list (lra_live_range_t lr)
   while (lr != NULL)
     {
       next = lr->next;
-      free_live_range (lr);
+      delete lr;
       lr = next;
     }
 }
@@ -148,9 +130,7 @@ free_live_range_list (lra_live_range_t lr)
 static lra_live_range_t
 create_live_range (int regno, int start, int finish, lra_live_range_t next)
 {
-  lra_live_range_t p;
-
-  p = (lra_live_range_t) pool_alloc (live_range_pool);
+  lra_live_range_t p = new lra_live_range;
   p->regno = regno;
   p->start = start;
   p->finish = finish;
@@ -162,11 +142,7 @@ create_live_range (int regno, int start, int finish, lra_live_range_t next)
 static lra_live_range_t
 copy_live_range (lra_live_range_t r)
 {
-  lra_live_range_t p;
-
-  p = (lra_live_range_t) pool_alloc (live_range_pool);
-  *p = *r;
-  return p;
+  return new lra_live_range (*r);
 }
 
 /* Copy live range list given by its head R and return the result.  */
@@ -192,7 +168,7 @@ lra_copy_live_range_list (lra_live_range_t r)
 lra_live_range_t
 lra_merge_live_ranges (lra_live_range_t r1, lra_live_range_t r2)
 {
-  lra_live_range_t first, last, temp;
+  lra_live_range_t first, last;
 
   if (r1 == NULL)
     return r2;
@@ -201,18 +177,15 @@ lra_merge_live_ranges (lra_live_range_t r1, lra_live_range_t r2)
   for (first = last = NULL; r1 != NULL && r2 != NULL;)
     {
       if (r1->start < r2->start)
-	{
-	  temp = r1;
-	  r1 = r2;
-	  r2 = temp;
-	}
+	std::swap (r1, r2);
+
       if (r1->start == r2->finish + 1)
 	{
 	  /* Joint ranges: merge r1 and r2 into r1.  */
 	  r1->start = r2->start;
-	  temp = r2;
+	  lra_live_range_t temp = r2;
 	  r2 = r2->next;
-	  pool_free (live_range_pool, temp);
+	  delete temp;
 	}
       else
 	{
@@ -483,7 +456,7 @@ live_con_fun_n (edge e)
   basic_block dest = e->dest;
   bitmap bb_liveout = df_get_live_out (bb);
   bitmap dest_livein = df_get_live_in (dest);
-  
+
   return bitmap_ior_and_compl_into (bb_liveout,
 				    dest_livein, &all_hard_regs_bitmap);
 }
@@ -1027,7 +1000,7 @@ process_bb_lives (basic_block bb, int &curr_point, bool dead_insn_p)
       if (sparseset_bit_p (pseudos_live_through_calls, j))
 	check_pseudos_live_through_calls (j);
     }
-  
+
   if (need_curr_point_incr)
     next_program_point (curr_point, freq);
 
@@ -1112,7 +1085,7 @@ remove_some_program_points_and_update_live_ranges (void)
 		}
 	      prev_r->start = r->start;
 	      prev_r->next = next_r;
-	      free_live_range (r);
+	      delete r;
 	    }
 	}
     }
@@ -1255,7 +1228,7 @@ lra_create_live_ranges_1 (bool all_p, bool dead_insn_p)
 	}
     }
   lra_free_copies ();
- 
+
   /* Under some circumstances, we can have functions without pseudo
      registers.  For such functions, lra_live_max_point will be 0,
      see e.g. PR55604, and there's nothing more to do for us here.  */
@@ -1383,8 +1356,6 @@ lra_clear_live_ranges (void)
 void
 lra_live_ranges_init (void)
 {
-  live_range_pool = create_alloc_pool ("live ranges",
-				       sizeof (struct lra_live_range), 100);
   bitmap_initialize (&temp_bitmap, &reg_obstack);
   initiate_live_solver ();
 }
@@ -1395,5 +1366,5 @@ lra_live_ranges_finish (void)
 {
   finish_live_solver ();
   bitmap_clear (&temp_bitmap);
-  free_alloc_pool (live_range_pool);
+  lra_live_range::pool.release ();
 }

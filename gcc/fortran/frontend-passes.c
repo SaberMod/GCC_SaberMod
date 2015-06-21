@@ -1243,6 +1243,10 @@ combine_array_constructor (gfc_expr *e)
   if (in_assoc_list)
     return false;
 
+  /* With FORALL, the BLOCKS created by create_var will cause an ICE.  */
+  if (forall_level > 0)
+    return false;
+
   op1 = e->value.op.op1;
   op2 = e->value.op.op2;
 
@@ -1879,19 +1883,19 @@ doloop_code (gfc_code **c, int *walk_subtrees ATTRIBUTE_UNUSED,
 		  && a->expr->symtree->n.sym == do_sym)
 		{
 		  if (f->sym->attr.intent == INTENT_OUT)
-		    gfc_error_now_1 ("Variable '%s' at %L set to undefined "
-				     "value inside loop  beginning at %L as "
-				     "INTENT(OUT) argument to subroutine '%s'",
-				     do_sym->name, &a->expr->where,
-				     &doloop_list[i]->loc,
-				     co->symtree->n.sym->name);
+		    gfc_error_now ("Variable %qs at %L set to undefined "
+				   "value inside loop  beginning at %L as "
+				   "INTENT(OUT) argument to subroutine %qs",
+				   do_sym->name, &a->expr->where,
+				   &doloop_list[i]->loc,
+				   co->symtree->n.sym->name);
 		  else if (f->sym->attr.intent == INTENT_INOUT)
-		    gfc_error_now_1 ("Variable '%s' at %L not definable inside "
-				     "loop beginning at %L as INTENT(INOUT) "
-				     "argument to subroutine '%s'",
-				     do_sym->name, &a->expr->where,
-				     &doloop_list[i]->loc,
-				     co->symtree->n.sym->name);
+		    gfc_error_now ("Variable %qs at %L not definable inside "
+				   "loop beginning at %L as INTENT(INOUT) "
+				   "argument to subroutine %qs",
+				   do_sym->name, &a->expr->where,
+				   &doloop_list[i]->loc,
+				   co->symtree->n.sym->name);
 		}
 	    }
 	  a = a->next;
@@ -1951,17 +1955,17 @@ do_function (gfc_expr **e, int *walk_subtrees ATTRIBUTE_UNUSED,
 	      && a->expr->symtree->n.sym == do_sym)
 	    {
 	      if (f->sym->attr.intent == INTENT_OUT)
-		gfc_error_now_1 ("Variable '%s' at %L set to undefined value "
-				 "inside loop beginning at %L as INTENT(OUT) "
-				 "argument to function '%s'", do_sym->name,
-				 &a->expr->where, &doloop_list[i]->loc,
-				 expr->symtree->n.sym->name);
+		gfc_error_now ("Variable %qs at %L set to undefined value "
+			       "inside loop beginning at %L as INTENT(OUT) "
+			       "argument to function %qs", do_sym->name,
+			       &a->expr->where, &doloop_list[i]->loc,
+			       expr->symtree->n.sym->name);
 	      else if (f->sym->attr.intent == INTENT_INOUT)
-		gfc_error_now_1 ("Variable '%s' at %L not definable inside loop"
-				 " beginning at %L as INTENT(INOUT) argument to"
-				 " function '%s'", do_sym->name,
-				 &a->expr->where, &doloop_list[i]->loc,
-				 expr->symtree->n.sym->name);
+		gfc_error_now ("Variable %qs at %L not definable inside loop"
+			       " beginning at %L as INTENT(INOUT) argument to"
+			       " function %qs", do_sym->name,
+			       &a->expr->where, &doloop_list[i]->loc,
+			       expr->symtree->n.sym->name);
 	    }
 	}
       a = a->next;
@@ -2680,6 +2684,64 @@ scalarized_expr (gfc_expr *e_in, gfc_expr **index, int count_index)
   return e;
 }
 
+/* Helper function to check for a dimen vector as subscript.  */
+
+static bool
+has_dimen_vector_ref (gfc_expr *e)
+{
+  gfc_array_ref *ar;
+  int i;
+
+  ar = gfc_find_array_ref (e);
+  gcc_assert (ar);
+  if (ar->type == AR_FULL)
+    return false;
+
+  for (i=0; i<ar->dimen; i++)
+    if (ar->dimen_type[i] == DIMEN_VECTOR)
+      return true;
+
+  return false;
+}
+
+/* If handed an expression of the form
+
+   CONJG(A)
+
+   check if A can be handled by matmul and return if there is an uneven number
+   of CONJG calls.  Return a pointer to the array when everything is OK, NULL
+   otherwise. The caller has to check for the correct rank.  */
+
+static gfc_expr*
+check_conjg_variable (gfc_expr *e, bool *conjg)
+{
+  *conjg = false;
+
+  do
+    {
+      if (e->expr_type == EXPR_VARIABLE)
+	{
+	  gcc_assert (e->rank == 1 || e->rank == 2);
+	  return e;
+	}
+      else if (e->expr_type == EXPR_FUNCTION)
+	{
+	  if (e->value.function.isym == NULL)
+	    return NULL;
+
+	  if (e->value.function.isym->id == GFC_ISYM_CONJG)
+	    *conjg = !*conjg;
+	  else return NULL;
+	}
+      else
+	return NULL;
+
+      e = e->value.function.actual->expr;
+    }
+  while(1);
+
+  return NULL;
+}
 
 /* Inline assignments of the form c = matmul(a,b).
    Handle only the cases currently where b and c are rank-two arrays.
@@ -2725,6 +2787,7 @@ inline_matmul_assign (gfc_code **c, int *walk_subtrees,
   int i;
   gfc_code *if_limit = NULL;
   gfc_code **next_code_point;
+  bool conjg_a, conjg_b;
 
   if (co->op != EXEC_ASSIGN)
     return 0;
@@ -2741,15 +2804,22 @@ inline_matmul_assign (gfc_code **c, int *walk_subtrees,
   changed_statement = NULL;
 
   a = expr2->value.function.actual;
-  matrix_a = a->expr;
+  matrix_a = check_conjg_variable (a->expr, &conjg_a);
+  if (matrix_a == NULL)
+    return 0;
+
   b = a->next;
-  matrix_b = b->expr;
+  matrix_b = check_conjg_variable (b->expr, &conjg_b);
+  if (matrix_b == NULL)
+    return 0;
 
-  /* Currently only handling direct variables.  Transpose etc. will come
-     later.  */
+  if (has_dimen_vector_ref (expr1) || has_dimen_vector_ref (matrix_a)
+      || has_dimen_vector_ref (matrix_b))
+    return 0;
 
-  if (matrix_a->expr_type != EXPR_VARIABLE
-      || matrix_b->expr_type != EXPR_VARIABLE)
+  /* We do not handle data dependencies yet.  */
+  if (gfc_check_dependency (expr1, matrix_a, true)
+      || gfc_check_dependency (expr1, matrix_b, true))
     return 0;
 
   if (matrix_a->rank == 2)
@@ -2757,10 +2827,6 @@ inline_matmul_assign (gfc_code **c, int *walk_subtrees,
   else
     m_case = A1B2;
 
-  /* We do not handle data dependencies yet.  */
-  if (gfc_check_dependency (expr1, matrix_a, true)
-      || gfc_check_dependency (expr1, matrix_b, true))
-    return 0;
 
   ns = insert_block ();
 
@@ -3032,6 +3098,14 @@ inline_matmul_assign (gfc_code **c, int *walk_subtrees,
     default:
       gcc_unreachable();
     }
+
+  if (conjg_a)
+    ascalar = gfc_build_intrinsic_call (ns, GFC_ISYM_CONJG, "conjg",
+					matrix_a->where, 1, ascalar);
+
+  if (conjg_b)
+    bscalar = gfc_build_intrinsic_call (ns, GFC_ISYM_CONJG, "conjg", 
+					matrix_b->where, 1, bscalar);
 
   /* First loop comes after the zero assignment.  */
   assign_zero->next = do_1;

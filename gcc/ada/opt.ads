@@ -694,6 +694,11 @@ package Opt is
    --  the name is of the form .xxx, then to name.xxx where name is the source
    --  file name with extension stripped.
 
+   Generate_C_Code : Boolean := False;
+   --  GNAT
+   --  If True, the Cprint circuitry to generate C code output is activated.
+   --  Set True by use of -gnatd.V.
+
    Generate_CodePeer_Messages : Boolean := False;
    --  GNAT
    --  Generate CodePeer messages. Ignored if CodePeer_Mode is false. This is
@@ -2139,7 +2144,7 @@ package Opt is
    ---------------------------
 
    --  The following array would more reasonably be located in Err_Vars or
-   --  Errour, but but we put them here to deal with licensing issues (we need
+   --  Errour, but we put them here to deal with licensing issues (we need
    --  this to have the GPL exception licensing, since these variables and
    --  subprograms are accessed from units with this licensing).
 

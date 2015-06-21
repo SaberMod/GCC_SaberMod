@@ -26,15 +26,8 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "varasm.h"
 #include "stor-layout.h"
@@ -48,10 +41,6 @@
 #include "insn-attr.h"
 #include "flags.h"
 #include "function.h"
-#include "hashtab.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -75,15 +64,12 @@
 #include "predict.h"
 #include "basic-block.h"
 #include "df.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "debug.h"
 #include "target.h"
 #include "target-def.h"
 #include "langhooks.h"
 #include "opts.h"
-#include "hash-map.h"
-#include "is-a.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -482,11 +468,18 @@ rx_print_operand_address (FILE * file, rtx addr)
 	  addr = XEXP (addr, 0);
 	  gcc_assert (XINT (addr, 1) == UNSPEC_CONST);
 
-	  /* FIXME: Putting this case label here is an appalling abuse of the C language.  */
-	case UNSPEC:
           addr = XVECEXP (addr, 0, 0);
 	  gcc_assert (CONST_INT_P (addr));
+	  fprintf (file, "#");
+	  output_addr_const (file, addr);
+	  break;
 	}
+      fprintf (file, "#");
+      output_addr_const (file, XEXP (addr, 0));
+      break;
+
+    case UNSPEC:
+      addr = XVECEXP (addr, 0, 0);
       /* Fall through.  */
     case LABEL_REF:
     case SYMBOL_REF:
@@ -1179,6 +1172,8 @@ rx_function_value (const_tree ret_type,
   if (GET_MODE_SIZE (mode) > 0
       && GET_MODE_SIZE (mode) < 4
       && ! COMPLEX_MODE_P (mode)
+      && ! VECTOR_TYPE_P (ret_type)
+      && ! VECTOR_MODE_P (mode)
       )
     return gen_rtx_REG (SImode, FUNC_RETURN_REGNUM);
     
@@ -1198,6 +1193,8 @@ rx_promote_function_mode (const_tree type ATTRIBUTE_UNUSED,
   if (for_return != 1
       || GET_MODE_SIZE (mode) >= 4
       || COMPLEX_MODE_P (mode)
+      || VECTOR_MODE_P (mode)
+      || VECTOR_TYPE_P (type)
       || GET_MODE_SIZE (mode) < 1)
     return mode;
 
@@ -1567,6 +1564,10 @@ rx_get_stack_layout (unsigned int * lowest,
      has specified --fixed-<reg-name> on the command line and in such
      circumstances we do not want to touch the fixed registers at all.
 
+     Note also that the code in the prologue/epilogue handlers will
+     automatically merge multiple PUSHes of adjacent registers into a single
+     PUSHM.
+
      FIXME: Is it worth improving this heuristic ?  */
   pushed_mask = (-1 << low) & ~(-1 << (high + 1));
   unneeded_pushes = (pushed_mask & (~ save_mask)) & pushed_mask;
@@ -1713,7 +1714,19 @@ gen_safe_add (rtx dest, rtx src, rtx val, bool is_frame_related)
 
   if (is_frame_related)
     RTX_FRAME_RELATED_P (insn) = 1;
-  return;
+}
+
+static void
+push_regs (unsigned int high, unsigned int low)
+{
+  rtx insn;
+
+  if (low == high)
+    insn = emit_insn (gen_stack_push (gen_rtx_REG (SImode, low)));
+  else
+    insn = emit_insn (gen_stack_pushm (GEN_INT (((high - low) + 1) * UNITS_PER_WORD),
+				       gen_rx_store_vector (low, high)));
+  mark_frame_related (insn);
 }
 
 void
@@ -1725,7 +1738,6 @@ rx_expand_prologue (void)
   unsigned int low;
   unsigned int high;
   unsigned int reg;
-  rtx insn;
 
   /* Naked functions use their own, programmer provided prologues.  */
   if (is_naked_func (NULL_TREE))
@@ -1743,20 +1755,25 @@ rx_expand_prologue (void)
       for (reg = CC_REGNUM; reg --;)
 	if (mask & (1 << reg))
 	  {
-	    insn = emit_insn (gen_stack_push (gen_rtx_REG (SImode, reg)));
-	    mark_frame_related (insn);
+	    low = high = reg;
+
+	    /* Look for a span of registers.
+	       Note - we do not have to worry about -Os and whether
+	       it is better to use a single, longer PUSHM as
+	       rx_get_stack_layout has already done that for us.  */
+	    while (reg-- > 0)
+	      if ((mask & (1 << reg)) == 0)
+		break;
+	      else
+		--low;
+
+	    push_regs (high, low);
+	    if (reg == (unsigned) -1)
+	      break;
 	  }
     }
   else if (low)
-    {
-      if (high == low)
-	insn = emit_insn (gen_stack_push (gen_rtx_REG (SImode, low)));
-      else
-	insn = emit_insn (gen_stack_pushm (GEN_INT (((high - low) + 1)
-						    * UNITS_PER_WORD),
-					   gen_rx_store_vector (low, high)));
-      mark_frame_related (insn);
-    }
+    push_regs (high, low);
 
   if (MUST_SAVE_ACC_REGISTER)
     {
@@ -1836,7 +1853,7 @@ rx_expand_prologue (void)
 		      GEN_INT (- (HOST_WIDE_INT) frame_size), true);
       else
 	gen_safe_add (stack_pointer_rtx, frame_pointer_rtx, NULL_RTX,
-		      true);
+		      false /* False because the epilogue will use the FP not the SP.  */);
     }
 }
 
@@ -2031,6 +2048,16 @@ rx_can_use_simple_return (void)
 	  && low == 0);
 }
 
+static void
+pop_regs (unsigned int high, unsigned int low)
+{
+  if (high == low)
+    emit_insn (gen_stack_pop (gen_rtx_REG (SImode, low)));
+  else
+    emit_insn (gen_stack_popm (GEN_INT (((high - low) + 1) * UNITS_PER_WORD),
+			       gen_rx_popm_vector (low, high)));
+}
+
 void
 rx_expand_epilogue (bool is_sibcall)
 {
@@ -2143,16 +2170,16 @@ rx_expand_epilogue (bool is_sibcall)
 	{
 	  for (reg = 0; reg < CC_REGNUM; reg ++)
 	    if (register_mask & (1 << reg))
-	      emit_insn (gen_stack_pop (gen_rtx_REG (SImode, reg)));
+	      {
+		low = high = reg;
+		while (register_mask & (1 << high))
+		  high ++;
+		pop_regs (high - 1, low);
+		reg = high;
+	      }
 	}
       else if (low)
-	{
-	  if (high == low)
-	    emit_insn (gen_stack_pop (gen_rtx_REG (SImode, low)));
-	  else
-	    emit_insn (gen_stack_popm (GEN_INT (regs_size),
-				       gen_rx_popm_vector (low, high)));
-	}
+	pop_regs (high, low);
 
       if (is_fast_interrupt_func (NULL_TREE))
 	{

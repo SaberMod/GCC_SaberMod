@@ -218,11 +218,11 @@ needs_variable (rtx exp, const char *var)
 
 /* Given an RTL expression EXP, find all subexpressions which we may
    assume to perform mode tests.  Normal MATCH_OPERAND does;
-   MATCH_CODE does if it applies to the whole expression and accepts
-   CONST_INT or CONST_DOUBLE; and we have to assume that MATCH_TEST
-   does not.  These combine in almost-boolean fashion - the only
-   exception is that (not X) must be assumed not to perform a mode
-   test, whether or not X does.
+   MATCH_CODE doesn't as such (although certain codes always have
+   VOIDmode); and we have to assume that MATCH_TEST does not.
+   These combine in almost-boolean fashion - the only exception is
+   that (not X) must be assumed not to perform a mode test, whether
+   or not X does.
 
    The mark is the RTL /v flag, which is true for subexpressions which
    do *not* perform mode tests.
@@ -244,10 +244,7 @@ mark_mode_tests (rtx exp)
       break;
 
     case MATCH_CODE:
-      if (XSTR (exp, 1)[0] != '\0'
-	  || (!strstr (XSTR (exp, 0), "const_int")
-	      && !strstr (XSTR (exp, 0), "const_double")))
-	NO_MODE_TEST (exp) = 1;
+      NO_MODE_TEST (exp) = 1;
       break;
 
     case MATCH_TEST:
@@ -313,6 +310,40 @@ add_mode_tests (struct pred_data *p)
   if (p->special)
     return;
 
+  /* Check whether the predicate accepts const scalar ints (which always
+     have a stored mode of VOIDmode, but logically have a real mode)
+     and whether it matches anything besides const scalar ints.  */
+  bool matches_const_scalar_int_p = false;
+  bool matches_other_p = false;
+  for (int i = 0; i < NUM_RTX_CODE; ++i)
+    if (p->codes[i])
+      switch (i)
+	{
+	case CONST_INT:
+	case CONST_WIDE_INT:
+	  matches_const_scalar_int_p = true;
+	  break;
+
+	case CONST_DOUBLE:
+	  if (!TARGET_SUPPORTS_WIDE_INT)
+	    matches_const_scalar_int_p = true;
+	  matches_other_p = true;
+	  break;
+
+	default:
+	  matches_other_p = true;
+	  break;
+	}
+
+  /* There's no need for a mode check if the predicate only accepts
+     constant integers.  The code checks in the predicate are enough
+     to establish that the mode is VOIDmode.
+
+     Note that the predicate itself should check whether a scalar
+     integer is in range of the given mode.  */
+  if (!matches_other_p)
+    return;
+
   mark_mode_tests (p->exp);
 
   /* If the whole expression already tests the mode, we're done.  */
@@ -320,7 +351,11 @@ add_mode_tests (struct pred_data *p)
     return;
 
   match_test_exp = rtx_alloc (MATCH_TEST);
-  XSTR (match_test_exp, 0) = "mode == VOIDmode || GET_MODE (op) == mode";
+  if (matches_const_scalar_int_p)
+    XSTR (match_test_exp, 0) = ("mode == VOIDmode || GET_MODE (op) == mode"
+				" || GET_MODE (op) == VOIDmode");
+  else
+    XSTR (match_test_exp, 0) = "mode == VOIDmode || GET_MODE (op) == mode";
   and_exp = rtx_alloc (AND);
   XEXP (and_exp, 1) = match_test_exp;
 
@@ -716,34 +751,6 @@ mangle (const char *name)
   return XOBFINISH (rtl_obstack, const char *);
 }
 
-/* Return a bitmask, bit 1 if EXP maybe allows a REG/SUBREG, 2 if EXP
-   maybe allows a MEM.  Bits should be clear only when we are sure it
-   will not allow a REG/SUBREG or a MEM.  */
-static int
-compute_maybe_allows (rtx exp)
-{
-  switch (GET_CODE (exp))
-    {
-    case IF_THEN_ELSE:
-      /* Conservative answer is like IOR, of the THEN and ELSE branches.  */
-      return compute_maybe_allows (XEXP (exp, 1))
-	     | compute_maybe_allows (XEXP (exp, 2));
-    case AND:
-      return compute_maybe_allows (XEXP (exp, 0))
-	     & compute_maybe_allows (XEXP (exp, 1));
-    case IOR:
-      return compute_maybe_allows (XEXP (exp, 0))
-	     | compute_maybe_allows (XEXP (exp, 1));
-    case MATCH_CODE:
-      if (*XSTR (exp, 1) == '\0')
-	return (strstr (XSTR (exp, 0), "reg") != NULL ? 1 : 0)
-	       | (strstr (XSTR (exp, 0), "mem") != NULL ? 2 : 0);
-      /* FALLTHRU */
-    default:
-      return 3;
-    }
-}
-
 /* Add one constraint, of any sort, to the tables.  NAME is its name;
    REGCLASS is the register class, if any; EXP is the expression to
    test, if any;  IS_MEMORY and IS_ADDRESS indicate memory and address
@@ -899,12 +906,17 @@ add_constraint (const char *name, const char *regclass,
   c->is_extra = !(regclass || is_const_int || is_const_dbl);
   c->is_memory = is_memory;
   c->is_address = is_address;
-  int maybe_allows = 3;
+  c->maybe_allows_reg = true;
+  c->maybe_allows_mem = true;
   if (exp)
-    maybe_allows = compute_maybe_allows (exp);
-  c->maybe_allows_reg = (maybe_allows & 1) != 0;
-  c->maybe_allows_mem = (maybe_allows & 2) != 0;
-
+    {
+      char codes[NUM_RTX_CODE];
+      compute_test_codes (exp, lineno, codes);
+      if (!codes[REG] && !codes[SUBREG])
+	c->maybe_allows_reg = false;
+      if (!codes[MEM])
+	c->maybe_allows_mem = false;
+    }
   c->next_this_letter = *slot;
   *slot = c;
 
@@ -1515,6 +1527,7 @@ write_insn_preds_c (void)
 #include \"rtl.h\"\n\
 #include \"hash-set.h\"\n\
 #include \"machmode.h\"\n\
+#include \"hash-map.h\"\n\
 #include \"vec.h\"\n\
 #include \"double-int.h\"\n\
 #include \"input.h\"\n\
@@ -1545,6 +1558,7 @@ write_insn_preds_c (void)
 #include \"diagnostic-core.h\"\n\
 #include \"reload.h\"\n\
 #include \"regs.h\"\n\
+#include \"emit-rtl.h\"\n\
 #include \"tm-constrs.h\"\n");
 
   FOR_ALL_PREDICATES (p)

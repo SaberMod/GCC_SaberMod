@@ -324,9 +324,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     protected:
       void
       _M_swap(_Tuple_impl& __in)
-      noexcept(noexcept(swap(std::declval<_Head&>(),
-			     std::declval<_Head&>()))
-	       && noexcept(_M_tail(__in)._M_swap(_M_tail(__in))))
+      noexcept(__is_nothrow_swappable<_Head>::value
+               && noexcept(_M_tail(__in)._M_swap(_M_tail(__in))))
       {
 	using std::swap;
 	swap(_M_head(*this), _M_head(__in));
@@ -451,7 +450,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     protected:
       void
       _M_swap(_Tuple_impl& __in)
-      noexcept(noexcept(swap(std::declval<_Head&>(), std::declval<_Head&>())))
+      noexcept(__is_nothrow_swappable<_Head>::value)
       {
 	using std::swap;
 	swap(_M_head(*this), _M_head(__in));
@@ -990,7 +989,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     { };
 
   template<typename _Tp, std::size_t _Nm>
-    struct __is_tuple_like_impl<array<_Tp, _Nm>> : true_type
+    struct __is_tuple_like_impl<_GLIBCXX_STD_C::array<_Tp, _Nm>> : true_type
     { };
 
   // Internal type trait that allows us to sfinae-protect tuple_cat.

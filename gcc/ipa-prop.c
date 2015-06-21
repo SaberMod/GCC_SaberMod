@@ -20,16 +20,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "predict.h"
@@ -44,14 +37,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
-#include "hashtab.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -69,7 +57,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-walk.h"
 #include "langhooks.h"
 #include "target.h"
-#include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -176,7 +163,8 @@ struct ipa_cst_ref_desc
 
 /* Allocation pool for reference descriptions.  */
 
-static alloc_pool ipa_refdesc_pool;
+static pool_allocator<ipa_cst_ref_desc> ipa_refdesc_pool
+  ("IPA-PROP ref descriptions", 32);
 
 /* Return true if DECL_FUNCTION_SPECIFIC_OPTIMIZATION of the decl associated
    with NODE should prevent us from analyzing it for the purposes of IPA-CP.  */
@@ -508,11 +496,8 @@ ipa_set_jf_constant (struct ipa_jump_func *jfunc, tree constant,
       && TREE_CODE (TREE_OPERAND (constant, 0)) == FUNCTION_DECL)
     {
       struct ipa_cst_ref_desc *rdesc;
-      if (!ipa_refdesc_pool)
-	ipa_refdesc_pool = create_alloc_pool ("IPA-PROP ref descriptions",
-					sizeof (struct ipa_cst_ref_desc), 32);
 
-      rdesc = (struct ipa_cst_ref_desc *) pool_alloc (ipa_refdesc_pool);
+      rdesc = ipa_refdesc_pool.allocate ();
       rdesc->cs = cs;
       rdesc->next_duplicate = NULL;
       rdesc->refcount = 1;
@@ -3517,9 +3502,7 @@ ipa_edge_duplication_hook (struct cgraph_edge *src, struct cgraph_edge *dst,
 	      gcc_checking_assert (ref);
 	      dst->caller->clone_reference (ref, ref->stmt);
 
-	      gcc_checking_assert (ipa_refdesc_pool);
-	      struct ipa_cst_ref_desc *dst_rdesc
-		= (struct ipa_cst_ref_desc *) pool_alloc (ipa_refdesc_pool);
+	      struct ipa_cst_ref_desc *dst_rdesc = ipa_refdesc_pool.allocate ();
 	      dst_rdesc->cs = dst;
 	      dst_rdesc->refcount = src_rdesc->refcount;
 	      dst_rdesc->next_duplicate = NULL;
@@ -3527,10 +3510,7 @@ ipa_edge_duplication_hook (struct cgraph_edge *src, struct cgraph_edge *dst,
 	    }
 	  else if (src_rdesc->cs == src)
 	    {
-	      struct ipa_cst_ref_desc *dst_rdesc;
-	      gcc_checking_assert (ipa_refdesc_pool);
-	      dst_rdesc
-		= (struct ipa_cst_ref_desc *) pool_alloc (ipa_refdesc_pool);
+	      struct ipa_cst_ref_desc *dst_rdesc = ipa_refdesc_pool.allocate ();
 	      dst_rdesc->cs = dst;
 	      dst_rdesc->refcount = src_rdesc->refcount;
 	      dst_rdesc->next_duplicate = src_rdesc->next_duplicate;
@@ -3676,13 +3656,12 @@ ipa_free_all_structures_after_ipa_cp (void)
     {
       ipa_free_all_edge_args ();
       ipa_free_all_node_params ();
-      free_alloc_pool (ipcp_sources_pool);
-      free_alloc_pool (ipcp_cst_values_pool);
-      free_alloc_pool (ipcp_poly_ctx_values_pool);
-      free_alloc_pool (ipcp_agg_lattice_pool);
+      ipcp_sources_pool.release ();
+      ipcp_cst_values_pool.release ();
+      ipcp_poly_ctx_values_pool.release ();
+      ipcp_agg_lattice_pool.release ();
       ipa_unregister_cgraph_hooks ();
-      if (ipa_refdesc_pool)
-	free_alloc_pool (ipa_refdesc_pool);
+      ipa_refdesc_pool.release ();
     }
 }
 
@@ -3695,16 +3674,11 @@ ipa_free_all_structures_after_iinln (void)
   ipa_free_all_edge_args ();
   ipa_free_all_node_params ();
   ipa_unregister_cgraph_hooks ();
-  if (ipcp_sources_pool)
-    free_alloc_pool (ipcp_sources_pool);
-  if (ipcp_cst_values_pool)
-    free_alloc_pool (ipcp_cst_values_pool);
-  if (ipcp_poly_ctx_values_pool)
-    free_alloc_pool (ipcp_poly_ctx_values_pool);
-  if (ipcp_agg_lattice_pool)
-    free_alloc_pool (ipcp_agg_lattice_pool);
-  if (ipa_refdesc_pool)
-    free_alloc_pool (ipa_refdesc_pool);
+  ipcp_sources_pool.release ();
+  ipcp_cst_values_pool.release ();
+  ipcp_poly_ctx_values_pool.release ();
+  ipcp_agg_lattice_pool.release ();
+  ipa_refdesc_pool.release ();
 }
 
 /* Print ipa_tree_map data structures of all functions in the

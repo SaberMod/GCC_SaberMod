@@ -1,3 +1,147 @@
+2015-06-17  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-array-notation.c: Do not include input.h, line-map.h or is-a.h.
+	* c-aux-info.c: Likewise.
+	* c-convert.c: Likewise.
+	* c-decl.c: Likewise.
+	* c-errors.c: Likewise.
+	* c-lang.c: Likewise.
+	* c-objc-common.c: Likewise.
+	* c-parser.c: Likewise.
+	* c-typeck.c: Likewise.
+
+2015-06-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR middle-end/66325
+	* c-decl.c (start_enum): Set TYPE_PACKED consistently among type
+	variants.
+
+2015-06-11  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* c-decl.c (pop_scope): Register the main translation unit
+	through the new debug hook.
+
+2015-06-08  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-array-notation.c : Adjust include files.
+	* c-aux-info.c : Likewise.
+	* c-convert.c : Likewise.
+	* c-decl.c : Likewise.
+	* c-errors.c : Likewise.
+	* c-lang.c : Likewise.
+	* c-lang.h : Likewise.
+	* c-objc-common.c : Likewise.
+	* c-parser.c : Likewise.
+	* c-typeck.c : Likewise.
+
+2015-06-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* c-decl.c (finish_struct): Save C_TYPE_INCOMPLETE_VARS and
+	immediately clobber it.
+	(c_write_global_declarations_1): Remove call to
+	check_global_declaration_1.
+	(c_write_global_declarations_2): Remove.
+	(c_write_final_cleanups): Rename from c_write_global_declarations.
+	Remove call to finalize_compilation_unit.
+	Remove calls to debugging hooks.
+	* c-objc-common.c: Adjust comment for c_warn_unused_global_decl.
+	* c-objc-common.h: Remove LANG_HOOKS_WRITE_GLOBALS.
+	* c-tree.h: Remove c_write_global_declarations.
+
+2015-06-04  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-array-notation.c: Adjust includes for restructured coretypes.h.
+	* c-aux-info.c: Likewise.
+	* c-convert.c: Likewise.
+	* c-decl.c: Likewise.
+	* c-errors.c: Likewise.
+	* c-lang.c: Likewise.
+	* c-objc-common.c: Likewise.
+	* c-parser.c: Likewise.
+	* c-typeck.c: Likewise.
+
+2015-06-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/66341
+	* c-typeck.c (build_c_cast): Wrap VALUE into NON_LVALUE_EXPR if
+	it is a lvalue.
+
+2015-06-03  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* c-decl.c (warn_cxx_compat_finish_struct): New parameters code, record_loc.
+	Warn for empty struct.
+	(finish_struct): Pass TREE_CODE(t) and loc to warn_cxx_compat_finish_struct.
+
+2015-06-02  Andres Tiraboschi  <andres.tiraboschi@tallertechnologies.com>
+
+	* c-decl.c (start_function): Call plugin before parsing.
+	(finish_function): Call plugin after parsing.
+
+2015-06-02  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	PR c/49551
+	* c-decl.c (merge_decls): Merge DECL_COMMON.
+
+2015-05-22  Jim Wilson  <jim.wilson@linaro.org>
+
+	* Make-lang.in (check_gcc_pallelize): Define.
+
+2015-05-22  Marek Polacek  <polacek@redhat.com>
+
+	PR c/47043
+	* c-parser.c (c_parser_enum_specifier): Parse and apply enumerator
+	attributes.
+
+2015-05-21  Marek Polacek  <polacek@redhat.com>
+
+	* c-typeck.c (inform_declaration): Use DECL_IS_BUILTIN instead of
+	DECL_BUILT_IN.
+
+2015-05-20  Marek Polacek  <polacek@redhat.com>
+
+	* c-decl.c: Use VAR_OR_FUNCTION_DECL_P throughout.
+	* c-typeck.c: Likewise.
+
+2015-05-19  Marek Polacek  <polacek@redhat.com>
+
+	* c-typeck.c (start_init): Use AGGREGATE_TYPE_P.
+
+2015-05-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/66199
+	* c-parser.c (c_parser_omp_for_loop): Don't add
+	OMP_CLAUSE_SHARED to OMP_PARALLEL_CLAUSES when moving
+	OMP_CLAUSE_LASTPRIVATE clause to OMP_FOR_CLAUSES.
+	(c_parser_omp_teams): Set OMP_TEAMS_COMBINED for combined
+	constructs.
+
+2015-05-19  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* c-typeck.c (build_array_ref): Use std::swap instead of explicit
+	swaps.
+
+2015-05-16  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* c-objc-common.c (c_tree_printer): Replace locus pointer with
+	accessor function.
+
+2015-05-14  Marek Polacek  <polacek@redhat.com>
+
+	PR c/66066
+	PR c/66127
+	* c-typeck.c (digest_init): Call pedwarn_init with OPT_Wpedantic
+	rather than with 0.
+
+2015-05-12  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-parser.c (c_parser_if_body): Add param "if_loc", use it
+	to add a call to warn_for_misleading_indentation.
+	(c_parser_else_body): Likewise, adding param "else_loc".
+	(c_parser_if_statement): Check for misleading indentation.
+	(c_parser_while_statement): Likewise.
+	(c_parser_for_statement): Likewise.
+
 2015-05-08  Marek Polacek  <polacek@redhat.com>
 
 	PR c/64918

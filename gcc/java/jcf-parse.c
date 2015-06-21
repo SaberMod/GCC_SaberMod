@@ -26,31 +26,19 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "real.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "obstack.h"
 #include "flags.h"
 #include "java-except.h"
-#include "input.h"
 #include "javaop.h"
 #include "java-tree.h"
 #include "diagnostic-core.h"
 #include "parse.h"
-#include "ggc.h"
 #include "debug.h"
-#include "hash-map.h"
-#include "is-a.h"
 #include "plugin-api.h"
 #include "tm.h"
 #include "hard-reg-set.h"
@@ -59,7 +47,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "cgraph.h"
 #include "bitmap.h"
 #include "target.h"
-#include "wide-int.h"
+#include "toplev.h"
 
 #ifdef HAVE_LOCALE_H
 #include <locale.h>
@@ -374,7 +362,7 @@ set_source_filename (JCF *jcf, int index)
     }
       
   sfname = find_sourcefile (sfname);
-  ORDINARY_MAP_FILE_NAME (LINEMAPS_LAST_ORDINARY_MAP (line_table)) = sfname;
+  LINEMAPS_LAST_ORDINARY_MAP (line_table)->to_file = sfname;
   if (current_class == main_class) main_input_filename = sfname;
 }
 
@@ -2001,6 +1989,9 @@ java_parse_file (void)
   /* Arrange for any necessary initialization to happen.  */
   java_emit_static_constructor ();
   gcc_assert (global_bindings_p ());
+
+  /* Do final processing on globals.  */
+  global_decl_processing ();
 }
 
 

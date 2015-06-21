@@ -45,15 +45,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "flags.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -61,12 +54,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "realmpfr.h"
 #include "rtl.h"
-#include "hashtab.h"
 #include "hard-reg-set.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -87,13 +76,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "tree-dfa.h"
-#include "hash-table.h"  /* Required for ENABLE_FOLD_CHECKING.  */
 #include "builtins.h"
-#include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -6139,12 +6125,8 @@ extract_muldiv_1 (tree t, tree c, enum tree_code code, tree wide_type,
 	  /* If OP1 was not easily negatable, the constant may be OP0.  */
 	  if (TREE_CODE (op0) == INTEGER_CST)
 	    {
-	      tree tem = op0;
-	      op0 = op1;
-	      op1 = tem;
-	      tem = t1;
-	      t1 = t2;
-	      t2 = tem;
+	      std::swap (op0, op1);
+	      std::swap (t1, t2);
 	    }
 	}
 
@@ -9187,23 +9169,10 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 			    fold_convert_loc (loc, newtype, targ0),
 			    fold_convert_loc (loc, newtype, targ1));
 
-      /* (-a) CMP (-b) -> b CMP a  */
-      if (TREE_CODE (arg0) == NEGATE_EXPR
-	  && TREE_CODE (arg1) == NEGATE_EXPR)
-	return fold_build2_loc (loc, code, type, TREE_OPERAND (arg1, 0),
-			    TREE_OPERAND (arg0, 0));
-
       if (TREE_CODE (arg1) == REAL_CST)
 	{
 	  REAL_VALUE_TYPE cst;
 	  cst = TREE_REAL_CST (arg1);
-
-	  /* (-a) CMP CST -> a swap(CMP) (-CST)  */
-	  if (TREE_CODE (arg0) == NEGATE_EXPR)
-	    return fold_build2_loc (loc, swap_tree_comparison (code), type,
-				TREE_OPERAND (arg0, 0),
-				build_real (TREE_TYPE (arg1),
-					    real_value_negate (&cst)));
 
 	  /* IEEE doesn't distinguish +0 and -0 in comparisons.  */
 	  /* a CMP (-0) -> a CMP 0  */
@@ -11958,15 +11927,6 @@ fold_binary_loc (location_t loc,
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
     case TRUNC_MOD_EXPR:
-      /* X % -Y is the same as X % Y.  */
-      if (code == TRUNC_MOD_EXPR
-	  && !TYPE_UNSIGNED (type)
-	  && TREE_CODE (arg1) == NEGATE_EXPR
-	  && !TYPE_OVERFLOW_TRAPS (type))
-	return fold_build2_loc (loc, code, type, fold_convert_loc (loc, type, arg0),
-			    fold_convert_loc (loc, type,
-					      TREE_OPERAND (arg1, 0)));
-
       strict_overflow_p = false;
       if (TREE_CODE (arg1) == INTEGER_CST
 	  && 0 != (tem = extract_muldiv (op0, arg1, code, NULL_TREE,
@@ -11977,34 +11937,6 @@ fold_binary_loc (location_t loc,
 				    "when simplifying modulus"),
 				   WARN_STRICT_OVERFLOW_MISC);
 	  return fold_convert_loc (loc, type, tem);
-	}
-
-      /* Optimize TRUNC_MOD_EXPR by a power of two into a BIT_AND_EXPR,
-         i.e. "X % C" into "X & (C - 1)", if X and C are positive.  */
-      if ((code == TRUNC_MOD_EXPR || code == FLOOR_MOD_EXPR)
-	  && (TYPE_UNSIGNED (type)
-	      || tree_expr_nonnegative_warnv_p (op0, &strict_overflow_p)))
-	{
-	  tree c = arg1;
-	  /* Also optimize A % (C << N)  where C is a power of 2,
-	     to A & ((C << N) - 1).  */
-	  if (TREE_CODE (arg1) == LSHIFT_EXPR)
-	    c = TREE_OPERAND (arg1, 0);
-
-	  if (integer_pow2p (c) && tree_int_cst_sgn (c) > 0)
-	    {
-	      tree mask
-		= fold_build2_loc (loc, MINUS_EXPR, TREE_TYPE (arg1), arg1,
-				   build_int_cst (TREE_TYPE (arg1), 1));
-	      if (strict_overflow_p)
-		fold_overflow_warning (("assuming signed overflow does not "
-					"occur when simplifying "
-					"X % (power of two)"),
-				       WARN_STRICT_OVERFLOW_MISC);
-	      return fold_build2_loc (loc, BIT_AND_EXPR, type,
-				      fold_convert_loc (loc, type, arg0),
-				      fold_convert_loc (loc, type, mask));
-	    }
 	}
 
       return NULL_TREE;
@@ -14692,7 +14624,7 @@ tree_unary_nonnegative_warnv_p (enum tree_code code, tree type, tree op0,
     case ABS_EXPR:
       /* We can't return 1 if flag_wrapv is set because
 	 ABS_EXPR<INT_MIN> = INT_MIN.  */
-      if (!INTEGRAL_TYPE_P (type))
+      if (!ANY_INTEGRAL_TYPE_P (type))
 	return true;
       if (TYPE_OVERFLOW_UNDEFINED (type))
 	{

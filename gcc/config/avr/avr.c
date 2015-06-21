@@ -31,15 +31,8 @@
 #include "insn-codes.h"
 #include "flags.h"
 #include "reload.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
@@ -48,11 +41,7 @@
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "output.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -64,7 +53,6 @@
 #include "obstack.h"
 #include "recog.h"
 #include "optabs.h"
-#include "ggc.h"
 #include "langhooks.h"
 #include "tm_p.h"
 #include "target.h"
@@ -4379,9 +4367,9 @@ avr_out_load_psi_reg_no_disp_tiny (rtx_insn *insn, rtx *op, int *plen)
     }
   else
     {
-      return avr_asm_len ("ld %A0,%1+"  CR_TAB
-                          "ld %B0,%1+"  CR_TAB
-                          "ld %C0,%1", op, plen, -3);
+      avr_asm_len ("ld %A0,%1+"  CR_TAB
+		   "ld %B0,%1+"  CR_TAB
+		   "ld %C0,%1", op, plen, -3);
 
       if (reg_dest != reg_base - 2 &&
           !reg_unused_after (insn, base))
@@ -11332,9 +11320,10 @@ avr_hard_regno_call_part_clobbered (unsigned regno, machine_mode mode)
     return 0;
 
   /* Return true if any of the following boundaries is crossed:
-     17/18, 27/28 and 29/30.  */
+     17/18 or 19/20 (if AVR_TINY), 27/28 and 29/30.  */
 
-  return ((regno < 18 && regno + GET_MODE_SIZE (mode) > 18)
+  return ((regno <= LAST_CALLEE_SAVED_REG &&
+           regno + GET_MODE_SIZE (mode) > (LAST_CALLEE_SAVED_REG + 1))
           || (regno < REG_Y && regno + GET_MODE_SIZE (mode) > REG_Y)
           || (regno < REG_Z && regno + GET_MODE_SIZE (mode) > REG_Z));
 }

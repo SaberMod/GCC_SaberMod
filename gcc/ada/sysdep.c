@@ -49,7 +49,7 @@
 #endif
 
 #ifdef __ANDROID__
-#undef linux
+#undef __linux__
 #endif
 
 #ifdef IN_RTS
@@ -66,7 +66,7 @@
 #include <time.h>
 #include <errno.h>
 
-#if defined (sun) && defined (__SVR4) && !defined (__vxworks)
+#if defined (__sun__) && !defined (__vxworks)
 /* The declaration is present in <time.h> but conditionalized
    on a couple of macros we don't define.  */
 extern struct tm *localtime_r(const time_t *, struct tm *);
@@ -282,12 +282,12 @@ __gnat_ttyname (int filedes)
 }
 #endif
 
-#if defined (linux) || defined (sun) \
+#if defined (__linux__) || defined (__sun__) \
   || defined (WINNT) \
   || defined (__MACHTEN__) || defined (__hpux__) || defined (_AIX) \
-  || (defined (__svr4__) && defined (i386)) || defined (__Lynx__) \
+  || (defined (__svr4__) && defined (__i386__)) || defined (__Lynx__) \
   || defined (__CYGWIN__) || defined (__FreeBSD__) || defined (__OpenBSD__) \
-  || defined (__GLIBC__) || defined (__APPLE__)
+  || defined (__GLIBC__) || defined (__APPLE__) || defined (__DragonFly__)
 
 # ifdef __MINGW32__
 #  if OLD_MINGW
@@ -335,11 +335,11 @@ getc_immediate_common (FILE *stream,
                        int *avail,
                        int waiting ATTRIBUTE_UNUSED)
 {
-#if defined (linux) || defined (sun) \
+#if defined (__linux__) || defined (__sun__) \
     || defined (__CYGWIN32__) || defined (__MACHTEN__) || defined (__hpux__) \
-    || defined (_AIX) || (defined (__svr4__) && defined (i386)) \
+    || defined (_AIX) || (defined (__svr4__) && defined (__i386__)) \
     || defined (__Lynx__) || defined (__FreeBSD__) || defined (__OpenBSD__) \
-    || defined (__GLIBC__) || defined (__APPLE__)
+    || defined (__GLIBC__) || defined (__APPLE__) || defined (__DragonFly__)
   char c;
   int nread;
   int good_one = 0;
@@ -355,11 +355,11 @@ getc_immediate_common (FILE *stream,
       /* Set RAW mode, with no echo */
       termios_rec.c_lflag = termios_rec.c_lflag & ~ICANON & ~ECHO;
 
-#if defined(linux) || defined (sun) \
+#if defined (__linux__) || defined (__sun__) \
     || defined (__MACHTEN__) || defined (__hpux__) \
-    || defined (_AIX) || (defined (__svr4__) && defined (i386)) \
+    || defined (_AIX) || (defined (__svr4__) && defined (__i386__)) \
     || defined (__Lynx__) || defined (__FreeBSD__) || defined (__OpenBSD__) \
-    || defined (__GLIBC__) || defined (__APPLE__)
+    || defined (__GLIBC__) || defined (__APPLE__) || defined (__DragonFly__)
       eof_ch = termios_rec.c_cc[VEOF];
 
       /* If waiting (i.e. Get_Immediate (Char)), set MIN = 1 and wait for
@@ -756,7 +756,7 @@ __gnat_localtime_tzoff (const time_t *timer ATTRIBUTE_UNUSED,
   struct tm tp ATTRIBUTE_UNUSED;
 
 /* AIX, HPUX, Sun Solaris */
-#if defined (_AIX) || defined (__hpux__) || defined (sun)
+#if defined (_AIX) || defined (__hpux__) || defined (__sun__)
 {
   (*Lock_Task) ();
 
@@ -819,8 +819,8 @@ __gnat_localtime_tzoff (const time_t *timer ATTRIBUTE_UNUSED,
 /* Darwin, Free BSD, Linux, where component tm_gmtoff is present in
    struct tm */
 
-#elif defined (__APPLE__) || defined (__FreeBSD__) || defined (linux) \
-  || defined (__GLIBC__)
+#elif defined (__APPLE__) || defined (__FreeBSD__) || defined (__linux__) \
+  || defined (__GLIBC__) || defined (__DragonFly__) || defined (__OpenBSD__)
 {
   localtime_r (timer, &tp);
   *off = tp.tm_gmtoff;

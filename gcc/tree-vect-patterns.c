@@ -22,15 +22,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -45,7 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -55,12 +47,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "tree-ssanames.h"
 #include "cfgloop.h"
-#include "hashtab.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -318,6 +306,11 @@ vect_recog_dot_prod_pattern (vec<gimple> *stmts, tree *type_in,
 
   loop = LOOP_VINFO_LOOP (loop_info);
 
+  /* We don't allow changing the order of the computation in the inner-loop
+     when doing outer-loop vectorization.  */
+  if (loop && nested_in_vect_loop_p (loop, last_stmt))
+    return NULL;
+
   if (!is_gimple_assign (last_stmt))
     return NULL;
 
@@ -366,8 +359,6 @@ vect_recog_dot_prod_pattern (vec<gimple> *stmts, tree *type_in,
     {
       gimple def_stmt;
 
-      if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_reduction_def)
-        return NULL;
       oprnd0 = gimple_assign_rhs1 (last_stmt);
       oprnd1 = gimple_assign_rhs2 (last_stmt);
       if (!types_compatible_p (TREE_TYPE (oprnd0), type)
@@ -469,10 +460,6 @@ vect_recog_dot_prod_pattern (vec<gimple> *stmts, tree *type_in,
       dump_printf (MSG_NOTE, "\n");
     }
 
-  /* We don't allow changing the order of the computation in the inner-loop
-     when doing outer-loop vectorization.  */
-  gcc_assert (!nested_in_vect_loop_p (loop, last_stmt));
-
   return pattern_stmt;
 }
 
@@ -533,6 +520,11 @@ vect_recog_sad_pattern (vec<gimple> *stmts, tree *type_in,
 
   loop = LOOP_VINFO_LOOP (loop_info);
 
+  /* We don't allow changing the order of the computation in the inner-loop
+     when doing outer-loop vectorization.  */
+  if (loop && nested_in_vect_loop_p (loop, last_stmt))
+    return NULL;
+
   if (!is_gimple_assign (last_stmt))
     return NULL;
 
@@ -586,8 +578,6 @@ vect_recog_sad_pattern (vec<gimple> *stmts, tree *type_in,
     {
       gimple def_stmt;
 
-      if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_reduction_def)
-        return NULL;
       plus_oprnd0 = gimple_assign_rhs1 (last_stmt);
       plus_oprnd1 = gimple_assign_rhs2 (last_stmt);
       if (!types_compatible_p (TREE_TYPE (plus_oprnd0), sum_type)
@@ -702,10 +692,6 @@ vect_recog_sad_pattern (vec<gimple> *stmts, tree *type_in,
       dump_gimple_stmt (MSG_NOTE, TDF_SLIM, pattern_stmt, 0);
       dump_printf (MSG_NOTE, "\n");
     }
-
-  /* We don't allow changing the order of the computation in the inner-loop
-     when doing outer-loop vectorization.  */
-  gcc_assert (!nested_in_vect_loop_p (loop, last_stmt));
 
   return pattern_stmt;
 }
@@ -1201,6 +1187,11 @@ vect_recog_widen_sum_pattern (vec<gimple> *stmts, tree *type_in,
 
   loop = LOOP_VINFO_LOOP (loop_info);
 
+  /* We don't allow changing the order of the computation in the inner-loop
+     when doing outer-loop vectorization.  */
+  if (loop && nested_in_vect_loop_p (loop, last_stmt))
+    return NULL;
+
   if (!is_gimple_assign (last_stmt))
     return NULL;
 
@@ -1217,9 +1208,6 @@ vect_recog_widen_sum_pattern (vec<gimple> *stmts, tree *type_in,
      of the above pattern.  */
 
   if (gimple_assign_rhs_code (last_stmt) != PLUS_EXPR)
-    return NULL;
-
-  if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_reduction_def)
     return NULL;
 
   oprnd0 = gimple_assign_rhs1 (last_stmt);
@@ -1254,10 +1242,6 @@ vect_recog_widen_sum_pattern (vec<gimple> *stmts, tree *type_in,
       dump_gimple_stmt (MSG_NOTE, TDF_SLIM, pattern_stmt, 0);
       dump_printf (MSG_NOTE, "\n");
     }
-
-  /* We don't allow changing the order of the computation in the inner-loop
-     when doing outer-loop vectorization.  */
-  gcc_assert (!nested_in_vect_loop_p (loop, last_stmt));
 
   return pattern_stmt;
 }

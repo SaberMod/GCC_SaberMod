@@ -424,11 +424,9 @@ package body Freeze is
          declare
             Ret_Type : constant Entity_Id := Etype (Result_Definition (Spec));
          begin
-            if Ekind (Ret_Type) = E_Incomplete_Type
-              and then Present (Non_Limited_View (Ret_Type))
-            then
-               Set_Result_Definition (Spec,
-                  New_Occurrence_Of (Non_Limited_View (Ret_Type), Loc));
+            if Has_Non_Limited_View (Ret_Type) then
+               Set_Result_Definition
+                 (Spec, New_Occurrence_Of (Non_Limited_View (Ret_Type), Loc));
             end if;
          end;
       end if;
@@ -458,10 +456,11 @@ package body Freeze is
             elsif Is_Access_Type (Form_Type)
               and then not Is_Access_Type (Pref)
             then
-               Actuals := New_List
-                 (Make_Attribute_Reference (Loc,
-                   Attribute_Name => Name_Access,
-                   Prefix => Relocate_Node (Pref)));
+               Actuals :=
+                 New_List (
+                   Make_Attribute_Reference (Loc,
+                     Attribute_Name => Name_Access,
+                     Prefix         => Relocate_Node (Pref)));
             else
                Actuals := New_List (Pref);
             end if;
@@ -532,7 +531,7 @@ package body Freeze is
            Make_Simple_Return_Statement (Loc,
               Expression =>
                 Make_Function_Call (Loc,
-                  Name => Call_Name,
+                  Name                   => Call_Name,
                   Parameter_Associations => Actuals));
 
       elsif Ekind (Old_S) = E_Enumeration_Literal then
@@ -542,13 +541,12 @@ package body Freeze is
 
       elsif Nkind (Nam) = N_Character_Literal then
          Call_Node :=
-           Make_Simple_Return_Statement (Loc,
-             Expression => Call_Name);
+           Make_Simple_Return_Statement (Loc, Expression => Call_Name);
 
       else
          Call_Node :=
            Make_Procedure_Call_Statement (Loc,
-             Name => Call_Name,
+             Name                   => Call_Name,
              Parameter_Associations => Actuals);
       end if;
 
@@ -944,13 +942,13 @@ package body Freeze is
                      Packed_Size_Known := False;
                   end if;
 
-                  --  We do not know the packed size if we have an atomic type
+                  --  We do not know the packed size for an atomic/VFA type
                   --  or component, or an independent type or component, or a
-                  --  by reference type or aliased component (because packing
+                  --  by-reference type or aliased component (because packing
                   --  does not touch these).
 
-                  if Is_Atomic (Ctyp)
-                    or else Is_Atomic (Comp)
+                  if        Is_Atomic_Or_VFA (Ctyp)
+                    or else Is_Atomic_Or_VFA (Comp)
                     or else Is_Independent (Ctyp)
                     or else Is_Independent (Comp)
                     or else Is_By_Reference_Type (Ctyp)
@@ -1038,11 +1036,11 @@ package body Freeze is
                                  and then Is_Modular_Integer_Type
                                             (Packed_Array_Impl_Type (Ctyp)))
                      then
-                        --  Packed size unknown if we have an atomic type
-                        --  or a by reference type, since the back end
-                        --  knows how these are layed out.
+                        --  Packed size unknown if we have an atomic/VFA type
+                        --  or a by-reference type, since the back end knows
+                        --  how these are layed out.
 
-                        if Is_Atomic (Ctyp)
+                        if Is_Atomic_Or_VFA (Ctyp)
                           or else Is_By_Reference_Type (Ctyp)
                         then
                            Packed_Size_Known := False;
@@ -1457,21 +1455,19 @@ package body Freeze is
       end loop;
    end Check_Unsigned_Type;
 
-   -------------------------
-   -- Is_Atomic_Aggregate --
-   -------------------------
+   -----------------------------
+   -- Is_Atomic_VFA_Aggregate --
+   -----------------------------
 
-   function  Is_Atomic_Aggregate
-     (E   : Entity_Id;
-      Typ : Entity_Id) return Boolean
-   is
-      Loc   : constant Source_Ptr := Sloc (E);
+   function Is_Atomic_VFA_Aggregate (N : Node_Id) return Boolean is
+      Loc   : constant Source_Ptr := Sloc (N);
       New_N : Node_Id;
       Par   : Node_Id;
       Temp  : Entity_Id;
+      Typ   : Entity_Id;
 
    begin
-      Par := Parent (E);
+      Par := Parent (N);
 
       --  Array may be qualified, so find outer context
 
@@ -1479,25 +1475,46 @@ package body Freeze is
          Par := Parent (Par);
       end if;
 
-      if Nkind_In (Par, N_Object_Declaration, N_Assignment_Statement)
-        and then Comes_From_Source (Par)
-      then
-         Temp := Make_Temporary (Loc, 'T', E);
-         New_N :=
-           Make_Object_Declaration (Loc,
-             Defining_Identifier => Temp,
-             Object_Definition   => New_Occurrence_Of (Typ, Loc),
-             Expression          => Relocate_Node (E));
-         Insert_Before (Par, New_N);
-         Analyze (New_N);
-
-         Set_Expression (Par, New_Occurrence_Of (Temp, Loc));
-         return True;
-
-      else
+      if not Comes_From_Source (Par) then
          return False;
       end if;
-   end Is_Atomic_Aggregate;
+
+      case Nkind (Par) is
+         when N_Assignment_Statement =>
+            Typ := Etype (Name (Par));
+
+            if not Is_Atomic_Or_VFA (Typ)
+              and then not (Is_Entity_Name (Name (Par))
+                             and then Is_Atomic_Or_VFA (Entity (Name (Par))))
+            then
+               return False;
+            end if;
+
+         when N_Object_Declaration =>
+            Typ := Etype (Defining_Identifier (Par));
+
+            if not Is_Atomic_Or_VFA (Typ)
+              and then not Is_Atomic_Or_VFA (Defining_Identifier (Par))
+            then
+               return False;
+            end if;
+
+         when others =>
+            return False;
+      end case;
+
+      Temp := Make_Temporary (Loc, 'T', N);
+      New_N :=
+        Make_Object_Declaration (Loc,
+          Defining_Identifier => Temp,
+          Object_Definition   => New_Occurrence_Of (Typ, Loc),
+          Expression          => Relocate_Node (N));
+      Insert_Before (Par, New_N);
+      Analyze (New_N);
+
+      Set_Expression (Par, New_Occurrence_Of (Temp, Loc));
+      return True;
+   end Is_Atomic_VFA_Aggregate;
 
    -----------------------------------------------
    -- Explode_Initialization_Compound_Statement --
@@ -1864,8 +1881,8 @@ package body Freeze is
       Formal : Entity_Id;
       Indx   : Node_Id;
 
-      Test_E : Entity_Id := E;
-      --  This could use a comment ???
+      Has_Default_Initialization : Boolean := False;
+      --  This flag gets set to true for a variable with default initialization
 
       Late_Freezing : Boolean := False;
       --  Used to detect attempt to freeze function declared in another unit
@@ -1873,8 +1890,8 @@ package body Freeze is
       Result : List_Id := No_List;
       --  List of freezing actions, left at No_List if none
 
-      Has_Default_Initialization : Boolean := False;
-      --  This flag gets set to true for a variable with default initialization
+      Test_E : Entity_Id := E;
+      --  This could use a comment ???
 
       procedure Add_To_Result (N : Node_Id);
       --  N is a freezing action to be appended to the Result
@@ -1895,6 +1912,10 @@ package body Freeze is
 
       procedure Freeze_Array_Type (Arr : Entity_Id);
       --  Freeze array type, including freezing index and component types
+
+      procedure Freeze_Object_Declaration (E : Entity_Id);
+      --  Perform checks and generate freeze node if needed for a constant or
+      --  variable declared by an object declaration.
 
       function Freeze_Generic_Entities (Pack : Entity_Id) return List_Id;
       --  Create Freeze_Generic_Entity nodes for types declared in a generic
@@ -2224,7 +2245,7 @@ package body Freeze is
 
             --  Propagate flags for component type
 
-            if Is_Controlled (Component_Type (Arr))
+            if Is_Controlled_Active (Component_Type (Arr))
               or else Has_Controlled_Component (Ctyp)
             then
                Set_Has_Controlled_Component (Arr);
@@ -2421,12 +2442,12 @@ package body Freeze is
                end if;
             end;
 
-            --  Check for Aliased or Atomic_Components/Atomic with unsuitable
-            --  packing or explicit component size clause given.
+            --  Check for Aliased or Atomic_Components/Atomic/VFA with
+            --  unsuitable packing or explicit component size clause given.
 
             if (Has_Aliased_Components (Arr)
                  or else Has_Atomic_Components (Arr)
-                 or else Is_Atomic (Ctyp))
+                 or else Is_Atomic_Or_VFA (Ctyp))
               and then
                 (Has_Component_Size_Clause (Arr) or else Is_Packed (Arr))
             then
@@ -2434,8 +2455,8 @@ package body Freeze is
 
                   procedure Complain_CS (T : String);
                   --  Outputs error messages for incorrect CS clause or pragma
-                  --  Pack for aliased or atomic components (T is "aliased" or
-                  --  "atomic");
+                  --  Pack for aliased or atomic/VFA components (T is "aliased"
+                  --  or "atomic/vfa");
 
                   -----------------
                   -- Complain_CS --
@@ -2496,9 +2517,13 @@ package body Freeze is
                   elsif Has_Aliased_Components (Arr) then
                      Complain_CS ("aliased");
 
-                  elsif Has_Atomic_Components (Arr) or else Is_Atomic (Ctyp)
+                  elsif Has_Atomic_Components (Arr)
+                    or else Is_Atomic (Ctyp)
                   then
                      Complain_CS ("atomic");
+
+                  elsif Is_Volatile_Full_Access (Ctyp) then
+                     Complain_CS ("volatile full access");
                   end if;
                end Alias_Atomic_Check;
             end if;
@@ -2507,8 +2532,8 @@ package body Freeze is
             --  packing or explicit component size clause given.
 
             if (Has_Independent_Components (Arr) or else Is_Independent (Ctyp))
-              and then
-                (Has_Component_Size_Clause (Arr) or else Is_Packed (Arr))
+                  and then
+               (Has_Component_Size_Clause  (Arr) or else Is_Packed (Arr))
             then
                begin
                   --  If object size of component type isn't known, we cannot
@@ -2770,7 +2795,7 @@ package body Freeze is
 
          --  For non-packed arrays set the alignment of the array to the
          --  alignment of the component type if it is unknown. Skip this
-         --  in atomic case (atomic arrays may need larger alignments).
+         --  in atomic/VFA case (atomic/VFA arrays may need larger alignments).
 
          if not Is_Packed (Arr)
            and then Unknown_Alignment (Arr)
@@ -2778,11 +2803,217 @@ package body Freeze is
            and then Known_Static_Component_Size (Arr)
            and then Known_Static_Esize (Ctyp)
            and then Esize (Ctyp) = Component_Size (Arr)
-           and then not Is_Atomic (Arr)
+           and then not Is_Atomic_Or_VFA (Arr)
          then
             Set_Alignment (Arr, Alignment (Component_Type (Arr)));
          end if;
       end Freeze_Array_Type;
+
+      -------------------------------
+      -- Freeze_Object_Declaration --
+      -------------------------------
+
+      procedure Freeze_Object_Declaration (E : Entity_Id) is
+      begin
+         --  Abstract type allowed only for C++ imported variables or constants
+
+         --  Note: we inhibit this check for objects that do not come from
+         --  source because there is at least one case (the expansion of
+         --  x'Class'Input where x is abstract) where we legitimately
+         --  generate an abstract object.
+
+         if Is_Abstract_Type (Etype (E))
+           and then Comes_From_Source (Parent (E))
+           and then not (Is_Imported (E) and then Is_CPP_Class (Etype (E)))
+         then
+            Error_Msg_N ("type of object cannot be abstract",
+                         Object_Definition (Parent (E)));
+
+            if Is_CPP_Class (Etype (E)) then
+               Error_Msg_NE
+                 ("\} may need a cpp_constructor",
+                  Object_Definition (Parent (E)), Etype (E));
+
+            elsif Present (Expression (Parent (E))) then
+               Error_Msg_N --  CODEFIX
+                 ("\maybe a class-wide type was meant",
+                  Object_Definition (Parent (E)));
+            end if;
+         end if;
+
+         --  For object created by object declaration, perform required
+         --  categorization (preelaborate and pure) checks. Defer these
+         --  checks to freeze time since pragma Import inhibits default
+         --  initialization and thus pragma Import affects these checks.
+
+         Validate_Object_Declaration (Declaration_Node (E));
+
+         --  If there is an address clause, check that it is valid
+         --  and if need be move initialization to the freeze node.
+
+         Check_Address_Clause (E);
+
+         --  Similar processing is needed for aspects that may affect
+         --  object layout, like Alignment, if there is an initialization
+         --  expression.
+
+         if Has_Delayed_Aspects (E)
+           and then Expander_Active
+           and then Is_Array_Type (Etype (E))
+           and then Present (Expression (Parent (E)))
+         then
+            declare
+               Decl : constant Node_Id := Parent (E);
+               Lhs  : constant Node_Id := New_Occurrence_Of (E, Loc);
+
+            begin
+
+               --  Capture initialization value at point of declaration, and
+               --  make explicit assignment legal, because object may be a
+               --  constant.
+
+               Remove_Side_Effects (Expression (Decl));
+               Set_Assignment_OK (Lhs);
+
+               --  Move initialization to freeze actions.
+
+               Append_Freeze_Action (E,
+                 Make_Assignment_Statement (Loc,
+                   Name       => Lhs,
+                   Expression => Expression (Decl)));
+
+               Set_No_Initialization (Decl);
+               --  Set_Is_Frozen (E, False);
+            end;
+         end if;
+
+         --  Reset Is_True_Constant for non-constant aliased object. We
+         --  consider that the fact that a non-constant object is aliased may
+         --  indicate that some funny business is going on, e.g. an aliased
+         --  object is passed by reference to a procedure which captures the
+         --  address of the object, which is later used to assign a new value,
+         --  even though the compiler thinks that it is not modified. Such
+         --  code is highly dubious, but we choose to make it "work" for
+         --  non-constant aliased objects.
+
+         --  Note that we used to do this for all aliased objects, whether or
+         --  not constant, but this caused anomalies down the line because we
+         --  ended up with static objects that were not Is_True_Constant. Not
+         --  resetting Is_True_Constant for (aliased) constant objects ensures
+         --  that this anomaly never occurs.
+
+         --  However, we don't do that for internal entities. We figure that if
+         --  we deliberately set Is_True_Constant for an internal entity, e.g.
+         --  a dispatch table entry, then we mean it.
+
+         if Ekind (E) /= E_Constant
+           and then (Is_Aliased (E) or else Is_Aliased (Etype (E)))
+           and then not Is_Internal_Name (Chars (E))
+         then
+            Set_Is_True_Constant (E, False);
+         end if;
+
+         --  If the object needs any kind of default initialization, an error
+         --  must be issued if No_Default_Initialization applies. The check
+         --  doesn't apply to imported objects, which are not ever default
+         --  initialized, and is why the check is deferred until freezing, at
+         --  which point we know if Import applies. Deferred constants are also
+         --  exempted from this test because their completion is explicit, or
+         --  through an import pragma.
+
+         if Ekind (E) = E_Constant and then Present (Full_View (E)) then
+            null;
+
+         elsif Comes_From_Source (E)
+           and then not Is_Imported (E)
+           and then not Has_Init_Expression (Declaration_Node (E))
+           and then
+             ((Has_Non_Null_Base_Init_Proc (Etype (E))
+                and then not No_Initialization (Declaration_Node (E))
+                and then not Is_Value_Type (Etype (E))
+                and then not Initialization_Suppressed (Etype (E)))
+              or else
+                (Needs_Simple_Initialization (Etype (E))
+                  and then not Is_Internal (E)))
+         then
+            Has_Default_Initialization := True;
+            Check_Restriction
+              (No_Default_Initialization, Declaration_Node (E));
+         end if;
+
+         --  Check that a Thread_Local_Storage variable does not have
+         --  default initialization, and any explicit initialization must
+         --  either be the null constant or a static constant.
+
+         if Has_Pragma_Thread_Local_Storage (E) then
+            declare
+               Decl : constant Node_Id := Declaration_Node (E);
+            begin
+               if Has_Default_Initialization
+                 or else
+                   (Has_Init_Expression (Decl)
+                     and then
+                      (No (Expression (Decl))
+                        or else not
+                          (Is_OK_Static_Expression (Expression (Decl))
+                            or else Nkind (Expression (Decl)) = N_Null)))
+               then
+                  Error_Msg_NE
+                    ("Thread_Local_Storage variable& is "
+                     & "improperly initialized", Decl, E);
+                  Error_Msg_NE
+                    ("\only allowed initialization is explicit "
+                     & "NULL or static expression", Decl, E);
+               end if;
+            end;
+         end if;
+
+         --  For imported objects, set Is_Public unless there is also an
+         --  address clause, which means that there is no external symbol
+         --  needed for the Import (Is_Public may still be set for other
+         --  unrelated reasons). Note that we delayed this processing
+         --  till freeze time so that we can be sure not to set the flag
+         --  if there is an address clause. If there is such a clause,
+         --  then the only purpose of the Import pragma is to suppress
+         --  implicit initialization.
+
+         if Is_Imported (E) and then No (Address_Clause (E)) then
+            Set_Is_Public (E);
+         end if;
+
+         --  For source objects that are not Imported and are library
+         --  level, if no linker section pragma was given inherit the
+         --  appropriate linker section from the corresponding type.
+
+         if Comes_From_Source (E)
+           and then not Is_Imported (E)
+           and then Is_Library_Level_Entity (E)
+           and then No (Linker_Section_Pragma (E))
+         then
+            Set_Linker_Section_Pragma
+              (E, Linker_Section_Pragma (Etype (E)));
+         end if;
+
+         --  For convention C objects of an enumeration type, warn if the
+         --  size is not integer size and no explicit size given. Skip
+         --  warning for Boolean, and Character, assume programmer expects
+         --  8-bit sizes for these cases.
+
+         if (Convention (E) = Convention_C
+               or else
+             Convention (E) = Convention_CPP)
+           and then Is_Enumeration_Type (Etype (E))
+           and then not Is_Character_Type (Etype (E))
+           and then not Is_Boolean_Type (Etype (E))
+           and then Esize (Etype (E)) < Standard_Integer_Size
+           and then not Has_Size_Clause (E)
+         then
+            Error_Msg_Uint_1 := UI_From_Int (Standard_Integer_Size);
+            Error_Msg_N
+              ("??convention C enumeration object has size less than ^", E);
+            Error_Msg_N ("\??use explicit size clause to set size", E);
+         end if;
+      end Freeze_Object_Declaration;
 
       -----------------------------
       -- Freeze_Generic_Entities --
@@ -2840,7 +3071,9 @@ package body Freeze is
                Set_Etype (Formal, F_Type);
             end if;
 
-            Freeze_And_Append (F_Type, N, Result);
+            if not From_Limited_With (F_Type) then
+               Freeze_And_Append (F_Type, N, Result);
+            end if;
 
             if Is_Private_Type (F_Type)
               and then Is_Private_Type (Base_Type (F_Type))
@@ -3147,9 +3380,20 @@ package body Freeze is
             end if;
          end if;
 
-         --  Check suspicious use of Import in pure unit
+         --  Check suspicious use of Import in pure unit (cases where the RM
+         --  allows calls to be omitted).
 
-         if Is_Imported (E) and then Is_Pure (Cunit_Entity (Current_Sem_Unit))
+         if Is_Imported (E)
+
+           --  It might be suspicious if the compilation unit has the Pure
+           --  aspect/pragma.
+
+           and then Has_Pragma_Pure (Cunit_Entity (Current_Sem_Unit))
+
+           --  The RM allows omission of calls only in the case of
+           --  library-level subprograms (see RM-10.2.1(18)).
+
+           and then Is_Library_Level_Entity (E)
 
            --  Ignore internally generated entity. This happens in some cases
            --  of subprograms in specs, where we generate an implied body.
@@ -3881,7 +4125,7 @@ package body Freeze is
                    (Has_Controlled_Component (Etype (Comp))
                      or else
                        (Chars (Comp) /= Name_uParent
-                         and then Is_Controlled (Etype (Comp)))
+                         and then Is_Controlled_Active (Etype (Comp)))
                      or else
                        (Is_Protected_Type (Etype (Comp))
                          and then
@@ -4079,6 +4323,33 @@ package body Freeze is
                end loop;
             end if;
          end if;
+
+         --  Make sure that if we have an iterator aspect, then we have
+         --  either Constant_Indexing or Variable_Indexing.
+
+         declare
+            Iterator_Aspect : Node_Id;
+
+         begin
+            Iterator_Aspect := Find_Aspect (Rec, Aspect_Iterator_Element);
+
+            if No (Iterator_Aspect) then
+               Iterator_Aspect := Find_Aspect (Rec, Aspect_Default_Iterator);
+            end if;
+
+            if Present (Iterator_Aspect) then
+               if Has_Aspect (Rec, Aspect_Constant_Indexing)
+                    or else
+                  Has_Aspect (Rec, Aspect_Variable_Indexing)
+               then
+                  null;
+               else
+                  Error_Msg_N
+                    ("Iterator_Element requires indexing aspect",
+                     Iterator_Aspect);
+               end if;
+            end if;
+         end;
 
          --  All done if not a full record definition
 
@@ -4380,7 +4651,7 @@ package body Freeze is
       --  Ignore. Set the mode now to ensure that any nodes generated during
       --  freezing are properly flagged as ignored Ghost.
 
-      Set_Ghost_Mode_For_Freeze (E, N);
+      Set_Ghost_Mode_From_Entity (E);
 
       --  We are going to test for various reasons why this entity need not be
       --  frozen here, but in the case of an Itype that's defined within a
@@ -4565,11 +4836,11 @@ package body Freeze is
          --  than component-wise (the assignment to the temp may be done
          --  component-wise, but that is harmless).
 
-         elsif Is_Atomic (E)
+         elsif Is_Atomic_Or_VFA (E)
            and then Nkind (Parent (E)) = N_Object_Declaration
            and then Present (Expression (Parent (E)))
            and then Nkind (Expression (Parent (E))) = N_Aggregate
-           and then Is_Atomic_Aggregate (Expression (Parent (E)), Etype (E))
+           and then Is_Atomic_VFA_Aggregate (Expression (Parent (E)))
          then
             null;
          end if;
@@ -4692,176 +4963,7 @@ package body Freeze is
             --  Special processing for objects created by object declaration
 
             if Nkind (Declaration_Node (E)) = N_Object_Declaration then
-
-               --  Abstract type allowed only for C++ imported variables or
-               --  constants.
-
-               --  Note: we inhibit this check for objects that do not come
-               --  from source because there is at least one case (the
-               --  expansion of x'Class'Input where x is abstract) where we
-               --  legitimately generate an abstract object.
-
-               if Is_Abstract_Type (Etype (E))
-                 and then Comes_From_Source (Parent (E))
-                 and then not (Is_Imported (E)
-                                 and then Is_CPP_Class (Etype (E)))
-               then
-                  Error_Msg_N ("type of object cannot be abstract",
-                               Object_Definition (Parent (E)));
-
-                  if Is_CPP_Class (Etype (E)) then
-                     Error_Msg_NE
-                       ("\} may need a cpp_constructor",
-                        Object_Definition (Parent (E)), Etype (E));
-
-                  elsif Present (Expression (Parent (E))) then
-                     Error_Msg_N --  CODEFIX
-                       ("\maybe a class-wide type was meant",
-                        Object_Definition (Parent (E)));
-                  end if;
-               end if;
-
-               --  For object created by object declaration, perform required
-               --  categorization (preelaborate and pure) checks. Defer these
-               --  checks to freeze time since pragma Import inhibits default
-               --  initialization and thus pragma Import affects these checks.
-
-               Validate_Object_Declaration (Declaration_Node (E));
-
-               --  If there is an address clause, check that it is valid
-
-               Check_Address_Clause (E);
-
-               --  Reset Is_True_Constant for non-constant aliased object. We
-               --  consider that the fact that a non-constant object is aliased
-               --  may indicate that some funny business is going on, e.g. an
-               --  aliased object is passed by reference to a procedure which
-               --  captures the address of the object, which is later used to
-               --  assign a new value, even though the compiler thinks that
-               --  it is not modified. Such code is highly dubious, but we
-               --  choose to make it "work" for non-constant aliased objects.
-               --  Note that we used to do this for all aliased objects,
-               --  whether or not constant, but this caused anomalies down
-               --  the line because we ended up with static objects that
-               --  were not Is_True_Constant. Not resetting Is_True_Constant
-               --  for (aliased) constant objects ensures that this anomaly
-               --  never occurs.
-
-               --  However, we don't do that for internal entities. We figure
-               --  that if we deliberately set Is_True_Constant for an internal
-               --  entity, e.g. a dispatch table entry, then we mean it.
-
-               if Ekind (E) /= E_Constant
-                 and then (Is_Aliased (E) or else Is_Aliased (Etype (E)))
-                 and then not Is_Internal_Name (Chars (E))
-               then
-                  Set_Is_True_Constant (E, False);
-               end if;
-
-               --  If the object needs any kind of default initialization, an
-               --  error must be issued if No_Default_Initialization applies.
-               --  The check doesn't apply to imported objects, which are not
-               --  ever default initialized, and is why the check is deferred
-               --  until freezing, at which point we know if Import applies.
-               --  Deferred constants are also exempted from this test because
-               --  their completion is explicit, or through an import pragma.
-
-               if Ekind (E) = E_Constant
-                 and then Present (Full_View (E))
-               then
-                  null;
-
-               elsif Comes_From_Source (E)
-                 and then not Is_Imported (E)
-                 and then not Has_Init_Expression (Declaration_Node (E))
-                 and then
-                   ((Has_Non_Null_Base_Init_Proc (Etype (E))
-                      and then not No_Initialization (Declaration_Node (E))
-                      and then not Is_Value_Type (Etype (E))
-                      and then not Initialization_Suppressed (Etype (E)))
-                    or else
-                      (Needs_Simple_Initialization (Etype (E))
-                        and then not Is_Internal (E)))
-               then
-                  Has_Default_Initialization := True;
-                  Check_Restriction
-                    (No_Default_Initialization, Declaration_Node (E));
-               end if;
-
-               --  Check that a Thread_Local_Storage variable does not have
-               --  default initialization, and any explicit initialization must
-               --  either be the null constant or a static constant.
-
-               if Has_Pragma_Thread_Local_Storage (E) then
-                  declare
-                     Decl : constant Node_Id := Declaration_Node (E);
-                  begin
-                     if Has_Default_Initialization
-                       or else
-                         (Has_Init_Expression (Decl)
-                           and then
-                            (No (Expression (Decl))
-                              or else not
-                                (Is_OK_Static_Expression (Expression (Decl))
-                                  or else
-                                    Nkind (Expression (Decl)) = N_Null)))
-                     then
-                        Error_Msg_NE
-                          ("Thread_Local_Storage variable& is "
-                           & "improperly initialized", Decl, E);
-                        Error_Msg_NE
-                          ("\only allowed initialization is explicit "
-                           & "NULL or static expression", Decl, E);
-                     end if;
-                  end;
-               end if;
-
-               --  For imported objects, set Is_Public unless there is also an
-               --  address clause, which means that there is no external symbol
-               --  needed for the Import (Is_Public may still be set for other
-               --  unrelated reasons). Note that we delayed this processing
-               --  till freeze time so that we can be sure not to set the flag
-               --  if there is an address clause. If there is such a clause,
-               --  then the only purpose of the Import pragma is to suppress
-               --  implicit initialization.
-
-               if Is_Imported (E) and then No (Address_Clause (E)) then
-                  Set_Is_Public (E);
-               end if;
-
-               --  For source objects that are not Imported and are library
-               --  level, if no linker section pragma was given inherit the
-               --  appropriate linker section from the corresponding type.
-
-               if Comes_From_Source (E)
-                 and then not Is_Imported (E)
-                 and then Is_Library_Level_Entity (E)
-                 and then No (Linker_Section_Pragma (E))
-               then
-                  Set_Linker_Section_Pragma
-                    (E, Linker_Section_Pragma (Etype (E)));
-               end if;
-
-               --  For convention C objects of an enumeration type, warn if
-               --  the size is not integer size and no explicit size given.
-               --  Skip warning for Boolean, and Character, assume programmer
-               --  expects 8-bit sizes for these cases.
-
-               if (Convention (E) = Convention_C
-                     or else
-                   Convention (E) = Convention_CPP)
-                 and then Is_Enumeration_Type (Etype (E))
-                 and then not Is_Character_Type (Etype (E))
-                 and then not Is_Boolean_Type (Etype (E))
-                 and then Esize (Etype (E)) < Standard_Integer_Size
-                 and then not Has_Size_Clause (E)
-               then
-                  Error_Msg_Uint_1 := UI_From_Int (Standard_Integer_Size);
-                  Error_Msg_N
-                    ("??convention C enumeration object has size less than ^",
-                     E);
-                  Error_Msg_N ("\??use explicit size clause to set size", E);
-               end if;
+               Freeze_Object_Declaration (E);
             end if;
 
             --  Check that a constant which has a pragma Volatile[_Components]
@@ -5188,22 +5290,24 @@ package body Freeze is
                   if Sloc (SC) > Sloc (AC) then
                      Loc := SC;
                      Error_Msg_NE
-                       ("??size is not a multiple of alignment for &", Loc, E);
+                       ("?Z?size is not a multiple of alignment for &",
+                        Loc, E);
                      Error_Msg_Sloc := Sloc (AC);
                      Error_Msg_Uint_1 := Alignment (E);
-                     Error_Msg_N ("\??alignment of ^ specified #", Loc);
+                     Error_Msg_N ("\?Z?alignment of ^ specified #", Loc);
 
                   else
                      Loc := AC;
                      Error_Msg_NE
-                       ("??size is not a multiple of alignment for &", Loc, E);
+                       ("?Z?size is not a multiple of alignment for &",
+                        Loc, E);
                      Error_Msg_Sloc := Sloc (SC);
                      Error_Msg_Uint_1 := RM_Size (E);
-                     Error_Msg_N ("\??size of ^ specified #", Loc);
+                     Error_Msg_N ("\?Z?size of ^ specified #", Loc);
                   end if;
 
                   Error_Msg_Uint_1 := ((RM_Size (E) / Abits) + 1) * Abits;
-                  Error_Msg_N ("\??Object_Size will be increased to ^", Loc);
+                  Error_Msg_N ("\?Z?Object_Size will be increased to ^", Loc);
                end if;
             end;
          end if;

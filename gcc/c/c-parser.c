@@ -39,15 +39,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"			/* For rtl.h: needs enum reg_class.  */
-#include "hash-set.h"
-#include "vec.h"
 #include "symtab.h"
-#include "input.h"
 #include "alias.h"
-#include "double-int.h"
-#include "machmode.h"
 #include "flags.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -56,24 +50,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "trans-mem.h"
 #include "langhooks.h"
-#include "input.h"
 #include "cpplib.h"
 #include "timevar.h"
 #include "c-family/c-pragma.h"
 #include "c-tree.h"
 #include "c-lang.h"
 #include "flags.h"
-#include "ggc.h"
 #include "c-family/c-common.h"
 #include "c-family/c-objc.h"
-#include "vec.h"
 #include "target.h"
-#include "hash-map.h"
-#include "is-a.h"
 #include "plugin-api.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "ipa-ref.h"
@@ -2516,6 +2502,13 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
    enumerator:
      enumeration-constant
      enumeration-constant = constant-expression
+
+   GNU Extensions:
+
+   enumerator:
+     enumeration-constant attributes[opt]
+     enumeration-constant attributes[opt] = constant-expression
+
 */
 
 static struct c_typespec
@@ -2575,6 +2568,8 @@ c_parser_enum_specifier (c_parser *parser)
 	  c_parser_set_source_position_from_token (token);
 	  decl_loc = value_loc = token->location;
 	  c_parser_consume_token (parser);
+	  /* Parse any specified attributes.  */
+	  tree enum_attrs = c_parser_attributes (parser);
 	  if (c_parser_next_token_is (parser, CPP_EQ))
 	    {
 	      c_parser_consume_token (parser);
@@ -2584,7 +2579,9 @@ c_parser_enum_specifier (c_parser *parser)
 	  else
 	    enum_value = NULL_TREE;
 	  enum_decl = build_enumerator (decl_loc, value_loc,
-	      				&the_enum, enum_id, enum_value);
+					&the_enum, enum_id, enum_value);
+	  if (enum_attrs)
+	    decl_attributes (&TREE_PURPOSE (enum_decl), enum_attrs, 0);
 	  TREE_CHAIN (enum_decl) = values;
 	  values = enum_decl;
 	  seen_comma = false;
@@ -5185,7 +5182,7 @@ c_parser_c99_block_statement (c_parser *parser)
    parser->in_if_block.  */
 
 static tree
-c_parser_if_body (c_parser *parser, bool *if_p)
+c_parser_if_body (c_parser *parser, bool *if_p, location_t if_loc)
 {
   tree block = c_begin_compound_stmt (flag_isoc99);
   location_t body_loc = c_parser_peek_token (parser)->location;
@@ -5203,7 +5200,15 @@ c_parser_if_body (c_parser *parser, bool *if_p)
   else if (c_parser_next_token_is (parser, CPP_OPEN_BRACE))
     add_stmt (c_parser_compound_statement (parser));
   else
-    c_parser_statement_after_labels (parser);
+    {
+      c_parser_statement_after_labels (parser);
+      if (!c_parser_next_token_is_keyword (parser, RID_ELSE))
+	warn_for_misleading_indentation (if_loc, body_loc,
+					 c_parser_peek_token (parser)->location,
+					 c_parser_peek_token (parser)->type,
+					 "if");
+    }
+
   return c_end_compound_stmt (body_loc, block, flag_isoc99);
 }
 
@@ -5212,9 +5217,9 @@ c_parser_if_body (c_parser *parser, bool *if_p)
    specially for the sake of -Wempty-body warnings.  */
 
 static tree
-c_parser_else_body (c_parser *parser)
+c_parser_else_body (c_parser *parser, location_t else_loc)
 {
-  location_t else_loc = c_parser_peek_token (parser)->location;
+  location_t body_loc = c_parser_peek_token (parser)->location;
   tree block = c_begin_compound_stmt (flag_isoc99);
   c_parser_all_labels (parser);
   if (c_parser_next_token_is (parser, CPP_SEMICOLON))
@@ -5227,8 +5232,14 @@ c_parser_else_body (c_parser *parser)
       c_parser_consume_token (parser);
     }
   else
-    c_parser_statement_after_labels (parser);
-  return c_end_compound_stmt (else_loc, block, flag_isoc99);
+    {
+      c_parser_statement_after_labels (parser);
+      warn_for_misleading_indentation (else_loc, body_loc,
+				       c_parser_peek_token (parser)->location,
+				       c_parser_peek_token (parser)->type,
+				       "else");
+    }
+  return c_end_compound_stmt (body_loc, block, flag_isoc99);
 }
 
 /* Parse an if statement (C90 6.6.4, C99 6.8.4).
@@ -5250,6 +5261,7 @@ c_parser_if_statement (c_parser *parser)
   tree if_stmt;
 
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_IF));
+  location_t if_loc = c_parser_peek_token (parser)->location;
   c_parser_consume_token (parser);
   block = c_begin_compound_stmt (flag_isoc99);
   loc = c_parser_peek_token (parser)->location;
@@ -5261,12 +5273,13 @@ c_parser_if_statement (c_parser *parser)
     }
   in_if_block = parser->in_if_block;
   parser->in_if_block = true;
-  first_body = c_parser_if_body (parser, &first_if);
+  first_body = c_parser_if_body (parser, &first_if, if_loc);
   parser->in_if_block = in_if_block;
   if (c_parser_next_token_is_keyword (parser, RID_ELSE))
     {
+      location_t else_loc = c_parser_peek_token (parser)->location;
       c_parser_consume_token (parser);
-      second_body = c_parser_else_body (parser);
+      second_body = c_parser_else_body (parser, else_loc);
     }
   else
     second_body = NULL_TREE;
@@ -5346,6 +5359,7 @@ c_parser_while_statement (c_parser *parser, bool ivdep)
   tree block, cond, body, save_break, save_cont;
   location_t loc;
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_WHILE));
+  location_t while_loc = c_parser_peek_token (parser)->location;
   c_parser_consume_token (parser);
   block = c_begin_compound_stmt (flag_isoc99);
   loc = c_parser_peek_token (parser)->location;
@@ -5362,7 +5376,16 @@ c_parser_while_statement (c_parser *parser, bool ivdep)
   c_break_label = NULL_TREE;
   save_cont = c_cont_label;
   c_cont_label = NULL_TREE;
+
+  location_t body_loc = UNKNOWN_LOCATION;
+  if (c_parser_peek_token (parser)->type != CPP_OPEN_BRACE)
+    body_loc = c_parser_peek_token (parser)->location;
   body = c_parser_c99_block_statement (parser);
+  warn_for_misleading_indentation (while_loc, body_loc,
+				   c_parser_peek_token (parser)->location,
+				   c_parser_peek_token (parser)->type,
+				   "while");
+
   c_finish_loop (loc, cond, NULL, body, c_break_label, c_cont_label, true);
   add_stmt (c_end_compound_stmt (loc, block, flag_isoc99));
   c_break_label = save_break;
@@ -5640,7 +5663,16 @@ c_parser_for_statement (c_parser *parser, bool ivdep)
   c_break_label = NULL_TREE;
   save_cont = c_cont_label;
   c_cont_label = NULL_TREE;
+
+  location_t body_loc = UNKNOWN_LOCATION;
+  if (c_parser_peek_token (parser)->type != CPP_OPEN_BRACE)
+    body_loc = c_parser_peek_token (parser)->location;
   body = c_parser_c99_block_statement (parser);
+  warn_for_misleading_indentation (for_loc, body_loc,
+				   c_parser_peek_token (parser)->location,
+				   c_parser_peek_token (parser)->type,
+				   "for");
+
   if (is_foreach_statement)
     objc_finish_foreach_loop (loc, object_expression, collection_expression, body, c_break_label, c_cont_label);
   else
@@ -13065,12 +13097,9 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 		      }
 		    else
 		      {
-			/* Copy lastprivate (decl) clause to OMP_FOR_CLAUSES,
-			   change it to shared (decl) in
-			   OMP_PARALLEL_CLAUSES.  */
-			tree l = build_omp_clause (OMP_CLAUSE_LOCATION (*c),
-						   OMP_CLAUSE_LASTPRIVATE);
-			OMP_CLAUSE_DECL (l) = OMP_CLAUSE_DECL (*c);
+			/* Move lastprivate (decl) clause to OMP_FOR_CLAUSES.  */
+			tree l = *c;
+			*c = OMP_CLAUSE_CHAIN (*c);
 			if (code == OMP_SIMD)
 			  {
 			    OMP_CLAUSE_CHAIN (l)
@@ -13082,7 +13111,6 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 			    OMP_CLAUSE_CHAIN (l) = clauses;
 			    clauses = l;
 			  }
-			OMP_CLAUSE_SET_CODE (*c, OMP_CLAUSE_SHARED);
 		      }
 		  }
 	    }
@@ -13767,6 +13795,7 @@ c_parser_omp_teams (location_t loc, c_parser *parser,
 	  TREE_TYPE (ret) = void_type_node;
 	  OMP_TEAMS_CLAUSES (ret) = clauses;
 	  OMP_TEAMS_BODY (ret) = block;
+	  OMP_TEAMS_COMBINED (ret) = 1;
 	  return add_stmt (ret);
 	}
     }

@@ -52,11 +52,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "hard-reg-set.h"
 #include "regs.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "profile.h"
 #include "flags.h"
@@ -75,6 +70,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "tree-pass.h"
 #include "dbgcnt.h"
+#include "emit-rtl.h"
 
 #ifdef INSN_SCHEDULING
 
@@ -1720,7 +1716,7 @@ check_live_1 (int src, rtx x)
       if (regno < FIRST_PSEUDO_REGISTER)
 	{
 	  /* Check for hard registers.  */
-	  int j = hard_regno_nregs[regno][GET_MODE (reg)];
+	  int j = REG_NREGS (reg);
 	  while (--j >= 0)
 	    {
 	      for (i = 0; i < candidate_table[src].split_bbs.nr_members; i++)
@@ -1801,12 +1797,7 @@ update_live_1 (int src, rtx x)
       for (i = 0; i < candidate_table[src].update_bbs.nr_members; i++)
 	{
 	  basic_block b = candidate_table[src].update_bbs.first_member[i];
-
-	  if (HARD_REGISTER_NUM_P (regno))
-	    bitmap_set_range (df_get_live_in (b), regno,
-			      hard_regno_nregs[regno][GET_MODE (reg)]);
-	  else
-	    bitmap_set_bit (df_get_live_in (b), regno);
+	  bitmap_set_range (df_get_live_in (b), regno, REG_NREGS (reg));
 	}
     }
 }

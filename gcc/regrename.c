@@ -28,11 +28,6 @@
 #include "addresses.h"
 #include "hard-reg-set.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -983,7 +978,7 @@ verify_reg_in_set (rtx op, HARD_REG_SET *pset)
     return false;
 
   regno = REGNO (op);
-  nregs = hard_regno_nregs[regno][GET_MODE (op)];
+  nregs = REG_NREGS (op);
   all_live = all_dead = true;
   while (nregs-- > 0)
     if (TEST_HARD_REG_BIT (*pset, regno + nregs))
@@ -1036,9 +1031,8 @@ scan_rtx_reg (rtx_insn *insn, rtx *loc, enum reg_class cl, enum scan_actions act
 {
   struct du_head **p;
   rtx x = *loc;
-  machine_mode mode = GET_MODE (x);
   unsigned this_regno = REGNO (x);
-  int this_nregs = hard_regno_nregs[this_regno][mode];
+  int this_nregs = REG_NREGS (x);
 
   if (action == mark_write)
     {
@@ -1624,13 +1618,8 @@ build_def_use (basic_block bb)
 		  && !(untracked_operands & (1 << i))
 		  && REG_P (op)
 		  && !verify_reg_tracked (op))
-		{
-		  machine_mode mode = GET_MODE (op);
-		  unsigned this_regno = REGNO (op);
-		  unsigned this_nregs = hard_regno_nregs[this_regno][mode];
-		  create_new_chain (this_regno, this_nregs, NULL, NULL,
-				    NO_REGS);
-		}
+		create_new_chain (REGNO (op), REG_NREGS (op), NULL, NULL,
+				  NO_REGS);
 	    }
 
 	  if (fail_current_block)

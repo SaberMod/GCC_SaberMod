@@ -22,27 +22,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
 #include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
-#include "hashtab.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "function.h"
 #include "rtl.h"
 #include "flags.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -60,13 +49,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-ssa.h"
-#include "hash-map.h"
 #include "plugin-api.h"
 #include "ipa-ref.h"
 #include "cgraph.h"
@@ -535,7 +522,7 @@ instrument_builtin_call (gimple_stmt_iterator *gsi)
 	  case fetch_op:
 	    last_arg = gimple_call_arg (stmt, num - 1);
 	    if (!tree_fits_uhwi_p (last_arg)
-		|| tree_to_uhwi (last_arg) > MEMMODEL_SEQ_CST)
+		|| memmodel_base (tree_to_uhwi (last_arg)) >= MEMMODEL_LAST)
 	      return;
 	    gimple_call_set_fndecl (stmt, decl);
 	    update_stmt (stmt);
@@ -600,10 +587,10 @@ instrument_builtin_call (gimple_stmt_iterator *gsi)
 	    for (j = 0; j < 6; j++)
 	      args[j] = gimple_call_arg (stmt, j);
 	    if (!tree_fits_uhwi_p (args[4])
-		|| tree_to_uhwi (args[4]) > MEMMODEL_SEQ_CST)
+		|| memmodel_base (tree_to_uhwi (args[4])) >= MEMMODEL_LAST)
 	      return;
 	    if (!tree_fits_uhwi_p (args[5])
-		|| tree_to_uhwi (args[5]) > MEMMODEL_SEQ_CST)
+		|| memmodel_base (tree_to_uhwi (args[5])) >= MEMMODEL_LAST)
 	      return;
 	    update_gimple_call (gsi, decl, 5, args[0], args[1], args[2],
 				args[4], args[5]);

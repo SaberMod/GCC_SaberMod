@@ -20,7 +20,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "bconfig.h"
 #include "system.h"
 #include "errors.h"
-#include "hashtab.h"
 
 /* enum mode_class is normally defined by machmode.h but we can't
    include that header here.  */
@@ -1600,11 +1599,7 @@ emit_mode_int_n (void)
   for (i = 0; i<n_modes - 1; i++)
     for (j = i + 1; j < n_modes; j++)
       if (mode_sort[i]->int_n > mode_sort[j]->int_n)
-	{
-	  m = mode_sort[i];
-	  mode_sort[i] = mode_sort[j];
-	  mode_sort[j] = m;
-	}
+	std::swap (mode_sort[i], mode_sort[j]);
 
   for (i = 0; i < n_modes; i ++)
     {

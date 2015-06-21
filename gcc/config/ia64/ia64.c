@@ -24,15 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
 #include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -47,11 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "hashtab.h"
 #include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -61,7 +50,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "optabs.h"
 #include "except.h"
-#include "ggc.h"
 #include "predict.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -79,14 +67,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "target-def.h"
 #include "common/common-target.h"
 #include "tm_p.h"
-#include "hash-table.h"
 #include "langhooks.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "intl.h"
@@ -629,11 +615,6 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P
 #define TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P \
   ia64_libgcc_floating_mode_supported_p
-
-/* ia64 architecture manual 4.4.7: ... reads, writes, and flushes may occur
-   in an order different from the specified program order.  */
-#undef TARGET_RELAXED_ORDERING
-#define TARGET_RELAXED_ORDERING true
 
 #undef TARGET_LEGITIMATE_CONSTANT_P
 #define TARGET_LEGITIMATE_CONSTANT_P ia64_legitimate_constant_p
@@ -2386,10 +2367,12 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
 	{
 	case MEMMODEL_ACQ_REL:
 	case MEMMODEL_SEQ_CST:
+	case MEMMODEL_SYNC_SEQ_CST:
 	  emit_insn (gen_memory_barrier ());
 	  /* FALLTHRU */
 	case MEMMODEL_RELAXED:
 	case MEMMODEL_ACQUIRE:
+	case MEMMODEL_SYNC_ACQUIRE:
 	case MEMMODEL_CONSUME:
 	  if (mode == SImode)
 	    icode = CODE_FOR_fetchadd_acq_si;
@@ -2397,6 +2380,7 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
 	    icode = CODE_FOR_fetchadd_acq_di;
 	  break;
 	case MEMMODEL_RELEASE:
+	case MEMMODEL_SYNC_RELEASE:
 	  if (mode == SImode)
 	    icode = CODE_FOR_fetchadd_rel_si;
 	  else
@@ -2423,8 +2407,7 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
      front half of the full barrier.  The end half is the cmpxchg.rel.
      For relaxed and release memory models, we don't need this.  But we
      also don't bother trying to prevent it either.  */
-  gcc_assert (model == MEMMODEL_RELAXED
-	      || model == MEMMODEL_RELEASE
+  gcc_assert (is_mm_relaxed (model) || is_mm_release (model)
 	      || MEM_VOLATILE_P (mem));
 
   old_reg = gen_reg_rtx (DImode);
@@ -2468,6 +2451,7 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
     {
     case MEMMODEL_RELAXED:
     case MEMMODEL_ACQUIRE:
+    case MEMMODEL_SYNC_ACQUIRE:
     case MEMMODEL_CONSUME:
       switch (mode)
 	{
@@ -2481,8 +2465,10 @@ ia64_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
       break;
 
     case MEMMODEL_RELEASE:
+    case MEMMODEL_SYNC_RELEASE:
     case MEMMODEL_ACQ_REL:
     case MEMMODEL_SEQ_CST:
+    case MEMMODEL_SYNC_SEQ_CST:
       switch (mode)
 	{
 	case QImode: icode = CODE_FOR_cmpxchg_rel_qi;  break;

@@ -120,7 +120,7 @@ package Snames is
    Name_uY : constant Name_Id := First_Name_Id + Character'Pos ('Y');
    Name_uZ : constant Name_Id := First_Name_Id + Character'Pos ('Z');
 
-   --  Note: the following table is read by the utility program XSNAMES, and
+   --  Note: the following table is read by the utility program 'xsnamest', and
    --  its format should not be changed without coordinating with this program.
 
    N : constant Name_Id := First_Name_Id + 256;
@@ -141,6 +141,7 @@ package Snames is
    Name_Default_Component_Value        : constant Name_Id := N + $;
    Name_Dimension                      : constant Name_Id := N + $;
    Name_Dimension_System               : constant Name_Id := N + $;
+   Name_Disable_Controlled             : constant Name_Id := N + $;
    Name_Dynamic_Predicate              : constant Name_Id := N + $;
    Name_Static_Predicate               : constant Name_Id := N + $;
    Name_Synchronization                : constant Name_Id := N + $;
@@ -401,6 +402,7 @@ package Snames is
    --  Fast_Math.
 
    Name_Favor_Top_Level                : constant Name_Id := N + $; -- GNAT
+   Name_Ignore_Pragma                  : constant Name_Id := N + $; -- GNAT
    Name_Implicit_Packing               : constant Name_Id := N + $; -- GNAT
    Name_Initialize_Scalars             : constant Name_Id := N + $; -- GNAT
    Name_Interrupt_State                : constant Name_Id := N + $; -- GNAT
@@ -631,6 +633,7 @@ package Snames is
    Name_Unreserve_All_Interrupts       : constant Name_Id := N + $; -- GNAT
    Name_Volatile                       : constant Name_Id := N + $;
    Name_Volatile_Components            : constant Name_Id := N + $;
+   Name_Volatile_Full_Access           : constant Name_Id := N + $; -- GNAT
    Name_Weak_External                  : constant Name_Id := N + $; -- GNAT
    Last_Pragma_Name                    : constant Name_Id := N + $;
 
@@ -1409,6 +1412,9 @@ package Snames is
    Name_Forward_Iterator                 : constant Name_Id := N + $;
    Name_Reversible_Iterator              : constant Name_Id := N + $;
    Name_Previous                         : constant Name_Id := N + $;
+   Name_Pseudo_Reference                 : constant Name_Id := N + $;
+   Name_Reference_Control_Type           : constant Name_Id := N + $;
+   Name_Get_Element_Access               : constant Name_Id := N + $;
 
    --  Ada 2005 reserved words
 
@@ -1749,6 +1755,7 @@ package Snames is
       Pragma_Extensions_Allowed,
       Pragma_External_Name_Casing,
       Pragma_Favor_Top_Level,
+      Pragma_Ignore_Pragma,
       Pragma_Implicit_Packing,
       Pragma_Initialize_Scalars,
       Pragma_Interrupt_State,
@@ -1937,6 +1944,7 @@ package Snames is
       Pragma_Unreserve_All_Interrupts,
       Pragma_Volatile,
       Pragma_Volatile_Components,
+      Pragma_Volatile_Full_Access,
       Pragma_Weak_External,
 
       --  The following pragmas are on their own, out of order, because of the

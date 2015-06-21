@@ -43,11 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "obstack.h"
 #include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
 #include "function.h"
 #include "dominance.h"
 #include "cfg.h"
@@ -56,13 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "symtab.h"
 #include "flags.h"
-#include "statistics.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "alias.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -76,7 +65,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "target.h"
 #include "df.h"
-#include "hash-table.h"
 #include "except.h"
 #include "params.h"
 #include "regs.h"
@@ -741,8 +729,11 @@ create_new_invariant (struct def *def, rtx_insn *insn, bitmap depends_on,
 	 enough to not regress 410.bwaves either (by still moving reg+reg
 	 invariants).
 	 See http://gcc.gnu.org/ml/gcc-patches/2009-10/msg01210.html .  */
-      inv->cheap_address = address_cost (SET_SRC (set), word_mode,
-					 ADDR_SPACE_GENERIC, speed) < 3;
+      if (SCALAR_INT_MODE_P (GET_MODE (SET_DEST (set))))
+	inv->cheap_address = address_cost (SET_SRC (set), word_mode,
+					   ADDR_SPACE_GENERIC, speed) < 3;
+      else
+	inv->cheap_address = false;
     }
   else
     {
@@ -884,14 +875,13 @@ pre_check_invariant_p (bool simple, rtx dest)
   if (simple && REG_P (dest) && DF_REG_DEF_COUNT (REGNO (dest)) > 1)
     {
       df_ref use;
-      rtx ref;
       unsigned int i = REGNO (dest);
       struct df_insn_info *insn_info;
       df_ref def_rec;
 
       for (use = DF_REG_USE_CHAIN (i); use; use = DF_REF_NEXT_REG (use))
 	{
-	  ref = DF_REF_INSN (use);
+	  rtx_insn *ref = DF_REF_INSN (use);
 	  insn_info = DF_INSN_INFO_GET (ref);
 
 	  FOR_EACH_INSN_INFO_DEF (def_rec, insn_info)
@@ -1173,6 +1163,7 @@ get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed,
     }
 
   if (!inv->cheap_address
+      || inv->def->n_uses == 0
       || inv->def->n_addr_uses < inv->def->n_uses)
     (*comp_cost) += inv->cost * inv->eqno;
 
@@ -1511,6 +1502,79 @@ replace_uses (struct invariant *inv, rtx reg, bool in_group)
   return 1;
 }
 
+/* Whether invariant INV setting REG can be moved out of LOOP, at the end of
+   the block preceding its header.  */
+
+static bool
+can_move_invariant_reg (struct loop *loop, struct invariant *inv, rtx reg)
+{
+  df_ref def, use;
+  unsigned int dest_regno, defs_in_loop_count = 0;
+  rtx_insn *insn = inv->insn;
+  basic_block bb = BLOCK_FOR_INSN (inv->insn);
+
+  /* We ignore hard register and memory access for cost and complexity reasons.
+     Hard register are few at this stage and expensive to consider as they
+     require building a separate data flow.  Memory access would require using
+     df_simulate_* and can_move_insns_across functions and is more complex.  */
+  if (!REG_P (reg) || HARD_REGISTER_P (reg))
+    return false;
+
+  /* Check whether the set is always executed.  We could omit this condition if
+     we know that the register is unused outside of the loop, but it does not
+     seem worth finding out.  */
+  if (!inv->always_executed)
+    return false;
+
+  /* Check that all uses that would be dominated by def are already dominated
+     by it.  */
+  dest_regno = REGNO (reg);
+  for (use = DF_REG_USE_CHAIN (dest_regno); use; use = DF_REF_NEXT_REG (use))
+    {
+      rtx_insn *use_insn;
+      basic_block use_bb;
+
+      use_insn = DF_REF_INSN (use);
+      use_bb = BLOCK_FOR_INSN (use_insn);
+
+      /* Ignore instruction considered for moving.  */
+      if (use_insn == insn)
+	continue;
+
+      /* Don't consider uses outside loop.  */
+      if (!flow_bb_inside_loop_p (loop, use_bb))
+	continue;
+
+      /* Don't move if a use is not dominated by def in insn.  */
+      if (use_bb == bb && DF_INSN_LUID (insn) >= DF_INSN_LUID (use_insn))
+	return false;
+      if (!dominated_by_p (CDI_DOMINATORS, use_bb, bb))
+	return false;
+    }
+
+  /* Check for other defs.  Any other def in the loop might reach a use
+     currently reached by the def in insn.  */
+  for (def = DF_REG_DEF_CHAIN (dest_regno); def; def = DF_REF_NEXT_REG (def))
+    {
+      basic_block def_bb = DF_REF_BB (def);
+
+      /* Defs in exit block cannot reach a use they weren't already.  */
+      if (single_succ_p (def_bb))
+	{
+	  basic_block def_bb_succ;
+
+	  def_bb_succ = single_succ (def_bb);
+	  if (!flow_bb_inside_loop_p (loop, def_bb_succ))
+	    continue;
+	}
+
+      if (++defs_in_loop_count > 1)
+	return false;
+    }
+
+  return true;
+}
+
 /* Move invariant INVNO out of the LOOP.  Returns true if this succeeds, false
    otherwise.  */
 
@@ -1544,11 +1608,8 @@ move_invariant_reg (struct loop *loop, unsigned invno)
 	    }
 	}
 
-      /* Move the set out of the loop.  If the set is always executed (we could
-	 omit this condition if we know that the register is unused outside of
-	 the loop, but it does not seem worth finding out) and it has no uses
-	 that would not be dominated by it, we may just move it (TODO).
-	 Otherwise we need to create a temporary register.  */
+      /* If possible, just move the set out of the loop.  Otherwise, we
+	 need to create a temporary register.  */
       set = single_set (inv->insn);
       reg = dest = SET_DEST (set);
       if (GET_CODE (reg) == SUBREG)
@@ -1556,19 +1617,25 @@ move_invariant_reg (struct loop *loop, unsigned invno)
       if (REG_P (reg))
 	regno = REGNO (reg);
 
-      reg = gen_reg_rtx_and_attrs (dest);
+      if (!can_move_invariant_reg (loop, inv, dest))
+	{
+	  reg = gen_reg_rtx_and_attrs (dest);
 
-      /* Try replacing the destination by a new pseudoregister.  */
-      validate_change (inv->insn, &SET_DEST (set), reg, true);
+	  /* Try replacing the destination by a new pseudoregister.  */
+	  validate_change (inv->insn, &SET_DEST (set), reg, true);
 
-      /* As well as all the dominated uses.  */
-      replace_uses (inv, reg, true);
+	  /* As well as all the dominated uses.  */
+	  replace_uses (inv, reg, true);
 
-      /* And validate all the changes.  */
-      if (!apply_change_group ())
-	goto fail;
+	  /* And validate all the changes.  */
+	  if (!apply_change_group ())
+	    goto fail;
 
-      emit_insn_after (gen_move_insn (dest, reg), inv->insn);
+	  emit_insn_after (gen_move_insn (dest, reg), inv->insn);
+	}
+      else if (dump_file)
+	fprintf (dump_file, "Invariant %d moved without introducing a new "
+			    "temporary register\n", invno);
       reorder_insns (inv->insn, inv->insn, BB_END (preheader));
 
       /* If there is a REG_EQUAL note on the insn we just moved, and the
@@ -1807,8 +1874,6 @@ static void
 mark_reg_store (rtx reg, const_rtx setter ATTRIBUTE_UNUSED,
 		void *data ATTRIBUTE_UNUSED)
 {
-  int regno;
-
   if (GET_CODE (reg) == SUBREG)
     reg = SUBREG_REG (reg);
 
@@ -1817,20 +1882,9 @@ mark_reg_store (rtx reg, const_rtx setter ATTRIBUTE_UNUSED,
 
   regs_set[n_regs_set++] = reg;
 
-  regno = REGNO (reg);
-
-  if (regno >= FIRST_PSEUDO_REGISTER)
+  unsigned int end_regno = END_REGNO (reg);
+  for (unsigned int regno = REGNO (reg); regno < end_regno; ++regno)
     mark_regno_live (regno);
-  else
-    {
-      int last = regno + hard_regno_nregs[regno][GET_MODE (reg)];
-
-      while (regno < last)
-	{
-	  mark_regno_live (regno);
-	  regno++;
-	}
-    }
 }
 
 /* Mark clobbering register REG.  */
@@ -1845,20 +1899,9 @@ mark_reg_clobber (rtx reg, const_rtx setter, void *data)
 static void
 mark_reg_death (rtx reg)
 {
-  int regno = REGNO (reg);
-
-  if (regno >= FIRST_PSEUDO_REGISTER)
+  unsigned int end_regno = END_REGNO (reg);
+  for (unsigned int regno = REGNO (reg); regno < end_regno; ++regno)
     mark_regno_death (regno);
-  else
-    {
-      int last = regno + hard_regno_nregs[regno][GET_MODE (reg)];
-
-      while (regno < last)
-	{
-	  mark_regno_death (regno);
-	  regno++;
-	}
-    }
 }
 
 /* Mark occurrence of registers in X for the current loop.  */
