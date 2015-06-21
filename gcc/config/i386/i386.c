@@ -81,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "pass_manager.h"
 #include "target-globals.h"
+#include "tree-vectorizer.h"
 
 static rtx legitimize_dllimport_symbol (rtx, bool);
 static rtx legitimize_pe_coff_extern_decl (rtx, bool);
@@ -1738,7 +1739,7 @@ struct processor_costs slm_cost = {
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
   1,					/* vec_stmt_cost.  */
-  1,					/* vec_to_scalar_cost.  */
+  4,					/* vec_to_scalar_cost.  */
   1,					/* scalar_to_vec_cost.  */
   1,					/* vec_align_load_cost.  */
   2,					/* vec_unalign_load_cost.  */
@@ -1815,7 +1816,7 @@ struct processor_costs intel_cost = {
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
   1,					/* vec_stmt_cost.  */
-  1,					/* vec_to_scalar_cost.  */
+  4,					/* vec_to_scalar_cost.  */
   1,					/* scalar_to_vec_cost.  */
   1,					/* vec_align_load_cost.  */
   2,					/* vec_unalign_load_cost.  */
@@ -44154,7 +44155,7 @@ expand_vec_perm_even_odd_1 (struct expand_vec_perm_d *d, unsigned odd)
       gcc_unreachable ();
 
     case V8HImode:
-      if (TARGET_SSSE3)
+      if (TARGET_SSSE3 && !TARGET_SLOW_PSHUFB)
 	return expand_vec_perm_pshufb2 (d);
       else
 	{
@@ -44177,7 +44178,7 @@ expand_vec_perm_even_odd_1 (struct expand_vec_perm_d *d, unsigned odd)
       break;
 
     case V16QImode:
-      if (TARGET_SSSE3)
+      if (TARGET_SSSE3 && !TARGET_SLOW_PSHUFB)
 	return expand_vec_perm_pshufb2 (d);
       else
 	{
@@ -46349,6 +46350,17 @@ ix86_reassociation_width (unsigned int opc ATTRIBUTE_UNUSED,
 {
   int res = 1;
 
+  /* Vector part.  */
+  if (VECTOR_MODE_P (mode))
+    {
+      if (TARGET_VECTOR_PARALLEL_EXECUTION)
+	return 2;
+      else
+	return 1;
+    }
+
+  /* Scalar part.  */
+
   if (INTEGRAL_MODE_P (mode) && TARGET_REASSOC_INT_TO_PARALLEL)
     res = 2;
   else if (FLOAT_MODE_P (mode) && TARGET_REASSOC_FP_TO_PARALLEL)
@@ -46459,6 +46471,18 @@ ix86_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
     count *= 50;  /* FIXME.  */
 
   retval = (unsigned) (count * stmt_cost);
+
+  /* We need to multiply all vector stmt cost by 1.7 (estimated cost)
+     for Silvermont as it has out of order integer pipeline and can execute
+     2 scalar instruction per tick, but has in order SIMD pipeline.  */
+  if (TARGET_SILVERMONT || TARGET_INTEL)
+    if (stmt_info && stmt_info->stmt)
+      {
+	tree lhs_op = gimple_get_lhs (stmt_info->stmt);
+	if (lhs_op && TREE_CODE (TREE_TYPE (lhs_op)) == INTEGER_TYPE)
+	  retval = (retval * 17) / 10;
+      }
+
   cost[where] += retval;
 
   return retval;
