@@ -5,6 +5,7 @@ AC_PREREQ([2.69])
 AC_INIT([package-unused],[version-unused],[libsanitizer])
 AC_CONFIG_SRCDIR([include/sanitizer/common_interface_defs.h])
 
+m4_pattern_allow([AM_ENABLE_MULTILIB])
 AM_ENABLE_MULTILIB(, ..)
 
 AC_MSG_CHECKING([for --enable-version-specific-runtime-libs])
