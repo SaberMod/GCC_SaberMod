@@ -65,12 +65,9 @@
 #include "tm-constrs.h"
 #include "df.h"
 #include "diagnostic-core.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "langhooks.h"
 #include "target.h"
-#include "target-def.h"
 #include "sel-sched.h"
 #include "debug.h"
 #include "opts.h"
@@ -79,6 +76,9 @@
 #include "dumpfile.h"
 #include "gimple-expr.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Table of supported architecture variants.  */
 typedef struct

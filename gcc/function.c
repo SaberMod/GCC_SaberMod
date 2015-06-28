@@ -122,7 +122,7 @@ struct function *cfun = 0;
 
 /* These hashes record the prologue and epilogue insns.  */
 
-struct insn_cache_hasher : ggc_cache_hasher<rtx>
+struct insn_cache_hasher : ggc_cache_ptr_hash<rtx_def>
 {
   static hashval_t hash (rtx x) { return htab_hash_pointer (x); }
   static bool equal (rtx a, rtx b) { return a == b; }
@@ -574,7 +574,7 @@ struct GTY((for_user)) temp_slot_address_entry {
   struct temp_slot *temp_slot;
 };
 
-struct temp_address_hasher : ggc_hasher<temp_slot_address_entry *>
+struct temp_address_hasher : ggc_ptr_hash<temp_slot_address_entry>
 {
   static hashval_t hash (temp_slot_address_entry *);
   static bool equal (temp_slot_address_entry *, temp_slot_address_entry *);
@@ -2167,49 +2167,6 @@ use_register_for_decl (const_tree decl)
     }
 
   return true;
-}
-
-/* Return true if TYPE should be passed by invisible reference.  */
-
-bool
-pass_by_reference (CUMULATIVE_ARGS *ca, machine_mode mode,
-		   tree type, bool named_arg)
-{
-  if (type)
-    {
-      /* If this type contains non-trivial constructors, then it is
-	 forbidden for the middle-end to create any new copies.  */
-      if (TREE_ADDRESSABLE (type))
-	return true;
-
-      /* GCC post 3.4 passes *all* variable sized types by reference.  */
-      if (!TYPE_SIZE (type) || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
-	return true;
-
-      /* If a record type should be passed the same as its first (and only)
-	 member, use the type and mode of that member.  */
-      if (TREE_CODE (type) == RECORD_TYPE && TYPE_TRANSPARENT_AGGR (type))
-	{
-	  type = TREE_TYPE (first_field (type));
-	  mode = TYPE_MODE (type);
-	}
-    }
-
-  return targetm.calls.pass_by_reference (pack_cumulative_args (ca), mode,
-					  type, named_arg);
-}
-
-/* Return true if TYPE, which is passed by reference, should be callee
-   copied instead of caller copied.  */
-
-bool
-reference_callee_copied (CUMULATIVE_ARGS *ca, machine_mode mode,
-			 tree type, bool named_arg)
-{
-  if (type && TREE_ADDRESSABLE (type))
-    return false;
-  return targetm.calls.callee_copies (pack_cumulative_args (ca), mode, type,
-				      named_arg);
 }
 
 /* Structures to communicate between the subroutines of assign_parms.
@@ -5657,13 +5614,12 @@ emit_use_return_register_into_block (basic_block bb)
 /* Create a return pattern, either simple_return or return, depending on
    simple_p.  */
 
-static rtx
+static rtx_insn *
 gen_return_pattern (bool simple_p)
 {
-  if (!HAVE_simple_return)
-    gcc_assert (!simple_p);
-
-  return simple_p ? gen_simple_return () : gen_return ();
+  return (simple_p
+	  ? targetm.gen_simple_return ()
+	  : targetm.gen_return ());
 }
 
 /* Insert an appropriate return pattern at the end of block BB.  This
@@ -5769,7 +5725,7 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 	    dest = ret_rtx;
 	  if (!redirect_jump (as_a <rtx_jump_insn *> (jump), dest, 0))
 	    {
-	      if (HAVE_simple_return && simple_p)
+	      if (targetm.have_simple_return () && simple_p)
 		{
 		  if (dump_file)
 		    fprintf (dump_file,
@@ -5790,7 +5746,7 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 	}
       else
 	{
-	  if (HAVE_simple_return && simple_p)
+	  if (targetm.have_simple_return () && simple_p)
 	    {
 	      if (dump_file)
 		fprintf (dump_file,
@@ -5981,12 +5937,12 @@ thread_prologue_and_epilogue_insns (void)
 
   exit_fallthru_edge = find_fallthru_edge (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds);
 
-  if (HAVE_simple_return && entry_edge != orig_entry_edge)
+  if (targetm.have_simple_return () && entry_edge != orig_entry_edge)
     exit_fallthru_edge
 	= get_unconverted_simple_return (exit_fallthru_edge, bb_flags,
 					 &unconverted_simple_returns,
 					 &returnjump);
-  if (HAVE_return)
+  if (targetm.have_return ())
     {
       if (exit_fallthru_edge == NULL)
 	goto epilogue_done;
@@ -6007,7 +5963,8 @@ thread_prologue_and_epilogue_insns (void)
 
 	      /* Emitting the return may add a basic block.
 		 Fix bb_flags for the added block.  */
-	      if (HAVE_simple_return && last_bb != exit_fallthru_edge->src)
+	      if (targetm.have_simple_return ()
+		  && last_bb != exit_fallthru_edge->src)
 		bitmap_set_bit (&bb_flags, last_bb->index);
 
 	      goto epilogue_done;
@@ -6123,7 +6080,7 @@ epilogue_done:
 	}
     }
 
-  if (HAVE_simple_return)
+  if (targetm.have_simple_return ())
     convert_to_simple_return (entry_edge, orig_entry_edge, bb_flags,
 			      returnjump, unconverted_simple_returns);
 
@@ -6139,8 +6096,9 @@ epilogue_done:
 
       if (!CALL_P (insn)
 	  || ! SIBLING_CALL_P (insn)
-	  || (HAVE_simple_return && (entry_edge != orig_entry_edge
-				     && !bitmap_bit_p (&bb_flags, bb->index))))
+	  || (targetm.have_simple_return ()
+	      && entry_edge != orig_entry_edge
+	      && !bitmap_bit_p (&bb_flags, bb->index)))
 	{
 	  ei_next (&ei);
 	  continue;

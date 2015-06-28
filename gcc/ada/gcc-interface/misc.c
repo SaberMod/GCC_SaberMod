@@ -48,7 +48,7 @@
 #include "plugin.h"
 #include "hashtab.h"
 #include "hard-reg-set.h"
-#include "function.h"	/* For pass_by_reference.  */
+#include "calls.h"	/* For pass_by_reference.  */
 #include "dwarf2out.h"
 
 #include "ada.h"
@@ -113,7 +113,8 @@ gnat_parse_file (void)
   /* Call the front end.  */
   _ada_gnat1drv ();
 
-  note_types_used_by_globals ();
+  /* Write the global declarations.  */
+  gnat_write_global_declarations ();
 }
 
 /* Return language mask for option processing.  */

@@ -60,7 +60,6 @@
 #include "diagnostic-core.h"
 #include "toplev.h"
 #include "target.h"
-#include "target-def.h"
 #include "tm_p.h"
 #include "langhooks.h"
 #include "df.h"
@@ -68,6 +67,9 @@
 #include "reload.h"
 #include "stor-layout.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Forward function declarations.  */
 static bool prologue_saved_reg_p (unsigned);

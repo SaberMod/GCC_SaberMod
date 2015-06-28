@@ -66,8 +66,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-parloops.h"
 #include "omp-low.h"
 #include "tree-nested.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-ssa.h"
 
@@ -218,10 +216,8 @@ struct reduction_info
 
 /* Reduction info hashtable helpers.  */
 
-struct reduction_hasher : typed_free_remove <reduction_info>
+struct reduction_hasher : free_ptr_hash <reduction_info>
 {
-  typedef reduction_info *value_type;
-  typedef reduction_info *compare_type;
   static inline hashval_t hash (const reduction_info *);
   static inline bool equal (const reduction_info *, const reduction_info *);
 };
@@ -270,10 +266,8 @@ struct name_to_copy_elt
 
 /* Name copies hashtable helpers.  */
 
-struct name_to_copy_hasher : typed_free_remove <name_to_copy_elt>
+struct name_to_copy_hasher : free_ptr_hash <name_to_copy_elt>
 {
-  typedef name_to_copy_elt *value_type;
-  typedef name_to_copy_elt *compare_type;
   static inline hashval_t hash (const name_to_copy_elt *);
   static inline bool equal (const name_to_copy_elt *, const name_to_copy_elt *);
 };
@@ -1675,6 +1669,7 @@ transform_to_exit_first_loop_alt (struct loop *loop,
 
   /* Set the new loop bound.  */
   gimple_cond_set_rhs (cond_stmt, bound);
+  update_stmt (cond_stmt);
 
   /* Repair the ssa.  */
   vec<edge_var_map> *v = redirect_edge_var_map_vector (post_inc_edge);
