@@ -1,3 +1,18 @@
+2015-06-26  Release Manager
+
+	* GCC 4.9.3 released.
+
+2015-06-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66501
+	* init.c (vec_copy_assign_is_trivial): New.
+	(build_vec_init): Use it.
+
+2015-06-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65879
+	* tree.c (no_linkage_check): Skip the 'this' pointer.
+
 2015-06-03  Jakub Jelinek  <jakub@redhat.com>
 
 	Backported from mainline
