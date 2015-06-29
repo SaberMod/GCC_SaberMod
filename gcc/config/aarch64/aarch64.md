@@ -87,6 +87,7 @@
     UNSPEC_FRINTX
     UNSPEC_FRINTZ
     UNSPEC_GOTSMALLPIC
+    UNSPEC_GOTSMALLPIC28K
     UNSPEC_GOTSMALLTLS
     UNSPEC_GOTTINYPIC
     UNSPEC_LD1
@@ -979,18 +980,18 @@
   [(set (match_operand:GPF 0 "nonimmediate_operand" "")
 	(match_operand:GPF 1 "general_operand" ""))]
   ""
-  "
+  {
     if (!TARGET_FLOAT)
-     {
-	sorry (\"%qs and floating point code\", \"-mgeneral-regs-only\");
+      {
+	aarch64_err_no_fpadvsimd (<MODE>mode, "code");
 	FAIL;
-     }
+      }
 
     if (GET_CODE (operands[0]) == MEM
         && ! (GET_CODE (operands[1]) == CONST_DOUBLE
 	      && aarch64_float_const_zero_rtx_p (operands[1])))
       operands[1] = force_reg (<MODE>mode, operands[1]);
-  "
+  }
 )
 
 (define_insn "*movsf_aarch64"
@@ -1035,18 +1036,18 @@
   [(set (match_operand:TF 0 "nonimmediate_operand" "")
 	(match_operand:TF 1 "general_operand" ""))]
   ""
-  "
+  {
     if (!TARGET_FLOAT)
-     {
-	sorry (\"%qs and floating point code\", \"-mgeneral-regs-only\");
+      {
+	aarch64_err_no_fpadvsimd (TFmode, "code");
 	FAIL;
-     }
+      }
 
     if (GET_CODE (operands[0]) == MEM
         && ! (GET_CODE (operands[1]) == CONST_DOUBLE
 	      && aarch64_float_const_zero_rtx_p (operands[1])))
       operands[1] = force_reg (TFmode, operands[1]);
-  "
+  }
 )
 
 (define_insn "*movtf_aarch64"
@@ -4117,7 +4118,7 @@
 (define_insn "<optab><fcvt_target><GPF:mode>2"
   [(set (match_operand:GPF 0 "register_operand" "=w,w")
         (FLOATUORS:GPF (match_operand:<FCVT_TARGET> 1 "register_operand" "w,r")))]
-  ""
+  "TARGET_FLOAT"
   "@
    <su_optab>cvtf\t%<GPF:s>0, %<s>1
    <su_optab>cvtf\t%<GPF:s>0, %<w1>1"
@@ -4357,6 +4358,29 @@
 		    UNSPEC_GOTSMALLPIC)))]
   "TARGET_ILP32"
   "ldr\\t%w0, [%1, #:got_lo12:%a2]"
+  [(set_attr "type" "load1")]
+)
+
+(define_insn "ldr_got_small_28k_<mode>"
+  [(set (match_operand:PTR 0 "register_operand" "=r")
+	(unspec:PTR [(mem:PTR (lo_sum:PTR
+			      (match_operand:PTR 1 "register_operand" "r")
+			      (match_operand:PTR 2 "aarch64_valid_symref" "S")))]
+		    UNSPEC_GOTSMALLPIC28K))]
+  ""
+  "ldr\\t%<w>0, [%1, #:<got_modifier>:%a2]"
+  [(set_attr "type" "load1")]
+)
+
+(define_insn "ldr_got_small_28k_sidi"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(zero_extend:DI
+	 (unspec:SI [(mem:SI (lo_sum:DI
+			     (match_operand:DI 1 "register_operand" "r")
+			     (match_operand:DI 2 "aarch64_valid_symref" "S")))]
+		    UNSPEC_GOTSMALLPIC28K)))]
+  "TARGET_ILP32"
+  "ldr\\t%w0, [%1, #:gotpage_lo14:%a2]"
   [(set_attr "type" "load1")]
 )
 

@@ -42,10 +42,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "c-family/c-objc.h"
 #include "timevar.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "internal-fn.h"
 
@@ -1759,8 +1757,9 @@ implicit_conversion (tree to, tree from, tree expr, bool c_cast_p,
 
   /* Call reshape_init early to remove redundant braces.  */
   if (expr && BRACE_ENCLOSED_INITIALIZER_P (expr)
+      && CLASS_TYPE_P (to)
       && COMPLETE_TYPE_P (complete_type (to))
-      && CP_AGGREGATE_TYPE_P (to))
+      && !CLASSTYPE_NON_AGGREGATE (to))
     {
       expr = reshape_init (to, expr, complain);
       if (expr == error_mark_node)
@@ -4560,8 +4559,8 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
       arg2_type = TREE_TYPE (arg2);
       arg3_type = TREE_TYPE (arg3);
 
-      if (TREE_CODE (arg2_type) != VECTOR_TYPE
-	  && TREE_CODE (arg3_type) != VECTOR_TYPE)
+      if (!VECTOR_TYPE_P (arg2_type)
+	  && !VECTOR_TYPE_P (arg3_type))
 	{
 	  /* Rely on the error messages of the scalar version.  */
 	  tree scal = build_conditional_expr_1 (loc, integer_one_node,
@@ -4613,8 +4612,7 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
 	  arg3_type = vtype;
 	}
 
-      if ((TREE_CODE (arg2_type) == VECTOR_TYPE)
-	  != (TREE_CODE (arg3_type) == VECTOR_TYPE))
+      if (VECTOR_TYPE_P (arg2_type) != VECTOR_TYPE_P (arg3_type))
 	{
 	  enum stv_conv convert_flag =
 	    scalar_to_vector (loc, VEC_COND_EXPR, arg2, arg3,
@@ -9698,7 +9696,7 @@ set_up_extended_ref_temp (tree decl, tree expr, vec<tree, va_gc> **cleanups,
     }
   /* Avoid -Wunused-variable warning (c++/38958).  */
   if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
-      && TREE_CODE (decl) == VAR_DECL)
+      && VAR_P (decl))
     TREE_USED (decl) = DECL_READ_P (decl) = true;
 
   *initp = init;

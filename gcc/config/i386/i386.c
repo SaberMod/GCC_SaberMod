@@ -62,12 +62,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgcleanup.h"
 #include "basic-block.h"
 #include "target.h"
-#include "target-def.h"
 #include "common/common-target.h"
 #include "langhooks.h"
 #include "reload.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -100,6 +97,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "tree-chkp.h"
 #include "rtl-chkp.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 static rtx legitimize_dllimport_symbol (rtx, bool);
 static rtx legitimize_pe_coff_extern_decl (rtx, bool);
@@ -8886,9 +8886,8 @@ ix86_setup_incoming_vararg_bounds (cumulative_args_t cum_v,
     for (i = cum->regno; i < max; i++)
       {
 	rtx addr = plus_constant (Pmode, save_area, i * UNITS_PER_WORD);
-	rtx reg = gen_rtx_REG (DImode,
+	rtx ptr = gen_rtx_REG (Pmode,
 			       x86_64_int_parameter_registers[i]);
-	rtx ptr = reg;
 	rtx bounds;
 
 	if (bnd_reg <= LAST_BND_REG)
@@ -14212,7 +14211,7 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
    to symbol DECL if BEIMPORT is true.  Otherwise create or return the
    unique refptr-DECL symbol corresponding to symbol DECL.  */
 
-struct dllimport_hasher : ggc_cache_hasher<tree_map *>
+struct dllimport_hasher : ggc_cache_ptr_hash<tree_map>
 {
   static inline hashval_t hash (tree_map *m) { return m->hash; }
   static inline bool
@@ -14221,16 +14220,10 @@ struct dllimport_hasher : ggc_cache_hasher<tree_map *>
     return a->base.from == b->base.from;
   }
 
-  static void
-  handle_cache_entry (tree_map *&m)
+  static int
+  keep_cache_entry (tree_map *&m)
   {
-    extern void gt_ggc_mx (tree_map *&);
-    if (m == HTAB_EMPTY_ENTRY || m == HTAB_DELETED_ENTRY)
-      return;
-    else if (ggc_marked_p (m->base.from))
-      gt_ggc_mx (m);
-    else
-      m = static_cast<tree_map *> (HTAB_DELETED_ENTRY);
+    return ggc_marked_p (m->base.from);
   }
 };
 
@@ -40350,6 +40343,9 @@ ix86_load_bounds (rtx slot, rtx ptr, rtx slot_no)
       ptr = copy_addr_to_reg (slot);
     }
 
+  if (!register_operand (ptr, Pmode))
+    ptr = ix86_zero_extend_to_Pmode (ptr);
+
   emit_insn (BNDmode == BND64mode
 	     ? gen_bnd64_ldx (reg, addr, ptr)
 	     : gen_bnd32_ldx (reg, addr, ptr));
@@ -40383,6 +40379,9 @@ ix86_store_bounds (rtx ptr, rtx slot, rtx bounds, rtx slot_no)
       gcc_assert (MEM_P (slot));
       ptr = copy_addr_to_reg (slot);
     }
+
+  if (!register_operand (ptr, Pmode))
+    ptr = ix86_zero_extend_to_Pmode (ptr);
 
   gcc_assert (POINTER_BOUNDS_MODE_P (GET_MODE (bounds)));
   if (!register_operand (bounds, BNDmode))
@@ -42531,6 +42530,12 @@ ix86_rtx_costs (rtx x, int code_i, int outer_code_i, int opno, int *total,
 		    + rtx_cost (const1_rtx, outer_code, opno, speed));
 	  return true;
 	}
+
+      /* The embedded comparison operand is completely free.  */
+      if (!general_operand (XEXP (x, 0), GET_MODE (XEXP (x, 0)))
+	  && XEXP (x, 1) == const0_rtx)
+	*total = 0;
+
       return false;
 
     case FLOAT_EXTEND:

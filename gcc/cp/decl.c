@@ -59,10 +59,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "splay-tree.h"
 #include "plugin.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "cilk.h"
 #include "builtins.h"
@@ -2106,6 +2104,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
   TREE_STATIC (olddecl) = TREE_STATIC (newdecl) |= TREE_STATIC (olddecl);
   if (! DECL_EXTERNAL (olddecl))
     DECL_EXTERNAL (newdecl) = 0;
+  if (! DECL_COMDAT (olddecl))
+    DECL_COMDAT (newdecl) = 0;
 
   new_template_info = NULL_TREE;
   if (DECL_LANG_SPECIFIC (newdecl) && DECL_LANG_SPECIFIC (olddecl))
@@ -2476,14 +2476,15 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  {
             struct symtab_node *snode = NULL;
 
-            if (TREE_CODE (newdecl) == VAR_DECL
-		&& (TREE_STATIC (olddecl) || TREE_PUBLIC (olddecl) || DECL_EXTERNAL (olddecl)))
+	    if (VAR_P (newdecl)
+		&& (TREE_STATIC (olddecl) || TREE_PUBLIC (olddecl)
+		    || DECL_EXTERNAL (olddecl)))
 	      snode = symtab_node::get (olddecl);
 	    memcpy ((char *) olddecl + sizeof (struct tree_decl_common),
 		    (char *) newdecl + sizeof (struct tree_decl_common),
 		    size - sizeof (struct tree_decl_common)
 		    + TREE_CODE_LENGTH (TREE_CODE (newdecl)) * sizeof (char *));
-            if (TREE_CODE (newdecl) == VAR_DECL)
+	    if (VAR_P (newdecl))
 	      olddecl->decl_with_vis.symtab_node = snode;
 	  }
 	  break;
@@ -2496,8 +2497,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	}
     }
 
-  if (TREE_CODE (newdecl) == FUNCTION_DECL
-      || TREE_CODE (newdecl) == VAR_DECL)
+  if (VAR_OR_FUNCTION_DECL_P (newdecl))
     {
       if (DECL_EXTERNAL (olddecl)
 	  || TREE_PUBLIC (olddecl)
@@ -2522,7 +2522,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    }
 	}
 
-      if (TREE_CODE (newdecl) == VAR_DECL
+      if (VAR_P (newdecl)
 	  && DECL_THREAD_LOCAL_P (newdecl))
 	set_decl_tls_model (olddecl, DECL_TLS_MODEL (newdecl));
     }
@@ -2559,8 +2559,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
      structure is shared in between newdecl and oldecl.  */
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     DECL_STRUCT_FUNCTION (newdecl) = NULL;
-  if (TREE_CODE (newdecl) == FUNCTION_DECL
-      || TREE_CODE (newdecl) == VAR_DECL)
+  if (VAR_OR_FUNCTION_DECL_P (newdecl))
     {
       struct symtab_node *snode = symtab_node::get (newdecl);
       if (snode)
@@ -3329,7 +3328,7 @@ struct typename_info {
   bool class_p;
 };
 
-struct typename_hasher : ggc_hasher<tree>
+struct typename_hasher : ggc_ptr_hash<tree_node>
 {
   typedef typename_info *compare_type;
 
@@ -4828,7 +4827,7 @@ start_decl (const cp_declarator *declarator,
   /* Enter this declaration into the symbol table.  Don't push the plain
      VAR_DECL for a variable template.  */
   if (!template_parm_scope_p ()
-      || TREE_CODE (decl) != VAR_DECL)
+      || !VAR_P (decl))
     decl = maybe_push_decl (decl);
 
   if (processing_template_decl)
@@ -5393,7 +5392,7 @@ reshape_init_vector (tree type, reshape_iter *d, tsubst_flags_t complain)
 {
   tree max_index = NULL_TREE;
 
-  gcc_assert (TREE_CODE (type) == VECTOR_TYPE);
+  gcc_assert (VECTOR_TYPE_P (type));
 
   if (COMPOUND_LITERAL_P (d->cur->value))
     {
@@ -5410,7 +5409,7 @@ reshape_init_vector (tree type, reshape_iter *d, tsubst_flags_t complain)
     }
 
   /* For a vector, we initialize it as an array of the appropriate size.  */
-  if (TREE_CODE (type) == VECTOR_TYPE)
+  if (VECTOR_TYPE_P (type))
     max_index = size_int (TYPE_VECTOR_SUBPARTS (type) - 1);
 
   return reshape_init_array_1 (TREE_TYPE (type), max_index, d, complain);
@@ -5718,7 +5717,7 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p,
     return reshape_init_class (type, d, first_initializer_p, complain);
   else if (TREE_CODE (type) == ARRAY_TYPE)
     return reshape_init_array (type, d, complain);
-  else if (TREE_CODE (type) == VECTOR_TYPE)
+  else if (VECTOR_TYPE_P (type))
     return reshape_init_vector (type, d, complain);
   else
     gcc_unreachable();
@@ -5920,7 +5919,7 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 		       "not by %<{...}%>",
 		       decl);
 	    }
-	  else if (TREE_CODE (type) == VECTOR_TYPE && TYPE_VECTOR_OPAQUE (type))
+	  else if (VECTOR_TYPE_P (type) && TYPE_VECTOR_OPAQUE (type))
 	    {
 	      error ("opaque vector types cannot be initialized");
 	      init = error_mark_node;
@@ -7163,12 +7162,12 @@ expand_static_init (tree decl, tree init)
   gcc_assert (TREE_STATIC (decl));
 
   /* Some variables require no dynamic initialization.  */
-  if (!init
-      && TYPE_HAS_TRIVIAL_DESTRUCTOR (TREE_TYPE (decl)))
+  if (TYPE_HAS_TRIVIAL_DESTRUCTOR (TREE_TYPE (decl)))
     {
       /* Make sure the destructor is callable.  */
       cxx_maybe_build_cleanup (decl, tf_warning_or_error);
-      return;
+      if (!init)
+	return;
     }
 
   if (DECL_THREAD_LOCAL_P (decl) && DECL_GNU_TLS_P (decl)
@@ -7794,7 +7793,7 @@ grokfndecl (tree ctype,
 
   /* Members of anonymous types and local classes have no linkage; make
      them internal.  If a typedef is made later, this will be changed.  */
-  if (ctype && (TYPE_ANONYMOUS_P (ctype)
+  if (ctype && (!TREE_PUBLIC (TYPE_MAIN_DECL (ctype))
 		|| decl_function_context (TYPE_MAIN_DECL (ctype))))
     publicp = 0;
 
@@ -9529,7 +9528,8 @@ grokdeclarator (const cp_declarator *declarator,
   if (virtualp
       && (current_class_name == NULL_TREE || decl_context != FIELD))
     {
-      error ("%<virtual%> outside class declaration");
+      error_at (declspecs->locations[ds_virtual],
+		"%<virtual%> outside class declaration");
       virtualp = 0;
     }
 
@@ -10476,19 +10476,11 @@ grokdeclarator (const cp_declarator *declarator,
 
   if (decl_context == TYPENAME)
     {
-      /* Note that the grammar rejects storage classes
-	 in typenames, fields or parameters.  */
-      if (type_quals != TYPE_UNQUALIFIED)
-	type_quals = TYPE_UNQUALIFIED;
+      /* Note that here we don't care about type_quals.  */
 
       /* Special case: "friend class foo" looks like a TYPENAME context.  */
       if (friendp)
 	{
-	  if (type_quals != TYPE_UNQUALIFIED)
-	    {
-	      error ("type qualifiers specified for friend class declaration");
-	      type_quals = TYPE_UNQUALIFIED;
-	    }
 	  if (inlinep)
 	    {
 	      error ("%<inline%> specified for friend class declaration");
