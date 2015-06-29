@@ -1,3 +1,109 @@
+2015-06-27  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2015-06-25  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/65979
+	PR target/66611
+	* config/sh/sh.md (tstsi_t peephole2): Use insn_invalid_p to check if
+	the replacement insn will work.
+
+2015-06-26  Martin Jambor  <mjambor@suse.cz>
+
+	PR debug/66301
+	* tree-ssa-pre.c (before_dom_children): Check that dump_file is not
+	NULL instead of calling dump_enabled_p.
+
+2015-06-26  Uros Bizjak  <ubizjak@gmail.com>
+	    Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/66412
+	* config/i386/i386.md (various splitters): Use shallow_copy_rtx
+	before doing PUT_MODE or PUT_CODE on operands to avoid
+	in-place RTX modification.
+
+2015-06-25  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	Backport from mainline
+	2015-05-18  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* config/freebsd-spec.h (FBSD_STARTFILE_SPEC): Add the bits to build
+	pie executables.
+	(FBSD_ENDFILE_SPEC): Likewise.
+	* config/i386/freebsd.h (STARTFILE_SPEC): Remove and use the one from
+	config/freebsd-spec.h.
+	(ENDFILE_SPEC): Likewise.
+
+2015-06-25  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline
+	2015-06-24  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/66563
+	* config/sh/sh.md (GOTaddr2picreg): Add a new operand for
+	an additional element of the unspec vector.  Modify indices
+	of operands.
+	(builtin_setjmp_receiver): Pass const0_rtx to gen_GOTaddr2picreg.
+	* config/sh/sh.c (prepare_move_operands): Pass incremented
+	const_int to gen_GOTaddr2picreg.
+	(sh_expand_prologue): Pass const0_rtx to gen_GOTaddr2picreg.
+
+2015-06-25  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Backport from mainline.
+	2015-06-24  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	PR target/63408
+	* config/arm/arm.c (vfp3_const_double_for_fract_bits): Disable
+	for negative numbers.
+
+2015-06-24  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/66200
+	* config/aarch64/aarch64.c (TARGET_RELAXED_ORDERING): Define.
+
+2015-06-24  Renlin Li  <renlin.li@arm.com>
+
+	Backport from mainline
+	2015-06-24  Renlin Li  <renlin.li@arm.com>
+
+	* varasm.c (emit_local): Use unsigned int for align variable.
+
+2015-06-23  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2015-06-09  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/66413
+	* tree-inline.c (insert_init_debug_bind): Unshare value.
+
+2015-06-23  Ludovic Courtès  <ludo@gnu.org>
+
+	PR 65711
+	* config/arm/linux-elf.h (LINUX_TARGET_LINK_SPEC): Move
+	'-dynamic-linker' within %{!shared: ...}.
+
+2015-06-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR bootstrap/63740
+	* lra-lives.c (process_bb_lives): Check insn copying the same
+	reload pseudo and don't create a copy for it.
+
+2015-06-22  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2015-06-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66422
+	* tree-ssa-loop-ivcanon.c (remove_exits_and_undefined_stmts): Split
+	block after inserted gcc_unreachable.
+
+2015-06-21  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2015-06-20  Marek Polacek  <polacek@redhat.com>
+
+	* common.opt (fsanitize-undefined-trap-on-error): Add Driver.
+
 2015-06-18  Richard Biener  <rguenther@suse.de>
 
 	Backport from mainline
