@@ -1,3 +1,23 @@
+2015-07-02  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66743
+	* pt.c (for_each_template_parm_r) [UNDERLYING_TYPE]: Use
+	TYPE_VALUES_RAW rather than TYPE_FIELDS.
+
+2015-06-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65945
+	* decl.c (cxx_init_decl_processing): Set TYPE_ALIGN of nullptr_t.
+	* class.c (layout_nonempty_base_or_field): Warn if that affects
+	the offset of a field.
+
+2015-06-29  Adam Butcher  <adam@jessamine.co.uk>
+
+	PR c++/65750
+	* parser.c (cp_parser_simple_type_specifier): Don't synthesize
+	implicit template parm if 'auto' is a placeholder for trailing
+	return type.
+
 2015-06-26  Jason Merrill  <jason@redhat.com>
 
 	PR c++/66216
