@@ -306,7 +306,8 @@ struct visibility_flags visibility_options;
 
 static tree c_fully_fold_internal (tree expr, bool, bool *, bool *, bool);
 static tree check_case_value (location_t, tree);
-static bool check_case_bounds (location_t, tree, tree, tree *, tree *);
+static bool check_case_bounds (location_t, tree, tree, tree *, tree *,
+			       bool *);
 
 static tree handle_packed_attribute (tree *, tree, tree, int, bool *);
 static tree handle_nocommon_attribute (tree *, tree, tree, int, bool *);
@@ -513,8 +514,8 @@ const struct c_common_resword c_common_reswords[] =
   { "__underlying_type", RID_UNDERLYING_TYPE, D_CXXONLY },
   { "__volatile",	RID_VOLATILE,	0 },
   { "__volatile__",	RID_VOLATILE,	0 },
-  { "alignas",		RID_ALIGNAS,	D_CXXONLY | D_CXX0X | D_CXXWARN },
-  { "alignof",		RID_ALIGNOF,	D_CXXONLY | D_CXX0X | D_CXXWARN },
+  { "alignas",		RID_ALIGNAS,	D_CXXONLY | D_CXX11 | D_CXXWARN },
+  { "alignof",		RID_ALIGNOF,	D_CXXONLY | D_CXX11 | D_CXXWARN },
   { "asm",		RID_ASM,	D_ASM },
   { "auto",		RID_AUTO,	0 },
   { "bool",		RID_BOOL,	D_CXXONLY | D_CXXWARN },
@@ -522,14 +523,14 @@ const struct c_common_resword c_common_reswords[] =
   { "case",		RID_CASE,	0 },
   { "catch",		RID_CATCH,	D_CXX_OBJC | D_CXXWARN },
   { "char",		RID_CHAR,	0 },
-  { "char16_t",		RID_CHAR16,	D_CXXONLY | D_CXX0X | D_CXXWARN },
-  { "char32_t",		RID_CHAR32,	D_CXXONLY | D_CXX0X | D_CXXWARN },
+  { "char16_t",		RID_CHAR16,	D_CXXONLY | D_CXX11 | D_CXXWARN },
+  { "char32_t",		RID_CHAR32,	D_CXXONLY | D_CXX11 | D_CXXWARN },
   { "class",		RID_CLASS,	D_CXX_OBJC | D_CXXWARN },
   { "const",		RID_CONST,	0 },
-  { "constexpr",	RID_CONSTEXPR,	D_CXXONLY | D_CXX0X | D_CXXWARN },
+  { "constexpr",	RID_CONSTEXPR,	D_CXXONLY | D_CXX11 | D_CXXWARN },
   { "const_cast",	RID_CONSTCAST,	D_CXXONLY | D_CXXWARN },
   { "continue",		RID_CONTINUE,	0 },
-  { "decltype",         RID_DECLTYPE,   D_CXXONLY | D_CXX0X | D_CXXWARN },
+  { "decltype",         RID_DECLTYPE,   D_CXXONLY | D_CXX11 | D_CXXWARN },
   { "default",		RID_DEFAULT,	0 },
   { "delete",		RID_DELETE,	D_CXXONLY | D_CXXWARN },
   { "do",		RID_DO,		0 },
@@ -552,8 +553,8 @@ const struct c_common_resword c_common_reswords[] =
   { "mutable",		RID_MUTABLE,	D_CXXONLY | D_CXXWARN },
   { "namespace",	RID_NAMESPACE,	D_CXXONLY | D_CXXWARN },
   { "new",		RID_NEW,	D_CXXONLY | D_CXXWARN },
-  { "noexcept",		RID_NOEXCEPT,	D_CXXONLY | D_CXX0X | D_CXXWARN },
-  { "nullptr",		RID_NULLPTR,	D_CXXONLY | D_CXX0X | D_CXXWARN },
+  { "noexcept",		RID_NOEXCEPT,	D_CXXONLY | D_CXX11 | D_CXXWARN },
+  { "nullptr",		RID_NULLPTR,	D_CXXONLY | D_CXX11 | D_CXXWARN },
   { "operator",		RID_OPERATOR,	D_CXXONLY | D_CXXWARN },
   { "private",		RID_PRIVATE,	D_CXX_OBJC | D_CXXWARN },
   { "protected",	RID_PROTECTED,	D_CXX_OBJC | D_CXXWARN },
@@ -566,13 +567,13 @@ const struct c_common_resword c_common_reswords[] =
   { "signed",		RID_SIGNED,	0 },
   { "sizeof",		RID_SIZEOF,	0 },
   { "static",		RID_STATIC,	0 },
-  { "static_assert",    RID_STATIC_ASSERT, D_CXXONLY | D_CXX0X | D_CXXWARN },
+  { "static_assert",    RID_STATIC_ASSERT, D_CXXONLY | D_CXX11 | D_CXXWARN },
   { "static_cast",	RID_STATCAST,	D_CXXONLY | D_CXXWARN },
   { "struct",		RID_STRUCT,	0 },
   { "switch",		RID_SWITCH,	0 },
   { "template",		RID_TEMPLATE,	D_CXXONLY | D_CXXWARN },
   { "this",		RID_THIS,	D_CXXONLY | D_CXXWARN },
-  { "thread_local",	RID_THREAD,	D_CXXONLY | D_CXX0X | D_CXXWARN },
+  { "thread_local",	RID_THREAD,	D_CXXONLY | D_CXX11 | D_CXXWARN },
   { "throw",		RID_THROW,	D_CXX_OBJC | D_CXXWARN },
   { "true",		RID_TRUE,	D_CXXONLY | D_CXXWARN },
   { "try",		RID_TRY,	D_CXX_OBJC | D_CXXWARN },
@@ -3633,13 +3634,15 @@ check_case_value (location_t loc, tree value)
    bound of the case label, and CASE_HIGH_P is the upper bound or NULL
    if the case is not a case range.
    The caller has to make sure that we are not called with NULL for
-   CASE_LOW_P (i.e. the default case).
+   CASE_LOW_P (i.e. the default case).  OUTSIDE_RANGE_P says whether there
+   was a case value that doesn't fit into the range of the ORIG_TYPE.
    Returns true if the case label is in range of ORIG_TYPE (saturated or
    untouched) or false if the label is out of range.  */
 
 static bool
 check_case_bounds (location_t loc, tree type, tree orig_type,
-		   tree *case_low_p, tree *case_high_p)
+		   tree *case_low_p, tree *case_high_p,
+		   bool *outside_range_p)
 {
   tree min_value, max_value;
   tree case_low = *case_low_p;
@@ -3658,6 +3661,7 @@ check_case_bounds (location_t loc, tree type, tree orig_type,
     {
       warning_at (loc, 0, "case label value is less than minimum value "
 		  "for type");
+      *outside_range_p = true;
       return false;
     }
 
@@ -3666,6 +3670,7 @@ check_case_bounds (location_t loc, tree type, tree orig_type,
       && tree_int_cst_compare (case_high, max_value) > 0)
     {
       warning_at (loc, 0, "case label value exceeds maximum value for type");
+      *outside_range_p = true;
       return false;
     }
 
@@ -3675,6 +3680,7 @@ check_case_bounds (location_t loc, tree type, tree orig_type,
     {
       warning_at (loc, 0, "lower value in case label range"
 		  " less than minimum value for type");
+      *outside_range_p = true;
       case_low = min_value;
     }
 
@@ -3684,6 +3690,7 @@ check_case_bounds (location_t loc, tree type, tree orig_type,
     {
       warning_at (loc, 0, "upper value in case label range"
 		  " exceeds maximum value for type");
+      *outside_range_p = true;
       case_high = max_value;
     }
 
@@ -6391,13 +6398,14 @@ case_compare (splay_tree_key k1, splay_tree_key k2)
    HIGH_VALUE is NULL_TREE, then case label was declared using the
    usual C/C++ syntax, rather than the GNU case range extension.
    CASES is a tree containing all the case ranges processed so far;
-   COND is the condition for the switch-statement itself.  Returns the
-   CASE_LABEL_EXPR created, or ERROR_MARK_NODE if no CASE_LABEL_EXPR
-   is created.  */
+   COND is the condition for the switch-statement itself.
+   OUTSIDE_RANGE_P says whether there was a case value that doesn't
+   fit into the range of the ORIG_TYPE.  Returns the CASE_LABEL_EXPR
+   created, or ERROR_MARK_NODE if no CASE_LABEL_EXPR is created.  */
 
 tree
 c_add_case_label (location_t loc, splay_tree cases, tree cond, tree orig_type,
-		  tree low_value, tree high_value)
+		  tree low_value, tree high_value, bool *outside_range_p)
 {
   tree type;
   tree label;
@@ -6458,7 +6466,8 @@ c_add_case_label (location_t loc, splay_tree cases, tree cond, tree orig_type,
      don't insert the case label and return NULL_TREE.  */
   if (low_value
       && !check_case_bounds (loc, type, orig_type,
-			     &low_value, high_value ? &high_value : NULL))
+			     &low_value, high_value ? &high_value : NULL,
+			     outside_range_p))
     return NULL_TREE;
 
   /* Look up the LOW_VALUE in the table of case labels we already
@@ -6619,19 +6628,67 @@ match_case_to_enum (splay_tree_node node, void *data)
 
 void
 c_do_switch_warnings (splay_tree cases, location_t switch_location,
-		      tree type, tree cond)
+		      tree type, tree cond, bool bool_cond_p,
+		      bool outside_range_p)
 {
   splay_tree_node default_node;
   splay_tree_node node;
   tree chain;
 
-  if (!warn_switch && !warn_switch_enum && !warn_switch_default)
+  if (!warn_switch && !warn_switch_enum && !warn_switch_default
+      && !warn_switch_bool)
     return;
 
   default_node = splay_tree_lookup (cases, (splay_tree_key) NULL);
   if (!default_node)
     warning_at (switch_location, OPT_Wswitch_default,
 		"switch missing default case");
+
+  /* There are certain cases where -Wswitch-bool warnings aren't
+     desirable, such as
+     switch (boolean)
+       {
+       case true: ...
+       case false: ...
+       }
+     so be careful here.  */
+  if (warn_switch_bool && bool_cond_p)
+    {
+      splay_tree_node min_node;
+      /* If there's a default node, it's also the value with the minimal
+	 key.  So look at the penultimate key (if any).  */
+      if (default_node)
+	min_node = splay_tree_successor (cases, (splay_tree_key) NULL);
+      else
+	min_node = splay_tree_min (cases);
+      tree min = min_node ? (tree) min_node->key : NULL_TREE;
+
+      splay_tree_node max_node = splay_tree_max (cases);
+      /* This might be a case range, so look at the value with the
+	 maximal key and then check CASE_HIGH.  */
+      tree max = max_node ? (tree) max_node->value : NULL_TREE;
+      if (max)
+	max = CASE_HIGH (max) ? CASE_HIGH (max) : CASE_LOW (max);
+
+      /* If there's a case value > 1 or < 0, that is outside bool
+	 range, warn.  */
+      if (outside_range_p
+	  || (max && wi::gts_p (max, 1))
+	  || (min && wi::lts_p (min, 0))
+	  /* And handle the
+	     switch (boolean)
+	       {
+	       case true: ...
+	       case false: ...
+	       default: ...
+	       }
+	     case, where we want to warn.  */
+	  || (default_node
+	      && max && wi::eq_p (max, 1)
+	      && min && wi::eq_p (min, 0)))
+	warning_at (switch_location, OPT_Wswitch_bool,
+		    "switch condition has boolean value");
+    }
 
   /* From here on, we only care about about enumerated types.  */
   if (!type || TREE_CODE (type) != ENUMERAL_TYPE)
@@ -10199,7 +10256,8 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token_type,
   else if (token_type == CPP_CHAR
 	   || token_type == CPP_WCHAR
 	   || token_type == CPP_CHAR16
-	   || token_type == CPP_CHAR32)
+	   || token_type == CPP_CHAR32
+	   || token_type == CPP_UTF8CHAR)
     {
       unsigned int val = TREE_INT_CST_LOW (value);
       const char *prefix;
@@ -10218,6 +10276,9 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token_type,
 	case CPP_CHAR32:
 	  prefix = "U";
 	  break;
+	case CPP_UTF8CHAR:
+	  prefix = "u8";
+	  break;
         }
 
       if (val <= UCHAR_MAX && ISGRAPH (val))
@@ -10232,7 +10293,8 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token_type,
   else if (token_type == CPP_CHAR_USERDEF
 	   || token_type == CPP_WCHAR_USERDEF
 	   || token_type == CPP_CHAR16_USERDEF
-	   || token_type == CPP_CHAR32_USERDEF)
+	   || token_type == CPP_CHAR32_USERDEF
+	   || token_type == CPP_UTF8CHAR_USERDEF)
     message = catenate_messages (gmsgid,
 				 " before user-defined character literal");
   else if (token_type == CPP_STRING_USERDEF
@@ -12045,6 +12107,23 @@ do_warn_double_promotion (tree result_type, tree type1, tree type2,
     return;
   warning_at (loc, OPT_Wdouble_promotion, gmsgid, source_type, result_type);
 }
+
+/* Possibly warn about unused parameters.  */
+
+void
+do_warn_unused_parameter (tree fn)
+{
+  tree decl;
+
+  for (decl = DECL_ARGUMENTS (fn);
+       decl; decl = DECL_CHAIN (decl))
+    if (!TREE_USED (decl) && TREE_CODE (decl) == PARM_DECL
+	&& DECL_NAME (decl) && !DECL_ARTIFICIAL (decl)
+	&& !TREE_NO_WARNING (decl))
+      warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wunused_parameter,
+		  "unused parameter %qD", decl);
+}
+
 
 /* Setup a TYPE_DECL node as a typedef representation.
 

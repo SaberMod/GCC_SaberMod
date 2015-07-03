@@ -1,3 +1,42 @@
+2015-07-01  Jason Merrill  <jason@redhat.com>
+
+	* c-common.h (D_CXX11): Rename from D_CXX0X.
+	(RID_FIRST_CXX11, RID_LAST_CXX11): Rename from *_CXX0X.
+	* c-common.c: Adjust.
+
+	* c-opts.c (c_common_post_options): Default to C++14.
+
+	* c-opts.c (c_common_post_options): Highest ABI level is now 10.
+
+2015-06-30  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	Implement N4197 - Adding u8 character literals
+	* c-family/c-ada-spec.c (print_ada_macros): Treat CPP_UTF8CHAR like
+	CPP_CHAR.
+	* c-family/c-common.c (c_parse_error): Print CPP_UTF8CHAR and
+	CPP_UTF8CHAR_USERDEF tokens.
+	* c-family/c-lex.c (c_lex_with_flags): Treat CPP_UTF8CHAR_USERDEF
+	and CPP_UTF8CHAR tokens.
+	(lex_charconst): Treat CPP_UTF8CHAR token.
+
+2015-06-29  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/66605
+	* c-common.c (do_warn_unused_parameter): Move here.
+	* c-common.h (do_warn_unused_parameter): Declare.
+
+2015-06-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/66322
+	* c-common.c (check_case_bounds): Add bool * parameter.  Set
+	OUTSIDE_RANGE_P.
+	(c_add_case_label): Add bool * parameter.  Pass it down to
+	check_case_bounds.
+	(c_do_switch_warnings): Add bool parameters.  Implement -Wswitch-bool
+	warning here.
+	* c-common.h (c_add_case_label, c_do_switch_warnings): Update
+	declarations.
+
 2015-06-27  Marek Polacek  <polacek@redhat.com>
 
 	* c-common.c (check_main_parameter_types): Use VECTOR_TYPE_P

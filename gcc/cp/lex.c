@@ -174,7 +174,7 @@ init_reswords (void)
   int mask = 0;
 
   if (cxx_dialect < cxx11)
-    mask |= D_CXX0X;
+    mask |= D_CXX11;
   if (flag_no_asm)
     mask |= D_ASM | D_EXT;
   if (flag_no_gnu_keywords)
@@ -552,6 +552,9 @@ retrofit_lang_decl (tree t)
   struct lang_decl *ld;
   size_t size;
   int sel;
+
+  if (DECL_LANG_SPECIFIC (t))
+    return;
 
   if (TREE_CODE (t) == FUNCTION_DECL)
     sel = 1, size = sizeof (struct lang_decl_fn);

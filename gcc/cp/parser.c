@@ -791,8 +791,8 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer, cp_token *token)
       else
 	{
           if (warn_cxx11_compat
-              && C_RID_CODE (token->u.value) >= RID_FIRST_CXX0X
-              && C_RID_CODE (token->u.value) <= RID_LAST_CXX0X)
+              && C_RID_CODE (token->u.value) >= RID_FIRST_CXX11
+              && C_RID_CODE (token->u.value) <= RID_LAST_CXX11)
             {
               /* Warn about the C++0x keyword (but still treat it as
                  an identifier).  */
@@ -4284,6 +4284,7 @@ cp_parser_primary_expression (cp_parser *parser,
     case CPP_CHAR16:
     case CPP_CHAR32:
     case CPP_WCHAR:
+    case CPP_UTF8CHAR:
     case CPP_NUMBER:
     case CPP_PREPARSED_EXPR:
       if (TREE_CODE (token->u.value) == USERDEF_LITERAL)
@@ -4345,6 +4346,7 @@ cp_parser_primary_expression (cp_parser *parser,
     case CPP_CHAR16_USERDEF:
     case CPP_CHAR32_USERDEF:
     case CPP_WCHAR_USERDEF:
+    case CPP_UTF8CHAR_USERDEF:
       return cp_parser_userdef_char_literal (parser);
 
     case CPP_STRING:
@@ -6887,6 +6889,7 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
 		  case CPP_WCHAR:
 		  case CPP_CHAR16:
 		  case CPP_CHAR32:
+		  case CPP_UTF8CHAR:
 		    /* If a parameter is literal zero alone, remember it
 		       for -Wmemset-transposed-args warning.  */
 		    if (integer_zerop (tok->u.value)
@@ -22532,6 +22535,28 @@ cp_parser_std_attribute (cp_parser *parser)
   return attribute;
 }
 
+/* Check that the attribute ATTRIBUTE appears at most once in the
+   attribute-list ATTRIBUTES.  This is enforced for noreturn (7.6.3)
+   and deprecated (7.6.5).  Note that carries_dependency (7.6.4)
+   isn't implemented yet in GCC.  */
+
+static void
+cp_parser_check_std_attribute (tree attributes, tree attribute)
+{
+  if (attributes)
+    {
+      tree name = get_attribute_name (attribute);
+      if (is_attribute_p ("noreturn", name)
+	  && lookup_attribute ("noreturn", attributes))
+	error ("attribute noreturn can appear at most once "
+	       "in an attribute-list");
+      else if (is_attribute_p ("deprecated", name)
+	       && lookup_attribute ("deprecated", attributes))
+	error ("attribute deprecated can appear at most once "
+	       "in an attribute-list");
+    }
+}
+
 /* Parse a list of standard C++-11 attributes.
 
    attribute-list:
@@ -22554,6 +22579,7 @@ cp_parser_std_attribute_list (cp_parser *parser)
 	break;
       if (attribute != NULL_TREE)
 	{
+	  cp_parser_check_std_attribute (attributes, attribute);
 	  TREE_CHAIN (attribute) = attributes;
 	  attributes = attribute;
 	}

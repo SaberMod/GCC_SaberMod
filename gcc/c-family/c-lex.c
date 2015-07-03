@@ -536,6 +536,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
     case CPP_WCHAR_USERDEF:
     case CPP_CHAR16_USERDEF:
     case CPP_CHAR32_USERDEF:
+    case CPP_UTF8CHAR_USERDEF:
       {
 	tree literal;
 	cpp_token temp_tok = *tok;
@@ -553,6 +554,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
     case CPP_WCHAR:
     case CPP_CHAR16:
     case CPP_CHAR32:
+    case CPP_UTF8CHAR:
       *value = lex_charconst (tok);
       break;
 
@@ -772,7 +774,7 @@ interpret_integer (const cpp_token *token, unsigned int flags,
 }
 
 /* Interpret TOKEN, a floating point number with FLAGS as classified
-   by cpplib.  For C++0X SUFFIX may contain a user-defined literal suffix.  */
+   by cpplib.  For C++11 SUFFIX may contain a user-defined literal suffix.  */
 static tree
 interpret_float (const cpp_token *token, unsigned int flags,
 		 const char *suffix, enum overflow_type *overflow)
@@ -1250,6 +1252,8 @@ lex_charconst (const cpp_token *token)
     type = char32_type_node;
   else if (token->type == CPP_CHAR16)
     type = char16_type_node;
+  else if (token->type == CPP_UTF8CHAR)
+    type = char_type_node;
   /* In C, a character constant has type 'int'.
      In C++ 'char', but multi-char charconsts have type 'int'.  */
   else if (!c_dialect_cxx () || chars_seen > 1)

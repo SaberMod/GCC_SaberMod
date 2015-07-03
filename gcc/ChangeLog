@@ -1,3 +1,584 @@
+2015-07-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* attribs.c (decl_attributes): Guard inform with the return value
+	of the preceding warning.
+
+2015-07-03  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* doc/invoke.texi (moverride): Move to correct section.
+
+2015-07-03  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (commutative_tree_code, commutative_ternary_tree_code):
+	Copy from tree.c
+	(dt_operand::gen_gimple_expr): After valueizing operands
+	re-canonicalize operand order for commutative tree codes.
+
+2015-07-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/66746.
+	* config/i386/ia32intrin.h (__crc32b): Don't define if __iamcu__
+	is defined.
+	(__crc32w): Likewise.
+	(__crc32d): Likewise.
+	(__rdpmc): Likewise.
+	(__rdtscp): Likewise.
+	(_rdpmc): Likewise.
+	(_rdtscp): Likewise.
+	* config/i386/x86intrin.h: Only include ia32intrin.h if __iamcu__
+	is defined.
+
+2015-07-03  Richard Biener  <rguenther@suse.de>
+
+	* fold-const.c (fold_mathfn_compare): Remove.
+	(fold_inf_compare): Likewise.
+	(fold_comparison): Move floating point comparison simplifications...
+	* match.pd: ... to patterns here.  Introduce simple_comparisons
+	operator list and use it for patterns formerly in fold_comparison.
+
+2015-07-03  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR tree-optimization/66119
+	* toplev.c (process_options): Don't set up default values for
+	the sra_max_scalarization_size_{speed,size} parameters.
+	* tree-sra (analyze_all_variable_accesses): If no values
+	have been set for the sra_max_scalarization_size_{speed,size}
+	parameters, call get_move_ratio to get target defaults.
+
+2015-07-03  Richard Biener  <rguenther@suse.de>
+
+	* fold-const.c (fold_binary_loc): Move (T)ptr & CST folding...
+	* match.pd: ... here.
+
+2015-07-03  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	PR target/37072
+	* doc/invoke.texi (i386 and x86-64 Options): -mno-fancy-math-387
+	is not actually the default on FreeBSD.
+
+2015-07-02  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-builtin.def (CMPGE_16QI): New built-in
+	definition.
+	(CMPGE_8HI): Likewise.
+	(CMPGE_4SI): Likewise.
+	(CMPGE_2DI): Likewise.
+	(CMPGE_U16QI): Likewise.
+	(CMPGE_U8HI): Likewise.
+	(CMPGE_U4SI): Likewise.
+	(CMPGE_U2DI): Likewise.
+	(CMPLE_16QI): Likewise.
+	(CMPLE_8HI): Likewise.
+	(CMPLE_4SI): Likewise.
+	(CMPLE_2DI): Likewise.
+	(CMPLE_U16QI): Likewise.
+	(CMPLE_U8HI): Likewise.
+	(CMPLE_U4SI): Likewise.
+	(CMPLE_U2DI): Likewise.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	overloads for ALTIVEC_BUILTIN_VEC_CMPGE and
+	ALTIVEC_BUILTIN_VEC_CMPLE.
+	* config/rs6000/vector.md (vector_ge<mode>): Restrict to
+	floating-point vector modes.
+	(vector_nlt<mode>): New define_expand.
+	(vector_nltu<mode>): Likewise.
+	(vector_ngt<mode>): Likewise.
+	(vector_ngtu<mode>): Likewise.
+
+2015-07-02  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/66706
+	* combine.c (make_compound_operation): If an AND of SUBREG of
+	LSHIFTRT does not simplify, see if just the AND of SUBREG does.
+
+2015-07-02  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* tree-pass.h (make_pass_ch_vect): New.
+	* passes.def: Add pass_ch_vect just before pass_if_conversion.
+
+	* tree-ssa-loop-ch.c (ch_base, pass_ch_vect, pass_data_ch_vect,
+	pass_ch::process_loop_p, pass_ch_vect::process_loop_p,
+	make_pass_ch_vect): New.
+	(pass_ch): Extend ch_base.
+
+	(pass_ch::execute): Move all but loop_optimizer_init/finalize to...
+	(ch_base::copy_headers): ...here.
+
+2015-07-02  Richard Biener  <rguenther@suse.de>
+
+	* builtins.c (get_pointer_alignment_1): Handle POINTER_PLUS_EXPR.
+	* fold-const.c (get_pointer_modulus_and_residue): Remove.
+	(fold_binary_loc): Implement (T)ptr & CST in terms of
+	get_pointer_alignment_1.
+	* tree-vect-loop-manip.c (vect_gen_niters_for_prolog_loop):
+	Make sure to build the alignment test on a SSA name without
+	final alignment info valid only after the prologue.
+
+2015-07-02  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/cris.md ("epilogue"): Remove condition.
+	("prologue"): Ditto.
+
+2015-07-02  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-dom.c (build_and_record_new_cond): Add optional
+	parameter to record a condition that is false.
+	(record_conditions): When recording an extra NE_EXPR that is
+	true also record a EQ_EXPR that is false.
+
+2015-07-02  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-ssa-loop-ivopts.c (struct ivopts_data): New field iv_obstack.
+	(tree_ssa_iv_optimize_init): Initialize iv_obstack.
+	(alloc_iv): New parameter.  Allocate struct iv using obstack_alloc.
+	(set_iv, find_interesting_uses_address, add_candidate_1): New
+	argument to alloc_iv.
+	(find_interesting_uses_op, find_interesting_uses_cond): Don't
+	duplicate struct iv.
+	(free_loop_data): Don't free struct iv explicitly.
+	(tree_ssa_iv_optimize_finalize): Free iv_obstack.
+
+2015-07-01  DJ Delorie  <dj@redhat.com>
+
+	* config/s390/tpf.h (LIBSTDCXX): Change to CPP1.
+	(LIB_SPEC): Add.
+	(SUPPORTS_DISCRIMINATOR): Define.
+
+2015-07-01  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR bootstrap/66685
+	* rtl.c (classify_insn): Only return JUMP_INSN for parallel returns if
+	there are no CALLs in the same pattern.
+
+2015-07-01  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR rtl-optimization/61047
+	* rtlanal.c (get_initial_register_offset): New function.
+	(rtx_addr_can_trap_p_1): Check offsets of stack references.
+
+2015-07-01  Richard Biener  <rguenther@suse.de>
+
+	* fold-const.c (fold_comparison): Move X - Y CMP 0 -> X CMP Y,
+	X * C1 CMP 0 -> X CMP 0, X CMP X, ~X CMP ~Y -> Y CMP X and
+	~X CMP C -> X CMP' ~C to ...
+	* match.pd: ... patterns here.
+
+2015-07-01  Nick Clifton  <nickc@redhat.com>
+
+	* config/msp430/msp430.md (zero_extendhipsi2): Use MOVX.A to store
+	a 16-bit value into a 20-bit memory slot.
+
+2015-07-01  Jiong Wang  <jiong.wang@arm.com>
+
+	* doc/sourcebuild.texi (AArch64-specific attributes): Document
+	"aarch64_tiny", "aarch64_small", "aarch64_large",
+	"aarch64_little_endian", "aarch64_big_endian".
+
+2015-07-01  Jiong Wang  <jiong.wang@arm.com>
+
+	* doc/sourcebuild.texi (AArch64-specific attributes): New subsection.
+	Document "aarch64_small_fpic".
+
+2015-07-01  Jiong Wang  <jiong.wang@arm.com>
+
+	* configure.ac: Add check for aarch64 assembler -fpic relocation
+	modifier support.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/aarch64/aarch64.c (initialize_aarch64_code_model): Fall back
+	to -fPIC if not support of -fpic relocation modifier in assembler.
+
+2015-07-01  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR bootstrap/66685
+	* rtl.c (classify_insn): Handle returns in PARALLELs.
+
+2015-07-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/66633
+	* tree-nested.c (convert_nonlocal_omp_clauses): Initialize need_chain
+	to true if the function is nested and if not optimizing.
+	(convert_local_omp_clauses): Initialize need_frame to true if the
+	function contains nested functions and if not optimizing.
+
+2015-07-01  Richard Biener  <rguenther@suse.de>
+
+	* fold-const.c (fold_binary_loc): Move ~X ^ X -> -1 and
+	(X & Y) ^ Y -> ~X & Y transforms to ...
+	* match.pd: ... here.
+
+2015-07-01  Richard Biener <rguenther@suse.de>
+
+	* genmatch.c (expr::gen_transform): Shortcut re-simplifying
+	of converts to avoid uninteresting noise from the conversion
+	simplifying patterns.
+
+2015-06-30  Sandra Loosemore <sandra@codesourcery.com>
+
+	* config/c6x/c6x.c (try_rename_operands): Do not depend on
+	gcc_assert evaluating its argument for side-effect.
+
+2015-06-30  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/64833
+	* config/sh/sh.md (casesi_worker_1): Set length to 8 when
+	flag_pic is set.
+
+2015-06-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* lto-streamer-out.c (class DFS): Adjust hash_scc method.
+	(DFS::DFS): Pass this_ref_p and ref_p to hash_scc.
+	(hash_scc): Add this_ref_p and ref_p parameters and pass them
+	to the inner DFS walk.
+
+2015-06-30  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* target-insns.def (jump): New targetm instruction pattern.
+	* bb-reorder.c (get_uncond_jump_length): Use targetm.gen_jump
+	instead of gen_jump.
+	(fix_up_crossing_landing_pad): Likewise.
+	(add_labels_and_missing_jumps): Likewise.
+	(fix_crossing_conditional_branches): Likewise.
+	* cfgrtl.c (try_redirect_by_replacing_jump): Likewise.
+	(force_nonfallthru_and_redirect): Likewise.
+	* cse.c (cse_insn): Likewise.
+	* expmed.c (expand_divmod): Likewise.
+	* expr.c (store_expr_with_bounds, expand_expr_real_2): Likewise.
+	* haifa-sched.c (init_before_recovery): Likewise.
+	(sched_create_recovery_edges): Likewise.
+	* ifcvt.c (find_cond_trap): Likewise.
+	* optabs.c (expand_doubleword_shift, expand_doubleword_clz): Likewise.
+	(expand_float, expand_fix): Likewise.
+	* stmt.c (emit_jump): Likewise.
+
+2015-06-30  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* defaults.h (HAVE_load_multiple, gen_load_multiple)
+	(HAVE_store_multiple, gen_store_multiple): Delete.
+	* target-insns.def (load_multiple, store_multiple): New targetm
+	instruction patterns.
+	* expr.c (move_block_to_reg, move_block_from_reg): Use them instead
+	of HAVE_*/gen_* interface.
+
+2015-06-30  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* defaults.h (HAVE_mem_thread_fence, gen_mem_thread_fence)
+	(HAVE_memory_barrier, gen_memory_barrier, HAVE_mem_signal_fence)
+	(gen_mem_signal_fence): Delete.
+	* target-insns.def (mem_signal_fence, mem_thread_fence)
+	(memory_barrier): New targetm instruction patterns.
+	* optabs.c (expand_mem_thread_fence): Use them instead of HAVE_*/gen_*
+	interface.
+	(expand_mem_signal_fence): Likewise.
+
+2015-06-30  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* defaults.h (HAVE_epilogue, gen_epilogue): Delete.
+	* target-insns.def (epilogue, prologue, sibcall_prologue): New
+	targetm instruction patterns.
+	* alias.c (init_alias_analysis): Use them instead of HAVE_*/gen_*
+	interface.
+	* calls.c (expand_call): Likewise.
+	* cfgrtl.c (cfg_layout_finalize): Likewise.
+	* df-scan.c (df_get_entry_block_def_set): Likewise.
+	(df_get_exit_block_use_set): Likewise.
+	* dwarf2cfi.c (pass_dwarf2_frame::gate): Likewise.
+	* final.c (final_start_function): Likewise.
+	* function.c (thread_prologue_and_epilogue_insns): Likewise.
+	(reposition_prologue_and_epilogue_notes): Likewise.
+	* reorg.c (find_end_label): Likewise.
+	* toplev.c (process_options): Likewise.
+
+2015-06-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* typed-splay-tree.h: New file.
+
+2015-06-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR debug/66691
+	* lra-int.h (lra_substitute_pseudo): Add a parameter.
+	(lra_substitute_pseudo_within_insn): Ditto.
+	* lra.c (lra_substitute_pseudo): Add a parameter.  Simplify subreg
+	of constant.
+	(lra_substitute_pseudo_within_insn): Add a parameter.  Transfer it
+	to lra_substitute_pseudo.
+	* lra-lives.c (process_bb_lives): Add an argument to
+	lra_substitute_pseudo_within_insn call.
+	* lra-constraints.c (inherit_reload_reg, split_reg): Add an
+	argument to lra_substitute_pseudo and
+	lra_substitute_pseudo_within_insn calls.
+	(remove_inheritance_pseudos, undo_optional_reloads): Ditto.
+
+2015-06-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* configure: Regenerated.
+
+2015-06-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config.gcc: Support i[34567]86-*-elfiamcu target.
+	* config/i386/iamcu.h: New.
+	* config/i386/i386.opt: Add -miamcu.
+	* doc/invoke.texi: Document -miamcu.
+	* common/config/i386/i386-common.c  (ix86_handle_option): Turn
+	off x87/MMX/SSE/AVX codegen for -miamcu.
+	* config/i386/i386-c.c (ix86_target_macros_internal): Define
+	__iamcu/__iamcu__ for -miamcu.
+	* config/i386/i386.h (PREFERRED_STACK_BOUNDARY_DEFAULT): Set
+	to MIN_STACK_BOUNDARY if TARGET_IAMCU is true.
+	(BIGGEST_ALIGNMENT): Set to 32 if TARGET_IAMCU is true.
+	* config/i386/i386.c (ix86_option_override_internal): Ignore and
+	warn -mregparm for Intel MCU.  Turn on -mregparm=3 for Intel
+	MCU by default.  Default long double to 64-bit for Intel MCU.
+	Turn on -freg-struct-return for Intel MCU.  Issue an error when
+	-miamcu is used in 64-bit or x32 mode or if x87, MMX, SSE or
+	AVX is turned on.
+	(function_arg_advance_32): Pass value whose size is no larger
+	than 8 bytes in registers for Intel MCU.
+	(function_arg_32): Likewise.
+	(ix86_return_in_memory): Return value whose size is no larger
+	than 8 bytes in registers for Intel MCU.
+	(iamcu_alignment): New function.
+	(ix86_data_alignment): Call iamcu_alignment if TARGET_IAMCU is
+	true.
+	(ix86_local_alignment): Don't increase alignment for Intel MCU.
+	(x86_field_alignment): Return iamcu_alignment if TARGET_IAMCU is
+	true.
+
+2015-06-30  Marek Polacek  <polacek@redhat.com>
+
+	* match.pd (X - (X / Y) * Y): Use convert1 and convert2.  Convert
+	both operands of the resulting expression.	
+
+	* match.pd (~x | x): Don't use tree_nop_conversion_p.  Build
+	the final expression with the operand's type and then convert
+	it to the type of the expression.
+
+2015-06-30  Richard Biener  <rguenther@suse.de>
+
+	* fold-const.c (fold_binary_loc): Move ~x & ~y -> ~(x | y) and
+	~x | ~y -> ~(x & y), (x & CST) ^ (x & CST2) -> (x & CST) | (x & CST2),
+	(X | Y) ^ X -> Y & ~ X, ~X ^ ~Y to X ^ Y and ~X ^ C to X ^ ~C ...
+	* match.pd: ... to patterns here.
+
+2015-06-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66704
+	* tree-vect-data-refs.c (vect_setup_realignment): Use
+	make_ssa_name for non-SSA name source.
+
+2015-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/66702
+	* omp-low.c (simd_clone_adjust): Handle addressable linear
+	or uniform parameters or non-gimple type uniform parameters.
+
+2015-06-30  Richard Biener  <rguenther@suse.de>
+
+	* fold-const.c (fold_unary_loc): Move abs(abs(x)) -> abs(x),
+	~ (-A) to A - 1, ~ (A - 1) or ~ (A + -1) to -A and some cases of
+	~(X ^ Y) to ~X ^ Y or X ^ ~Y if ~X or ~Y simplify to ...
+	* match.pd: ... here.
+	Add a few cases of A - B -> A + (-B) when B "easily" negates.
+	Move (x & y) | x -> x and friends before
+	(x | CST1) & CST2 -> (x & CST2) | (CST1 & CST2).
+
+2015-06-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/leon.md (leon_load): Enable for all LEON variants if
+	-mfix-ut699 is not specified.
+	(leon3_load): Rename into...
+	(ut699_load): ...this.  Enable for all LEON variants if -mfix-ut699
+	is specified.
+
+2015-06-30  Marek Polacek  <polacek@redhat.com>
+
+	* fold-const.c (fold_binary_loc): Move ~X | X folding ...
+	* match.pd: ... here.
+
+2015-06-30  Richard Biener  <rguenther@suse.de>
+
+	* target-insns.def (canonicalize_funcptr_for_compare): Add.
+	* fold-const.c (build_range_check): Replace uses of
+	HAVE_canonicalize_funcptr_for_compare.
+	(fold_widened_comparison): Likewise.
+	(fold_sign_changed_comparison): Likewise.
+	* dojump.c: Include "target.h".
+	(do_compare_and_jump): Replace uses of
+	HAVE_canonicalize_funcptr_for_compare and
+	gen_canonicalize_funcptr_for_compare.
+	* expr.c (do_store_flag): Likewise.
+
+2015-06-30  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/66652
+	* tree-parloops.c (try_transform_to_exit_first_loop_alt): Use
+	max_loop_iterations to determine if nit + 1 overflows.
+
+2015-06-30  Richard Biener  <rguenther@suse.de>
+
+	* tree-vrp.c (register_edge_assert_for_2): Also register
+	asserts for dominating conversion results.
+
+2015-06-30  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-ssa-loop-ivopts.c (record_sub_use): Don't reset ssa_name
+	field in struct iv.
+
+2015-06-29  Jack Howarth  <howarth.at.gcc@gmail.com>
+
+	PR target/66509
+	* configure.ac: Fix filds and fildq test for 64-bit.
+	* configure: Regenerated.
+
+2015-06-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.md (nvptx_reorg_subreg): New fn, broken out of ...
+	(nvptx_reorg): Here.  Keep the non-subreg pieces.
+
+2015-06-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/gnu-user.h (GNU_USER_TARGET_ENDFILE_SPEC): Use
+	PIE_SPEC and NO_PIE_SPEC if HAVE_LD_PIE is defined.
+
+2015-06-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*jcc_1): Use %! in asm template.
+	Set attribute "length_nobnd" instead of "length".
+	(*jcc_2): Ditto.
+	(jump): Ditto.
+	(*jcc_1_bnd, *jcc_2_bnd, jump_bnd): Remove insn patterns.
+
+2015-06-29  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* config/nios2/nios2.c (nios2_delegitimize_address): Make
+	assert less restrictive.
+
+2015-06-29  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/66605
+	* cgraphunit.c (cgraph_node::finalize_function): Do not call
+	do_warn_unused_parameter.
+	* function.c (do_warn_unused_parameter): Move from here.
+	* function.h (do_warn_unused_parameter): Do not declare.
+
+2015-06-29  Matthew Wahab  <matthew.wahab@arm.com>
+
+	PR target/65697
+	* gcc.target/arm/armv-sync-comp-swap.c: New.
+	* gcc.target/arm/armv-sync-op-acquire.c: New.
+	* gcc.target/arm/armv-sync-op-full.c: New.
+	* gcc.target/arm/armv-sync-op-release.c: New.
+
+2015-06-29  Matthew Wahab  <matthew.wahab@arm.com>
+
+	PR target/65697
+	* config/armc/arm.c (arm_split_compare_and_swap): For ARMv8, replace an
+	initial acquire barrier with final barrier.
+
+2015-06-29  Matthew Wahab  <matthew.wahab@arm.com>
+
+	PR target/65697
+	* config/armc/arm.c (arm_split_atomic_op): For ARMv8, replace an
+	initial acquire barrier with final barrier.
+
+2015-06-29  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/constraints.md (Bf): New constraint.
+	* config/i386/i386-c.c (ix86_target_macros): Define
+	__GCC_ASM_FLAG_OUTPUTS__.
+	* config/i386/i386.c (ix86_md_asm_adjust): Handle =@cc* constraints
+	as flags outputs.
+	* doc/extend.texi (FlagOutputOperands): Document them.
+
+2015-06-29  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/arch64/aarch64.md (UNSPEC_TLSLE): New enumeration.
+	* config/arch64/aarch64.md (tlsle_small): Rename to tlsle and use new
+	unspec name.
+	(tlsle_small_<mode>): Rename to tlsle_<mode> and use new unspec name.
+	* config/arch64/aarch64-protos.h (arch64_symbol_type): Rename
+	SYMBOL_SMALL_TPREL to SYMBOL_TLSLE.
+	(aarch64_symbol_context): Ditto.
+	* config/aarch64/aarch64.c (aarch64_load_symref_appropriately): Ditto
+	and use new pattern name.
+	(aarch64_expand_mov_immediate): Ditto.
+	(aarch64_print_operand): Ditto.
+	(aarch64_classify_tls_symbol): Ditto.
+
+2015-06-29  Marek Polacek  <polacek@redhat.com>
+	    Marc Glisse  <marc.glisse@inria.fr>
+
+	* fold-const.c (fold_binary_loc): Move X - (X / Y) * Y -> X % Y to ...
+	* match.pd: ... pattern here.
+
+2015-06-29  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (try_transform_to_exit_first_loop_alt): Simplify
+	function structure.
+
+2015-06-29  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* doc/invoke.texi (Aarch64 Options, -march): Split out arch and
+	feature description, split out the native option, add a link to
+	the feature documentation, rearrange and slightly rewrite text.
+	(Aarch64 options, -mcpu): Likewise.
+	(Aarch64 options, Feature Modifiers): Add an anchor.  Mention
+	+rdma implies Adv. SIMD.
+
+2015-06-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/66322
+	* function.c (stack_protect_epilogue): Remove a cast to int.
+	* doc/invoke.texi: Update -Wswitch-bool description.
+
+2015-06-29  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (add_operator): Treat ADDR_EXPR as atom.
+	* fold-const.c (fold_binary_loc): Move &A - &B simplification
+	via ptr_difference_const ...
+	* match.pd: ... here.
+	When matching (X ^ Y) == Y also match with swapped operands.
+
+2015-06-29  Richard Biener  <rguenther@suse.de>
+
+	* lto-streamer.h (LTO_major_version): Bump to 5.
+
+2015-06-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66677
+	* tree-vect-stmts.c (vect_transform_stmt): Make assert about
+	STMT_VINFO_VEC_STMT clobbering less strict.
+
+2015-06-29  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/64130
+	* tree-vrp.c (extract_range_from_binary_expr_1): For unsigned
+	division, compute max and min when value ranges for dividend and
+	divisor are available.
+
+2015-06-28  Chung-Lin Tang <cltang@codesourcery.com>
+	    Sandra Loosemore <sandra@codesourcery.com>
+
+	* regrename.h (regrename_do_replace): Change to return bool.
+	* regrename.c (rename_chains): Check return value of
+	regname_do_replace.
+	(regrename_do_replace): Re-validate the modified insns and
+	return bool status.
+	* config/aarch64/cortex-a57-fma-steering.c (rename_single_chain):
+	Update to match rename_chains changes.
+	* config/c6x/c6x.c (try_rename_operands): Assert that
+	regrename_do_replace returns true.
+
+2015-06-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (<mode>_ldx): Do not zero-extend non-Pmode
+	operand 2 here.  Use copy_addr_to_reg to copy non-index
+	register operand 2 to a temporary.
+	(<mode>_stx): Ditto for operand 1.
+	(*<mode>_ldx, *<mode>_stx): Remove enclosing parallel.
+	* config/i386/i386.c (ix86_load_bounds): Zero-extend non-Pmode ptr here.
+	(ix86_store_bounds): Ditto.
+
 2015-06-27  Patrick Palka  <ppalka@gcc.gnu.org>
 
 	* print-tree.c (print_node) [TREE_VEC]: Print its length.
