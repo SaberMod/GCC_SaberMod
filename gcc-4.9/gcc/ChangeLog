@@ -836,6 +836,13 @@
 	(write_dependence_p): Ditto.
 	(may_alias_p): Ditto.
 
+2014-11-04  Jiong Wang  <jiong.wang@arm.com>
+2014-11-04  Wilco Dijkstra  <wilco.dijkstra@arm.com>
+
+	PR target/63293
+	* config/aarch64/aarch64.c (aarch64_expand_epiloue): Add barriers before
+	stack adjustment.
+
 2014-10-31  DJ Delorie  <dj@redhat.com>
 
 	* expmed.c (strict_volatile_bitfield_p): Fix off-by-one error.
