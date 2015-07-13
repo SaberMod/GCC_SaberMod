@@ -1,2 +1,0 @@
-global GCC_UNDER_TEST
-set GCC_UNDER_TEST "@CC@"

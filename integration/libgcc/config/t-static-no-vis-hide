@@ -1,2 +1,0 @@
-# Don't hide symbols in static libraries.
-vis_hide =
