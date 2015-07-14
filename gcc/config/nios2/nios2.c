@@ -23,21 +23,20 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "function.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -48,21 +47,16 @@
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
 #include "target.h"
 #include "tm_p.h"
 #include "langhooks.h"
-#include "df.h"
 #include "debug.h"
 #include "reload.h"
 #include "stor-layout.h"
@@ -446,9 +440,8 @@ static void
 save_reg (int regno, unsigned offset)
 {
   rtx reg = gen_rtx_REG (SImode, regno);
-  rtx addr = gen_rtx_PLUS (Pmode, stack_pointer_rtx,
-			   gen_int_mode (offset, Pmode));
-  rtx insn = emit_move_insn (gen_frame_mem (Pmode, addr), reg);
+  rtx addr = plus_constant (Pmode, stack_pointer_rtx, offset, false);
+  rtx_insn *insn = emit_move_insn (gen_frame_mem (Pmode, addr), reg);
   RTX_FRAME_RELATED_P (insn) = 1;
 }
 
@@ -456,9 +449,8 @@ static void
 restore_reg (int regno, unsigned offset)
 {
   rtx reg = gen_rtx_REG (SImode, regno);
-  rtx addr = gen_rtx_PLUS (Pmode, stack_pointer_rtx,
-			   gen_int_mode (offset, Pmode));
-  rtx insn = emit_move_insn (reg, gen_frame_mem (Pmode, addr));
+  rtx addr = plus_constant (Pmode, stack_pointer_rtx, offset, false);
+  rtx_insn *insn = emit_move_insn (reg, gen_frame_mem (Pmode, addr));
   /* Tag epilogue unwind note.  */
   add_reg_note (insn, REG_CFA_RESTORE, reg);
   RTX_FRAME_RELATED_P (insn) = 1;
@@ -479,10 +471,10 @@ nios2_emit_stack_limit_check (void)
 /* Temp regno used inside prologue/epilogue.  */
 #define TEMP_REG_NUM 8
 
-static rtx
+static rtx_insn *
 nios2_emit_add_constant (rtx reg, HOST_WIDE_INT immed)
 {
-  rtx insn;
+  rtx_insn *insn;
   if (SMALL_INT (immed))
     insn = emit_insn (gen_add2_insn (reg, gen_int_mode (immed, Pmode)));
   else
@@ -501,7 +493,7 @@ nios2_expand_prologue (void)
   int total_frame_size, save_offset;
   int sp_offset;      /* offset from base_reg to final stack value.  */
   int save_regs_base; /* offset from base_reg to register save area.  */
-  rtx insn;
+  rtx_insn *insn;
 
   total_frame_size = nios2_compute_frame_layout ();
 
@@ -587,7 +579,8 @@ nios2_expand_prologue (void)
 void
 nios2_expand_epilogue (bool sibcall_p)
 {
-  rtx insn, cfa_adj;
+  rtx_insn *insn;
+  rtx cfa_adj;
   int total_frame_size;
   int sp_adjust, save_offset;
   unsigned int regno;
@@ -1098,10 +1091,13 @@ nios2_simple_const_p (const_rtx cst)
    cost has been computed, and false if subexpressions should be
    scanned.  In either case, *TOTAL contains the cost result.  */
 static bool
-nios2_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
+nios2_rtx_costs (rtx x, machine_mode mode ATTRIBUTE_UNUSED,
+		 int outer_code ATTRIBUTE_UNUSED,
 		 int opno ATTRIBUTE_UNUSED,
 		 int *total, bool speed ATTRIBUTE_UNUSED)
 {
+  int code = GET_CODE (x);
+
   switch (code)
     {
       case CONST_INT:
@@ -1180,7 +1176,8 @@ nios2_call_tls_get_addr (rtx ti)
 {
   rtx arg = gen_rtx_REG (Pmode, FIRST_ARG_REGNO);
   rtx ret = gen_rtx_REG (Pmode, FIRST_RETVAL_REGNO);
-  rtx fn, insn;
+  rtx fn;
+  rtx_insn *insn;
   
   if (!nios2_tls_symbol)
     nios2_tls_symbol = init_one_libfunc ("__tls_get_addr");
@@ -1343,10 +1340,10 @@ nios2_emit_expensive_div (rtx *operands, machine_mode mode)
   rtx or_result, shift_left_result;
   rtx lookup_value;
   rtx_code_label *lab1, *lab3;
-  rtx insns;
+  rtx_insn *insns;
   rtx libfunc;
   rtx final_result;
-  rtx tmp;
+  rtx_insn *tmp;
   rtx table;
 
   /* It may look a little generic, but only SImode is supported for now.  */
@@ -1614,14 +1611,15 @@ nios2_legitimate_address_p (machine_mode mode ATTRIBUTE_UNUSED,
     case SYMBOL_REF:
       if (SYMBOL_REF_TLS_MODEL (operand))
 	return false;
-      
-      if (nios2_symbol_ref_in_small_data_p (operand))
+
+      /* Else, fall through.  */
+    case CONST:
+      if (gprel_constant_p (operand))
 	return true;
 
       /* Else, fall through.  */
     case LABEL_REF:
     case CONST_INT:
-    case CONST:
     case CONST_DOUBLE:
       return false;
 
@@ -1688,7 +1686,7 @@ nios2_in_small_data_p (const_tree exp)
 
 /* Return true if symbol is in small data section.  */
 
-bool
+static bool
 nios2_symbol_ref_in_small_data_p (rtx sym)
 {
   tree decl;
@@ -1928,7 +1926,7 @@ nios2_delegitimize_address (rtx x)
 }
 
 /* Main expander function for RTL moves.  */
-int
+bool
 nios2_emit_move_sequence (rtx *operands, machine_mode mode)
 {
   rtx to = operands[0];
@@ -1947,7 +1945,7 @@ nios2_emit_move_sequence (rtx *operands, machine_mode mode)
 
   operands[0] = to;
   operands[1] = from;
-  return 0;
+  return false;
 }
 
 /* The function with address *ADDR is being called.  If the address
@@ -2110,7 +2108,7 @@ nios2_print_operand (FILE *file, rtx op, int letter)
 }
 
 /* Return true if this is a GP-relative accessible reference.  */
-static bool
+bool
 gprel_constant_p (rtx op)
 {
   if (GET_CODE (op) == SYMBOL_REF

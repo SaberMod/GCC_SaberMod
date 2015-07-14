@@ -29,7 +29,7 @@ extern void nios2_expand_epilogue (bool);
 extern void nios2_function_profiler (FILE *, int);
 
 #ifdef RTX_CODE
-extern int nios2_emit_move_sequence (rtx *, machine_mode);
+extern bool nios2_emit_move_sequence (rtx *, machine_mode);
 extern void nios2_emit_expensive_div (rtx *, machine_mode);
 extern void nios2_adjust_call_address (rtx *, rtx);
 
@@ -44,7 +44,7 @@ extern bool nios2_fpu_insn_enabled (enum n2fpu_code);
 extern const char * nios2_fpu_insn_asm (enum n2fpu_code);
 
 extern bool nios2_legitimate_pic_operand_p (rtx);
-extern bool nios2_symbol_ref_in_small_data_p (rtx);
+extern bool gprel_constant_p (rtx);
 extern bool nios2_regno_ok_for_base_p (int, bool);
 extern bool nios2_unspec_reloc_p (rtx);
 

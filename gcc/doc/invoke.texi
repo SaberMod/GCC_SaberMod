@@ -14033,7 +14033,7 @@ If @var{device} is not a device but only a core architecture like
 The device / architecture belongs to the XMEGA family of devices.
 
 @item __AVR_HAVE_ELPM__
-The device has the the @code{ELPM} instruction.
+The device has the @code{ELPM} instruction.
 
 @item __AVR_HAVE_ELPMX__
 The device has the @code{ELPM R@var{n},Z} and @code{ELPM
@@ -22249,6 +22249,9 @@ Intel i486 CPU@.  (No scheduling is implemented for this chip.)
 @item i586
 @itemx pentium
 Intel Pentium CPU with no MMX support.
+
+@item iamcu
+Intel MCU, based on Intel Pentium CPU.
 
 @item pentium-mmx
 Intel Pentium MMX CPU, based on Pentium core with MMX instruction set support.
