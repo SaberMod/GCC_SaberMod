@@ -4,8 +4,6 @@ AC_PREREQ(2.64)
 AC_INIT
 AC_CONFIG_SRCDIR([zlib.h])
 
-AM_ENABLE_MULTILIB(, ..)
-
 AC_CANONICAL_SYSTEM
 
 # This works around an automake problem.
