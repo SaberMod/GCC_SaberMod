@@ -29,7 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 #include <isl/map.h>
 #include <isl/union_map.h>
 #include <isl/constraint.h>
-#endif
 
 #include "system.h"
 #include "coretypes.h"
