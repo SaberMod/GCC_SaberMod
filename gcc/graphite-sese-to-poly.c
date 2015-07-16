@@ -21,6 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 
 #ifdef HAVE_isl
+/* Workaround for GMP 5.1.3 bug, see PR56019.  */
+#include <stddef.h>
+
 #include <isl/set.h>
 #include <isl/map.h>
 #include <isl/union_map.h>
@@ -36,61 +39,30 @@ extern "C" {
 #if !defined(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE) && defined(__cplusplus)
 }
 #endif
-#endif
 
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
 #include "gimple.h"
+#include "ssa.h"
+#include "fold-const.h"
 #include "gimple-iterator.h"
 #include "gimplify.h"
 #include "gimplify-me.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
 #include "tree-into-ssa.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
-#include "tree-chrec.h"
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 #include "domwalk.h"
-#include "sese.h"
-#include "tree-ssa-propagate.h"
-
-#ifdef HAVE_isl
-#include "rtl.h"
-#include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "varasm.h"
-#include "stmt.h"
-#include "expr.h"
 #include "graphite-poly.h"
+#include "tree-ssa-propagate.h"
 #include "graphite-sese-to-poly.h"
 
 
@@ -790,6 +762,10 @@ parameter_index_in_region (tree name, sese region)
 
   gcc_assert (TREE_CODE (name) == SSA_NAME);
 
+  /* Cannot constrain on anything else than INTEGER_TYPE parameters.  */
+  if (TREE_CODE (TREE_TYPE (name)) != INTEGER_TYPE)
+    return -1;
+
   i = parameter_index_in_region_1 (name, region);
   if (i != -1)
     return i;
@@ -915,6 +891,9 @@ scan_tree_for_params (sese s, tree e)
 
     case INTEGER_CST:
     case ADDR_EXPR:
+    case REAL_CST:
+    case COMPLEX_CST:
+    case VECTOR_CST:
       break;
 
    default:
@@ -1194,6 +1173,10 @@ add_conditions_to_domain (poly_bb_p pbb)
       {
       case GIMPLE_COND:
 	  {
+            /* Don't constrain on anything else than INTEGER_TYPE.  */
+	    if (TREE_CODE (TREE_TYPE (gimple_cond_lhs (stmt))) != INTEGER_TYPE)
+              break;
+
 	    gcond *cond_stmt = as_a <gcond *> (stmt);
 	    enum tree_code code = gimple_cond_code (cond_stmt);
 
@@ -2458,10 +2441,10 @@ rewrite_cross_bb_scalar_deps (scop_p scop, gimple_stmt_iterator *gsi)
   handle_scalar_deps_crossing_scop_limits (scop, def, stmt);
 
   FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, def)
-    if (gimple_code (use_stmt) == GIMPLE_PHI
-	&& (res = true))
+    if (gphi *phi = dyn_cast <gphi *> (use_stmt))
       {
-	gphi_iterator psi = gsi_start_phis (gimple_bb (use_stmt));
+	res = true;
+	gphi_iterator psi = gsi_for_phi (phi);
 
 	if (scalar_close_phi_node_p (gsi_stmt (psi)))
 	  rewrite_close_phi_out_of_ssa (scop, &psi);
@@ -3196,4 +3179,4 @@ build_poly_scop (scop_p scop)
      representation.  */
   POLY_SCOP_P (scop) = true;
 }
-#endif
+#endif  /* HAVE_isl */

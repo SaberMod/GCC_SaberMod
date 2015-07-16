@@ -24,24 +24,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "cfghooks.h"
+#include "tree.h"
+#include "gimple.h"
 #include "rtl.h"
+#include "df.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "insn-attr.h"
 #include "recog.h"
 #include "output.h"
 #include "alias.h"
-#include "symtab.h"
-#include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
-#include "function.h"
 #include "flags.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -59,24 +59,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "common/common-target.h"
 #include "langhooks.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
 #include "sched-int.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimplify.h"
-#include "bitmap.h"
 #include "diagnostic.h"
 #include "target-globals.h"
 #include "opts.h"
@@ -390,6 +382,30 @@ struct GTY(())  mips_frame_info {
   HOST_WIDE_INT hard_frame_pointer_offset;
 };
 
+/* Enumeration for masked vectored (VI) and non-masked (EIC) interrupts.  */
+enum mips_int_mask
+{
+  INT_MASK_EIC = -1,
+  INT_MASK_SW0 = 0,
+  INT_MASK_SW1 = 1,
+  INT_MASK_HW0 = 2,
+  INT_MASK_HW1 = 3,
+  INT_MASK_HW2 = 4,
+  INT_MASK_HW3 = 5,
+  INT_MASK_HW4 = 6,
+  INT_MASK_HW5 = 7
+};
+
+/* Enumeration to mark the existence of the shadow register set.
+   SHADOW_SET_INTSTACK indicates a shadow register set with a valid stack
+   pointer.  */
+enum mips_shadow_set
+{
+  SHADOW_SET_NO,
+  SHADOW_SET_YES,
+  SHADOW_SET_INTSTACK
+};
+
 struct GTY(())  machine_function {
   /* The next floating-point condition-code register to allocate
      for ISA_HAS_8CC targets, relative to ST_REG_FIRST.  */
@@ -442,8 +458,12 @@ struct GTY(())  machine_function {
   /* True if this is an interrupt handler.  */
   bool interrupt_handler_p;
 
-  /* True if this is an interrupt handler that uses shadow registers.  */
-  bool use_shadow_register_set_p;
+  /* Records the way in which interrupts should be masked.  Only used if
+     interrupts are not kept masked.  */
+  enum mips_int_mask int_mask;
+
+  /* Records if this is an interrupt handler that uses shadow registers.  */
+  enum mips_shadow_set use_shadow_register_set;
 
   /* True if this is an interrupt handler that should keep interrupts
      masked.  */
@@ -725,6 +745,10 @@ const enum reg_class mips_regno_to_class[FIRST_PSEUDO_REGISTER] = {
   ALL_REGS,	ALL_REGS,	ALL_REGS,	ALL_REGS
 };
 
+static tree mips_handle_interrupt_attr (tree *, tree, tree, int, bool *);
+static tree mips_handle_use_shadow_register_set_attr (tree *, tree, tree, int,
+						      bool *);
+
 /* The value of TARGET_ATTRIBUTE_TABLE.  */
 static const struct attribute_spec mips_attribute_table[] = {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
@@ -742,8 +766,10 @@ static const struct attribute_spec mips_attribute_table[] = {
   { "nomicromips", 0, 0, true,  false, false, NULL, false },
   { "nocompression", 0, 0, true,  false, false, NULL, false },
   /* Allow functions to be specified as interrupt handlers */
-  { "interrupt",   0, 0, false, true,  true, NULL, false },
-  { "use_shadow_register_set",	0, 0, false, true,  true, NULL, false },
+  { "interrupt",   0, 1, false, true,  true, mips_handle_interrupt_attr,
+    false },
+  { "use_shadow_register_set",	0, 1, false, true,  true,
+    mips_handle_use_shadow_register_set_attr, false },
   { "keep_interrupts_masked",	0, 0, false, true,  true, NULL, false },
   { "use_debug_exception_return", 0, 0, false, true,  true, NULL, false },
   { NULL,	   0, 0, false, false, false, NULL, false }
@@ -1325,13 +1351,65 @@ mips_interrupt_type_p (tree type)
   return lookup_attribute ("interrupt", TYPE_ATTRIBUTES (type)) != NULL;
 }
 
-/* Check if the attribute to use shadow register set is set for a function.  */
+/* Return the mask for the "interrupt" attribute.  */
 
-static bool
-mips_use_shadow_register_set_p (tree type)
+static enum mips_int_mask
+mips_interrupt_mask (tree type)
 {
-  return lookup_attribute ("use_shadow_register_set",
-			   TYPE_ATTRIBUTES (type)) != NULL;
+  tree attr = lookup_attribute ("interrupt", TYPE_ATTRIBUTES (type));
+  tree args, cst;
+  const char *str;
+
+  /* For missing attributes or no arguments then return 'eic' as a safe
+     fallback.  */
+  if (attr == NULL)
+    return INT_MASK_EIC;
+
+  args = TREE_VALUE (attr);
+
+  if (args == NULL)
+    return INT_MASK_EIC;
+
+  cst = TREE_VALUE (args);
+
+  if (strcmp (TREE_STRING_POINTER (cst), "eic") == 0)
+    return INT_MASK_EIC;
+
+  /* The validation code in mips_handle_interrupt_attr guarantees that the
+     argument is now in the form:
+     vector=(sw0|sw1|hw0|hw1|hw2|hw3|hw4|hw5).  */
+  str = TREE_STRING_POINTER (cst);
+
+  gcc_assert (strlen (str) == strlen ("vector=sw0"));
+
+  if (str[7] == 's')
+    return (enum mips_int_mask) (INT_MASK_SW0 + (str[9] - '0'));
+
+  return (enum mips_int_mask) (INT_MASK_HW0 + (str[9] - '0'));
+}
+
+/* Return the mips_shadow_set if the "use_shadow_register_set" attribute is
+   set for a function.  */
+
+static enum mips_shadow_set
+mips_use_shadow_register_set (tree type)
+{
+  tree attr = lookup_attribute ("use_shadow_register_set",
+				TYPE_ATTRIBUTES (type));
+  tree args;
+
+  /* The validation code in mips_handle_use_shadow_register_set_attr guarantees
+     that if an argument is present then it means: Assume the shadow register
+     set has a valid stack pointer in it.  */
+  if (attr == NULL)
+    return SHADOW_SET_NO;
+
+  args = TREE_VALUE (attr);
+
+  if (args == NULL)
+    return SHADOW_SET_YES;
+
+  return SHADOW_SET_INTSTACK;
 }
 
 /* Check if the attribute to keep interrupts masked is set for a function.  */
@@ -1536,6 +1614,92 @@ mips_can_inline_p (tree caller, tree callee)
   if (mips_get_compress_mode (callee) != mips_get_compress_mode (caller))
     return false;
   return default_target_can_inline_p (caller, callee);
+}
+
+/* Handle an "interrupt" attribute with an optional argument.  */
+
+static tree
+mips_handle_interrupt_attr (tree *node ATTRIBUTE_UNUSED, tree name, tree args,
+			    int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  /* Check for an argument.  */
+  if (is_attribute_p ("interrupt", name) && args != NULL)
+    {
+      tree cst;
+
+      cst = TREE_VALUE (args);
+      if (TREE_CODE (cst) != STRING_CST)
+	{
+	  warning (OPT_Wattributes,
+		   "%qE attribute requires a string argument",
+		   name);
+	  *no_add_attrs = true;
+	}
+      else if (strcmp (TREE_STRING_POINTER (cst), "eic") != 0
+	       && strncmp (TREE_STRING_POINTER (cst), "vector=", 7) != 0)
+	{
+	  warning (OPT_Wattributes,
+		   "argument to %qE attribute is neither eic, nor "
+		   "vector=<line>", name);
+	  *no_add_attrs = true;
+	}
+      else if (strncmp (TREE_STRING_POINTER (cst), "vector=", 7) == 0)
+	{
+	  const char *arg = TREE_STRING_POINTER (cst) + 7;
+
+	  /* Acceptable names are: sw0,sw1,hw0,hw1,hw2,hw3,hw4,hw5.  */
+	  if (strlen (arg) != 3
+	      || (arg[0] != 's' && arg[0] != 'h')
+	      || arg[1] != 'w'
+	      || (arg[0] == 's' && arg[2] != '0' && arg[2] != '1')
+	      || (arg[0] == 'h' && (arg[2] < '0' || arg[2] > '5')))
+	    {
+	      warning (OPT_Wattributes,
+		       "interrupt vector to %qE attribute is not "
+		       "vector=(sw0|sw1|hw0|hw1|hw2|hw3|hw4|hw5)",
+		       name);
+	      *no_add_attrs = true;
+	    }
+	}
+
+      return NULL_TREE;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "use_shadow_register_set" attribute with an optional argument.  */
+
+static tree
+mips_handle_use_shadow_register_set_attr (tree *node ATTRIBUTE_UNUSED,
+					  tree name, tree args,
+					  int flags ATTRIBUTE_UNUSED,
+					  bool *no_add_attrs)
+{
+  /* Check for an argument.  */
+  if (is_attribute_p ("use_shadow_register_set", name) && args != NULL)
+    {
+      tree cst;
+
+      cst = TREE_VALUE (args);
+      if (TREE_CODE (cst) != STRING_CST)
+	{
+	  warning (OPT_Wattributes,
+		   "%qE attribute requires a string argument",
+		   name);
+	  *no_add_attrs = true;
+	}
+      else if (strcmp (TREE_STRING_POINTER (cst), "intstack") != 0)
+	{
+	  warning (OPT_Wattributes,
+		   "argument to %qE attribute is not intstack", name);
+	  *no_add_attrs = true;
+	}
+
+      return NULL_TREE;
+    }
+
+  return NULL_TREE;
 }
 
 /* If X is a PLUS of a CONST_INT, return the two terms in *BASE_PTR
@@ -2424,7 +2588,7 @@ mips_legitimate_address_p (machine_mode mode, rtx x, bool strict_p)
   return mips_classify_address (&addr, x, mode, strict_p);
 }
 
-/* Return true if X is a legitimate $sp-based address for mode MDOE.  */
+/* Return true if X is a legitimate $sp-based address for mode MODE.  */
 
 bool
 mips_stack_address_p (rtx x, machine_mode mode)
@@ -3253,7 +3417,7 @@ mips_legitimize_tls_address (rtx loc)
 
   model = SYMBOL_REF_TLS_MODEL (loc);
   /* Only TARGET_ABICALLS code can have more than one module; other
-     code must be be static and should not use a GOT.  All TLS models
+     code must be static and should not use a GOT.  All TLS models
      reduce to local exec in this situation.  */
   if (!TARGET_ABICALLS)
     model = TLS_MODEL_LOCAL_EXEC;
@@ -3717,8 +3881,8 @@ mips_binary_cost (rtx x, int single_cost, int double_cost, bool speed)
   else
     cost = single_cost;
   return (cost
-	  + set_src_cost (XEXP (x, 0), speed)
-	  + rtx_cost (XEXP (x, 1), GET_CODE (x), 1, speed));
+	  + set_src_cost (XEXP (x, 0), GET_MODE (x), speed)
+	  + rtx_cost (XEXP (x, 1), GET_MODE (x), GET_CODE (x), 1, speed));
 }
 
 /* Return the cost of floating-point multiplications of mode MODE.  */
@@ -3819,10 +3983,10 @@ mips_set_reg_reg_cost (machine_mode mode)
 /* Implement TARGET_RTX_COSTS.  */
 
 static bool
-mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
-		int *total, bool speed)
+mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
+		int opno ATTRIBUTE_UNUSED, int *total, bool speed)
 {
-  machine_mode mode = GET_MODE (x);
+  int code = GET_CODE (x);
   bool float_mode_p = FLOAT_MODE_P (mode);
   int cost;
   rtx addr;
@@ -3921,7 +4085,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	     for a word or doubleword operation, so we cannot rely on
 	     the result of mips_build_integer.  */
 	  else if (!TARGET_MIPS16
-		   && (outer_code == SET || mode == VOIDmode))
+		   && (outer_code == SET || GET_MODE (x) == VOIDmode))
 	    cost = 1;
 	  *total = COSTS_N_INSNS (cost);
 	  return true;
@@ -3967,7 +4131,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  && UINTVAL (XEXP (x, 1)) == 0xffffffff)
 	{
 	  *total = (mips_zero_extend_cost (mode, XEXP (x, 0))
-		    + set_src_cost (XEXP (x, 0), speed));
+		    + set_src_cost (XEXP (x, 0), mode, speed));
 	  return true;
 	}
       if (ISA_HAS_CINS && CONST_INT_P (XEXP (x, 1)))
@@ -3977,7 +4141,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	      && CONST_INT_P (XEXP (op, 1))
 	      && mask_low_and_shift_p (mode, XEXP (x, 1), XEXP (op, 1), 32))
 	    {
-	      *total = COSTS_N_INSNS (1) + set_src_cost (XEXP (op, 0), speed);
+	      *total = COSTS_N_INSNS (1);
+	      *total += set_src_cost (XEXP (op, 0), mode, speed);
 	      return true;
 	    }
 	}
@@ -3989,8 +4154,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	{
 	  cost = GET_MODE_SIZE (mode) > UNITS_PER_WORD ? 2 : 1;
           *total = (COSTS_N_INSNS (cost)
-		    + set_src_cost (XEXP (XEXP (x, 0), 0), speed)
-		    + set_src_cost (XEXP (XEXP (x, 1), 0), speed));
+		    + set_src_cost (XEXP (XEXP (x, 0), 0), mode, speed)
+		    + set_src_cost (XEXP (XEXP (x, 1), 0), mode, speed));
 	  return true;
 	}
 	    
@@ -4026,7 +4191,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
     case LO_SUM:
       /* Low-part immediates need an extended MIPS16 instruction.  */
       *total = (COSTS_N_INSNS (TARGET_MIPS16 ? 2 : 1)
-		+ set_src_cost (XEXP (x, 0), speed));
+		+ set_src_cost (XEXP (x, 0), mode, speed));
       return true;
 
     case LT:
@@ -4054,29 +4219,27 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       return true;
 
     case MINUS:
-      if (float_mode_p
-	  && (ISA_HAS_NMADD4_NMSUB4 || ISA_HAS_NMADD3_NMSUB3)
-	  && TARGET_FUSED_MADD
-	  && !HONOR_SIGNED_ZEROS (mode))
+      if (float_mode_p && ISA_HAS_UNFUSED_MADD4 && !HONOR_SIGNED_ZEROS (mode))
 	{
-	  /* See if we can use NMADD or NMSUB.  See mips.md for the
-	     associated patterns.  */
+	  /* See if we can use NMADD or NMSUB via the *nmadd4<mode>_fastmath
+	     or *nmsub4<mode>_fastmath patterns.  These patterns check for
+	     HONOR_SIGNED_ZEROS so we check here too.  */
 	  rtx op0 = XEXP (x, 0);
 	  rtx op1 = XEXP (x, 1);
 	  if (GET_CODE (op0) == MULT && GET_CODE (XEXP (op0, 0)) == NEG)
 	    {
 	      *total = (mips_fp_mult_cost (mode)
-			+ set_src_cost (XEXP (XEXP (op0, 0), 0), speed)
-			+ set_src_cost (XEXP (op0, 1), speed)
-			+ set_src_cost (op1, speed));
+			+ set_src_cost (XEXP (XEXP (op0, 0), 0), mode, speed)
+			+ set_src_cost (XEXP (op0, 1), mode, speed)
+			+ set_src_cost (op1, mode, speed));
 	      return true;
 	    }
 	  if (GET_CODE (op1) == MULT)
 	    {
 	      *total = (mips_fp_mult_cost (mode)
-			+ set_src_cost (op0, speed)
-			+ set_src_cost (XEXP (op1, 0), speed)
-			+ set_src_cost (XEXP (op1, 1), speed));
+			+ set_src_cost (op0, mode, speed)
+			+ set_src_cost (XEXP (op1, 0), mode, speed)
+			+ set_src_cost (XEXP (op1, 1), mode, speed));
 	      return true;
 	    }
 	}
@@ -4087,9 +4250,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	{
 	  /* If this is part of a MADD or MSUB, treat the PLUS as
 	     being free.  */
-	  if ((ISA_HAS_FP_MADD4_MSUB4 || ISA_HAS_FP_MADD3_MSUB3)
-	      && TARGET_FUSED_MADD
-	      && GET_CODE (XEXP (x, 0)) == MULT)
+	  if (ISA_HAS_UNFUSED_MADD4 && GET_CODE (XEXP (x, 0)) == MULT)
 	    *total = 0;
 	  else
 	    *total = mips_cost->fp_add;
@@ -4106,8 +4267,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  if (const_immlsa_operand (op2, mode))
 	    {
 	      *total = (COSTS_N_INSNS (1)
-			+ set_src_cost (XEXP (XEXP (x, 0), 0), speed)
-			+ set_src_cost (XEXP (x, 1), speed));
+			+ set_src_cost (XEXP (XEXP (x, 0), 0), mode, speed)
+			+ set_src_cost (XEXP (x, 1), mode, speed));
 	      return true;
 	    }
 	}
@@ -4121,21 +4282,18 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       return true;
 
     case NEG:
-      if (float_mode_p
-	  && (ISA_HAS_NMADD4_NMSUB4 || ISA_HAS_NMADD3_NMSUB3)
-	  && TARGET_FUSED_MADD
-	  && HONOR_SIGNED_ZEROS (mode))
+      if (float_mode_p && ISA_HAS_UNFUSED_MADD4)
 	{
-	  /* See if we can use NMADD or NMSUB.  See mips.md for the
-	     associated patterns.  */
+	  /* See if we can use NMADD or NMSUB via the *nmadd4<mode> or
+	     *nmsub4<mode> patterns.  */
 	  rtx op = XEXP (x, 0);
 	  if ((GET_CODE (op) == PLUS || GET_CODE (op) == MINUS)
 	      && GET_CODE (XEXP (op, 0)) == MULT)
 	    {
 	      *total = (mips_fp_mult_cost (mode)
-			+ set_src_cost (XEXP (XEXP (op, 0), 0), speed)
-			+ set_src_cost (XEXP (XEXP (op, 0), 1), speed)
-			+ set_src_cost (XEXP (op, 1), speed));
+			+ set_src_cost (XEXP (XEXP (op, 0), 0), mode, speed)
+			+ set_src_cost (XEXP (XEXP (op, 0), 1), mode, speed)
+			+ set_src_cost (XEXP (op, 1), mode, speed));
 	      return true;
 	    }
 	}
@@ -4147,8 +4305,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       return false;
 
     case FMA:
-      if (ISA_HAS_FP_MADDF_MSUBF)
-	*total = mips_fp_mult_cost (mode);
+      *total = mips_fp_mult_cost (mode);
       return false;
 
     case MULT:
@@ -4178,10 +4335,10 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  if (outer_code == SQRT || GET_CODE (XEXP (x, 1)) == SQRT)
 	    /* An rsqrt<mode>a or rsqrt<mode>b pattern.  Count the
 	       division as being free.  */
-	    *total = set_src_cost (XEXP (x, 1), speed);
+	    *total = set_src_cost (XEXP (x, 1), mode, speed);
 	  else
 	    *total = (mips_fp_div_cost (mode)
-		      + set_src_cost (XEXP (x, 1), speed));
+		      + set_src_cost (XEXP (x, 1), mode, speed));
 	  return true;
 	}
       /* Fall through.  */
@@ -4209,7 +4366,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	      && CONST_INT_P (XEXP (x, 1))
 	      && exact_log2 (INTVAL (XEXP (x, 1))) >= 0)
 	    {
-	      *total = COSTS_N_INSNS (2) + set_src_cost (XEXP (x, 0), speed);
+	      *total = COSTS_N_INSNS (2);
+	      *total += set_src_cost (XEXP (x, 0), mode, speed);
 	      return true;
 	    }
 	  *total = COSTS_N_INSNS (mips_idiv_insns ());
@@ -4232,7 +4390,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  && GET_MODE (XEXP (x, 0)) == QImode
 	  && GET_CODE (XEXP (XEXP (x, 0), 0)) == PLUS)
 	{
-	  *total = set_src_cost (XEXP (XEXP (x, 0), 0), speed);
+	  *total = set_src_cost (XEXP (XEXP (x, 0), 0), VOIDmode, speed);
 	  return true;
 	}
       *total = mips_zero_extend_cost (mode, XEXP (x, 0));
@@ -4275,9 +4433,10 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	      if (ISA_HAS_R6DMUL
 		  && GET_CODE (op) == ZERO_EXTEND
 		  && GET_MODE (op) == DImode)
-		*total += rtx_cost (op, MULT, i, speed);
+		*total += rtx_cost (op, DImode, MULT, i, speed);
 	      else
-		*total += rtx_cost (XEXP (op, 0), GET_CODE (op), 0, speed);
+		*total += rtx_cost (XEXP (op, 0), VOIDmode, GET_CODE (op),
+				    0, speed);
 	    }
 
 	  return true;
@@ -9790,17 +9949,18 @@ mips16_cfun_returns_in_fpr_p (void)
 static bool
 mips_find_gp_ref (bool *cache, bool (*pred) (rtx_insn *))
 {
-  rtx_insn *insn;
+  rtx_insn *insn, *subinsn;
 
   if (!*cache)
     {
       push_topmost_sequence ();
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-	if (USEFUL_INSN_P (insn) && pred (insn))
-	  {
-	    *cache = true;
-	    break;
-	  }
+	FOR_EACH_SUBINSN (subinsn, insn)
+	  if (USEFUL_INSN_P (subinsn) && pred (subinsn))
+	    {
+	      *cache = true;
+	      break;
+	    }
       pop_topmost_sequence ();
     }
   return *cache;
@@ -10059,7 +10219,8 @@ mips_interrupt_extra_call_saved_reg_p (unsigned int regno)
   if (TARGET_DSP && DSP_ACC_REG_P (regno))
     return true;
 
-  if (GP_REG_P (regno) && !cfun->machine->use_shadow_register_set_p)
+  if (GP_REG_P (regno)
+      && cfun->machine->use_shadow_register_set == SHADOW_SET_NO)
     {
       /* $0 is hard-wired.  */
       if (regno == GP_REG_FIRST)
@@ -10266,15 +10427,15 @@ mips_compute_frame_info (void)
     {
       if (mips_isa_rev < 2)
 	error ("the %<interrupt%> attribute requires a MIPS32r2 processor or greater");
-      else if (TARGET_HARD_FLOAT)
-	error ("the %<interrupt%> attribute requires %<-msoft-float%>");
       else if (TARGET_MIPS16)
 	error ("interrupt handlers cannot be MIPS16 functions");
       else
 	{
 	  cfun->machine->interrupt_handler_p = true;
-	  cfun->machine->use_shadow_register_set_p =
-	    mips_use_shadow_register_set_p (TREE_TYPE (current_function_decl));
+	  cfun->machine->int_mask =
+	    mips_interrupt_mask (TREE_TYPE (current_function_decl));
+	  cfun->machine->use_shadow_register_set =
+	    mips_use_shadow_register_set (TREE_TYPE (current_function_decl));
 	  cfun->machine->keep_interrupts_masked_p =
 	    mips_keep_interrupts_masked_p (TREE_TYPE (current_function_decl));
 	  cfun->machine->use_debug_exception_return_p =
@@ -10389,9 +10550,9 @@ mips_compute_frame_info (void)
       /* All interrupt context functions need space to preserve STATUS.  */
       frame->num_cop0_regs++;
 
-      /* If we don't keep interrupts masked, we need to save EPC.  */
-      if (!cfun->machine->keep_interrupts_masked_p)
-	frame->num_cop0_regs++;
+      /* We need to save EPC regardless of whether interrupts remain masked
+	 as exceptions will corrupt EPC.  */
+      frame->num_cop0_regs++;
     }
 
   /* Move above the accumulator save area.  */
@@ -10970,7 +11131,7 @@ mips_emit_save_slot_move (rtx dest, rtx src, rtx temp)
 	{
 	  mips_emit_move (temp, src);
 	  if (TARGET_64BIT)
-	    emit_insn (gen_mthisi_di (gen_rtx_REG (TImode, MD_REG_FIRST),
+	    emit_insn (gen_mthidi_ti (gen_rtx_REG (TImode, MD_REG_FIRST),
 				      temp, gen_rtx_REG (DImode, LO_REGNUM)));
 	  else
 	    emit_insn (gen_mthisi_di (gen_rtx_REG (DImode, MD_REG_FIRST),
@@ -11432,21 +11593,21 @@ mips_expand_prologue (void)
 
 	      /* If this interrupt is using a shadow register set, we need to
 		 get the stack pointer from the previous register set.  */
-	      if (cfun->machine->use_shadow_register_set_p)
-		emit_insn (gen_mips_rdpgpr (stack_pointer_rtx,
-					    stack_pointer_rtx));
+	      if (cfun->machine->use_shadow_register_set == SHADOW_SET_YES)
+		emit_insn (PMODE_INSN (gen_mips_rdpgpr, (stack_pointer_rtx,
+							 stack_pointer_rtx)));
 
 	      if (!cfun->machine->keep_interrupts_masked_p)
 		{
-		  /* Move from COP0 Cause to K0.  */
-		  emit_insn (gen_cop0_move (gen_rtx_REG (SImode, K0_REG_NUM),
-					    gen_rtx_REG (SImode,
-							 COP0_CAUSE_REG_NUM)));
-		  /* Move from COP0 EPC to K1.  */
-		  emit_insn (gen_cop0_move (gen_rtx_REG (SImode, K1_REG_NUM),
-					    gen_rtx_REG (SImode,
-							 COP0_EPC_REG_NUM)));
+		  if (cfun->machine->int_mask == INT_MASK_EIC)
+		    /* Move from COP0 Cause to K0.  */
+		    emit_insn (gen_cop0_move (gen_rtx_REG (SImode, K0_REG_NUM),
+			gen_rtx_REG (SImode, COP0_CAUSE_REG_NUM)));
 		}
+	      /* Move from COP0 EPC to K1.  */
+	      emit_insn (gen_cop0_move (gen_rtx_REG (SImode, K1_REG_NUM),
+					gen_rtx_REG (SImode,
+						     COP0_EPC_REG_NUM)));
 
 	      /* Allocate the first part of the frame.  */
 	      rtx insn = gen_add3_insn (stack_pointer_rtx, stack_pointer_rtx,
@@ -11457,15 +11618,13 @@ mips_expand_prologue (void)
 
 	      /* Start at the uppermost location for saving.  */
 	      offset = frame->cop0_sp_offset - size;
-	      if (!cfun->machine->keep_interrupts_masked_p)
-		{
-		  /* Push EPC into its stack slot.  */
-		  mem = gen_frame_mem (word_mode,
-				       plus_constant (Pmode, stack_pointer_rtx,
-						      offset));
-		  mips_emit_move (mem, gen_rtx_REG (word_mode, K1_REG_NUM));
-		  offset -= UNITS_PER_WORD;
-		}
+
+	      /* Push EPC into its stack slot.  */
+	      mem = gen_frame_mem (word_mode,
+				   plus_constant (Pmode, stack_pointer_rtx,
+						  offset));
+	      mips_emit_move (mem, gen_rtx_REG (word_mode, K1_REG_NUM));
+	      offset -= UNITS_PER_WORD;
 
 	      /* Move from COP0 Status to K1.  */
 	      emit_insn (gen_cop0_move (gen_rtx_REG (SImode, K1_REG_NUM),
@@ -11473,7 +11632,8 @@ mips_expand_prologue (void)
 						     COP0_STATUS_REG_NUM)));
 
 	      /* Right justify the RIPL in k0.  */
-	      if (!cfun->machine->keep_interrupts_masked_p)
+	      if (!cfun->machine->keep_interrupts_masked_p
+		  && cfun->machine->int_mask == INT_MASK_EIC)
 		emit_insn (gen_lshrsi3 (gen_rtx_REG (SImode, K0_REG_NUM),
 					gen_rtx_REG (SImode, K0_REG_NUM),
 					GEN_INT (CAUSE_IPL)));
@@ -11486,11 +11646,21 @@ mips_expand_prologue (void)
 	      offset -= UNITS_PER_WORD;
 
 	      /* Insert the RIPL into our copy of SR (k1) as the new IPL.  */
-	      if (!cfun->machine->keep_interrupts_masked_p)
+	      if (!cfun->machine->keep_interrupts_masked_p
+		  && cfun->machine->int_mask == INT_MASK_EIC)
 		emit_insn (gen_insvsi (gen_rtx_REG (SImode, K1_REG_NUM),
 				       GEN_INT (6),
 				       GEN_INT (SR_IPL),
 				       gen_rtx_REG (SImode, K0_REG_NUM)));
+
+	      /* Clear all interrupt mask bits up to and including the
+		 handler's interrupt line.  */
+	      if (!cfun->machine->keep_interrupts_masked_p
+		  && cfun->machine->int_mask != INT_MASK_EIC)
+		emit_insn (gen_insvsi (gen_rtx_REG (SImode, K1_REG_NUM),
+				       GEN_INT (cfun->machine->int_mask + 1),
+				       GEN_INT (SR_IM0),
+				       gen_rtx_REG (SImode, GP_REG_FIRST)));
 
 	      if (!cfun->machine->keep_interrupts_masked_p)
 		/* Enable interrupts by clearing the KSU ERL and EXL bits.
@@ -11506,6 +11676,14 @@ mips_expand_prologue (void)
 		emit_insn (gen_insvsi (gen_rtx_REG (SImode, K1_REG_NUM),
 				       GEN_INT (5),
 				       GEN_INT (SR_IE),
+				       gen_rtx_REG (SImode, GP_REG_FIRST)));
+
+	      if (TARGET_HARD_FLOAT)
+		/* Disable COP1 for hard-float.  This will lead to an exception
+		   if floating-point code is executed in an ISR.  */
+		emit_insn (gen_insvsi (gen_rtx_REG (SImode, K1_REG_NUM),
+				       GEN_INT (1),
+				       GEN_INT (SR_COP1),
 				       gen_rtx_REG (SImode, GP_REG_FIRST)));
 	    }
 	  else
@@ -11852,29 +12030,27 @@ mips_expand_epilogue (bool sibcall_p)
 	  rtx mem;
 
 	  offset = frame->cop0_sp_offset - (frame->total_size - step2);
-	  if (!cfun->machine->keep_interrupts_masked_p)
-	    {
-	      /* Restore the original EPC.  */
-	      mem = gen_frame_mem (word_mode,
-				   plus_constant (Pmode, stack_pointer_rtx,
-						  offset));
-	      mips_emit_move (gen_rtx_REG (word_mode, K0_REG_NUM), mem);
-	      offset -= UNITS_PER_WORD;
 
-	      /* Move to COP0 EPC.  */
-	      emit_insn (gen_cop0_move (gen_rtx_REG (SImode, COP0_EPC_REG_NUM),
-					gen_rtx_REG (SImode, K0_REG_NUM)));
-	    }
+	  /* Restore the original EPC.  */
+	  mem = gen_frame_mem (word_mode,
+			       plus_constant (Pmode, stack_pointer_rtx,
+					      offset));
+	  mips_emit_move (gen_rtx_REG (word_mode, K1_REG_NUM), mem);
+	  offset -= UNITS_PER_WORD;
+
+	  /* Move to COP0 EPC.  */
+	  emit_insn (gen_cop0_move (gen_rtx_REG (SImode, COP0_EPC_REG_NUM),
+				    gen_rtx_REG (SImode, K1_REG_NUM)));
 
 	  /* Restore the original Status.  */
 	  mem = gen_frame_mem (word_mode,
 			       plus_constant (Pmode, stack_pointer_rtx,
 					      offset));
-	  mips_emit_move (gen_rtx_REG (word_mode, K0_REG_NUM), mem);
+	  mips_emit_move (gen_rtx_REG (word_mode, K1_REG_NUM), mem);
 	  offset -= UNITS_PER_WORD;
 
 	  /* If we don't use shadow register set, we need to update SP.  */
-	  if (!cfun->machine->use_shadow_register_set_p)
+	  if (cfun->machine->use_shadow_register_set == SHADOW_SET_NO)
 	    mips_deallocate_stack (stack_pointer_rtx, GEN_INT (step2), 0);
 	  else
 	    /* The choice of position is somewhat arbitrary in this case.  */
@@ -11882,7 +12058,7 @@ mips_expand_epilogue (bool sibcall_p)
 
 	  /* Move to COP0 Status.  */
 	  emit_insn (gen_cop0_move (gen_rtx_REG (SImode, COP0_STATUS_REG_NUM),
-				    gen_rtx_REG (SImode, K0_REG_NUM)));
+				    gen_rtx_REG (SImode, K1_REG_NUM)));
 	}
       else if (TARGET_MICROMIPS
 	       && !crtl->calls_eh_return

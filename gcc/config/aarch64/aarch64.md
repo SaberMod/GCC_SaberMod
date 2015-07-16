@@ -144,7 +144,7 @@
 ;; Instruction types and attributes
 ;; -------------------------------------------------------------------
 
-; The "type" attribute is is included here from AArch32 backend to be able
+; The "type" attribute is included here from AArch32 backend to be able
 ; to share pipeline descriptions.
 (include "../arm/types.md")
 
@@ -2982,7 +2982,7 @@
         (plus:GPI (match_operand 2 "aarch64_comparison_operation" "")
                   (match_operand:GPI 1 "register_operand" "r")))]
   ""
-  "csinc\\t%<w>0, %<w>1, %<w>1, %M2"
+  "cinc\\t%<w>0, %<w>1, %m2"
   [(set_attr "type" "csel")]
 )
 
@@ -4175,6 +4175,16 @@
         (mult:GPF
 		 (neg:GPF (match_operand:GPF 1 "register_operand" "w"))
 		 (match_operand:GPF 2 "register_operand" "w")))]
+  "TARGET_FLOAT && !flag_rounding_math"
+  "fnmul\\t%<s>0, %<s>1, %<s>2"
+  [(set_attr "type" "fmul<s>")]
+)
+
+(define_insn "*fnmul<mode>3"
+  [(set (match_operand:GPF 0 "register_operand" "=w")
+        (neg:GPF (mult:GPF
+		 (match_operand:GPF 1 "register_operand" "w")
+		 (match_operand:GPF 2 "register_operand" "w"))))]
   "TARGET_FLOAT"
   "fnmul\\t%<s>0, %<s>1, %<s>2"
   [(set_attr "type" "fmul<s>")]

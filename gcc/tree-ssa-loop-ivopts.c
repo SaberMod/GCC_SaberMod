@@ -64,40 +64,28 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
-#include "rtl.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -2800,7 +2788,8 @@ add_autoinc_candidates (struct ivopts_data *data, tree base, tree step,
 
 /* Adds a candidate BASE + STEP * i.  Important field is set to IMPORTANT and
    position to POS.  If USE is not NULL, the candidate is set as related to
-   it.  The candidate computation is scheduled on all available positions.  */
+   it.  The candidate computation is scheduled before exit condition and at
+   the end of loop.  */
 
 static void
 add_candidate (struct ivopts_data *data,
@@ -2813,9 +2802,6 @@ add_candidate (struct ivopts_data *data,
   if (ip_end_pos (data->current_loop)
       && allow_ip_end_pos_p (data->current_loop))
     add_candidate_1 (data, base, step, important, IP_END, use, NULL);
-
-  if (use != NULL && use->type == USE_ADDRESS)
-    add_autoinc_candidates (data, base, step, important, use);
 }
 
 /* Adds standard iv candidates.  */
@@ -2844,7 +2830,7 @@ add_standard_iv_candidates (struct ivopts_data *data)
 /* Adds candidates bases on the old induction variable IV.  */
 
 static void
-add_old_iv_candidates (struct ivopts_data *data, struct iv *iv)
+add_iv_candidate_for_biv (struct ivopts_data *data, struct iv *iv)
 {
   gimple phi;
   tree def;
@@ -2884,7 +2870,7 @@ add_old_iv_candidates (struct ivopts_data *data, struct iv *iv)
 /* Adds candidates based on the old induction variables.  */
 
 static void
-add_old_ivs_candidates (struct ivopts_data *data)
+add_iv_candidate_for_bivs (struct ivopts_data *data)
 {
   unsigned i;
   struct iv *iv;
@@ -2894,19 +2880,19 @@ add_old_ivs_candidates (struct ivopts_data *data)
     {
       iv = ver_info (data, i)->iv;
       if (iv && iv->biv_p && !integer_zerop (iv->step))
-	add_old_iv_candidates (data, iv);
+	add_iv_candidate_for_biv (data, iv);
     }
 }
 
-/* Adds candidates based on the value of the induction variable IV and USE.  */
+/* Adds candidates based on the value of USE's iv.  */
 
 static void
-add_iv_value_candidates (struct ivopts_data *data,
-			 struct iv *iv, struct iv_use *use)
+add_iv_candidate_for_use (struct ivopts_data *data, struct iv_use *use)
 {
   unsigned HOST_WIDE_INT offset;
   tree base;
   tree basetype;
+  struct iv *iv = use->iv;
 
   add_candidate (data, iv->base, iv->step, false, use);
 
@@ -2916,21 +2902,25 @@ add_iv_value_candidates (struct ivopts_data *data,
   basetype = TREE_TYPE (iv->base);
   if (POINTER_TYPE_P (basetype))
     basetype = sizetype;
-  add_candidate (data, build_int_cst (basetype, 0),
-		 iv->step, true, use);
+  add_candidate (data, build_int_cst (basetype, 0), iv->step, true, use);
 
   /* Third, try removing the constant offset.  Make sure to even
      add a candidate for &a[0] vs. (T *)&a.  */
   base = strip_offset (iv->base, &offset);
-  if (offset
-      || base != iv->base)
+  if (offset || base != iv->base)
     add_candidate (data, base, iv->step, false, use);
+
+  /* At last, add auto-incremental candidates.  Make such variables
+     important since other iv uses with same base object may be based
+     on it.  */
+  if (use != NULL && use->type == USE_ADDRESS)
+    add_autoinc_candidates (data, iv->base, iv->step, true, use);
 }
 
 /* Adds candidates based on the uses.  */
 
 static void
-add_derived_ivs_candidates (struct ivopts_data *data)
+add_iv_candidate_for_uses (struct ivopts_data *data)
 {
   unsigned i;
 
@@ -2947,7 +2937,7 @@ add_derived_ivs_candidates (struct ivopts_data *data)
 	case USE_COMPARE:
 	case USE_ADDRESS:
 	  /* Just add the ivs based on the value of the iv used here.  */
-	  add_iv_value_candidates (data, use->iv, use);
+	  add_iv_candidate_for_use (data, use);
 	  break;
 
 	default:
@@ -3285,7 +3275,7 @@ computation_cost (tree expr, bool speed)
     cost += address_cost (XEXP (rslt, 0), TYPE_MODE (type),
 			  TYPE_ADDR_SPACE (type), speed);
   else if (!REG_P (rslt))
-    cost += set_src_cost (rslt, speed);
+    cost += set_src_cost (rslt, TYPE_MODE (type), speed);
 
   return cost;
 }
@@ -5108,7 +5098,7 @@ may_eliminate_iv (struct ivopts_data *data,
 }
 
  /* Calculates the cost of BOUND, if it is a PARM_DECL.  A PARM_DECL must
-    be copied, if is is used in the loop body and DATA->body_includes_call.  */
+    be copied, if it is used in the loop body and DATA->body_includes_call.  */
 
 static int
 parm_decl_cost (struct ivopts_data *data, tree bound)
@@ -5332,10 +5322,10 @@ find_iv_candidates (struct ivopts_data *data)
   add_standard_iv_candidates (data);
 
   /* Add old induction variables.  */
-  add_old_ivs_candidates (data);
+  add_iv_candidate_for_bivs (data);
 
   /* Add induction variables derived from uses.  */
-  add_derived_ivs_candidates (data);
+  add_iv_candidate_for_uses (data);
 
   set_autoinc_for_original_candidates (data);
 
