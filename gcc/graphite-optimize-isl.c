@@ -612,4 +612,3 @@ optimize_isl (scop_p scop)
   return true;
 }
 
-#endif  /* HAVE_isl */
