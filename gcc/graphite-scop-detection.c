@@ -350,7 +350,6 @@ stmt_simple_for_scop_p (basic_block scop_entry, loop_p outermost_loop,
 
   switch (gimple_code (stmt))
     {
-    case GIMPLE_RETURN:
     case GIMPLE_LABEL:
       return true;
 
@@ -796,7 +795,14 @@ build_scops_1 (basic_block current, loop_p outermost_loop,
     {
       open_scop.exit = sinfo.exit;
       gcc_assert (open_scop.exit);
-      scops->safe_push (open_scop);
+      if (open_scop.entry != open_scop.exit)
+	scops->safe_push (open_scop);
+      else
+	{
+	  sinfo.difficult = true;
+	  sinfo.exits = false;
+	  sinfo.exit = NULL;
+	}
     }
 
   result.exit = sinfo.exit;

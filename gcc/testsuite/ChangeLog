@@ -1,3 +1,151 @@
+2015-07-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66866
+	* g++.dg/pr66866.C: New test.
+
+2015-07-15  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-cmp-sel.c: New test.
+
+2015-07-15  Richard Biener  <rguenther@suse.de>
+
+	* lib/objc-torture.exp (OBJC_TORTURE_OPTIONS): Remove
+	{ -O3 -fomit-frame-pointer },
+	{ -O3 -fomit-frame-pointer -funroll-loops } and
+	{ -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions }
+	in favor of
+	{ -O3 -fomit-frame-pointer -funroll-loops -fpeel-loops -ftracer
+	  -finline-functions }
+
+2015-07-15  Robert Suchanek  <robert.suchanek@imgtec.com>
+
+	* gcc.target/mips/interrupt_handler-5.c: New test.
+
+2015-07-15  Matthew Fortune  <matthew.fortune@imgtec.com>
+	    Robert Suchanek  <robert.suchanek@imgtec.com>
+
+	* gcc.target/mips/interrupt_handler-4.c: New test.
+
+2015-07-15  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR testsuite/66734
+	* gcc.dg/lto/lto.exp: Initialize MPX.
+
+2015-07-15  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/arm/scd42-1.c: Add -mfloat-abi=softfp and appropriate
+	dg-skip-if.
+	* gcc.target/arm/scd42-3.c: Likewise.
+
+2015-07-15  Andrew Bennett  <andrew.bennett@imgtec.com>
+
+	* gcc.target/mips/mips.exp (mips-dg-options): Allow the post-arch
+	code to be run when the pre-arch code increases the isa_rev to
+	mips32r6 or greater.
+
+2015-07-15  Richard Biener  <rguenther@suse.de>
+
+	* lib/c-torture.exp (C_TORTURE_OPTIONS): Remove
+	{ -O3 -fomit-frame-pointer },
+	{ -O3 -fomit-frame-pointer -funroll-loops } and
+	{ -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions }
+	in favor of
+	{ -O3 -fomit-frame-pointer -funroll-loops -fpeel-loops -ftracer
+	  -finline-functions }
+	* lib/gcc-dg.exp (DG_TORTURE_OPTIONS): Likewise.
+	* gcc.c-torture/execute/builtins/builtins.exp: Add -fno-tracer
+	to additional_flags.
+
+2015-07-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/66838
+	* gcc.target/i386/pr66838.c: New test.
+
+2015-07-14  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/66850
+	* g++.dg/template/pr66850.C: New test.
+
+2015-07-14  Sandra Loosemore  <sandra@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* gcc.target/nios2/nios2-flushd.c: New.
+	* gcc.target/nios2/nios2-rdprs.c: New.
+	* gcc.target/nios2/r2-atomic.c: New.
+	* gcc.target/nios2/r2-eni.c: New.
+	* gcc.target/nios2/r2-wrpie.c: New.
+
+2015-07-14  Sandra Loosemore  <sandra@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* gcc.target/nios2/cdx-ldstwm-1.c: New.
+	* gcc.target/nios2/cdx-ldstwm-2.c: New.
+
+2015-07-14  Sandra Loosemore  <sandra@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* gcc.target/nios2/andci.c: New.
+	* gcc.target/nios2/bmx.c: New.
+	* gcc.target/nios2/cdx-add.c: New.
+	* gcc.target/nios2/cdx-branch.c: New.
+	* gcc.target/nios2/cdx-callret.c: New.
+	* gcc.target/nios2/cdx-loadstore.c: New.
+	* gcc.target/nios2/cdx-logical.c: New.
+	* gcc.target/nios2/cdx-mov.c: New.
+	* gcc.target/nios2/cdx-shift.c: New.
+	* gcc.target/nios2/cdx-sub.c: New.
+	* gcc.target/nios2/nios2-trap-insn.c: Adjust pattern.
+
+2015-07-14  Andrea Azzarone  <azzaronea@gmail.com>
+
+	PR c++/65071
+	* g++.dg/cpp0x/vt-65071.C: New.
+
+2015-07-14  Sandra Loosemore  <sandra@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* gcc.target/nios2/r2-io-range.c: New.
+	* gcc.target/nios2/r2-stio-1.c: New.
+	* gcc.target/nios2/r2-stio-2.c: New.
+	* gcc.target/nios2/nios2-ldxio.c: New.
+	* gcc.target/nios2/nios2-stxio.c: Change to assemble test instead
+	of just compile.  Add more tests.
+
+2015-07-14  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	gfortran.dg/pr66864.f90: New test.
+
+2015-07-14  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/66626
+	* gcc.target/i386/pr66626.c: New.
+
+2015-07-14  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc.target/nios2/nios2-stack-check-1.c: Adjust patterns.
+	* gcc.target/nios2/nios2-stack-check-2.c: Likewise.
+	* gcc.target/nios2/nios2-stack-check-3.c: New test case.
+
+2015-07-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/template/crash81.C: Adjust for error + inform change.
+	* g++.dg/template/pr58878.C: Likewise.
+	* g++.dg/template/shadow1.C: Likewise.
+	* g++.dg/template/shadow2.C: Likewise.
+	* g++.old-deja/g++.benjamin/tem03.C: Likewise.
+	* g++.old-deja/g++.benjamin/tem04.C: Likewise.
+	* g++.old-deja/g++.brendan/crash7.C: Likewise.
+	* g++.old-deja/g++.pt/shadow2.C: Likewise.
+
+2015-07-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66863
+	* gcc.dg/torture/pr66863.c: New testcase.
+
 2015-07-13  Patrick Palka  <ppalka@gcc.gnu.org>
 
 	PR c++/65186
@@ -149,6 +297,7 @@
 
 2015-07-09  Szabolcs Nagy  <szabolcs.nagy@arm.com>
 
+	PR target/66731
 	* gcc.target/aarch64/fnmul-1.c: Fix whitespace.
 	* gcc.target/aarch64/fnmul-2.c: Likewise.
 	* gcc.target/aarch64/fnmul-3.c: Likewise.
@@ -271,7 +420,7 @@
 	* gcc.target/mips/umips-branch-14.c: New file.
 	* gcc.target/mips/umips-branch-15.c: New file.
 	* gcc.target/mips/umips-branch-16.c: New file.
-	* gcc.target/mips/branch-helper.h (OCCUPY_0x10000): New define.  
+	* gcc.target/mips/branch-helper.h (OCCUPY_0x10000): New define.
 	(OCCUPY_0xfffc): New define.
 
 2015-07-08  Renlin Li  <renlin.li@arm.com>
@@ -342,10 +491,10 @@
 	* gcc.target/arm/attr_thumb-static.c: Test for all targets.
 	Fix return value.
 
-2015-05-05  Jakub Jelinek  <jakub@redhat.com>
+2015-07-06  Jakub Jelinek  <jakub@redhat.com>
 
-        PR target/65956
-        * gcc.c-torture/execute/pr65956.c: New test.
+	PR target/65956
+	* gcc.c-torture/execute/pr65956.c: New test.
 
 2015-07-06  Alan Lawrence  <alan.lawrence@arm.com>
 
@@ -531,7 +680,7 @@
 	* gcc.target/arm/armv8-sync-op-full.c: Likewise.
 	* gcc.target/arm/armv8-sync-op-release.c: Likewise.
 	* gcc.target/arm/armv8-sync-op-acquire.c: Likewise.  Also, replace
-        'stlex' with 'strex' as the expected output.
+	'stlex' with 'strex' as the expected output.
 
 2015-07-01  Paolo Carlini  <paolo.carlini@oracle.com>
 
@@ -775,7 +924,7 @@
 2015-06-24  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
 	* gcc.target/arm/fixed_float_conversion.c: Skip for inappropriate
-          multilibs.
+	multilibs.
 	* gcc.target/arm/memset-inline-10.c: Likewise.
 	* gcc.target/arm/pr58784.c: Likewise.
 	* gcc.target/arm/pr59985.C: Likewise.
@@ -813,9 +962,9 @@
 
 2015-06-24  James Greenhalgh  <james.greenhalgh@arm.com>
 
-        * lib/c-torture.exp: Don't call check_effective_target_lto
+	* lib/c-torture.exp: Don't call check_effective_target_lto
 	before setting up environment correctly.
-        * lib/gcc-dg.exp: Likewise, and protect
+	* lib/gcc-dg.exp: Likewise, and protect
 	gcc_force_conventional_output.
 
 2015-06-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
@@ -835,7 +984,7 @@
 
 2015-06-23  Chen Gang  <gang.chen.5i5j@gmail.com>
 
-        PR target/65803
+	PR target/65803
 	* gcc.c-torture/pr65803.c: New test.
 
 2015-06-23  Patrick Palka  <ppalka@gcc.gnu.org>
@@ -1735,8 +1884,8 @@
 
 2015-06-01  Alex Velenko  <Alex.Velenko@arm.com>
 
-        * gcc.target/arm/thumb-ltu.c (foo): Predefined.
-        (bar): Predefined.
+	* gcc.target/arm/thumb-ltu.c (foo): Predefined.
+	(bar): Predefined.
 
 2015-06-01  Richard Biener  <rguenther@suse.de>
 

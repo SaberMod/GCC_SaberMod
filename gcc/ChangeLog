@@ -1,3 +1,434 @@
+2015-07-16  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* config/nios2/nios2.c (nios2_emit_stack_limit_check): Fix
+	uninitialized-variable warning.
+
+2015-07-16  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/65249
+	* config/sh/sh.md (movdi): Split simple reg move to two movsi
+	when the destination is R0.
+
+2015-07-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66866
+	* config/i386/i386-protos.h (ix86_expand_pextr): New prototype.
+	* config/i386/i386.c (ix86_expand_pextr): New function.
+	(ix86_expand_pinsr): Handle V1TI and TI modes.  Call ix86_expand_pextr
+	for non-lowpart subregs.
+	* config/i386/i386.md (extzv<mode>): Expand with ix86_expand_pextr.
+	(insv<mode>): Use SWI248 mode iterator.
+	(insv<mode>_1): Ditto.
+
+2015-07-15  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+        * graphite-sese-to-poly.c (rewrite_cross_bb_scalar_deps): Point
+	iterator to use_stmt.
+
+2015-07-15  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop <s.pop@samsung.com>
+
+        * graphite-scop-detection.c (build_scops_1): Discard scops for
+	which entry==exit.
+
+2015-07-15  Aditya Kumar  <aditya.k7@samsung.com>
+            Sebastian Pop <s.pop@samsung.com>
+
+        * graphite-scop-detection.c (stmt_simple_for_scop_p): Bail out in
+	case of a return statement in scop.
+
+2015-07-15  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop <s.pop@samsung.com>
+
+        * graphite-sese-to-poly.c (parameter_index_in_region): Only handle
+	INTEGER_TYPE parameters.
+        (scan_tree_for_params): Handle REAL_CST, COMPLEX_CST, and
+	VECTOR_CST in scan_tree_for_params.
+        (add_conditions_to_domain): Only constrain on INTEGER_TYPE.
+
+2015-07-15  Andrew MacLeod  <amacleod@redhat.com>
+
+	* gimple-pretty-print.h: Don't include pretty-print.h.
+	* tree-streamer.h: Don't include lto-streamer.h.
+	* gimple-streamer.h: Include tree-streamer.h rather than lto-streamer.h.
+	* gimple-streamer-in.c: Remove redundant includes.
+	* gimple-streamer-out.c: Likewise.
+	* ipa-devirt.c: Likewise.
+	* ipa-icf.c: Likewise.
+	* ipa-inline-analysis.c: Likewise.
+	* ipa-polymorphic-call.c: Likewise.
+	* ipa-profile.c: Likewise.
+	* ipa-prop.c: Likewise.
+	* ipa-pure-const.c: Likewise.
+	* lto-cgraph.c: Likewise.
+	* lto-streamer-in.c: Likewise.
+	* lto-streamer-out.c: Likewise.
+	* lto-streamer.c: Likewise.
+	* tree-streamer-in.c: Likewise.
+	* tree-streamer-out.c: Likewise.
+	* tree-streamer.c: Likewise.
+
+2015-07-15  Andrew MacLeod  <amacleod@redhat.com>
+
+	* opth-gen.awk: Check for UNKNOWN_LOCATION rather than GCC_TM_H, don't
+	include input.h.
+	* opts.c: Remove multiline #include comment.
+
+2015-07-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/mkoffload.c (process): Add C++ protection to
+	emitted code.
+
+2015-07-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/66854
+	* config/rs6000/rs6000.c (rs6000_pass_by_reference): Move test for
+	null before IEEE 128-bit floating point support patch.
+
+2015-07-15  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* simplify-rtx.c (simplify_ternary_operation): Add simplification
+	for (!c) != {0,...,0} ? a : b for vector modes.
+
+2015-07-15  Paolo Bonzini  <bonzini@gnu.org>
+	    Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-inline-analysis.c (unmodified_parm_or_parm_agg_item): Accept
+	struct func_body_info* instead of struct ipa_node_params*, expecting
+	fbi->info to be filled in.  Replace throughout.  Adjust call to
+	ipa_load_from_parm_agg.
+	(set_cond_stmt_execution_predicate): Accept struct func_body_info*
+	instead of struct ipa_node_params*.  Adjust calls to other functions
+	so that they pass either fbi or fbi->info.
+	(set_switch_stmt_execution_predicate): Likewise.
+	(will_be_nonconstant_predicate): Likewise.
+	(compute_bb_predicates): Likewise.
+	(estimate_function_body_sizes): Move asserts earlier.  Fill in
+	struct func_body_info, replace parms_info with fbi.info.  Adjust
+	calls to functions that now accept struct func_body_info.
+	* ipa-prop.c (param_aa_status, struct ipa_bb_info): Move to ipa-prop.h.
+	(struct func_body_info): Likewise.
+	(ipa_load_from_parm_agg_1): Rename to ipa_load_from_parm_agg,
+	remove static.  Adjust callers.
+	(ipa_load_from_parm_agg): Remove.
+	* ipa-prop.h (param_aa_status, ipa_bb_info): Move from ipa-prop.c.
+	(func_body_info): Likewise.
+	(ipa_load_from_parm_agg): Adjust prototype.
+
+2015-07-12  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* gensupport.c (rtx_handle_directive): Adjust.
+	* read-rtl.c (apply_iterators): Take vector to add rtxs to
+	instead of expr list rtx.
+	(add_define_attr_for_define_subst): Likewise.
+	(add_define_subst_attr): Likewise.
+	(read_subst_mapping): Likewise.
+	(read_rtx): Likewise.
+	* rtl.h (read_rtx): Adjust.
+
+2015-07-15  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.md (*csinc2<mode>_insn): Use cinc mnemonic.
+
+2015-07-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/58066
+	* config/i386/i386.md (*tls_global_dynamic_64_<mode>): Depend on SP_REG.
+	(*tls_local_dynamic_base_64_<mode>): Ditto.
+	(*tls_local_dynamic_base_64_largepic): Ditto.
+	(tls_global_dynamic_64_<mode>): Update expander pattern.
+	(tls_local_dynamic_base_64_<mode>): Ditto.
+
+2015-07-15  Richard Biener  <rguenther@suse.de>
+
+	* fold-const.c (fold_binary_loc): Move bool_var != 0 -> bool_var
+	and bool_var == 1 -> bool_var simplifications ...
+	* match.pd: ... to patterns here.  Factor out negate_expr_p
+	cases from the A - B -> A + (-B) patterns as negate_expr_p
+	predicate and add a -(A + B) -> (-B) - A pattern.
+
+2015-07-15  Robert Suchanek  <robert.suchanek@imgtec.com>
+
+	* config/mips/mips.c (mips_emit_save_slot_move): Fix typo.
+
+2015-07-15  Matthew Fortune  <matthew.fortune@imgtec.com>
+	    Robert Suchanek  <robert.suchanek@imgtec.com>
+
+	* config/mips/mips.c (mips_int_mask): New enum.
+	(mips_shadow_set): Likewise.
+	(int_mask): New variable.
+	(use_shadow_register_set_p): Change type to enum mips_shadow_set.
+	(machine_function): Add int_mask and use_shadow_register_set.
+	(mips_attribute_table): Add attribute handlers for interrupt and
+	use_shadow_register_set.
+	(mips_interrupt_mask): New static function.
+	(mips_handle_interrupt_attr): Likewise.
+	(mips_handle_use_shadow_register_set_attr): Likewise.
+	(mips_use_shadow_register_set): Change return type to enum
+	mips_shadow_set.  Add argument handling for use_shadow_register_set
+	attribute.
+	(mips_interrupt_extra_called_saved_reg_p): Update the conditional to
+	compare with mips_shadow_set enum.
+	(mips_compute_frame_info): Add interrupt mask and
+	use_shadow_register_set to per-function information structure.
+	Add a stack slot for EPC unconditionally.
+	(mips_expand_prologue): Compare use_shadow_register_set value
+	with mips_shadow_set enum.  Save EPC always in K1, clobber only K1 for
+	masked interrupt register but in EIC mode use K0 and save Cause in K0.
+	EPC saved and restored unconditionally.  Use PMODE_INSN macro when
+	copying the stack pointer from the shadow register set.
+	* config/mips/mips.h (SR_IM0): New define.
+	* config/mips/mips.md (mips_rdpgpr): Rename to...
+	(mips_rdpgpr_<mode>): ...this.  Use the Pmode iterator.
+	* doc/extend.texi (Declaring Attributes of Functions): Document
+	optional arguments for interrupt and use_shadow_register_set
+	attributes.
+
+2015-07-15  Robert Suchanek  <robert.suchanek@imgtec.com>
+
+	* config/mips/mips.c (mips_compute_frame_info): Allow -mhard-float in
+	interrupt attribute.
+	(mips_expand_prologue): Disable the floating point unit in an ISR.
+	* config/mips/mips.h (SR_COP1): New define.
+
+2015-07-15  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (parser::peek, parser::peek_ident): Add argument
+	to tell how many tokens to peek ahead (default 1).
+	(parser::eat_token, parser::eat_ident): Return token consumed.
+	(parser::parse_result): Parse new switch statement.
+	* match.pd: Use case statements where appropriate.
+
+2015-07-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/58066
+	* calls.c (expand_call): Precompute register parameters before stack
+	alignment is performed.
+
+2015-07-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/66838
+	* postreload.c (reload_cse_move2add): Also process
+	CALL_INSN_FUNCTION_USAGE when resetting information of
+	call-clobbered registers.
+
+2015-07-14  Sandra Loosemore  <sandra@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* config/nios2/constraints.md (U, v): New constraints.
+	* config/nios2/predicates.md (rdprs_dcache_operand): New.
+	(ldstex_memory_operand): New.
+	* config/nios2/sync.md: New file.
+	* config/nios2/nios2.md (unspecv): Add new builtin function
+	UNSPECV codes.
+	(rdprs, flushd, flushda, wrpie, eni): New patterns.
+	(top-level): Include sync.md.
+	* config/nios2/nios2.c (N2_FTYPES): Add function types for
+	new builtins.
+	(N2_BUILTINS): Add arch field setting, add new builtins.
+	(enum nios2_builtin_code,nios2_builtins): Update N2_BUILTIN_DEF
+	for arch field.
+	(nios2_expand_ldst_builtin): Rename from nios2_expand_ldstio_builtin.
+	Also handle ldex/stex/ldsex/stsex builtins.
+	(nios2_expand_rdprs_builtin): New function.
+	(nios2_expand_cache_builtin): New function.
+	(nios2_expand_wrpie_builtin): New function.
+	(nios2_expand_eni_builtin): New function.
+	(nios2_expand_builtin): Add arch field handling and new builtin
+	cases.
+	* doc/extend.texi (Altera Nios II Built-in Functions): Document
+	new builtins.
+	* doc/md.texi (Machine Constraints): Document U and v constraints.
+
+2015-07-14  Sandra Loosemore  <sandra@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* config/nios2/nios2-protos.h (nios2_expand_return): Declare.
+	* config/nios2/nios2.c (struct GTY (()) machine_function): Add
+	callee_save_reg_size and uses_anonymous_args fields.
+	(nios2_compute_frame_layout): Update for CDX push.n/pop.n usage.
+	(nios2_create_cfa_notes): New function.
+	(nios2_adjust_stack): New function for adjusting stack.
+	(nios2_expand_prologue): Update for CDX push.n/pop.n usage.
+	Use nios2_adjust_stack.
+	(nios2_expand_epilogue): Likewise.
+	(nios2_expand_return): New function.
+	(nios2_can_use_return_insn): Update for CDX pop.n usage.
+	(nios2_setup_incoming_varargs): Set uses_anonymous_args flag.
+	If TARGET_HAS_CDX, defer pushing regs to nios2_expand_prologue.
+	* config/nios2/nios2.md (return): Use nios2_expand_return.
+
+2015-07-14  Sandra Loosemore  <sandra@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* config/nios2/predicates.md (pop_operation): New.
+	(ldwm_operation, stwm_operation): New.
+	(nios2_hard_register_operand): New.
+	* config/nios2/nios2-protos.h (pop_operation_p): Declare.
+	(ldstwm_operation_p): Declare.
+	(gen_ldstwm_peep): Declare.
+	* config/nios2/nios2.c: (nios2_ldst_parallel): Declare.
+	(base_reg_adjustment_p): New.
+	(pop_operation_p): New.
+	(CDX_LDSTWM_VALID_REGS_0, CDX_LDSTWM_VALID_REGS_1): Define.
+	(nios2_ldstwm_regset_p): New.
+	(ldstwm_operation_p): New.
+	(gen_ldst): New.
+	(nios2_ldst_parallel): New.
+	(struct ldswm_operand): Declare.
+	(compare_ldstwm_operands): New.
+	(can_use_cdx_ldstw): New.
+	(gen_ldstwm_peep): New.
+	* config/nios2/nios2-ldstwm.sml: New.
+	* config/nios2/nios2.md: Include ldstwm.md.
+	* config/nios2/ldstwm.md: Generated.
+
+2015-07-14  Sandra Loosemore  <sandra@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* config/nios2/nios2.h (LABEL_ALIGN): Define.
+	(REG_ALLOC_ORDER): Define.
+	(ADJUST_REG_ALLOC_ORDER): Define.
+	(HONOR_REG_ALLOC_ORDER): Define.
+	(CDX_REG_P): Define.
+	(ANDCLEAR_INT): Define.
+	* config/nios2/nios2-protos.h (nios2_add_insn_asm): Declare.
+	(nios2_label_align): Declare.
+	(nios2_cdx_narrow_form_p): Declare.
+	(nios2_adjust_reg_alloc_order): Declare.
+	* config/nios2/nios2.c (nios2_rtx_costs): Adjust for BMX zero-extract
+	operation.
+	(nios2_large_unspec_reloc_p): New function, split from...
+	(nios2_legitimate_pic_operand_p): ...here.
+	(nios2_emit_move_sequence): Add *high/*lo_sum constant expand code.
+	(nios2_print_operand_punct_valid_p): New.
+	(nios2_print_operand): Add %., %!, %x, %y, %A.  Remove %U.
+	(split_mem_address): New.
+	(split_alu_insn): New.
+	(cdxreg): New.
+	(cdx_add_immed, cdx_and_immed, cdx_mov_immed, cdx_shift_immed): New.
+	(enum nios2_add_insn_kind): New.
+	(nios2_add_insn_names, nios2_add_insn_narrow): New.
+	(nios2_add_insn_classify): New.
+	(nios2_add_insn_asm): New.
+	(nios2_cdx_narrow_form_p): New.
+	(label_align, min_labelno, max_labelno): New.
+	(nios2_reorg): New.
+	(nios2_label_align): New.
+	(nios2_adjust_reg_alloc_order): New.
+	(TARGET_PRINT_OPERAND_PUNCT_VALID_P): Define.
+	(TARGET_MACHINE_DEPENDENT_REORG): Define.
+	* config/nios2/constraints.md (P): New constraint.
+	* config/nios2/predicates.md (const_and_operand): New.
+	(and_operand): New.
+	(stack_memory_operand): New.
+	* config/nios2/nios2.md (SP_REGNO): Define stack pointer regno.
+	(length): Update to use nios2_cdx_narrow_form_p().
+	(type): Add new insn type values.
+	(control, alu, st, ld, shift): Update insn reservations with
+	new insn type values.
+	(*high, *lo_sum): Define new insn patterns for constant generation.
+	(movqi_internal, movhi_internal, movsi_internal): Reduce
+	alternatives, update asm template to handle CDX variants, update
+	type attributes.
+	(zero_extendhisi2, zero_extendqi<mode>2): Add CDX variants to asm
+	template, update type attributes.
+	(extendhisi2, extendqi<mode>2): Likewise.
+	(addsi3): Change to use function for asm string.
+	(subsi3): Add CDX notation to asm template, update type attributes.
+	(negsi3, one_cmplsi3): Likewise.
+	(andsi3): New pattern, specialized from logical patterns.
+	(<code>si3): Remove and case, combine alternatives, update asm
+	template.
+	(<shift_op>si3): Add CDX notation, update type attributes.
+	(rotrsi3): Update type attribute.
+	(*merge, extzv, insv): New insn patterns.
+	(return): Change to define_expand.
+	(simple_return): Add CDX notation, update type attributes.
+	(indirect_jump): Add CDX notation.
+	(jump): Update asm cases, update length attribute expression.
+	(*call, *call_value, *sibcall, *sibcall_value): Add CDX variant.
+	(nios2_cbranch): Update asm cases and length attribute expression
+	to handle CDX variants.
+	(nios2_cmp<code>): Update asm template.
+	(nop): Add CDX notation, update type attributes.
+	(trap): Add CDX notation.
+	(ctrapsi4): Update asm cases and length attribute expression to
+	handle CDX variant.
+	* doc/md.texi (Machine Constraints): Document P constraint.
+
+2015-07-14  Sandra Loosemore  <sandra@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* config/nios2/nios2.h (SMALL_INT12): New macro.
+	* config/nios2/nios2.c (nios2_valid_addr_offset_p): New function.
+	(nios2_valid_addr_expr_p): Use it.
+	(nios2_symbol_ref_in_small_data_p): Disallow GP-relative addressing
+	with implicit "io" instructions on R2.
+	* config/nios2/constraints.md (w): New constraint.
+	* config/nios2/predicates.md (ldstio_memory_operand): New.
+	* config/nios2/nios2.md (ld<bhw_uns>io, ld<bh>io): Update memory
+	operand predicate and constraint.
+	(ld<bh>io_signed, st<bhw>io>): Likewise.
+	* doc/md.texi (Machine Constraints): Document w constraint.
+
+2015-07-14  Sandra Loosemore  <sandra@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* config/nios2/nios2.opt (march, mbmx, mcdx): New options.
+	* config/nios2/nios2-opts.h (enum nios2_arch_type): New enum for
+	Nios II architecture level.
+	* config/nios2/nios2.h (TARGET_ARCH_R2): New define.
+	(TARGET_CPU_CPP_BUILTINS): Add definition of __nios2_arch__ symbol.
+	(OPTION_DEFAULT_SPECS): Define.
+	(ASM_SPEC): Add -march= spec strings.
+	* config/nios2/nios2.c (nios2_option_override): Check for
+	conflicts involving new options.
+	* config.gcc (nios2*-*-*): Support --with-arch=.
+	* doc/invoke.texi (Option Summary, Nios II Options): Document
+	-march=, -mbmx,	and -mcdx.
+
+2015-07-14  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/66626
+	* lra-constraints.c (lra_constraints): Prevent equivalence
+	substitution for static chain pseudo in functions with nonlocal
+	goto.
+
+2015-07-14  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* config/nios2/nios2.c (TEMP_REG_NUM): Move define up in file.
+	(nios2_emit_stack_limit_check): Add size parameter.  Handle
+	-fstack-limit-symbol as well as -fstack-limit-register.
+	(nios2_expand_prologue): Emit only a single stack limit check,
+	even if multiple stack adjustments are required.
+	(nios2_option_override): Diagnose unsupported combination of -fpic
+	and -stack-limit-symbol.
+
+2015-07-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Makefile.in (top_srcdir): New.
+	* configure.ac: Use AM_ZLIB.
+	* configure: Regeneated.
+
+2015-07-14  Matthias Klose  <doko@ubuntu.com>
+
+	PR target/66840
+	* config/rs6000/t-rs6000 (TM_H): Add rs6000-cpus.def.
+
+2015-07-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66863
+	* tree-vrp.c (register_edge_assert_for_2): Properly restrict
+	what we record for conversion use stmt lhs inequalities.
+
 2015-07-14  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (dt_node::gen_kids_1): Fix case label indenting.
@@ -55,7 +486,7 @@
 	* omega.h: Don't include config.h, don't include params.h again if
 	omega.h has already been included.
 	* graphite-poly.h: Include sese.h.
-	* graphite.c: Don't include sese.h, remove needless includes and 
+	* graphite.c: Don't include sese.h, remove needless includes and
 	minimize includes outside #ifdef HAVE_isl block.
 	* graphite-blocking.c: Don't include sese.h, remove needless includes,
 	and wrap entire file in #ifdef HAVE_isl

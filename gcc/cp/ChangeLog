@@ -1,3 +1,33 @@
+2015-07-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65091
+	* parser.c (cp_parser_unqualified_id): Don't accept ~x in a
+	template if there is no type x in scope.
+
+2015-07-14  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/66850
+	* pt.c (redeclare_class_template): Set the DECL_CONTEXTs of each
+	template template parm in the redeclaration.
+	(lookup_template_class_1): Peel off irrelevant template levels
+	from current_template_parms before augmenting the argument
+	list.
+
+2015-07-14  Andrea Azzarone  <azzaronea@gmail.com>
+
+	PR c++/65071
+	* parser.c (cp_parser_sizeof_pack): Also consider template template
+	parameters.
+
+2015-07-14  Jason Merrill  <jason@redhat.com>
+
+	* call.c (build_new_method_call_1): Call reshape_init.
+
+2015-07-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* pt.c (check_template_shadow): Emit error + inform instead of
+	two errors.
+
 2015-07-13  Patrick Palka  <ppalka@gcc.gnu.org>
 
 	PR c++/65186

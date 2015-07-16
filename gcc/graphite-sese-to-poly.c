@@ -762,6 +762,10 @@ parameter_index_in_region (tree name, sese region)
 
   gcc_assert (TREE_CODE (name) == SSA_NAME);
 
+  /* Cannot constrain on anything else than INTEGER_TYPE parameters.  */
+  if (TREE_CODE (TREE_TYPE (name)) != INTEGER_TYPE)
+    return -1;
+
   i = parameter_index_in_region_1 (name, region);
   if (i != -1)
     return i;
@@ -887,6 +891,9 @@ scan_tree_for_params (sese s, tree e)
 
     case INTEGER_CST:
     case ADDR_EXPR:
+    case REAL_CST:
+    case COMPLEX_CST:
+    case VECTOR_CST:
       break;
 
    default:
@@ -1166,6 +1173,10 @@ add_conditions_to_domain (poly_bb_p pbb)
       {
       case GIMPLE_COND:
 	  {
+            /* Don't constrain on anything else than INTEGER_TYPE.  */
+	    if (TREE_CODE (TREE_TYPE (gimple_cond_lhs (stmt))) != INTEGER_TYPE)
+              break;
+
 	    gcond *cond_stmt = as_a <gcond *> (stmt);
 	    enum tree_code code = gimple_cond_code (cond_stmt);
 
@@ -2430,10 +2441,10 @@ rewrite_cross_bb_scalar_deps (scop_p scop, gimple_stmt_iterator *gsi)
   handle_scalar_deps_crossing_scop_limits (scop, def, stmt);
 
   FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, def)
-    if (gimple_code (use_stmt) == GIMPLE_PHI
-	&& (res = true))
+    if (gphi *phi = dyn_cast <gphi *> (use_stmt))
       {
-	gphi_iterator psi = gsi_start_phis (gimple_bb (use_stmt));
+	res = true;
+	gphi_iterator psi = gsi_for_phi (phi);
 
 	if (scalar_close_phi_node_p (gsi_stmt (psi)))
 	  rewrite_close_phi_out_of_ssa (scop, &psi);
