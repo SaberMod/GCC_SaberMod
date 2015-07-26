@@ -2614,9 +2614,6 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
-
-AM_ENABLE_MULTILIB(, ..)
-
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for --enable-version-specific-runtime-libs" >&5
 $as_echo_n "checking for --enable-version-specific-runtime-libs... " >&6; }
 # Check whether --enable-version-specific-runtime-libs was given.
