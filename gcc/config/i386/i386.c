@@ -8211,7 +8211,8 @@ ix86_function_value_regno_p (const unsigned int regno)
     case SI_REG:
       return TARGET_64BIT && ix86_cfun_abi () != MS_ABI;
 
-    case FIRST_BND_REG:
+    case BND0_REG:
+    case BND1_REG:
       return chkp_function_instrumented_p (current_function_decl);
 
       /* Complex values are returned in %st(0)/%st(1) pair.  */
@@ -50335,14 +50336,19 @@ ix86_expand_pinsr (rtx *operands)
   unsigned int size = INTVAL (operands[1]);
   unsigned int pos = INTVAL (operands[2]);
 
+  if (GET_CODE (src) == SUBREG)
+    {
+      /* Reject non-lowpart subregs.  */
+      if (SUBREG_BYTE (src) != 0)
+       return false;
+      src = SUBREG_REG (src);
+    }
+
   if (GET_CODE (dst) == SUBREG)
     {
       pos += SUBREG_BYTE (dst) * BITS_PER_UNIT;
       dst = SUBREG_REG (dst);
     }
-
-  if (GET_CODE (src) == SUBREG)
-    src = SUBREG_REG (src);
 
   switch (GET_MODE (dst))
     {
@@ -50390,6 +50396,10 @@ ix86_expand_pinsr (rtx *operands)
 	  default:
 	    return false;
 	  }
+
+	/* Reject insertions to misaligned positions.  */
+	if (pos & (size-1))
+	  return false;
 
 	rtx d = dst;
 	if (GET_MODE (dst) != dstmode)
