@@ -2246,7 +2246,15 @@ gen_parallel_loop (struct loop *loop,
      increment) and immediately follows the loop exit test.  Attempt to move the
      entry of the loop directly before the exit check and increase the number of
      iterations of the loop by one.  */
-  if (!try_transform_to_exit_first_loop_alt (loop, reduction_list, nit))
+  if (try_transform_to_exit_first_loop_alt (loop, reduction_list, nit))
+    {
+      if (dump_file
+	  && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file,
+		 "alternative exit-first loop transform succeeded"
+		 " for loop %d\n", loop->num);
+    }
+  else
     {
       /* Fall back on the method that handles more cases, but duplicates the
 	 loop body: move the exit condition of LOOP to the beginning of its
@@ -2376,9 +2384,9 @@ gather_scalar_reductions (loop_p loop, reduction_info_table_type *reduction_list
       if (!simple_iv (loop, loop, res, &iv, true)
 	&& simple_loop_info)
 	{
-           gimple reduc_stmt = vect_force_simple_reduction (simple_loop_info,
-							    phi, true,
-							    &double_reduc);
+	   gimple reduc_stmt
+	     = vect_force_simple_reduction (simple_loop_info, phi, true,
+					    &double_reduc, true);
 	   if (reduc_stmt && !double_reduc)
               build_new_reduction (reduction_list, reduc_stmt, phi);
         }
