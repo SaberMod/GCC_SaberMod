@@ -1,3 +1,33 @@
+2015-07-23  Marek Polacek  <polacek@redhat.com>
+
+	* c-ubsan.c (ubsan_instrument_division): Use unshare_expr throughout.
+	(ubsan_instrument_shift): Likewise.
+
+2015-07-23  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/66908
+	* c-ubsan.c: Include gimplify.h.
+	(ubsan_instrument_division): Unshare OP0 and OP1.
+	(ubsan_instrument_shift): Likewise.
+
+2015-07-20  Marek Polacek  <polacek@redhat.com>
+	    Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR c++/55095
+	* c-common.c (c_fully_fold_internal): Warn about left shift overflows.
+	Use EXPR_LOC_OR_LOC.
+	(maybe_warn_shift_overflow): New function.
+	* c-common.h (maybe_warn_shift_overflow): Declare.
+	* c-opts.c (c_common_post_options): Set warn_shift_overflow.
+	* c.opt (Wshift-overflow): New option.
+
+2015-07-16  Martin Liska  <mliska@suse.cz>
+
+	* c-format.c (static void check_format_info_main): Use
+	object_allocator instead of pool_allocator.
+	(check_format_arg): Likewise.
+	(check_format_info_main): Likewise.
+
 2015-07-15  Andrew MacLeod  <amacleod@redhat.com>
 
 	* c-opts.c: Remove multiline #include comment.

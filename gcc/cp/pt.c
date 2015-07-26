@@ -14917,6 +14917,7 @@ tsubst_copy_and_build (tree t,
       {
 	warning_sentinel s1(warn_type_limits);
 	warning_sentinel s2(warn_div_by_zero);
+	warning_sentinel s3(warn_logical_op);
 	tree op0 = RECUR (TREE_OPERAND (t, 0));
 	tree op1 = RECUR (TREE_OPERAND (t, 1));
 	tree r = build_x_binary_op
@@ -22458,15 +22459,19 @@ do_auto_deduction (tree type, tree init, tree auto_node)
 tree
 splice_late_return_type (tree type, tree late_return_type)
 {
-  tree argvec;
+  if (is_auto (type))
+    {
+      if (late_return_type)
+	return late_return_type;
 
-  if (late_return_type == NULL_TREE)
-    return type;
-  argvec = make_tree_vec (1);
-  TREE_VEC_ELT (argvec, 0) = late_return_type;
-  if (current_template_parms)
-    argvec = add_to_template_args (current_template_args (), argvec);
-  return tsubst (type, argvec, tf_warning_or_error, NULL_TREE);
+      tree idx = get_template_parm_index (type);
+      if (TEMPLATE_PARM_LEVEL (idx) <= processing_template_decl)
+	/* In an abbreviated function template we didn't know we were dealing
+	   with a function template when we saw the auto return type, so update
+	   it to have the correct level.  */
+	return make_auto_1 (TYPE_IDENTIFIER (type));
+    }
+  return type;
 }
 
 /* Returns true iff TYPE is a TEMPLATE_TYPE_PARM representing 'auto' or

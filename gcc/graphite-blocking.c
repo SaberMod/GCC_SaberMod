@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Workaround for GMP 5.1.3 bug, see PR56019.  */
 #include <stddef.h>
 
+#include <isl/constraint.h>
 #include <isl/set.h>
 #include <isl/map.h>
 #include <isl/union_map.h>
@@ -38,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
+#include "params.h"
 #include "fold-const.h"
 #include "gimple-iterator.h"
 #include "tree-ssa-loop.h"

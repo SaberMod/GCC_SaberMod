@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Workaround for GMP 5.1.3 bug, see PR56019.  */
 #include <stddef.h>
 
+#include <isl/constraint.h>
 #include <isl/set.h>
 #include <isl/map.h>
 #include <isl/options.h>
@@ -50,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
+#include "params.h"
 
 #ifdef HAVE_isl
 #include "cfghooks.h"

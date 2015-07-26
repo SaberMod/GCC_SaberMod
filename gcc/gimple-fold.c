@@ -546,7 +546,7 @@ fold_gimple_cond (gcond *stmt)
   if (result)
     {
       STRIP_USELESS_TYPE_CONVERSION (result);
-      if (is_gimple_condexpr (result) && valid_gimple_rhs_p (result))
+      if (is_gimple_condexpr (result))
         {
           gimple_cond_set_condition_from_tree (stmt, result);
           return true;
@@ -3397,6 +3397,19 @@ replace_stmt_with_simplification (gimple_stmt_iterator *gsi,
 	  gsi_insert_seq_before (gsi, *seq, GSI_SAME_STMT);
 	  return true;
 	}
+    }
+  else if (rcode.is_fn_code ()
+	   && gimple_call_builtin_p (stmt, rcode))
+    {
+      unsigned i;
+      for (i = 0; i < gimple_call_num_args (stmt); ++i)
+	{
+	  gcc_assert (ops[i] != NULL_TREE);
+	  gimple_call_set_arg (stmt, i, ops[i]);
+	}
+      if (i < 3)
+	gcc_assert (ops[i] == NULL_TREE);
+      return true;
     }
   else if (!inplace)
     {

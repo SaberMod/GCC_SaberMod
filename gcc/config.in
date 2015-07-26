@@ -194,8 +194,7 @@
 
 /* Define if you want all operations on trees (the basic data structure of the
    front ends) to be checked for dynamic type safety at runtime. This is
-   moderately expensive. The tree browser debugging routines will also be
-   enabled by this option. */
+   moderately expensive. */
 #ifndef USED_FOR_TARGET
 #undef ENABLE_TREE_CHECKING
 #endif
@@ -574,6 +573,12 @@
 #endif
 
 
+/* Define if your assembler supports relocs needed by -fpic. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_SMALL_PIC_RELOCS
+#endif
+
+
 /* Define if your assembler supports SPARC4 instructions. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_SPARC4
@@ -603,12 +608,6 @@
    against hidden symbols. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_SPARC_UA_PCREL_HIDDEN
-#endif
-
-
-/* Define if your assembler supports relocs needed by -fpic. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_AS_SMALL_PIC_RELOCS
 #endif
 
 
@@ -1326,6 +1325,12 @@
 #endif
 
 
+/* Define if isl_options_set_schedule_serialize_sccs exists. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
+#endif
+
+
 /* Define if isl_schedule_constraints_compute_schedule exists. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE
@@ -1366,6 +1371,12 @@
    options. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_AS_NEEDED
+#endif
+
+
+/* Define if your linker supports -z bndplt */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LD_BNDPLT_SUPPORT
 #endif
 
 

@@ -127,12 +127,6 @@ cuda_error (CUresult r)
   return &errmsg[0];
 }
 
-struct targ_fn_descriptor
-{
-  CUfunction fn;
-  const char *name;
-};
-
 static unsigned int instantiated_devices = 0;
 static pthread_mutex_t ptx_dev_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -288,6 +282,25 @@ map_push (struct ptx_stream *s, int async, size_t size, void **h, void **d)
   return;
 }
 
+/* Descriptor of a loaded function.  */
+
+struct targ_fn_descriptor
+{
+  CUfunction fn;
+  const char *name;
+};
+
+/* A loaded PTX image.  */
+struct ptx_image_data
+{
+  const void *target_data;
+  CUmodule module;
+
+  struct targ_fn_descriptor *fns;  /* Array of functions.  */
+  
+  struct ptx_image_data *next;
+};
+
 struct ptx_device
 {
   CUcontext ctx;
@@ -311,6 +324,9 @@ struct ptx_device
   int  mode;
   bool mkern;
 
+  struct ptx_image_data *images;  /* Images loaded on device.  */
+  pthread_mutex_t image_lock;     /* Lock for above list.  */
+  
   struct ptx_device *next;
 };
 
@@ -332,20 +348,10 @@ struct ptx_event
   struct ptx_event *next;
 };
 
-struct ptx_image_data
-{
-  void *target_data;
-  CUmodule module;
-  struct ptx_image_data *next;
-};
-
 static pthread_mutex_t ptx_event_lock;
 static struct ptx_event *ptx_events;
 
 static struct ptx_device **ptx_devices;
-
-static struct ptx_image_data *ptx_images = NULL;
-static pthread_mutex_t ptx_image_lock = PTHREAD_MUTEX_INITIALIZER;
 
 #define _XSTR(s) _STR(s)
 #define _STR(s) #s
@@ -590,6 +596,7 @@ select_stream_for_async (int async, pthread_t thread, bool create,
 
 /* Initialize the device.  Return TRUE on success, else FALSE.  PTX_DEV_LOCK
    should be locked on entry and remains locked on exit.  */
+
 static bool
 nvptx_init (void)
 {
@@ -746,6 +753,9 @@ nvptx_open_device (int n)
   if (r != CUDA_SUCCESS)
     async_engines = 1;
 
+  ptx_dev->images = NULL;
+  pthread_mutex_init (&ptx_dev->image_lock, NULL);
+
   init_streams_for_device (ptx_dev, async_engines);
 
   return ptx_dev;
@@ -760,6 +770,8 @@ nvptx_close_device (struct ptx_device *ptx_dev)
     return;
 
   fini_streams_for_device (ptx_dev);
+  
+  pthread_mutex_destroy (&ptx_dev->image_lock);
 
   if (!ptx_dev->ctx_shared)
     {
@@ -804,7 +816,7 @@ nvptx_get_num_devices (void)
 
 
 static void
-link_ptx (CUmodule *module, char *ptx_code)
+link_ptx (CUmodule *module, const char *ptx_code)
 {
   CUjit_option opts[7];
   void *optvals[7];
@@ -874,7 +886,8 @@ link_ptx (CUmodule *module, char *ptx_code)
 			 cuda_error (r));
     }
 
-  r = cuLinkAddData (linkstate, CU_JIT_INPUT_PTX, ptx_code,
+  /* cuLinkAddData's 'data' argument erroneously omits the const qualifier.  */
+  r = cuLinkAddData (linkstate, CU_JIT_INPUT_PTX, (char *)ptx_code,
               strlen (ptx_code) + 1, 0, 0, 0, 0);
   if (r != CUDA_SUCCESS)
     {
@@ -1618,55 +1631,71 @@ GOMP_OFFLOAD_fini_device (int n)
   pthread_mutex_unlock (&ptx_dev_lock);
 }
 
+/* Data emitted by mkoffload.  */
+
+typedef struct nvptx_tdata
+{
+  const char *ptx_src;
+
+  const char *const *var_names;
+  size_t var_num;
+
+  const char *const *fn_names;
+  size_t fn_num;
+} nvptx_tdata_t;
+
+/* Load the (partial) program described by TARGET_DATA to device
+   number ORD.  Allocate and return TARGET_TABLE.  */
+
 int
-GOMP_OFFLOAD_load_image (int ord, void *target_data,
+GOMP_OFFLOAD_load_image (int ord, const void *target_data,
 			 struct addr_pair **target_table)
 {
   CUmodule module;
-  char **fn_names, **var_names;
+  const char *const *fn_names, *const *var_names;
   unsigned int fn_entries, var_entries, i, j;
   CUresult r;
   struct targ_fn_descriptor *targ_fns;
-  void **img_header = (void **) target_data;
+  struct addr_pair *targ_tbl;
+  const nvptx_tdata_t *img_header = (const nvptx_tdata_t *) target_data;
   struct ptx_image_data *new_image;
+  struct ptx_device *dev;
 
   GOMP_OFFLOAD_init_device (ord);
 
+  dev = ptx_devices[ord];
+  
   nvptx_attach_host_thread_to_device (ord);
 
-  link_ptx (&module, img_header[0]);
+  link_ptx (&module, img_header->ptx_src);
 
-  pthread_mutex_lock (&ptx_image_lock);
-  new_image = GOMP_PLUGIN_malloc (sizeof (struct ptx_image_data));
-  new_image->target_data = target_data;
-  new_image->module = module;
-  new_image->next = ptx_images;
-  ptx_images = new_image;
-  pthread_mutex_unlock (&ptx_image_lock);
+  /* The mkoffload utility emits a struct of pointers/integers at the
+     start of each offload image.  The array of kernel names and the
+     functions addresses form a one-to-one correspondence.  */
 
-  /* The mkoffload utility emits a table of pointers/integers at the start of
-     each offload image:
+  var_entries = img_header->var_num;
+  var_names = img_header->var_names;
+  fn_entries = img_header->fn_num;
+  fn_names = img_header->fn_names;
 
-     img_header[0] -> ptx code
-     img_header[1] -> number of variables
-     img_header[2] -> array of variable names (pointers to strings)
-     img_header[3] -> number of kernels
-     img_header[4] -> array of kernel names (pointers to strings)
-
-     The array of kernel names and the functions addresses form a
-     one-to-one correspondence.  */
-
-  var_entries = (uintptr_t) img_header[1];
-  var_names = (char **) img_header[2];
-  fn_entries = (uintptr_t) img_header[3];
-  fn_names = (char **) img_header[4];
-
-  *target_table = GOMP_PLUGIN_malloc (sizeof (struct addr_pair)
-				      * (fn_entries + var_entries));
+  targ_tbl = GOMP_PLUGIN_malloc (sizeof (struct addr_pair)
+				 * (fn_entries + var_entries));
   targ_fns = GOMP_PLUGIN_malloc (sizeof (struct targ_fn_descriptor)
 				 * fn_entries);
 
-  for (i = 0; i < fn_entries; i++)
+  *target_table = targ_tbl;
+
+  new_image = GOMP_PLUGIN_malloc (sizeof (struct ptx_image_data));
+  new_image->target_data = target_data;
+  new_image->module = module;
+  new_image->fns = targ_fns;
+
+  pthread_mutex_lock (&dev->image_lock);
+  new_image->next = dev->images;
+  dev->images = new_image;
+  pthread_mutex_unlock (&dev->image_lock);
+
+  for (i = 0; i < fn_entries; i++, targ_fns++, targ_tbl++)
     {
       CUfunction function;
 
@@ -1674,14 +1703,14 @@ GOMP_OFFLOAD_load_image (int ord, void *target_data,
       if (r != CUDA_SUCCESS)
 	GOMP_PLUGIN_fatal ("cuModuleGetFunction error: %s", cuda_error (r));
 
-      targ_fns[i].fn = function;
-      targ_fns[i].name = (const char *) fn_names[i];
+      targ_fns->fn = function;
+      targ_fns->name = (const char *) fn_names[i];
 
-      (*target_table)[i].start = (uintptr_t) &targ_fns[i];
-      (*target_table)[i].end = (*target_table)[i].start + 1;
+      targ_tbl->start = (uintptr_t) targ_fns;
+      targ_tbl->end = targ_tbl->start + 1;
     }
 
-  for (j = 0; j < var_entries; j++, i++)
+  for (j = 0; j < var_entries; j++, targ_tbl++)
     {
       CUdeviceptr var;
       size_t bytes;
@@ -1690,46 +1719,33 @@ GOMP_OFFLOAD_load_image (int ord, void *target_data,
       if (r != CUDA_SUCCESS)
         GOMP_PLUGIN_fatal ("cuModuleGetGlobal error: %s", cuda_error (r));
 
-      (*target_table)[i].start = (uintptr_t) var;
-      (*target_table)[i].end = (*target_table)[i].start + bytes;
+      targ_tbl->start = (uintptr_t) var;
+      targ_tbl->end = targ_tbl->start + bytes;
     }
 
-  return i;
+  return fn_entries + var_entries;
 }
 
+/* Unload the program described by TARGET_DATA.  DEV_DATA is the
+   function descriptors allocated by G_O_load_image.  */
+
 void
-GOMP_OFFLOAD_unload_image (int tid __attribute__((unused)), void *target_data)
+GOMP_OFFLOAD_unload_image (int ord, const void *target_data)
 {
-  void **img_header = (void **) target_data;
-  struct targ_fn_descriptor *targ_fns
-    = (struct targ_fn_descriptor *) img_header[0];
-  struct ptx_image_data *image, *prev = NULL, *newhd = NULL;
+  struct ptx_image_data *image, **prev_p;
+  struct ptx_device *dev = ptx_devices[ord];
 
-  free (targ_fns);
-
-  pthread_mutex_lock (&ptx_image_lock);
-  for (image = ptx_images; image != NULL;)
-    {
-      struct ptx_image_data *next = image->next;
-
-      if (image->target_data == target_data)
-	{
-	  cuModuleUnload (image->module);
-	  free (image);
-	  if (prev)
-	    prev->next = next;
-	}
-      else
-	{
-	  prev = image;
-	  if (!newhd)
-	    newhd = image;
-	}
-
-      image = next;
-    }
-  ptx_images = newhd;
-  pthread_mutex_unlock (&ptx_image_lock);
+  pthread_mutex_lock (&dev->image_lock);
+  for (prev_p = &dev->images; (image = *prev_p) != 0; prev_p = &image->next)
+    if (image->target_data == target_data)
+      {
+	*prev_p = image->next;
+	cuModuleUnload (image->module);
+	free (image->fns);
+	free (image);
+	break;
+      }
+  pthread_mutex_unlock (&dev->image_lock);
 }
 
 void *

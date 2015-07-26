@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Workaround for GMP 5.1.3 bug, see PR56019.  */
 #include <stddef.h>
 
+#include <isl/constraint.h>
 #include <isl/set.h>
 #include <isl/map.h>
 #include <isl/union_map.h>
@@ -51,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "graphite-poly.h"
 #include "tree-ssa-propagate.h"
 #include "graphite-scop-detection.h"
+#include "gimple-pretty-print.h"
 
 /* Forward declarations.  */
 static void make_close_phi_nodes_unique (basic_block);
@@ -290,7 +292,6 @@ stmt_has_simple_data_refs_p (loop_p outermost_loop ATTRIBUTE_UNUSED,
 			     gimple stmt)
 {
   data_reference_p dr;
-  unsigned i;
   int j;
   bool res = true;
   vec<data_reference_p> drs = vNULL;
@@ -303,18 +304,29 @@ stmt_has_simple_data_refs_p (loop_p outermost_loop ATTRIBUTE_UNUSED,
 					     stmt, &drs);
 
       FOR_EACH_VEC_ELT (drs, j, dr)
-	for (i = 0; i < DR_NUM_DIMENSIONS (dr); i++)
-	  if (!graphite_can_represent_scev (DR_ACCESS_FN (dr, i)))
+	{
+	  int nb_subscripts = DR_NUM_DIMENSIONS (dr);
+	  tree ref = DR_REF (dr);
+
+	  for (int i = nb_subscripts - 1; i >= 0; i--)
 	    {
-	      res = false;
-	      goto done;
+	      if (!graphite_can_represent_scev (DR_ACCESS_FN (dr, i))
+		  || (TREE_CODE (ref) != ARRAY_REF
+		      && TREE_CODE (ref) != MEM_REF
+		      && TREE_CODE (ref) != COMPONENT_REF))
+		{
+		  free_data_refs (drs);
+		  return false;
+		}
+
+	      ref = TREE_OPERAND (ref, 0);
 	    }
+	}
 
       free_data_refs (drs);
       drs.create (0);
     }
 
- done:
   free_data_refs (drs);
   return res;
 }
@@ -340,13 +352,31 @@ stmt_simple_for_scop_p (basic_block scop_entry, loop_p outermost_loop,
       || (gimple_code (stmt) == GIMPLE_CALL
 	  && !(gimple_call_flags (stmt) & (ECF_CONST | ECF_PURE)))
       || (gimple_code (stmt) == GIMPLE_ASM))
-    return false;
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "[scop-detection-fail] ");
+	  fprintf (dump_file, "Graphite cannot handle this stmt:\n");
+	  print_gimple_stmt (dump_file, stmt, 0, TDF_VOPS|TDF_MEMSYMS);
+	}
+
+      return false;
+    }
 
   if (is_gimple_debug (stmt))
     return true;
 
   if (!stmt_has_simple_data_refs_p (outermost_loop, stmt))
-    return false;
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "[scop-detection-fail] ");
+	  fprintf (dump_file, "Graphite cannot handle data-refs in stmt:\n");
+	  print_gimple_stmt (dump_file, stmt, 0, TDF_VOPS|TDF_MEMSYMS);
+	}
+
+      return false;
+    }
 
   switch (gimple_code (stmt))
     {
@@ -365,7 +395,16 @@ stmt_simple_for_scop_p (basic_block scop_entry, loop_p outermost_loop,
 	      || code == GE_EXPR
 	      || code == EQ_EXPR
 	      || code == NE_EXPR))
-          return false;
+          {
+	    if (dump_file && (dump_flags & TDF_DETAILS))
+	      {
+		fprintf (dump_file, "[scop-detection-fail] ");
+		fprintf (dump_file, "Graphite cannot handle cond stmt:\n");
+		print_gimple_stmt (dump_file, stmt, 0, TDF_VOPS|TDF_MEMSYMS);
+	      }
+
+	    return false;
+	  }
 
 	for (unsigned i = 0; i < 2; ++i)
 	  {
@@ -373,7 +412,16 @@ stmt_simple_for_scop_p (basic_block scop_entry, loop_p outermost_loop,
 	    if (!graphite_can_represent_expr (scop_entry, loop, op)
 		/* We can not handle REAL_TYPE. Failed for pr39260.  */
 		|| TREE_CODE (TREE_TYPE (op)) == REAL_TYPE)
-	      return false;
+	      {
+		if (dump_file && (dump_flags & TDF_DETAILS))
+		  {
+		    fprintf (dump_file, "[scop-detection-fail] ");
+		    fprintf (dump_file, "Graphite cannot represent stmt:\n");
+		    print_gimple_stmt (dump_file, stmt, 0, TDF_VOPS|TDF_MEMSYMS);
+		  }
+
+		return false;
+	      }
 	  }
 
 	return true;
@@ -385,6 +433,12 @@ stmt_simple_for_scop_p (basic_block scop_entry, loop_p outermost_loop,
 
     default:
       /* These nodes cut a new scope.  */
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "[scop-detection-fail] ");
+	  fprintf (dump_file, "Gimple stmt not handled in Graphite:\n");
+	  print_gimple_stmt (dump_file, stmt, 0, TDF_VOPS|TDF_MEMSYMS);
+	}
       return false;
     }
 
@@ -478,7 +532,16 @@ scopdet_basic_block_info (basic_block bb, loop_p outermost_loop,
 	 with make_forwarder_block.  */
       if (!single_succ_p (bb)
 	  || bb_has_abnormal_pred (single_succ (bb)))
-	result.difficult = true;
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "[scop-detection-fail] ");
+	      fprintf (dump_file, "BB %d cannot be part of a scop.\n",
+		       bb->index);
+	    }
+
+	  result.difficult = true;
+	}
       else
 	result.exit = single_succ (bb);
 
@@ -499,7 +562,15 @@ scopdet_basic_block_info (basic_block bb, loop_p outermost_loop,
 	sinfo = build_scops_1 (bb, outermost_loop, &regions, loop);
 
 	if (!graphite_can_represent_loop (entry_block, loop))
-	  result.difficult = true;
+	  {
+	    if (dump_file && (dump_flags & TDF_DETAILS))
+	      {
+		fprintf (dump_file, "[scop-detection-fail] ");
+		fprintf (dump_file, "Graphite cannot represent loop %d.\n",
+			 loop->num);
+	      }
+	    result.difficult = true;
+	  }
 
 	result.difficult |= sinfo.difficult;
 

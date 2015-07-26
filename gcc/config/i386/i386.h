@@ -524,6 +524,10 @@ extern unsigned char x86_prefetch_sse;
 #define TARGET_MIX_SSE_I387 \
  ((ix86_fpmath & (FPMATH_SSE | FPMATH_387)) == (FPMATH_SSE | FPMATH_387))
 
+#define TARGET_HARD_SF_REGS	(TARGET_80387 || TARGET_MMX || TARGET_SSE)
+#define TARGET_HARD_DF_REGS	(TARGET_80387 || TARGET_SSE)
+#define TARGET_HARD_XF_REGS	(TARGET_80387)
+
 #define TARGET_GNU_TLS		(ix86_tls_dialect == TLS_DIALECT_GNU)
 #define TARGET_GNU2_TLS		(ix86_tls_dialect == TLS_DIALECT_GNU2)
 #define TARGET_ANY_GNU_TLS	(TARGET_GNU_TLS || TARGET_GNU2_TLS)
@@ -2256,6 +2260,15 @@ do {									\
 /* Default threshold for putting data in large sections
    with x86-64 medium memory model */
 #define DEFAULT_LARGE_SECTION_THRESHOLD 65536
+
+/* Adjust the length of the insn with the length of BND prefix.  */
+
+#define ADJUST_INSN_LENGTH(INSN, LENGTH)		\
+do {							\
+  if (NONDEBUG_INSN_P (INSN) && INSN_CODE (INSN) >= 0	\
+      && get_attr_maybe_prefix_bnd (INSN))		\
+    LENGTH += ix86_bnd_prefixed_insn_p (INSN);		\
+} while (0)
 
 /* Which processor to tune code generation for.  These must be in sync
    with processor_target_table in i386.c.  */ 

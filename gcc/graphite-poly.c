@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Workaround for GMP 5.1.3 bug, see PR56019.  */
 #include <stddef.h>
 
+#include <isl/constraint.h>
 #include <isl/set.h>
 #include <isl/map.h>
 #include <isl/union_map.h>
@@ -270,7 +271,7 @@ apply_poly_transforms (scop_p scop)
 void
 new_poly_dr (poly_bb_p pbb, int dr_base_object_set,
 	     enum poly_dr_type type, void *cdr, graphite_dim_t nb_subscripts,
-	     isl_map *acc, isl_set *extent)
+	     isl_map *acc, isl_set *subscript_sizes)
 {
   static int id = 0;
   poly_dr_p pdr = XNEW (struct poly_dr);
@@ -280,7 +281,7 @@ new_poly_dr (poly_bb_p pbb, int dr_base_object_set,
   PDR_NB_REFS (pdr) = 1;
   PDR_PBB (pdr) = pbb;
   pdr->accesses = acc;
-  pdr->extent = extent;
+  pdr->subscript_sizes = subscript_sizes;
   PDR_TYPE (pdr) = type;
   PDR_CDR (pdr) = cdr;
   PDR_NB_SUBSCRIPTS (pdr) = nb_subscripts;
@@ -293,7 +294,7 @@ void
 free_poly_dr (poly_dr_p pdr)
 {
   isl_map_free (pdr->accesses);
-  isl_set_free (pdr->extent);
+  isl_set_free (pdr->subscript_sizes);
   XDELETE (pdr);
 }
 

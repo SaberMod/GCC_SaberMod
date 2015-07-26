@@ -1145,6 +1145,10 @@ create_loads_for_reductions (reduction_info **slot, struct clsn_data *clsn_data)
   tree name;
   tree x;
 
+  /* If there's no exit phi, the result of the reduction is unused.  */
+  if (red->keep_res == NULL)
+    return 1;
+
   gsi = gsi_after_labels (clsn_data->load_bb);
   load_struct = build_simple_mem_ref (clsn_data->load);
   load_struct = build3 (COMPONENT_REF, type, load_struct, red->field,
@@ -2046,13 +2050,17 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
        !gsi_end_p (gpi); gsi_next (&gpi))
     {
       source_location locus;
-      tree def;
       gphi *phi = gpi.phi ();
-      gphi *stmt;
+      tree def = PHI_ARG_DEF_FROM_EDGE (phi, exit);
+      gimple def_stmt = SSA_NAME_DEF_STMT (def);
 
-      stmt = as_a <gphi *> (
-	       SSA_NAME_DEF_STMT (PHI_ARG_DEF_FROM_EDGE (phi, exit)));
+      /* If the exit phi is not connected to a header phi in the same loop, this
+	 value is not modified in the loop, and we're done with this phi.  */
+      if (!(gimple_code (def_stmt) == GIMPLE_PHI
+	    && gimple_bb (def_stmt) == loop->header))
+	continue;
 
+      gphi *stmt = as_a <gphi *> (def_stmt);
       def = PHI_ARG_DEF_FROM_EDGE (stmt, loop_preheader_edge (loop));
       locus = gimple_phi_arg_location_from_edge (stmt,
 						 loop_preheader_edge (loop));
@@ -2238,7 +2246,15 @@ gen_parallel_loop (struct loop *loop,
      increment) and immediately follows the loop exit test.  Attempt to move the
      entry of the loop directly before the exit check and increase the number of
      iterations of the loop by one.  */
-  if (!try_transform_to_exit_first_loop_alt (loop, reduction_list, nit))
+  if (try_transform_to_exit_first_loop_alt (loop, reduction_list, nit))
+    {
+      if (dump_file
+	  && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file,
+		 "alternative exit-first loop transform succeeded"
+		 " for loop %d\n", loop->num);
+    }
+  else
     {
       /* Fall back on the method that handles more cases, but duplicates the
 	 loop body: move the exit condition of LOOP to the beginning of its
@@ -2368,9 +2384,9 @@ gather_scalar_reductions (loop_p loop, reduction_info_table_type *reduction_list
       if (!simple_iv (loop, loop, res, &iv, true)
 	&& simple_loop_info)
 	{
-           gimple reduc_stmt = vect_force_simple_reduction (simple_loop_info,
-							    phi, true,
-							    &double_reduc);
+	   gimple reduc_stmt
+	     = vect_force_simple_reduction (simple_loop_info, phi, true,
+					    &double_reduc, true);
 	   if (reduc_stmt && !double_reduc)
               build_new_reduction (reduction_list, reduc_stmt, phi);
         }

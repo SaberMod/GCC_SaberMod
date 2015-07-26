@@ -143,7 +143,7 @@ vec<inline_edge_summary_t> inline_edge_summary_vec;
 vec<edge_growth_cache_entry> edge_growth_cache;
 
 /* Edge predicates goes here.  */
-static pool_allocator<predicate> edge_predicate_pool ("edge predicates", 10);
+static object_allocator<predicate> edge_predicate_pool ("edge predicates", 10);
 
 /* Return true predicate (tautology).
    We represent it by empty list of clauses.  */
@@ -1572,7 +1572,7 @@ unmodified_parm (gimple stmt, tree op)
    loaded.  */
 
 static bool
-unmodified_parm_or_parm_agg_item (struct func_body_info *fbi,
+unmodified_parm_or_parm_agg_item (struct ipa_func_body_info *fbi,
 				  gimple stmt, tree op, int *index_p,
 				  struct agg_position_info *aggpos)
 {
@@ -1743,7 +1743,7 @@ eliminated_by_inlining_prob (gimple stmt)
    predicates to the CFG edges.   */
 
 static void
-set_cond_stmt_execution_predicate (struct func_body_info *fbi,
+set_cond_stmt_execution_predicate (struct ipa_func_body_info *fbi,
 				   struct inline_summary *summary,
 				   basic_block bb)
 {
@@ -1825,7 +1825,7 @@ set_cond_stmt_execution_predicate (struct func_body_info *fbi,
    predicates to the CFG edges.   */
 
 static void
-set_switch_stmt_execution_predicate (struct func_body_info *fbi,
+set_switch_stmt_execution_predicate (struct ipa_func_body_info *fbi,
 				     struct inline_summary *summary,
 				     basic_block bb)
 {
@@ -1886,7 +1886,7 @@ set_switch_stmt_execution_predicate (struct func_body_info *fbi,
    which it is executable.  */
 
 static void
-compute_bb_predicates (struct func_body_info *fbi,
+compute_bb_predicates (struct ipa_func_body_info *fbi,
 		       struct cgraph_node *node,
 		       struct inline_summary *summary)
 {
@@ -2029,7 +2029,7 @@ will_be_nonconstant_expr_predicate (struct ipa_node_params *info,
    a compile time constant.  */
 
 static struct predicate
-will_be_nonconstant_predicate (struct func_body_info *fbi,
+will_be_nonconstant_predicate (struct ipa_func_body_info *fbi,
 			       struct inline_summary *summary,
 			       gimple stmt,
 			       vec<predicate_t> nonconstant_names)
@@ -2479,7 +2479,7 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
   int freq;
   struct inline_summary *info = inline_summaries->get (node);
   struct predicate bb_predicate;
-  struct func_body_info fbi;
+  struct ipa_func_body_info fbi;
   vec<predicate_t> nonconstant_names = vNULL;
   int nblocks, n;
   int *order;
@@ -3109,6 +3109,9 @@ estimate_calls_size_and_time (struct cgraph_node *node, int *size,
   struct cgraph_edge *e;
   for (e = node->callees; e; e = e->next_callee)
     {
+      if (inline_edge_summary_vec.length () <= (unsigned) e->uid)
+	continue;
+
       struct inline_edge_summary *es = inline_edge_summary (e);
 
       /* Do not care about zero sized builtins.  */
@@ -3140,6 +3143,9 @@ estimate_calls_size_and_time (struct cgraph_node *node, int *size,
     }
   for (e = node->indirect_calls; e; e = e->next_callee)
     {
+      if (inline_edge_summary_vec.length () <= (unsigned) e->uid)
+	continue;
+
       struct inline_edge_summary *es = inline_edge_summary (e);
       if (!es->predicate
 	  || evaluate_predicate (es->predicate, possible_truths))
