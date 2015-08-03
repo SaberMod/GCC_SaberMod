@@ -793,8 +793,10 @@ check_specialization_namespace (tree tmpl)
     return true;
   else
     {
-      permerror (input_location, "specialization of %qD in different namespace", tmpl);
-      permerror (input_location, "  from definition of %q+#D", tmpl);
+      permerror (input_location,
+		 "specialization of %qD in different namespace", tmpl);
+      permerror (DECL_SOURCE_LOCATION (tmpl),
+		 "  from definition of %q#D", tmpl);
       return false;
     }
 }
@@ -920,8 +922,10 @@ maybe_process_partial_specialization (tree type)
 	  if (current_namespace
 	      != decl_namespace_context (tmpl))
 	    {
-	      permerror (input_location, "specializing %q#T in different namespace", type);
-	      permerror (input_location, "  from definition of %q+#D", tmpl);
+	      permerror (input_location,
+			 "specializing %q#T in different namespace", type);
+	      permerror (DECL_SOURCE_LOCATION (tmpl),
+			 "  from definition of %q#D", tmpl);
 	    }
 
 	  /* Check for invalid specialization after instantiation:
@@ -5239,9 +5243,9 @@ redeclare_class_template (tree type, tree parms)
                "redeclared with %d template parameter",
                "redeclared with %d template parameters",
                TREE_VEC_LENGTH (parms));
-      inform_n (input_location, TREE_VEC_LENGTH (tmpl_parms),
-                "previous declaration %q+D used %d template parameter",
-                "previous declaration %q+D used %d template parameters",
+      inform_n (DECL_SOURCE_LOCATION (tmpl), TREE_VEC_LENGTH (tmpl_parms),
+                "previous declaration %qD used %d template parameter",
+                "previous declaration %qD used %d template parameters",
                 tmpl, TREE_VEC_LENGTH (tmpl_parms));
       return false;
     }
@@ -7117,7 +7121,8 @@ coerce_template_parms (tree parms,
 		    "(%d, should be %d)", nargs, nparms);
 
 	  if (in_decl)
-	    inform (input_location, "provided for %q+D", in_decl);
+	    inform (DECL_SOURCE_LOCATION (in_decl),
+		    "provided for %qD", in_decl);
 	}
 
       return error_mark_node;
@@ -11565,6 +11570,10 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	  {
 	    DECL_ORIGINAL_TYPE (r) = NULL_TREE;
 	    set_underlying_type (r);
+	    if (TYPE_DECL_ALIAS_P (r) && type != error_mark_node)
+	      /* An alias template specialization can be dependent
+		 even if its underlying type is not.  */
+	      TYPE_DEPENDENT_P_VALID (TREE_TYPE (r)) = false;
 	  }
 
 	layout_decl (r, 0);
@@ -14918,6 +14927,7 @@ tsubst_copy_and_build (tree t,
 	warning_sentinel s1(warn_type_limits);
 	warning_sentinel s2(warn_div_by_zero);
 	warning_sentinel s3(warn_logical_op);
+	warning_sentinel s4(warn_tautological_compare);
 	tree op0 = RECUR (TREE_OPERAND (t, 0));
 	tree op1 = RECUR (TREE_OPERAND (t, 1));
 	tree r = build_x_binary_op
@@ -15313,7 +15323,8 @@ tsubst_copy_and_build (tree t,
 				      current_class_name, function);
 			  }
 			else
-			  inform (0, "%q+D declared here, later in the "
+			  inform (DECL_SOURCE_LOCATION (fn),
+				  "%qD declared here, later in the "
 				  "translation unit", fn);
 		      }
 		    function = unq;

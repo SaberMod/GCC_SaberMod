@@ -43,6 +43,12 @@ void ggc_free (void *)
 }
 
 
+/* Global state.  */
+
+/* Verboseness.  0 is quiet, 1 adds some warnings, 2 is for debugging.  */
+unsigned verbose;
+
+
 /* libccp helpers.  */
 
 static struct line_maps *line_table;
@@ -123,6 +129,18 @@ warning_at (const cpp_token *tk, const char *msg, ...)
   va_list ap;
   va_start (ap, msg);
   error_cb (NULL, CPP_DL_WARNING, 0, tk->src_loc, 0, msg, &ap);
+  va_end (ap);
+}
+
+static void
+#if GCC_VERSION >= 4001
+__attribute__((format (printf, 2, 3)))
+#endif
+warning_at (source_location loc, const char *msg, ...)
+{
+  va_list ap;
+  va_start (ap, msg);
+  error_cb (NULL, CPP_DL_WARNING, 0, loc, 0, msg, &ap);
   va_end (ap);
 }
 
@@ -1292,8 +1310,7 @@ struct decision_tree
   dt_node *root;
 
   void insert (struct simplify *, unsigned);
-  void gen_gimple (FILE *f = stderr);
-  void gen_generic (FILE *f = stderr);
+  void gen (FILE *f, bool gimple);
   void print (FILE *f = stderr);
 
   decision_tree () { root = new dt_node (dt_node::DT_NODE); }
@@ -1599,7 +1616,7 @@ decision_tree::print (FILE *f)
 
 struct capture_info
 {
-  capture_info (simplify *s, operand *);
+  capture_info (simplify *s, operand *, bool);
   void walk_match (operand *o, unsigned toplevel_arg, bool, bool);
   bool walk_result (operand *o, bool, operand *);
   void walk_c_expr (c_expr *);
@@ -1614,16 +1631,20 @@ struct capture_info
       unsigned long toplevel_msk;
       int result_use_count;
       unsigned same_as;
+      capture *c;
     };
 
   auto_vec<cinfo> info;
   unsigned long force_no_side_effects;
+  bool gimple;
 };
 
 /* Analyze captures in S.  */
 
-capture_info::capture_info (simplify *s, operand *result)
+capture_info::capture_info (simplify *s, operand *result, bool gimple_)
 {
+  gimple = gimple_;
+
   expr *e;
   if (s->kind == simplify::MATCH)
     {
@@ -1661,6 +1682,8 @@ capture_info::walk_match (operand *o, unsigned toplevel_arg,
       info[where].toplevel_msk |= 1 << toplevel_arg;
       info[where].force_no_side_effects_p |= conditional_p;
       info[where].cond_expr_cond_p |= cond_expr_cond_p;
+      if (!info[where].c)
+	info[where].c = c;
       if (!c->what)
 	return;
       /* Recurse to exprs and captures.  */
@@ -1710,6 +1733,10 @@ capture_info::walk_match (operand *o, unsigned toplevel_arg,
     {
       /* Mark non-captured leafs toplevel arg for checking.  */
       force_no_side_effects |= 1 << toplevel_arg;
+      if (verbose >= 1
+	  && !gimple)
+	warning_at (o->location,
+		    "forcing no side-effects on possibly lost leaf");
     }
   else
     gcc_unreachable ();
@@ -1801,15 +1828,25 @@ capture_info::walk_result (operand *o, bool conditional_p, operand *result)
 void
 capture_info::walk_c_expr (c_expr *e)
 {
-  /* Give up for C exprs mentioning captures not inside TREE_TYPE ().  */
+  /* Give up for C exprs mentioning captures not inside TREE_TYPE,
+     TREE_REAL_CST, TREE_CODE or a predicate where they cannot
+     really escape through.  */
   unsigned p_depth = 0;
   for (unsigned i = 0; i < e->code.length (); ++i)
     {
       const cpp_token *t = &e->code[i];
       const cpp_token *n = i < e->code.length () - 1 ? &e->code[i+1] : NULL;
+      id_base *id;
       if (t->type == CPP_NAME
-	  && strcmp ((const char *)CPP_HASHNODE
-		       (t->val.node.node)->ident.str, "TREE_TYPE") == 0
+	  && (strcmp ((const char *)CPP_HASHNODE
+		      (t->val.node.node)->ident.str, "TREE_TYPE") == 0
+	      || strcmp ((const char *)CPP_HASHNODE
+			 (t->val.node.node)->ident.str, "TREE_CODE") == 0
+	      || strcmp ((const char *)CPP_HASHNODE
+			 (t->val.node.node)->ident.str, "TREE_REAL_CST") == 0
+	      || ((id = get_operator ((const char *)CPP_HASHNODE
+				      (t->val.node.node)->ident.str))
+		  && is_a <predicate_id *> (id)))
 	  && n->type == CPP_OPEN_PAREN)
 	p_depth++;
       else if (t->type == CPP_CLOSE_PAREN
@@ -1828,6 +1865,9 @@ capture_info::walk_c_expr (c_expr *e)
 	    id = (const char *)CPP_HASHNODE (n->val.node.node)->ident.str;
 	  unsigned where = *e->capture_ids->get(id);
 	  info[info[where].same_as].force_no_side_effects_p = true;
+	  if (verbose >= 1
+	      && !gimple)
+	    warning_at (t, "capture escapes");
 	}
     }
 }
@@ -2048,7 +2088,10 @@ c_expr::gen_transform (FILE *f, int indent, const char *dest,
 		id = (const char *)n->val.str.text;
 	      else
 		id = (const char *)CPP_HASHNODE (n->val.node.node)->ident.str;
-	      fprintf (f, "captures[%u]", *capture_ids->get(id));
+	      unsigned *cid = capture_ids->get (id);
+	      if (!cid)
+		fatal_at (token, "unknown capture id");
+	      fprintf (f, "captures[%u]", *cid);
 	      ++i;
 	      continue;
 	    }
@@ -2659,25 +2702,37 @@ dt_simplify::gen_1 (FILE *f, int indent, bool gimple, operand *result)
 
   /* Analyze captures and perform early-outs on the incoming arguments
      that cover cases we cannot handle.  */
-  capture_info cinfo (s, result);
+  capture_info cinfo (s, result, gimple);
   if (s->kind == simplify::SIMPLIFY)
     {
       if (!gimple)
 	{
 	  for (unsigned i = 0; i < as_a <expr *> (s->match)->ops.length (); ++i)
 	    if (cinfo.force_no_side_effects & (1 << i))
-	      fprintf_indent (f, indent,
-			      "if (TREE_SIDE_EFFECTS (op%d)) return NULL_TREE;\n",
-			      i);
+	      {
+		fprintf_indent (f, indent,
+				"if (TREE_SIDE_EFFECTS (op%d)) return NULL_TREE;\n",
+				i);
+		if (verbose >= 1)
+		  warning_at (as_a <expr *> (s->match)->ops[i]->location,
+			      "forcing toplevel operand to have no "
+			      "side-effects");
+	      }
 	  for (int i = 0; i <= s->capture_max; ++i)
 	    if (cinfo.info[i].cse_p)
 	      ;
 	    else if (cinfo.info[i].force_no_side_effects_p
 		     && (cinfo.info[i].toplevel_msk
 			 & cinfo.force_no_side_effects) == 0)
-	      fprintf_indent (f, indent,
-			      "if (TREE_SIDE_EFFECTS (captures[%d])) "
-			      "return NULL_TREE;\n", i);
+	      {
+		fprintf_indent (f, indent,
+				"if (TREE_SIDE_EFFECTS (captures[%d])) "
+				"return NULL_TREE;\n", i);
+		if (verbose >= 1)
+		  warning_at (cinfo.info[i].c->location,
+			      "forcing captured operand to have no "
+			      "side-effects");
+	      }
 	    else if ((cinfo.info[i].toplevel_msk
 		      & cinfo.force_no_side_effects) != 0)
 	      /* Mark capture as having no side-effects if we had to verify
@@ -2941,32 +2996,89 @@ dt_simplify::gen (FILE *f, int indent, bool gimple)
    tree.  */
 
 void
-decision_tree::gen_gimple (FILE *f)
+decision_tree::gen (FILE *f, bool gimple)
 {
   root->analyze ();
 
-  fprintf (stderr, "GIMPLE decision tree has %u leafs, maximum depth %u and "
-	   "a total number of %u nodes\n", root->num_leafs, root->max_level,
-	   root->total_size);
+  fprintf (stderr, "%s decision tree has %u leafs, maximum depth %u and "
+	   "a total number of %u nodes\n",
+	   gimple ? "GIMPLE" : "GENERIC", 
+	   root->num_leafs, root->max_level, root->total_size);
 
   for (unsigned n = 1; n <= 3; ++n)
     {
-      fprintf (f, "\nstatic bool\n"
-	       "gimple_simplify (code_helper *res_code, tree *res_ops,\n"
-	       "                 gimple_seq *seq, tree (*valueize)(tree),\n"
-	       "                 code_helper code, tree type");
+      /* First generate split-out functions.  */
+      for (unsigned i = 0; i < root->kids.length (); i++)
+	{
+	  dt_operand *dop = static_cast<dt_operand *>(root->kids[i]);
+	  expr *e = static_cast<expr *>(dop->op);
+	  if (e->ops.length () != n
+	      /* Builtin simplifications are somewhat premature on
+		 GENERIC.  The following drops patterns with outermost
+		 calls.  It's easy to emit overloads for function code
+		 though if necessary.  */
+	      || (!gimple
+		  && e->operation->kind != id_base::CODE))
+	    continue;
+
+	  if (gimple)
+	    fprintf (f, "\nstatic bool\n"
+		     "gimple_simplify_%s (code_helper *res_code, tree *res_ops,\n"
+		     "                 gimple_seq *seq, tree (*valueize)(tree) "
+		     "ATTRIBUTE_UNUSED,\n"
+		     "                 code_helper ARG_UNUSED (code), tree "
+		     "ARG_UNUSED (type)\n",
+		     e->operation->id);
+	  else
+	    fprintf (f, "\nstatic tree\n"
+		     "generic_simplify_%s (location_t ARG_UNUSED (loc), enum "
+		     "tree_code ARG_UNUSED (code), tree ARG_UNUSED (type)",
+		     e->operation->id);
+	  for (unsigned i = 0; i < n; ++i)
+	    fprintf (f, ", tree op%d", i);
+	  fprintf (f, ")\n");
+	  fprintf (f, "{\n");
+	  dop->gen_kids (f, 2, gimple);
+	  if (gimple)
+	    fprintf (f, "  return false;\n");
+	  else
+	    fprintf (f, "  return NULL_TREE;\n");
+	  fprintf (f, "}\n");
+	}
+
+      /* Then generate the main entry with the outermost switch and
+         tail-calls to the split-out functions.  */
+      if (gimple)
+	fprintf (f, "\nstatic bool\n"
+		 "gimple_simplify (code_helper *res_code, tree *res_ops,\n"
+		 "                 gimple_seq *seq, tree (*valueize)(tree),\n"
+		 "                 code_helper code, tree type");
+      else
+	fprintf (f, "\ntree\n"
+		 "generic_simplify (location_t loc, enum tree_code code, "
+		 "tree type ATTRIBUTE_UNUSED");
       for (unsigned i = 0; i < n; ++i)
 	fprintf (f, ", tree op%d", i);
       fprintf (f, ")\n");
       fprintf (f, "{\n");
 
-      fprintf (f, "  switch (code.get_rep())\n"
-	          "    {\n");
+      if (gimple)
+	fprintf (f, "  switch (code.get_rep())\n"
+		 "    {\n");
+      else
+	fprintf (f, "  switch (code)\n"
+		 "    {\n");
       for (unsigned i = 0; i < root->kids.length (); i++)
 	{
 	  dt_operand *dop = static_cast<dt_operand *>(root->kids[i]);
 	  expr *e = static_cast<expr *>(dop->op);
-	  if (e->ops.length () != n)
+	  if (e->ops.length () != n
+	      /* Builtin simplifications are somewhat premature on
+		 GENERIC.  The following drops patterns with outermost
+		 calls.  It's easy to emit overloads for function code
+		 though if necessary.  */
+	      || (!gimple
+		  && e->operation->kind != id_base::CODE))
 	    continue;
 
 	  if (*e->operation == CONVERT_EXPR
@@ -2976,69 +3088,23 @@ decision_tree::gen_gimple (FILE *f)
 	    fprintf (f, "    case %s%s:\n",
 		     is_a <fn_id *> (e->operation) ? "-" : "",
 		     e->operation->id);
-	  fprintf (f,   "      {\n");
-	  dop->gen_kids (f, 8, true);
-	  fprintf (f,   "        break;\n");
-	  fprintf (f,   "      }\n");
+	  if (gimple)
+	    fprintf (f, "      return gimple_simplify_%s (res_code, res_ops, "
+		     "seq, valueize, code, type", e->operation->id);
+	  else
+	    fprintf (f, "      return generic_simplify_%s (loc, code, type",
+		     e->operation->id);
+	  for (unsigned i = 0; i < n; ++i)
+	    fprintf (f, ", op%d", i);
+	  fprintf (f, ");\n");
 	}
       fprintf (f,       "    default:;\n"
 	                "    }\n");
 
-      fprintf (f, "  return false;\n");
-      fprintf (f, "}\n");
-    }
-}
-
-/* Main entry to generate code for matching GENERIC IL off the decision
-   tree.  */
-
-void
-decision_tree::gen_generic (FILE *f)
-{
-  root->analyze ();
-
-  fprintf (stderr, "GENERIC decision tree has %u leafs, maximum depth %u and "
-	   "a total number of %u nodes\n", root->num_leafs, root->max_level,
-	   root->total_size);
-
-  for (unsigned n = 1; n <= 3; ++n)
-    {
-      fprintf (f, "\ntree\n"
-	       "generic_simplify (location_t loc, enum tree_code code, "
-	       "tree type ATTRIBUTE_UNUSED");
-      for (unsigned i = 0; i < n; ++i)
-	fprintf (f, ", tree op%d", i);
-      fprintf (f, ")\n");
-      fprintf (f, "{\n");
-
-      fprintf (f, "  switch (code)\n"
-	          "    {\n");
-      for (unsigned i = 0; i < root->kids.length (); i++)
-	{
-	  dt_operand *dop = static_cast<dt_operand *>(root->kids[i]);
-	  expr *e = static_cast<expr *>(dop->op);
-	  if (e->ops.length () != n
-	      /* Builtin simplifications are somewhat premature on
-	         GENERIC.  The following drops patterns with outermost
-		 calls.  It's easy to emit overloads for function code
-		 though if necessary.  */
-	      || e->operation->kind != id_base::CODE)
-	    continue;
-
-	  operator_id *op_id = static_cast <operator_id *> (e->operation);
-	  if (op_id->code == NOP_EXPR || op_id->code == CONVERT_EXPR)
-	    fprintf (f, "    CASE_CONVERT:\n");
-	  else
-	    fprintf (f, "    case %s:\n", e->operation->id);
-	  fprintf (f,   "      {\n");
-	  dop->gen_kids (f, 8, false);
-	  fprintf (f,   "        break;\n"
-		        "      }\n");
-	}
-      fprintf (f, "    default:;\n"
-	          "    }\n");
-
-      fprintf (f, "  return NULL_TREE;\n");
+      if (gimple)
+	fprintf (f, "  return false;\n");
+      else
+	fprintf (f, "  return NULL_TREE;\n");
       fprintf (f, "}\n");
     }
 }
@@ -3097,7 +3163,7 @@ private:
   const char *get_number ();
 
   id_base *parse_operation ();
-  operand *parse_capture (operand *);
+  operand *parse_capture (operand *, bool);
   operand *parse_expr ();
   c_expr *parse_c_expr (cpp_ttype);
   operand *parse_op ();
@@ -3327,7 +3393,7 @@ parser::parse_operation ()
      capture = '@'<number>  */
 
 struct operand *
-parser::parse_capture (operand *op)
+parser::parse_capture (operand *op, bool require_existing)
 {
   source_location src_loc = eat_token (CPP_ATSIGN)->src_loc;
   const cpp_token *token = peek ();
@@ -3342,7 +3408,11 @@ parser::parse_capture (operand *op)
   bool existed;
   unsigned &num = capture_ids->get_or_insert (id, &existed);
   if (!existed)
-    num = next_id;
+    {
+      if (require_existing)
+	fatal_at (src_loc, "unknown capture id");
+      num = next_id;
+    }
   return new capture (src_loc, num, op);
 }
 
@@ -3396,7 +3466,7 @@ parser::parse_expr ()
 
   if (token->type == CPP_ATSIGN
       && !(token->flags & PREV_WHITE))
-    op = parse_capture (e);
+    op = parse_capture (e, !parsing_match_operand);
   else if (force_capture)
     {
       unsigned num = capture_ids->elements ();
@@ -3548,7 +3618,7 @@ parser::parse_op ()
       if (token->type == CPP_COLON)
 	fatal_at (token, "not implemented: predicate on leaf operand");
       if (token->type == CPP_ATSIGN)
-	op = parse_capture (op);
+	op = parse_capture (op, !parsing_match_operand);
     }
 
   return op;
@@ -4018,7 +4088,7 @@ parser::parse_pattern ()
 	  capture_ids = new cid_map_t;
 	  e = new expr (p, e_loc);
 	  while (peek ()->type == CPP_ATSIGN)
-	    e->append_op (parse_capture (NULL));
+	    e->append_op (parse_capture (NULL, false));
 	  eat_token (CPP_CLOSE_PAREN);
 	}
       if (p->nargs != -1
@@ -4102,7 +4172,6 @@ main (int argc, char **argv)
     return 1;
 
   bool gimple = true;
-  bool verbose = false;
   char *input = argv[argc-1];
   for (int i = 1; i < argc - 1; ++i)
     {
@@ -4111,11 +4180,13 @@ main (int argc, char **argv)
       else if (strcmp (argv[i], "--generic") == 0)
 	gimple = false;
       else if (strcmp (argv[i], "-v") == 0)
-	verbose = true;
+	verbose = 1;
+      else if (strcmp (argv[i], "-vv") == 0)
+	verbose = 2;
       else
 	{
 	  fprintf (stderr, "Usage: genmatch "
-		   "[--gimple] [--generic] [-v] input\n");
+		   "[--gimple] [--generic] [-v[v]] input\n");
 	  return 1;
 	}
     }
@@ -4172,7 +4243,7 @@ add_operator (VIEW_CONVERT2, "VIEW_CONVERT2", "tcc_unary", 1);
       predicate_id *pred = p.user_predicates[i];
       lower (pred->matchers, gimple);
 
-      if (verbose)
+      if (verbose == 2)
 	for (unsigned i = 0; i < pred->matchers.length (); ++i)
 	  print_matches (pred->matchers[i]);
 
@@ -4180,7 +4251,7 @@ add_operator (VIEW_CONVERT2, "VIEW_CONVERT2", "tcc_unary", 1);
       for (unsigned i = 0; i < pred->matchers.length (); ++i)
 	dt.insert (pred->matchers[i], i);
 
-      if (verbose)
+      if (verbose == 2)
 	dt.print (stderr);
 
       write_predicate (stdout, pred, dt, gimple);
@@ -4189,7 +4260,7 @@ add_operator (VIEW_CONVERT2, "VIEW_CONVERT2", "tcc_unary", 1);
   /* Lower the main simplifiers and generate code for them.  */
   lower (p.simplifiers, gimple);
 
-  if (verbose)
+  if (verbose == 2)
     for (unsigned i = 0; i < p.simplifiers.length (); ++i)
       print_matches (p.simplifiers[i]);
 
@@ -4197,13 +4268,10 @@ add_operator (VIEW_CONVERT2, "VIEW_CONVERT2", "tcc_unary", 1);
   for (unsigned i = 0; i < p.simplifiers.length (); ++i)
     dt.insert (p.simplifiers[i], i);
 
-  if (verbose)
+  if (verbose == 2)
     dt.print (stderr);
 
-  if (gimple)
-    dt.gen_gimple (stdout);
-  else
-    dt.gen_generic (stdout);
+  dt.gen (stdout, gimple);
 
   /* Finalize.  */
   cpp_finish (r, NULL);

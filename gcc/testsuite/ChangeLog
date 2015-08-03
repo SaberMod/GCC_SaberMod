@@ -1,3 +1,113 @@
+2015-08-02  Martin Sebor  <msebor@redhat.com>
+
+        * g++.dg/Wframe-address-in-Wall.C: New test.
+        * g++.dg/Wframe-address.C: New test.
+        * g++.dg/Wno-frame-address.C: New test.
+        * gcc.dg/Wframe-address-in-Wall.c: New test.
+        * gcc.dg/Wframe-address.c: New test.
+        * gcc.dg/Wno-frame-address.c: New test.
+
+2015-08-02  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* c-c++-common/Wmisleading-indentation.c: Add more tests.
+
+2015-08-01  Michael Collison  <michael.collison@linaro.org
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	* gcc.target/arm/mincmp.c: New test.
+
+2015-08-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67091
+	* gfortran.dg/associated_target_6.f03: New test
+
+2015-08-01  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/autopar/reduc-2char.c (init_arrays): Mark with attribute
+	optimize ("-ftree-parallelize-loops=0").
+	Add successful scans for 2 detected reductions.	 Add xfail scans for 3
+	detected reductions.
+	* gcc.dg/autopar/reduc-2short.c: Same.
+	* gcc.dg/autopar/reduc-8.c (init_arrays): Mark with attribute
+	optimize ("-ftree-parallelize-loops=0").  Add successful scans for 2
+	detected reductions.
+	* gcc.dg/vect/trapv-vect-reduc-4.c: Update scan to match vectorized min
+	and max reductions.
+
+2015-07-31  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/66977
+	* g++.dg/ubsan/pr66977.C: New test.
+
+2015-07-30  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/Wtautological-compare-3.c: New test.
+
+2015-07-29  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/aarch64/vld1_lane.c (main): Remove unused test data.
+	(CHECK): Pass address of scalar, rather than array.
+
+2015-07-29  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/aarch64/vld1-vst1_1.c: Add missing float32x4_t case.
+
+2015-07-29  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/aarch64/fp16/fp16.exp: New.
+	* gcc.target/aarch64/fp16/f16_convs_1.c: New.
+	* gcc.target/aarch64/fp16/f16_convs_2.c: New.
+
+2015-07-29  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/aarch64/f16_movs_1.c: New test.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/autopar/uns-outer-4.c: Remove xfail on scan for parallelizing
+	outer loop.
+
+2015-07-28  Luis Felipe Strano Moraes  <luis.strano@gmail.com>
+	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* gcc.dg/parm-incomplete-1.c: Update.
+	* gcc.dg/pr18809-1.c: Update.
+	* gcc.dg/pr27953.c: Update.
+	* gcc.dg/vla-11.c: Update.
+
+2015-07-27  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/Wtautological-compare-2.c: Remove unused line.
+
+2015-07-27  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/autopar/outer-4.c (parloop): Remove superfluous noinline
+	attribute.  Update comment.
+	(main): Remove.
+	Add scan for not parallelizing inner loop.
+	* gcc.dg/autopar/uns-outer-4.c (parloop): Remove superfluous noinline
+	attribute.
+	(main): Remove.
+
+2015-07-27  Marek Polacek  <polacek@redhat.com>
+
+	PR bootstrap/67030
+	* c-c++-common/Wtautological-compare-2.c: New test.
+
+2015-07-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/66232
+	* gcc.target/i386/pr66232-6.c: New tests.
+	* gcc.target/i386/pr66232-7.c: Likewise.
+	* gcc.target/i386/pr66232-8.c: Likewise.
+	* gcc.target/i386/pr66232-9.c: Likewise.
+
+2015-07-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/66555
+	PR c/54979
+	* c-c++-common/Wtautological-compare-1.c: New test.
+
 2015-07-26  Patrick Palka  <ppalka@gcc.gnu.org>
 
 	PR c++/18969

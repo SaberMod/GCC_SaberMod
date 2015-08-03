@@ -1,3 +1,52 @@
+2015-08-02  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* c-indentation.c (should_warn_for_misleading_indentation):
+	Improve heuristics.
+
+2015-08-02  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* c-indentation.c (get_visual_column): Add parameter first_nws,
+	use it.  Update comment documenting the function.
+	(is_first_nonwhitespace_on_line): Remove.
+	(should_warn_for_misleading_indentation): Replace usage of
+	of is_first_nonwhitespace_on_line with get_visual_column.
+
+2015-08-02  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* c-indentation.h (struct token_indent_info): Define.
+	(get_token_indent_info): Define.
+	(warn_for_misleading_information): Declare.
+	* c-common.h (warn_for_misleading_information): Remove.
+	* c-identation.c (warn_for_misleading_indentation):
+	Change declaration to take three token_indent_infos.  Adjust
+	accordingly.
+	* c-identation.c (should_warn_for_misleading_indentation):
+	Likewise.  Bail out early if the body is a compound statement.
+	(guard_tinfo_to_string): Define.
+
+2015-07-30  Jason Merrill  <jason@redhat.com>
+
+	* c-pretty-print.c (unary_expression) [INDIRECT_REF]: Don't print
+	'*' for reference decay.
+
+2015-07-30  Marek Polacek  <polacek@redhat.com>
+
+	* c-common.c (warn_tautological_cmp): Bail for float types.
+
+2015-07-27  Marek Polacek  <polacek@redhat.com>
+
+	PR bootstrap/67030
+	* c-common.c (warn_tautological_cmp): Don't warn for macro expansion.
+
+2015-07-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/66555
+	PR c/54979
+	* c-common.c (find_array_ref_with_const_idx_r): New function.
+	(warn_tautological_cmp): New function.
+	* c-common.h (warn_tautological_cmp): Declare.
+	* c.opt (Wtautological-compare): New option.
+
 2015-07-23  Marek Polacek  <polacek@redhat.com>
 
 	* c-ubsan.c (ubsan_instrument_division): Use unshare_expr throughout.
