@@ -1,3 +1,75 @@
+2015-08-04  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	Backport from mainline:
+	2015-08-04  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	PR target/66731
+	* config/aarch64/aarch64.c (aarch64_rtx_costs): Fix NEG cost for FNMUL.
+	(aarch64_rtx_mult_cost): Fix MULT cost with -frounding-math.
+
+	2015-07-06  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	PR target/66731
+	* config/aarch64/aarch64.md (fnmul<mode>3): Handle -frounding-math.
+
+2015-08-03  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline:
+	2015-08-03  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/htm.md (tabort.): Restrict the source operand to
+	using a base register.
+
+2015-08-03  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR target/67060
+	* config/pa/pa.md (call_reg_64bit): Remove reg:DI 1 clobber.
+	Adjust splits to match new pattern.
+
+2015-08-03  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	Backport form mainline r226496.
+	2015-08-03  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	PR target/66731
+	* config/arm/vfp.md (negmuldf3_vfp): Add new pattern.
+	(negmulsf3_vfp): Likewise.
+	(muldf3negdf_vfp): Disable for -frounding-math.
+	(mulsf3negsf_vfp): Likewise.
+	* config/arm/arm.c (arm_new_rtx_costs): Fix NEG cost for VNMUL,
+	fix MULT cost with -frounding-math.
+
+2015-07-31  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport form mainline
+	2015-07-31  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/67049
+	* config/sh/sh.md (GOTaddr2picreg): Fix typo.
+
+2015-07-31  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR debug/66691
+	* lra-int.h (lra_substitute_pseudo): Add a parameter.
+	(lra_substitute_pseudo_within_insn): Ditto.
+	* lra.c (lra_substitute_pseudo): Add a parameter.  Simplify subreg
+	of constant.
+	(lra_substitute_pseudo_within_insn): Add a parameter.  Transfer it
+	to lra_substitute_pseudo.
+	* lra-lives.c (process_bb_lives): Add an argument to
+	lra_substitute_pseudo_within_insn call.
+	* lra-constraints.c (inherit_reload_reg, split_reg): Add an
+	argument to lra_substitute_pseudo and
+	lra_substitute_pseudo_within_insn calls.
+	(remove_inheritance_pseudos, undo_optional_reloads): Ditto.
+
+2015-07-27  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2015-07-27  Marek Polacek  <polacek@redhat.com>
+
+	* ipa-devirt.c (types_same_for_odr): Fix typo.
+
 2015-07-25  Oleg Endo  <olegendo@gcc.gnu.org>
 
 	Backport from mainline
@@ -74,6 +146,7 @@
 
 	PR rtl-optimization/58066
 	* calls.c (expand_call): Precompute register parameters before stack
+	alignment is performed.
 
 2015-07-23  Martin Jambor  <mjambor@suse.cz>
 
