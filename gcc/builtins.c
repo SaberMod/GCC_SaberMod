@@ -4551,32 +4551,36 @@ expand_builtin_frame_address (tree fndecl, tree exp)
 {
   /* The argument must be a nonnegative integer constant.
      It counts the number of frames to scan up the stack.
-     The value is the return address saved in that frame.  */
+     The value is either the frame pointer value or the return
+     address saved in that frame.  */
   if (call_expr_nargs (exp) == 0)
     /* Warning about missing arg was already issued.  */
     return const0_rtx;
   else if (! tree_fits_uhwi_p (CALL_EXPR_ARG (exp, 0)))
     {
-      if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_FRAME_ADDRESS)
-	error ("invalid argument to %<__builtin_frame_address%>");
-      else
-	error ("invalid argument to %<__builtin_return_address%>");
+      error ("invalid argument to %qD", fndecl);
       return const0_rtx;
     }
   else
     {
-      rtx tem
-	= expand_builtin_return_addr (DECL_FUNCTION_CODE (fndecl),
-				      tree_to_uhwi (CALL_EXPR_ARG (exp, 0)));
+      /* Number of frames to scan up the stack.  */
+      unsigned HOST_WIDE_INT count = tree_to_uhwi (CALL_EXPR_ARG (exp, 0));
+
+      rtx tem = expand_builtin_return_addr (DECL_FUNCTION_CODE (fndecl), count);
 
       /* Some ports cannot access arbitrary stack frames.  */
       if (tem == NULL)
 	{
-	  if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_FRAME_ADDRESS)
-	    warning (0, "unsupported argument to %<__builtin_frame_address%>");
-	  else
-	    warning (0, "unsupported argument to %<__builtin_return_address%>");
+	  warning (0, "unsupported argument to %qD", fndecl);
 	  return const0_rtx;
+	}
+
+      if (count)
+	{
+	  /* Warn since no effort is made to ensure that any frame
+	     beyond the current one exists or can be safely reached.  */
+	  warning (OPT_Wframe_address, "calling %qD with "
+		   "a nonzero argument is unsafe", fndecl);
 	}
 
       /* For __builtin_frame_address, return what we've got.  */
@@ -5587,12 +5591,6 @@ expand_builtin_atomic_fetch_op (machine_mode mode, tree exp, rtx target,
   return ret;
 }
 
-
-#ifndef HAVE_atomic_clear
-# define HAVE_atomic_clear 0
-# define gen_atomic_clear(x,y) (gcc_unreachable (), NULL_RTX)
-#endif
-
 /* Expand an atomic clear operation.
 	void _atomic_clear (BOOL *obj, enum memmodel)
    EXP is the call expression.  */
@@ -5613,12 +5611,6 @@ expand_builtin_atomic_clear (tree exp)
       warning (OPT_Winvalid_memory_model,
 	       "invalid memory model for %<__atomic_store%>");
       model = MEMMODEL_SEQ_CST;
-    }
-
-  if (HAVE_atomic_clear)
-    {
-      emit_insn (gen_atomic_clear (mem, model));
-      return const0_rtx;
     }
 
   /* Try issuing an __atomic_store, and allow fallback to __sync_lock_release.

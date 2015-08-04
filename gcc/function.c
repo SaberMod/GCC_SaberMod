@@ -2105,9 +2105,6 @@ aggregate_value_p (const_tree exp, const_tree fntype)
 bool
 use_register_for_decl (const_tree decl)
 {
-  if (!targetm.calls.allocate_stack_slots_for_args ())
-    return true;
-
   /* Honor volatile.  */
   if (TREE_SIDE_EFFECTS (decl))
     return false;
@@ -2134,6 +2131,9 @@ use_register_for_decl (const_tree decl)
      propagates values across these stores, and it probably shouldn't.  */
   if (flag_float_store && FLOAT_TYPE_P (TREE_TYPE (decl)))
     return false;
+
+  if (!targetm.calls.allocate_stack_slots_for_args ())
+    return true;
 
   /* If we're not interested in tracking debugging information for
      this decl, then we can certainly put it in a register.  */
@@ -5936,7 +5936,6 @@ thread_prologue_and_epilogue_insns (void)
      uses the flag in the meantime.  */
   epilogue_completed = 1;
 
-#ifdef HAVE_eh_return
   /* Find non-fallthru edges that end with EH_RETURN instructions.  On
      some targets, these get split to a special version of the epilogue
      code.  In order to be able to properly annotate these with unwind
@@ -5960,7 +5959,6 @@ thread_prologue_and_epilogue_insns (void)
       record_insns (NEXT_INSN (prev), NEXT_INSN (trial), &epilogue_insn_hash);
       emit_note_after (NOTE_INSN_EPILOGUE_BEG, prev);
     }
-#endif
 
   /* If nothing falls through into the exit block, we don't need an
      epilogue.  */

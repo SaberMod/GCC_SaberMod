@@ -3154,6 +3154,28 @@ Check_types_traverse::variable(Named_object* named_object)
 		     reason.c_str());
 	  var->clear_init();
 	}
+      else if (init != NULL
+               && init->func_expression() != NULL)
+        {
+          Named_object* no = init->func_expression()->named_object();
+          Function_type* fntype;
+          if (no->is_function())
+            fntype = no->func_value()->type();
+          else if (no->is_function_declaration())
+            fntype = no->func_declaration_value()->type();
+          else
+            go_unreachable();
+
+          // Builtin functions cannot be used as function values for variable
+          // initialization.
+          if (fntype->is_builtin())
+            {
+              error_at(init->location(),
+                       "invalid use of special builtin function %qs; "
+                       "must be called",
+                       no->message_name().c_str());
+            }
+        }
       else if (!var->is_used()
 	       && !var->is_global()
 	       && !var->is_parameter()
@@ -3236,6 +3258,17 @@ Gogo::check_types()
 {
   Check_types_traverse traverse(this);
   this->traverse(&traverse);
+
+  Bindings* bindings = this->current_bindings();
+  for (Bindings::const_declarations_iterator p = bindings->begin_declarations();
+       p != bindings->end_declarations();
+       ++p)
+    {
+      // Also check the types in a function declaration's signature.
+      Named_object* no = p->second;
+      if (no->is_function_declaration())
+        no->func_declaration_value()->check_types();
+    }
 }
 
 // Check the types in a single block.
@@ -5275,6 +5308,26 @@ Function_declaration::build_backend_descriptor(Gogo* gogo)
     }
 }
 
+// Check that the types used in this declaration's signature are defined.
+// Reports errors for any undefined type.
+
+void
+Function_declaration::check_types() const
+{
+  // Calling Type::base will give errors for any undefined types.
+  Function_type* fntype = this->type();
+  if (fntype->receiver() != NULL)
+    fntype->receiver()->type()->base();
+  if (fntype->parameters() != NULL)
+    {
+      const Typed_identifier_list* params = fntype->parameters();
+      for (Typed_identifier_list::const_iterator p = params->begin();
+           p != params->end();
+           ++p)
+        p->type()->base();
+    }
+}
+
 // Return the function's decl after it has been built.
 
 Bfunction*
@@ -7098,7 +7151,7 @@ Named_object::get_backend(Gogo* gogo, std::vector<Bexpression*>& const_decls,
         // still be returned by some function.  Simply calling the
         // type_descriptor method is enough to create the type
         // descriptor, even though we don't do anything with it.
-        if (this->package_ == NULL)
+        if (this->package_ == NULL && !saw_errors())
           {
             named_type->
                 type_descriptor_pointer(gogo, Linemap::predeclared_location());
@@ -7355,16 +7408,10 @@ Bindings::new_definition(Named_object* old_object, Named_object* new_object)
 
     case Named_object::NAMED_OBJECT_FUNC_DECLARATION:
       {
-	Function_type* old_type = old_object->func_declaration_value()->type();
-	if (new_object->is_function_declaration())
-	  {
-	    Function_type* new_type =
-	      new_object->func_declaration_value()->type();
-	    if (old_type->is_valid_redeclaration(new_type, &reason))
-	      return old_object;
-	  }
 	if (new_object->is_function())
 	  {
+            Function_type* old_type =
+                old_object->func_declaration_value()->type();
 	    Function_type* new_type = new_object->func_value()->type();
 	    if (old_type->is_valid_redeclaration(new_type, &reason))
 	      {

@@ -7603,15 +7603,7 @@ expand_expr_addr_expr_1 (tree exp, rtx target, machine_mode tmode,
 	     marked TREE_ADDRESSABLE, which will be either a front-end
 	     or a tree optimizer bug.  */
 
-	  if (TREE_ADDRESSABLE (exp)
-	      && ! MEM_P (result)
-	      && ! targetm.calls.allocate_stack_slots_for_args ())
-	    {
-	      error ("local frame unavailable (naked function?)");
-	      return result;
-	    }
-	  else
-	    gcc_assert (MEM_P (result));
+	  gcc_assert (MEM_P (result));
 	  result = XEXP (result, 0);
 
 	  /* ??? Is this needed anymore?  */
@@ -8137,9 +8129,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	    inner_mode = TYPE_MODE (inner_type);
 
 	  if (modifier == EXPAND_INITIALIZER)
-	    op0 = simplify_gen_subreg (mode, op0, inner_mode,
-				       subreg_lowpart_offset (mode,
-							      inner_mode));
+	    op0 = lowpart_subreg (mode, op0, inner_mode);
 	  else
 	    op0=  convert_modes (mode, inner_mode, op0,
 				 TYPE_UNSIGNED (inner_type));

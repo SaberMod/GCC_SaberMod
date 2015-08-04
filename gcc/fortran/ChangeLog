@@ -1,3 +1,31 @@
+2015-08-04  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/64022
+	* simplify.c (gfc_simplify_ieee_selected_real_kind): Extend IEEE
+	support to all real kinds.
+
+2015-08-03  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/66942
+	* trans-expr.c (gfc_conv_procedure_call): Avoid NULL pointer reference
+
+2015-08-03  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/64921
+	* class.c (generate_finalization_wrapper): Set finalization
+	procedure symbol's always_explicit attribute.
+
+2015-08-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67091
+	* trans-intrinsic.c (gfc_conv_associated): Add the pre and post
+	blocks for the second argument to se.
+
+2015-07-27  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* parse.c (parse_oacc_structured_block): Fix logic error.
+	Reported by Mikael Morin <mikael.morin@sfr.fr>.
+
 2015-07-24  Mikael Morin  <mikael@gcc.gnu.org>
 
 	PR fortran/64986

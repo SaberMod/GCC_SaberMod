@@ -1,3 +1,93 @@
+2015-08-04  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (lookup_template_class_1): Clear elt.spec.
+
+	* tree.c (build_target_expr): Copy the location from value.
+
+2015-08-02  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* parser.c (cp_parser_selection_statement): Move handling of
+	semicolon body to ...
+	(cp_parser_implicitly_scoped_statement): .. here.  Call
+	warn_for_misleading_indentation even when the body is a
+	semicolon.  Extract token_indent_infos corresponding to the
+	guard, body and next tokens.  Adjust call to
+	warn_for_misleading_indentation accordingly.  Take
+	token_indent_info argument.
+	(cp_parser_already_scoped_statement): Likewise.
+	(cp_parser_selection_statement, cp_parser_iteration_statement):
+	Extract a token_indent_info corresponding to the guard token.
+
+2015-08-01  Caroline Tice  <cmtice@google.com>
+
+	PR 66521
+	* mangle.c : Add vtable-verify.h to include files.
+	(get_mangled_vtable_map_var_name):  If the DECL_ASSEMBLER_NAME
+	is "<anon>" get the real mangled name for the class instead, and
+	also store the real mangled name in a vector for use later.
+
+2015-07-31  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/66977
+	* typeck.c (get_member_function_from_ptrfunc): Don't sanitize
+	RSHIFT_EXPR.
+
+2015-07-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* class.c (check_for_override): Use DECL_SOURCE_LOCATION and "%qD"
+	in warning_at instead of "%q+D" in warning.
+	(warn_hidden): Likewise but use location_of.
+	(finish_struct_anon_r): Likewise use DECL_SOURCE_LOCATION in permerror.
+	(check_bitfield_decl, check_field_decls): Likewise in warning_at.
+	(check_field_decls): Likewise for permerror.
+	(explain_non_literal_class): Likewise for inform.
+	(check_bases_and_members, layout_class_type): Likewise for warning_at.
+	(note_name_declared_in_class): Use location_of in permerror.
+	* name-lookup.c (diagnose_name_conflict): Use location_of in inform.
+	(pushdecl_maybe_friend_1): Use DECL_SOURCE_LOCATION in pedwarn,
+	inform, and warning_at.
+	(check_for_out_of_scope_variable): Likewise for warning_at and
+	permerror.
+
+2015-07-30  Jason Merrill  <jason@redhat.com>
+
+	DR 1558
+	PR c++/67021
+	* pt.c (tsubst_decl) [TYPE_DECL]: Clear TYPE_DEPENDENT_P_VALID.
+
+2015-07-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* call.c (build_op_delete_call, convert_like_real, build_over_call):
+	Use Use DECL_SOURCE_LOCATION and "%qD" in inform and pedwarn instead
+	of "%q+D".
+	* constexpr.c (explain_invalid_constexpr_fn): Likewise.
+	* decl.c (duplicate_decls): Likewise for warning/warning_at.
+	* except.c (maybe_noexcept_warning): Likewise.
+	* friend.c (make_friend_class): Likewise for inform.
+	* mangle.c (mangle_decl): Likewise for warning/warning_at.
+	* method.c (process_subob_fn, walk_field_subobs,
+	maybe_explain_implicit_delete): Likewise for inform.
+	* parser.c (cp_parser_lambda_introducer): Likewise.
+	* pt.c (check_specialization_namespace,
+	maybe_process_partial_specialization): Likewise for permerror.
+	(redeclare_class_template): Likewise for inform_n.
+	(coerce_template_parms, tsubst_copy_and_build): Likewise for inform.
+	* search.c (check_final_overrider): Likewise.
+	* semantics.c (process_outer_var_ref): Likewise.
+
+2015-07-27  Jason Merrill  <jason@redhat.com>
+
+	* constexpr.c (cxx_eval_call_expression): Don't add this call to
+	the hash table if !depth_ok.
+
+2015-07-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/66555
+	PR c/54979
+	* call.c (build_new_op_1): Call warn_tautological_cmp.
+	* pt.c (tsubst_copy_and_build): Use sentinel to suppress tautological
+	compare warnings.
+
 2015-07-26  Patrick Palka  <ppalka@gcc.gnu.org>
 
 	PR c++/18969

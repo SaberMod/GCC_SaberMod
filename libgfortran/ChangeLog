@@ -1,3 +1,23 @@
+2015-08-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/fpu-387.h (get_fpu_trap_exceptions): Add temporary variable
+	to improve generated code.
+
+2015-08-04  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/64022
+	* ieee/ieee_exceptions.F90: Support all real kinds.
+	* ieee/ieee_arithmetic.F90: Likewise.
+	* ieee/ieee_helper.c (ieee_class_helper_10,
+	ieee_class_helper_16): New functions
+	* gfortran.map (GFORTRAN_1.7): Add entries.
+
+2015-07-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR libgfortran/66650
+	* libgfortran.h (GFC_DTYPE_SIZE_MASK): Rewrite to avoid
+	"left shift of negative value" warning.
+
 2015-07-14  Janne Blomqvist  <jb@gcc.gnu.org>
 
 	PR libfortran/66861

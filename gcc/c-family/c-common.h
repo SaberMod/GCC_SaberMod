@@ -812,6 +812,7 @@ extern bool warn_if_unused_value (const_tree, location_t);
 extern void warn_logical_operator (location_t, enum tree_code, tree,
 				   enum tree_code, tree, enum tree_code, tree);
 extern void warn_logical_not_parentheses (location_t, enum tree_code, tree);
+extern void warn_tautological_cmp (location_t, enum tree_code, tree, tree);
 extern void check_main_parameter_types (tree decl);
 extern bool c_determine_visibility (tree);
 extern bool vector_types_compatible_elements_p (tree, tree);
@@ -1430,12 +1431,5 @@ extern bool contains_cilk_spawn_stmt (tree);
 extern tree cilk_for_number_of_iterations (tree);
 extern bool check_no_cilk (tree, const char *, const char *,
 		           location_t loc = UNKNOWN_LOCATION);
-/* In c-indentation.c.  */
-extern void
-warn_for_misleading_indentation (location_t guard_loc,
-				 location_t body_loc,
-				 location_t next_stmt_loc,
-				 enum cpp_ttype next_tok_type,
-				 const char *guard_kind);
 
 #endif /* ! GCC_C_COMMON_H */

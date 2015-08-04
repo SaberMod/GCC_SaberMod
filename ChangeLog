@@ -1,3 +1,24 @@
+2015-08-03  Bin Cheng  <bin.cheng@arm.com>
+
+	* MAINTAINERS (loop ivopts): Add the entry and myself.
+
+2015-07-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* MAINTAINERS (nvptx): Add self.
+
+2015-07-29  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/iterators.md (VRL2, VRL3, VRL4): Remove values for
+	128-bit vector modes.
+
+2015-07-29  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2015-07-28  Ben Elliston  <bje@gnu.org>  
+
+	* config.sub, config.guess: Import from upstream.
+
 2015-07-24  Michael Darling  <darlingm@gmail.com>
 
 	PR other/66259

@@ -26,11 +26,12 @@ along with GCC; see the file COPYING3.  If not see
 /* Generic tree predicates we inherit.  */
 (define_predicates
    integer_onep integer_zerop integer_all_onesp integer_minus_onep
-   integer_each_onep integer_truep
+   integer_each_onep integer_truep integer_nonzerop
    real_zerop real_onep real_minus_onep
    CONSTANT_CLASS_P
    tree_expr_nonnegative_p
-   integer_pow2p)
+   integer_pow2p
+   HONOR_NANS)
 
 /* Operator lists.  */
 (define_operator_list tcc_comparison
@@ -617,6 +618,11 @@ along with GCC; see the file COPYING3.  If not see
  (simplify
   (op:c truth_valued_p@0 (logical_inverted_value @0))
   { constant_boolean_node (true, type); }))
+/* X ==/!= !X is false/true.  */
+(for op (eq ne)
+ (simplify
+  (op:c truth_valued_p@0 (logical_inverted_value @0))
+  { constant_boolean_node (op == NE_EXPR ? true : false, type); }))
 
 /* If arg1 and arg2 are booleans (or any single bit type)
    then try to simplify:
@@ -944,7 +950,7 @@ along with GCC; see the file COPYING3.  If not see
      (if (low >= prec)
       (if (op == LROTATE_EXPR || op == RROTATE_EXPR)
        (op @0 { build_int_cst (TREE_TYPE (@1), low % prec); })
-       (if (TYPE_UNSIGNED (type) || code == LSHIFT_EXPR)
+       (if (TYPE_UNSIGNED (type) || op == LSHIFT_EXPR)
         { build_zero_cst (type); }
         (op @0 { build_int_cst (TREE_TYPE (@1), prec - 1); })))
       (op @0 { build_int_cst (TREE_TYPE (@1), low); })))))))
@@ -1470,6 +1476,14 @@ along with GCC; see the file COPYING3.  If not see
        || ! FLOAT_TYPE_P (TREE_TYPE (@0))
        || ! HONOR_NANS (TYPE_MODE (TREE_TYPE (@0))))
    { constant_boolean_node (false, type); })))
+(for cmp (unle unge uneq)
+ (simplify
+  (cmp @0 @0)
+  { constant_boolean_node (true, type); }))
+(simplify
+ (ltgt @0 @0)
+ (if (!flag_trapping_math)
+  { constant_boolean_node (false, type); }))
 
 /* Fold ~X op ~Y as Y op X.  */
 (for cmp (simple_comparison)
@@ -1802,27 +1816,77 @@ along with GCC; see the file COPYING3.  If not see
   (cmp (convert?@3 (bit_xor @0 INTEGER_CST@1)) INTEGER_CST@2)
   (if (tree_nop_conversion_p (TREE_TYPE (@3), TREE_TYPE (@0)))
    (cmp @0 (bit_xor @1 (convert @2)))))
-   
- /* If this is an equality comparison of the address of two non-weak,
-    unaliased symbols neither of which are extern (since we do not
-    have access to attributes for externs), then we know the result.  */
- (simplify
-  (cmp (convert? addr@0) (convert? addr@1))
-  (if (decl_in_symtab_p (TREE_OPERAND (@0, 0))
-       && decl_in_symtab_p (TREE_OPERAND (@1, 0)))
-   (with
-    {
-      int equal = symtab_node::get_create (TREE_OPERAND (@0, 0))
-           ->equal_address_to (symtab_node::get_create (TREE_OPERAND (@1, 0)));
-    }
-    (if (equal != 2)
-     { constant_boolean_node (equal ? cmp == EQ_EXPR : cmp != EQ_EXPR, type); }))))
 
  (simplify
   (cmp (convert? addr@0) integer_zerop)
   (if (tree_single_nonzero_warnv_p (@0, NULL))
    { constant_boolean_node (cmp == NE_EXPR, type); })))
 
+/* When the addresses are not directly of decls compare base and offset.
+   This implements some remaining parts of fold_comparison address
+   comparisons but still no complete part of it.  Still it is good
+   enough to make fold_stmt not regress when not dispatching to fold_binary.  */
+(for cmp (simple_comparison)
+ (simplify
+  (cmp (convert1?@2 addr@0) (convert2? addr@1))
+  (with
+   {
+     HOST_WIDE_INT off0, off1;
+     tree base0 = get_addr_base_and_unit_offset (TREE_OPERAND (@0, 0), &off0);
+     tree base1 = get_addr_base_and_unit_offset (TREE_OPERAND (@1, 0), &off1);
+     if (base0 && TREE_CODE (base0) == MEM_REF)
+       {
+	 off0 += mem_ref_offset (base0).to_short_addr ();
+         base0 = TREE_OPERAND (base0, 0);
+       }
+     if (base1 && TREE_CODE (base1) == MEM_REF)
+       {
+         off1 += mem_ref_offset (base1).to_short_addr ();
+         base1 = TREE_OPERAND (base1, 0);
+       }
+   }
+   (if (base0 && base1)
+    (with
+     {
+       int equal;
+       if (decl_in_symtab_p (base0)
+	   && decl_in_symtab_p (base1))
+         equal = symtab_node::get_create (base0)
+	           ->equal_address_to (symtab_node::get_create (base1));
+       else
+         equal = operand_equal_p (base0, base1, 0);
+     }
+     (if (equal == 1
+	  && (cmp == EQ_EXPR || cmp == NE_EXPR
+	      /* If the offsets are equal we can ignore overflow.  */
+	      || off0 == off1
+	      || POINTER_TYPE_OVERFLOW_UNDEFINED
+	      /* Or if we compare using pointers to decls.  */
+	      || (POINTER_TYPE_P (TREE_TYPE (@2))
+		  && DECL_P (base0))))
+      (switch
+       (if (cmp == EQ_EXPR)
+	{ constant_boolean_node (off0 == off1, type); })
+       (if (cmp == NE_EXPR)
+	{ constant_boolean_node (off0 != off1, type); })
+       (if (cmp == LT_EXPR)
+	{ constant_boolean_node (off0 < off1, type); })
+       (if (cmp == LE_EXPR)
+	{ constant_boolean_node (off0 <= off1, type); })
+       (if (cmp == GE_EXPR)
+	{ constant_boolean_node (off0 >= off1, type); })
+       (if (cmp == GT_EXPR)
+	{ constant_boolean_node (off0 > off1, type); }))
+      (if (equal == 0
+	   && DECL_P (base0) && DECL_P (base1)
+	   /* If we compare this as integers require equal offset.  */
+	   && (!INTEGRAL_TYPE_P (TREE_TYPE (@2))
+	       || off0 == off1))
+       (switch
+	(if (cmp == EQ_EXPR)
+	 { constant_boolean_node (false, type); })
+	(if (cmp == NE_EXPR)
+	 { constant_boolean_node (true, type); })))))))))
 
 /* Non-equality compare simplifications from fold_binary  */
 (for cmp (lt gt le ge)
@@ -1851,12 +1915,6 @@ along with GCC; see the file COPYING3.  If not see
 	{ constant_boolean_node (true, type); })
        (if (cmp == LT_EXPR)
 	(ne @2 @1))))
-     (if (wi::eq_p (@1, max - 1))
-      (switch
-       (if (cmp == GT_EXPR)
-        (eq @2 { wide_int_to_tree (TREE_TYPE (@1), wi::add (@1, 1)); }))
-       (if (cmp == LE_EXPR)
-        (ne @2 { wide_int_to_tree (TREE_TYPE (@1), wi::add (@1, 1)); }))))
      (if (wi::eq_p (@1, min))
       (switch
        (if (cmp == LT_EXPR)
@@ -1867,6 +1925,12 @@ along with GCC; see the file COPYING3.  If not see
         { constant_boolean_node (true, type); })
        (if (cmp == GT_EXPR)
         (ne @2 @1))))
+     (if (wi::eq_p (@1, max - 1))
+      (switch
+       (if (cmp == GT_EXPR)
+        (eq @2 { wide_int_to_tree (TREE_TYPE (@1), wi::add (@1, 1)); }))
+       (if (cmp == LE_EXPR)
+        (ne @2 { wide_int_to_tree (TREE_TYPE (@1), wi::add (@1, 1)); }))))
      (if (wi::eq_p (@1, min + 1))
       (switch
        (if (cmp == GE_EXPR)
@@ -1890,19 +1954,34 @@ along with GCC; see the file COPYING3.  If not see
 	 (ge (convert:st @0) { build_zero_cst (st); })
 	 (lt (convert:st @0) { build_zero_cst (st); }))))))))))
  
+(for cmp (unordered ordered unlt unle ungt unge uneq ltgt)
+ /* If the second operand is NaN, the result is constant.  */
+ (simplify
+  (cmp @0 REAL_CST@1)
+  (if (REAL_VALUE_ISNAN (TREE_REAL_CST (@1))
+       && (cmp != LTGT_EXPR || ! flag_trapping_math))
+   { constant_boolean_node (cmp == ORDERED_EXPR || cmp == LTGT_EXPR
+			    ? false : true, type); })))
 
 /* bool_var != 0 becomes bool_var.  */
 (simplify
- (ne @0 integer_zerop@1)
+ (ne @0 integer_zerop)
  (if (TREE_CODE (TREE_TYPE (@0)) == BOOLEAN_TYPE
       && types_match (type, TREE_TYPE (@0)))
   (non_lvalue @0)))
 /* bool_var == 1 becomes bool_var.  */
 (simplify
- (eq @0 integer_onep@1)
+ (eq @0 integer_onep)
  (if (TREE_CODE (TREE_TYPE (@0)) == BOOLEAN_TYPE
       && types_match (type, TREE_TYPE (@0)))
   (non_lvalue @0)))
+/* Do not handle
+   bool_var == 0 becomes !bool_var or
+   bool_var != 1 becomes !bool_var
+   here because that only is good in assignment context as long
+   as we require a tcc_comparison in GIMPLE_CONDs where we'd
+   replace if (x == 0) with tem = ~x; if (tem != 0) which is
+   clearly less optimal and which we'll transform again in forwprop.  */
 
 
 /* Simplification of math builtins.  */
@@ -1946,6 +2025,8 @@ along with GCC; see the file COPYING3.  If not see
 	   x = build_real (type, dconst10);
 	 }
          break;
+       default:
+	 gcc_unreachable ();
        }
      }
     (mult (logs { x; }) @0))))
@@ -1968,6 +2049,8 @@ along with GCC; see the file COPYING3.  If not see
          x = build_real (type, real_value_truncate (TYPE_MODE (type),
 						    dconst_third ()));
          break;
+       default:
+	 gcc_unreachable ();
        }
      }
     (mult { x; } (logs @0)))))

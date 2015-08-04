@@ -241,7 +241,7 @@ Objective-C and Objective-C++ Dialects}.
 -pedantic-errors @gol
 -w  -Wextra  -Wall  -Waddress  -Waggregate-return  @gol
 -Waggressive-loop-optimizations -Warray-bounds -Warray-bounds=@var{n} @gol
--Wbool-compare @gol
+-Wbool-compare -Wframe-address @gol
 -Wno-attributes -Wno-builtin-macro-redefined @gol
 -Wc90-c99-compat -Wc99-c11-compat @gol
 -Wc++-compat -Wc++11-compat -Wc++14-compat -Wcast-align  -Wcast-qual  @gol
@@ -283,7 +283,8 @@ Objective-C and Objective-C++ Dialects}.
 -Wsuggest-final-types @gol -Wsuggest-final-methods -Wsuggest-override @gol
 -Wmissing-format-attribute @gol
 -Wswitch  -Wswitch-default  -Wswitch-enum -Wswitch-bool -Wsync-nand @gol
--Wsystem-headers  -Wtrampolines  -Wtrigraphs  -Wtype-limits  -Wundef @gol
+-Wsystem-headers  -Wtautological-compare  -Wtrampolines  -Wtrigraphs @gol
+-Wtype-limits  -Wundef @gol
 -Wuninitialized  -Wunknown-pragmas  -Wno-pragmas @gol
 -Wunsuffixed-float-constants  -Wunused  -Wunused-function @gol
 -Wunused-label  -Wunused-local-typedefs -Wunused-parameter @gol
@@ -3452,6 +3453,7 @@ Options} and @ref{Objective-C and Objective-C++ Dialect Options}.
 -Wenum-compare @r{(in C/ObjC; this is on by default in C++)} @gol
 -Wimplicit-int @r{(C and Objective-C only)} @gol
 -Wimplicit-function-declaration @r{(C and Objective-C only)} @gol
+-Wbool-compare  @gol
 -Wcomment  @gol
 -Wformat   @gol
 -Wmain @r{(only for C/ObjC and unless} @option{-ffreestanding}@r{)}  @gol
@@ -3468,6 +3470,7 @@ Options} and @ref{Objective-C and Objective-C++ Dialect Options}.
 -Wstrict-aliasing  @gol
 -Wstrict-overflow=1  @gol
 -Wswitch  @gol
+-Wtautological-compare  @gol
 -Wtrigraphs  @gol
 -Wuninitialized  @gol
 -Wunknown-pragmas  @gol
@@ -4459,6 +4462,13 @@ if ((n > 1) == 2) @{ @dots{} @}
 @end smallexample
 This warning is enabled by @option{-Wall}.
 
+@item -Wframe-address
+@opindex Wno-frame-address
+@opindex Wframe-address
+Warn when the @samp{__builtin_frame_address} or @samp{__builtin_return_address}
+is called with an argument greater than 0.  Such calls may return indeterminate
+values or crash the program.  The warning is included in @option{-Wall}.
+
 @item -Wno-discarded-qualifiers @r{(C and Objective-C only)}
 @opindex Wno-discarded-qualifiers
 @opindex Wdiscarded-qualifiers
@@ -4512,6 +4522,18 @@ GCC to emit warnings from system headers as if they occurred in user
 code.  However, note that using @option{-Wall} in conjunction with this
 option does @emph{not} warn about unknown pragmas in system
 headers---for that, @option{-Wunknown-pragmas} must also be used.
+
+@item -Wtautological-compare
+@opindex Wtautological-compare
+@opindex Wno-tautological-compare
+Warn if a self-comparison always evaluates to true or false.  This
+warning detects various mistakes such as:
+@smallexample
+int i = 1;
+@dots{}
+if (i > i) @{ @dots{} @}
+@end smallexample
+This warning is enabled by @option{-Wall}.
 
 @item -Wtrampolines
 @opindex Wtrampolines
@@ -13304,7 +13326,7 @@ of the @option{-mcpu=} option.  Permissible names are: @samp{armv2},
 @samp{armv2a}, @samp{armv3}, @samp{armv3m}, @samp{armv4}, @samp{armv4t},
 @samp{armv5}, @samp{armv5t}, @samp{armv5e}, @samp{armv5te},
 @samp{armv6}, @samp{armv6j},
-@samp{armv6t2}, @samp{armv6z}, @samp{armv6zk}, @samp{armv6-m},
+@samp{armv6t2}, @samp{armv6z}, @samp{armv6kz}, @samp{armv6-m},
 @samp{armv7}, @samp{armv7-a}, @samp{armv7-r}, @samp{armv7-m}, @samp{armv7e-m},
 @samp{armv7ve}, @samp{armv8-a}, @samp{armv8-a+crc},
 @samp{iwmmxt}, @samp{iwmmxt2}, @samp{ep9312}.
