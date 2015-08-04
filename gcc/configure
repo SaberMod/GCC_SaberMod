@@ -27019,6 +27019,8 @@ if test $gcc_cv_ld_pie = yes ; then
   elif test x$gcc_cv_as != x -a x$gcc_cv_ld != x ; then
     # Check if linker supports -pie option with copy reloc
     case "$target" in
+    *android*)
+	;;
     i?86-*-linux* | x86_64-*-linux*)
       cat > conftest1.s <<EOF
 	.globl	a_glob
