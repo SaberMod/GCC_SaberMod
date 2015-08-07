@@ -27720,8 +27720,8 @@ arm_expand_compare_and_swap (rtx operands[])
      promote succ to ACQ_REL so that we don't lose the acquire semantics.  */
 
   if (TARGET_HAVE_LDACQ
-      && INTVAL (mod_f) == MEMMODEL_ACQUIRE
-      && INTVAL (mod_s) == MEMMODEL_RELEASE)
+      && is_mm_acquire (memmodel_from_int (INTVAL (mod_f)))
+      && is_mm_release (memmodel_from_int (INTVAL (mod_s))))
     mod_s = GEN_INT (MEMMODEL_ACQ_REL);
 
   switch (mode)
@@ -27794,20 +27794,25 @@ arm_split_compare_and_swap (rtx operands[])
   oldval = operands[2];
   newval = operands[3];
   is_weak = (operands[4] != const0_rtx);
-  mod_s = (enum memmodel) INTVAL (operands[5]);
-  mod_f = (enum memmodel) INTVAL (operands[6]);
+  mod_s = memmodel_from_int (INTVAL (operands[5]));
+  mod_f = memmodel_from_int (INTVAL (operands[6]));
   scratch = operands[7];
   mode = GET_MODE (mem);
 
-  bool use_acquire = TARGET_HAVE_LDACQ
-                     && !(mod_s == MEMMODEL_RELAXED
-                          || mod_s == MEMMODEL_CONSUME
-                          || mod_s == MEMMODEL_RELEASE);
+  bool is_armv8_sync = arm_arch8 && is_mm_sync (mod_s);
 
+  bool use_acquire = TARGET_HAVE_LDACQ
+                     && !(is_mm_relaxed (mod_s) || is_mm_consume (mod_s)
+			  || is_mm_release (mod_s));
+		
   bool use_release = TARGET_HAVE_LDACQ
-                     && !(mod_s == MEMMODEL_RELAXED
-                          || mod_s == MEMMODEL_CONSUME
-                          || mod_s == MEMMODEL_ACQUIRE);
+                     && !(is_mm_relaxed (mod_s) || is_mm_consume (mod_s)
+			  || is_mm_acquire (mod_s));
+
+  /* For ARMv8, the load-acquire is too weak for __sync memory orders.  Instead,
+     a full barrier is emitted after the store-release.  */
+  if (is_armv8_sync)
+    use_acquire = false;
 
   /* Checks whether a barrier is needed and emits one accordingly.  */
   if (!(use_acquire || use_release))
@@ -27845,14 +27850,15 @@ arm_split_compare_and_swap (rtx operands[])
       emit_unlikely_jump (gen_rtx_SET (VOIDmode, pc_rtx, x));
     }
 
-  if (mod_f != MEMMODEL_RELAXED)
+  if (!is_mm_relaxed (mod_f))
     emit_label (label2);
 
   /* Checks whether a barrier is needed and emits one accordingly.  */
-  if (!(use_acquire || use_release))
+  if (is_armv8_sync
+      || !(use_acquire || use_release))
     arm_post_atomic_barrier (mod_s);
 
-  if (mod_f == MEMMODEL_RELAXED)
+  if (is_mm_relaxed (mod_f))
     emit_label (label2);
 }
 
@@ -27860,21 +27866,26 @@ void
 arm_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
 		     rtx value, rtx model_rtx, rtx cond)
 {
-  enum memmodel model = (enum memmodel) INTVAL (model_rtx);
+  enum memmodel model = memmodel_from_int (INTVAL (model_rtx));
   machine_mode mode = GET_MODE (mem);
   machine_mode wmode = (mode == DImode ? DImode : SImode);
   rtx_code_label *label;
   rtx x;
 
+  bool is_armv8_sync = arm_arch8 && is_mm_sync (model);
+
   bool use_acquire = TARGET_HAVE_LDACQ
-                     && !(model == MEMMODEL_RELAXED
-                          || model == MEMMODEL_CONSUME
-                          || model == MEMMODEL_RELEASE);
+                     && !(is_mm_relaxed (model) || is_mm_consume (model)
+			  || is_mm_release (model));
 
   bool use_release = TARGET_HAVE_LDACQ
-                     && !(model == MEMMODEL_RELAXED
-                          || model == MEMMODEL_CONSUME
-                          || model == MEMMODEL_ACQUIRE);
+                     && !(is_mm_relaxed (model) || is_mm_consume (model)
+			  || is_mm_acquire (model));
+
+  /* For ARMv8, a load-acquire is too weak for __sync memory orders.  Instead,
+     a full barrier is emitted after the store-release.  */
+  if (is_armv8_sync)
+    use_acquire = false;
 
   /* Checks whether a barrier is needed and emits one accordingly.  */
   if (!(use_acquire || use_release))
@@ -27946,7 +27957,8 @@ arm_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
   emit_unlikely_jump (gen_cbranchsi4 (x, cond, const0_rtx, label));
 
   /* Checks whether a barrier is needed and emits one accordingly.  */
-  if (!(use_acquire || use_release))
+  if (is_armv8_sync
+      || !(use_acquire || use_release))
     arm_post_atomic_barrier (model);
 }
 
