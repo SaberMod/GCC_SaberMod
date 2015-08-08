@@ -744,6 +744,24 @@ aarch64_is_long_call_p (rtx sym)
   return aarch64_decl_is_long_call_p (SYMBOL_REF_DECL (sym));
 }
 
+/* Return true if calls to symbol-ref SYM should not go through
+   plt stubs.  */
+
+bool
+aarch64_is_noplt_call_p (rtx sym)
+{
+  const_tree decl = SYMBOL_REF_DECL (sym);
+
+  if (flag_pic
+      && decl
+      && (!flag_plt
+	  || lookup_attribute ("noplt", DECL_ATTRIBUTES (decl)))
+      && !targetm.binds_local_p (decl))
+    return true;
+
+  return false;
+}
+
 /* Return true if the offsets to a zero/sign-extract operation
    represent an expression that matches an extend operation.  The
    operands represent the paramters from
@@ -1030,12 +1048,26 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 
 	gcc_assert (mode == Pmode || mode == ptr_mode);
 
-	/* In ILP32, the got entry is always of SImode size.  Unlike
-	   small GOT, the dest is fixed at reg 0.  */
-	if (TARGET_ILP32)
-	  emit_insn (gen_tlsdesc_small_si (imm));
+	if (can_create_pseudo_p ())
+	  {
+	    rtx reg = gen_reg_rtx (mode);
+
+	    if (TARGET_ILP32)
+	      emit_insn (gen_tlsdesc_small_pseudo_si (imm, reg));
+	    else
+	      emit_insn (gen_tlsdesc_small_pseudo_di (imm, reg));
+
+	    emit_use (reg);
+	  }
 	else
-	  emit_insn (gen_tlsdesc_small_di (imm));
+	  {
+	    /* In ILP32, the got entry is always of SImode size.  Unlike
+	       small GOT, the dest is fixed at reg 0.  */
+	    if (TARGET_ILP32)
+	      emit_insn (gen_tlsdesc_small_si (imm));
+	    else
+	      emit_insn (gen_tlsdesc_small_di (imm));
+	  }
 	tp = aarch64_load_tp (NULL);
 
 	if (mode != Pmode)

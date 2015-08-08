@@ -1,3 +1,143 @@
+2015-08-08  Bud Davis  <jmdavis@link.com>
+
+	PR fortran/59746
+	* gfortran.dg/common_22.f90: New.
+
+2015-08-08  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/67028
+	* gcc.dg/pr67028.c: New testcase.
+
+2015-08-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/67029
+	* gcc.dg/pr67029.c: New test.
+
+2015-08-07  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/64104
+	* gfortran.dg/ieee/ieee_8.f90: New test.
+
+2015-08-07  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/noplt_1.c: Check branch type instead of relocation
+	modifers.
+	* gcc.target/aarch64/noplt_2.c: Likewise.
+	* gcc.target/aarch64/noplt_3.c: Likewise.
+
+2015-08-06  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-benchmark.c (main): Record all elapsed times at each
+	optimization level, and print a summary at the end.
+
+2015-08-06  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/tlsdesc_hoist.c: New testcase.
+
+2015-08-06  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/noplt_3.c: New testcase.
+
+2015-08-06  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/noplt_1.c: New testcase.
+	* gcc.target/aarch64/noplt_2.c: Likewise.
+
+2015-08-06  Venkataramanan Kumar  <Venkataramanan.kumar@amd.com>
+
+	* gcc.dg/vect/vect-mult-pattern-1.c: New test.
+	* gcc.dg/vect/vect-mult-pattern-2.c: New test.
+
+2015-08-06  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/dwarfregtable-1.c: New test.
+	* gcc.target/s390/dwarfregtable-2.c: New test.
+	* gcc.target/s390/dwarfregtable-3.c: New test.
+
+2015-08-06  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/htm-builtins-z13-1.c: New test.
+
+2015-08-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/64022
+	* gfortran.dg/ieee/large_2.f90: New test.
+	* gfortran.dg/ieee/large_3.F90: New test.
+
+2015-08-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/64022
+	* gfortran.dg/ieee/large_1.f90: Adjust test.
+
+2015-08-05  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+	    Jeff Law  <law@redhat.com>
+
+	PR c/16351
+	* gcc.dg/tree-ssa/isolate-2.c: Close comment.
+	* gcc.dg/tree-ssa/isolate-4.c: Likewise.
+	* gcc.dg/tree-ssa/wnull-dereference.c: New test.
+	* gcc.dg/tree-ssa/isolate-1.c: Test warnings with -Wnull-dereference.
+	* gcc.dg/tree-ssa/isolate-3.c: Likewise.
+	* gcc.dg/tree-ssa/isolate-5.c: Likewise.
+
+2015-08-05  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR middle-end/66311
+	* gfortran.dg/pr66311.f90: New file.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67121
+	* gcc.dg/torture/pr67121.c: New testcase.
+
+2015-08-05  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.target/rl78: New directory.
+        * gcc.target/rl78/rl78.exp: New file: Test driver.
+        * gcc.target/rl78/test_addm3.c: New file: Test adds.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67120
+	* gcc.dg/torture/pr67120.c: New testcase.
+
+2015-08-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/52846
+
+	* lib/fortran-modules.exp: Call cleanup-submodules from
+	cleanup-modules.
+	* gfortran.dg/public_private_module_2.f90: Add two XFAILS to
+	cover the cases where private entities are no longer optimized
+	away.
+	* gfortran.dg/public_private_module_6.f90: Add an XFAIL for the
+	same reason.
+	* gfortran.dg/submodule_1.f08: Change cleanup module names.
+	* gfortran.dg/submodule_5.f08: The same.
+	* gfortran.dg/submodule_9.f08: The same.
+	* gfortran.dg/submodule_10.f08: New test.
+
+2015-08-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/66595
+	* g++.dg/cpp1y/var-templ35.C: New.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67055
+	* g++.dg/torture/pr67055.C: New testcase.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67109
+	* gcc.dg/torture/pr67109.c: New testcase.
+	* gcc.dg/vect/vect-119.c: Adjust.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67107
+	* gcc.dg/pr67107.c: New testcase.
+
 2015-08-04  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/66197

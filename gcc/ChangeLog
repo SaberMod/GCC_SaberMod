@@ -1,3 +1,280 @@
+2015-08-08  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/67028
+	* combine.c (simplify_comparison): Fix comment.  Rearrange code.
+	Add test to see if a const_int fits in the new mode.
+
+2015-08-07  DJ Delorie  <dj@redhat.com>
+
+	* config/rx/rx.c (rx_mode_dependent_address_p): Remove unneeded asserts.
+	
+2015-08-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/67029
+	* ira-color.c: Include "recog.h" before including "ira-int.h".
+	* target-globals.c: Likewise.
+	* ira-lives.c (ira_implicitly_set_insn_hard_regs): Add an
+	adds an alternative_mask argument and use it instead of
+	preferred_alternatives.
+	* ira.h (ira_implicitly_set_insn_hard_regs): Moved to ...
+	* ira-int.h (ira_implicitly_set_insn_hard_regs): Here.
+	* sched-deps.c: Include "ira-int.h" after including "ira.h".
+	(sched_analyze_insn): Update call to
+	ira_implicitly_set_insn_hard_regs.
+	* sel-sched.c: Include "ira-int.h" after including "ira.h".
+	(implicit_clobber_conflict_p): Update call to
+	ira_implicitly_set_insn_hard_regs.
+
+2015-08-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* Makefile.in (.INTERMEDIATE): Add gpl.pod.
+
+2015-08-07  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/67002
+	* config/sh/sh.c (sh_recog_treg_set_expr): Return false when
+	currently_expanding_to_rtl is set.
+
+2015-08-06  Yaakov Selkowitz  <yselkowi@redhat.com>
+
+	* configure.ac: Define LIBICONV_DEP with in-tree libiconv.
+	* configure: Regenerate.
+
+2015-08-06    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	      Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64.d (tlsdesc_small_pseudo_<mode>): New pattern.
+	* config/aarch64/aarch64.h (reg_class): New enumeration FIXED_REG0.
+	(REG_CLASS_NAMES): Likewise.
+	(REG_CLASS_CONTENTS): Likewise.
+	* config/aarch64/aarch64.c (aarch64_class_max_nregs): Likewise.
+	(aarch64_register_move_cost): Likewise.
+	(aarch64_load_symref_appropriately): Invoke the new added pattern if
+	possible.
+	* config/aarch64/constraints.md (Uc0): New constraint.
+
+2015-08-06  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/constraints.md (Usf): Add the test of
+	aarch64_is_noplt_call_p.
+
+2015-08-06  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_is_noplt_call_p): New
+	declaration.
+	* config/aarch64/aarch64.c (aarch64_is_noplt_call_p): New function.
+	* config/aarch64/aarch64.md (call_value_symbol): Check noplt scenarios.
+	(call_symbol): Likewise.
+
+2015-08-06  Venkataramanan Kumar  <Venkataramanan.kumar@amd.com>
+
+	* tree-vect-patterns.c (vect_recog_mult_pattern): New function
+	for vectorizing multiplication patterns.
+	* tree-vectorizer.h: Adjust the number of patterns.
+
+2015-08-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (*vec_concatv2df): Declare added
+	alternatives as sselog type.
+
+2015-08-06  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_dwarf_frame_reg_mode): Return Pmode for
+	all GPRs.
+
+2015-08-06  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_expand_tbegin): Expand either
+	tbegin_1_z13 or tbegin_1 depending on VX flag.
+	* config/s390/s390.md ("tbegin_1_z13"): New expander.
+
+2015-08-06  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.opt: Clarify description for -mzvector
+	* doc/invoke.texi: Add documentation for -mhtm, -mvx, and
+	-mzvector.
+
+2015-08-06  Richard Biener  <rguenther@suse.de>
+
+	* gimple.h (gimple_call_set_fn): Access op member directly.
+	(gimple_call_chain_ptr): Likewise.
+	(gimple_call_set_chain): Likewise.
+	(gimple_cond_lhs_ptr): Likewise.
+	(gimple_cond_set_lhs): Likewise.
+	(gimple_cond_rhs_ptr): Likewise.
+	(gimple_cond_set_rhs): Likewise.
+	(gimple_cond_true_label): Likewise.
+	(gimple_cond_set_true_label): Likewise.
+	(gimple_cond_set_false_label): Likewise.
+	(gimple_cond_false_label): Likewise.
+	(gimple_label_label): Likewise.
+	(gimple_label_set_label): Likewise.
+	(gimple_goto_set_dest): Likewise.
+	(gimple_asm_input_op): Likewise.
+	(gimple_asm_input_op_ptr): Likewise.
+	(gimple_asm_set_input_op): Likewise.
+	(gimple_asm_output_op): Likewise.
+	(gimple_asm_output_op_ptr): Likewise.
+	(gimple_asm_set_output_op): Likewise.
+	(gimple_asm_clobber_op): Likewise.
+	(gimple_asm_set_clobber_op): Likewise.
+	(gimple_asm_label_op): Likewise.
+	(gimple_asm_set_label_op): Likewise.
+	(gimple_switch_index): Likewise.
+	(gimple_switch_index_ptr): Likewise.
+	(gimple_return_retval_ptr): Likewise.
+	(gimple_return_retval): Likewise.
+	(gimple_return_set_retval): Likewise.
+	(gimple_switch_set_index): Likewise.  Remove superfluous GIMPLE_CHECK.
+	(gimple_switch_label): Likewise.
+	(gimple_switch_set_label): Likewise.
+
+2015-08-06  Richard Biener  <rguenther@suse.de>
+
+	* gimple-fold.c (gimple_fold_stmt_to_constant_1): Simplify
+	bool comparison canonicalization and restrict to integers.
+
+2015-08-05  Andrew MacLeod  <amacleod@redhat.com>
+
+	* coretypes.h (enum symbol_visibility): Relocate here.
+	* flag-types.h (enum symbol_visibility): Remove.
+	* tree-core.h (enum symbol_visibility): Remove.
+
+2015-08-05  Lynn Boger  <laboger@linux.vnet.ibm.com>
+
+	PR target/66870
+	* gcc/config/rs6000/rs6000.c (rs6000_emit_prologue): Check
+	for no_split_stack function attribute along with
+	flag_split_stack.
+	(rs6000_expand_split_stack_prologue): Likewise.
+
+2015-08-05  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+	    Jeff Law  <law@redhat.com>
+
+	PR c/16351
+	* doc/invoke.texi (Wnull-dereference): New.
+	* tree-vrp.c (infer_value_range): Update call to infer_nonnull_range.
+	* gimple-ssa-isolate-paths.c (find_implicit_erroneous_behaviour):
+	Warn for potential NULL dereferences.
+	(find_explicit_erroneous_behaviour): Warn for NULL dereferences.
+	* ubsan.c (instrument_nonnull_arg): Call
+	infer_nonnull_range_by_attribute.
+	(instrument_nonnull_return): Likewise.
+	* common.opt (Wnull-dereference); New.
+	* gimple.c (infer_nonnull_range): Remove bool arguments.
+	(infer_nonnull_range_by_dereference): New.
+	(infer_nonnull_range_by_attribute): New.
+	* gimple.h: Update declarations.
+
+2015-08-05  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gensupport.c (sequence_num): Replace with...
+	(insn_sequence_num, split_sequence_num, peephole2_sequence_num):
+	...these new variables.
+	(init_rtx_reader_args_cb): Update accordingly.
+	(get_num_code_insns): Likewise.
+	(read_md_rtx): Rework to use a while loop and get_c_test.
+	Use the new counters.  Remove redundant DEFINE_SUBST case.
+	* genoutput.c (gen_split): Delete.
+	(main): Don't call it.
+
+2015-08-05  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gensupport.h (get_c_test): Declare.
+	* gensupport.c (get_c_test): New function.
+	* genconditions.c (main): Use it.
+	* genrecog.c (validate_pattern): Likewise.
+	(match_pattern_1): Likewise.  Remove c_test argument.
+	(match_pattern): Update accordingly and remove c_test argument.
+	(main): Update accordingly.
+
+2015-08-05  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gensupport.h (get_num_insn_codes): Declare.
+	* gensupport.c (get_num_insn_codes): New function.
+	* genattrtab.c (optimize_attrs): Rename max_insn_code to
+	num_insn_codes.
+	(main): Likewise.  Use get_num_insn_codes.
+	* gencodes.c (main): Remove "last" and use get_num_insn_codes.
+
+2015-08-05  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR middle-end/66311
+	* wide-int.cc (wi::from_mpz): Make sure that absolute mpz value
+	is zero- rather than sign-extended.
+
+2015-08-05  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* target-insns.def (can_extend): Delete.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67121
+	* tree-if-conv.c (combine_blocks): Clear range-info produced
+	by stmts no longer executed conditionally.
+
+2015-08-05  Nick Clifton  <nickc@redhat.com>
+
+	* config/rl78/rl78.c (rl78_force_nonfar_3): Remove optimization
+	to allow identical far pointers to remain.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67120
+	* match.pd: Compare address bases with == if they are decls
+	or SSA names, not operand_equal_p.  Otherwise fail.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67055
+	* tree-ssa-ccp.c (fold_builtin_alloca_with_align): Handle
+	NULL gimple_block.
+
+	* g++.dg/torture/pr67055.C: New testcase.
+
+2015-08-05  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* config/i386/i386.md (define_attr "isa"): Addd avx512vl and
+	noavx512vl.
+	(define_attr "enabled"): Handle avx521vl and noavx512vl.
+	* config/i386/sse.md (define_insn "vec_dupv2df<mask_name>"): Split
+	AVX-512 alternative out of SSE.
+	(define_insn "*vec_concatv2df"): Ditto.
+
+2015-08-05  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* config/i386/i386.c (bdesc_args): Rename CODE_FOR_sse4_1_ptest into
+	CODE_FOR_sse4_1_ptestv2di and CODE_FOR_avx_vtestps256 into
+	CODE_FOR_avx_ptestv4di.
+	* config/i386/sse.md (define_mode_iterator V_AVX): New.
+	(define_mode_attr sse4_1): Extend to other 128/256-bit modes.
+	(define_insn "avx_ptest256"): Merge this ...
+	(define_insn "sse4_1_ptest"): And this ...
+	(define_insn "<sse4_1>_ptest<mode>"): Into this. Use V_AVX iterator.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67109
+	* tree-vect-data-refs.c (vect_analyze_group_access_1): Check
+	against too big groups.  Print whether this is a load or store
+	group.  Rename from ...
+	(vect_analyze_group_access): ... this which is now a wrapper
+	dissolving an invalid group.
+	(vect_analyze_data_ref_accesses): Print whether this is a load
+	or store group.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67107
+	* match.pd: Guard const_binop result checking against NULL_TREE
+	result.
+
+2015-08-05  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* cse.c (cse_insn): Restoring old behaviour for src_eqv
+	 when dest and value in the REG_EQUAL are same and dest
+	 is STRICT_LOW_PART.
+
 2015-08-04  Anatoly Sokolov  <aesok@post.ru>
 
 	* config/moxie/moxie.h (PRINT_OPERAND,
