@@ -56,6 +56,7 @@ enum processor_types
   AMDFAM10H,
   AMDFAM15H,
   INTEL_SILVERMONT,
+  INTEL_KNL,
   AMD_BTVER1,
   AMD_BTVER2,  
   CPU_TYPE_MAX
@@ -101,7 +102,8 @@ enum processor_features
   FEATURE_AVX512F,
   FEATURE_BMI,
   FEATURE_BMI2,
-  FEATURE_AES
+  FEATURE_AES,
+  FEATURE_PCLMUL
 };
 
 struct __processor_model
@@ -196,6 +198,10 @@ get_intel_cpu (unsigned int family, unsigned int model, unsigned int brand_id)
 	      /* Silvermont.  */
 	      __cpu_model.__cpu_type = INTEL_SILVERMONT;
 	      break;
+	    case 0x57:
+	      /* Knights Landing.  */
+	      __cpu_model.__cpu_type = INTEL_KNL;
+	      break;
 	    case 0x1a:
 	    case 0x1e:
 	    case 0x1f:
@@ -232,6 +238,7 @@ get_intel_cpu (unsigned int family, unsigned int model, unsigned int brand_id)
 	      __cpu_model.__cpu_subtype = INTEL_COREI7_HASWELL;
 	      break;
 	    case 0x3d:
+	    case 0x47:
 	    case 0x4f:
 	    case 0x56:
 	      /* Broadwell.  */
@@ -276,6 +283,8 @@ get_available_features (unsigned int ecx, unsigned int edx,
     features |= (1 << FEATURE_POPCNT);
   if (ecx & bit_AES)
     features |= (1 << FEATURE_AES);
+  if (ecx & bit_PCLMUL)
+    features |= (1 << FEATURE_PCLMUL);
   if (ecx & bit_SSE3)
     features |= (1 << FEATURE_SSE3);
   if (ecx & bit_SSSE3)

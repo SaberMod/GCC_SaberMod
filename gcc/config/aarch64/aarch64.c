@@ -1044,6 +1044,7 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
       {
 	machine_mode mode = GET_MODE (dest);
 	rtx x0 = gen_rtx_REG (mode, R0_REGNUM);
+	rtx offset;
 	rtx tp;
 
 	gcc_assert (mode == Pmode || mode == ptr_mode);
@@ -1053,11 +1054,11 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	    rtx reg = gen_reg_rtx (mode);
 
 	    if (TARGET_ILP32)
-	      emit_insn (gen_tlsdesc_small_pseudo_si (imm, reg));
+	      emit_insn (gen_tlsdesc_small_pseudo_si (reg, imm));
 	    else
-	      emit_insn (gen_tlsdesc_small_pseudo_di (imm, reg));
+	      emit_insn (gen_tlsdesc_small_pseudo_di (reg, imm));
 
-	    emit_use (reg);
+	    offset = reg;
 	  }
 	else
 	  {
@@ -1067,13 +1068,15 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	      emit_insn (gen_tlsdesc_small_si (imm));
 	    else
 	      emit_insn (gen_tlsdesc_small_di (imm));
+
+	    offset = x0;
 	  }
 	tp = aarch64_load_tp (NULL);
 
 	if (mode != Pmode)
 	  tp = gen_lowpart (mode, tp);
 
-	emit_insn (gen_rtx_SET (dest, gen_rtx_PLUS (mode, tp, x0)));
+	emit_insn (gen_rtx_SET (dest, gen_rtx_PLUS (mode, tp, offset)));
 	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
 	return;
       }
@@ -5119,6 +5122,7 @@ aarch64_class_max_nregs (reg_class_t regclass, machine_mode mode)
 	aarch64_vector_mode_p (mode)
 	  ? (GET_MODE_SIZE (mode) + UNITS_PER_VREG - 1) / UNITS_PER_VREG
 	  : (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+    case FIXED_REG0:
     case STACK_REG:
       return 1;
 
@@ -6987,10 +6991,10 @@ aarch64_register_move_cost (machine_mode mode,
     = aarch64_tune_params.regmove_cost;
 
   /* Caller save and pointer regs are equivalent to GENERAL_REGS.  */
-  if (to == CALLER_SAVE_REGS || to == POINTER_REGS)
+  if (to == CALLER_SAVE_REGS || to == POINTER_REGS || to == FIXED_REG0)
     to = GENERAL_REGS;
 
-  if (from == CALLER_SAVE_REGS || from == POINTER_REGS)
+  if (from == CALLER_SAVE_REGS || from == POINTER_REGS || from == FIXED_REG0)
     from = GENERAL_REGS;
 
   /* Moving between GPR and stack cost is the same as GP2GP.  */
@@ -7902,6 +7906,7 @@ initialize_aarch64_code_model (struct gcc_options *opts)
 	 case AARCH64_CMODEL_LARGE:
 	   sorry ("code model %qs with -f%s", "large",
 		  opts->x_flag_pic > 1 ? "PIC" : "pic");
+	   break;
 	 default:
 	   gcc_unreachable ();
 	 }
@@ -10760,7 +10765,23 @@ aarch64_expand_compare_and_swap (rtx operands[])
 {
   rtx bval, rval, mem, oldval, newval, is_weak, mod_s, mod_f, x;
   machine_mode mode, cmp_mode;
-  rtx (*gen) (rtx, rtx, rtx, rtx, rtx, rtx, rtx);
+  typedef rtx (*gen_cas_fn) (rtx, rtx, rtx, rtx, rtx, rtx, rtx);
+  int idx;
+  gen_cas_fn gen;
+  const gen_cas_fn split_cas[] =
+  {
+    gen_aarch64_compare_and_swapqi,
+    gen_aarch64_compare_and_swaphi,
+    gen_aarch64_compare_and_swapsi,
+    gen_aarch64_compare_and_swapdi
+  };
+  const gen_cas_fn atomic_cas[] =
+  {
+    gen_aarch64_compare_and_swapqi_lse,
+    gen_aarch64_compare_and_swaphi_lse,
+    gen_aarch64_compare_and_swapsi_lse,
+    gen_aarch64_compare_and_swapdi_lse
+  };
 
   bval = operands[0];
   rval = operands[1];
@@ -10805,13 +10826,17 @@ aarch64_expand_compare_and_swap (rtx operands[])
 
   switch (mode)
     {
-    case QImode: gen = gen_atomic_compare_and_swapqi_1; break;
-    case HImode: gen = gen_atomic_compare_and_swaphi_1; break;
-    case SImode: gen = gen_atomic_compare_and_swapsi_1; break;
-    case DImode: gen = gen_atomic_compare_and_swapdi_1; break;
+    case QImode: idx = 0; break;
+    case HImode: idx = 1; break;
+    case SImode: idx = 2; break;
+    case DImode: idx = 3; break;
     default:
       gcc_unreachable ();
     }
+  if (TARGET_LSE)
+    gen = atomic_cas[idx];
+  else
+    gen = split_cas[idx];
 
   emit_insn (gen (rval, mem, oldval, newval, is_weak, mod_s, mod_f));
 
@@ -10838,6 +10863,42 @@ aarch64_emit_post_barrier (enum memmodel model)
     {
       emit_insn (gen_mem_thread_fence (GEN_INT (MEMMODEL_SEQ_CST)));
     }
+}
+
+/* Emit an atomic compare-and-swap operation.  RVAL is the destination register
+   for the data in memory.  EXPECTED is the value expected to be in memory.
+   DESIRED is the value to store to memory.  MEM is the memory location.  MODEL
+   is the memory ordering to use.  */
+
+void
+aarch64_gen_atomic_cas (rtx rval, rtx mem,
+			rtx expected, rtx desired,
+			rtx model)
+{
+  rtx (*gen) (rtx, rtx, rtx, rtx);
+  machine_mode mode;
+
+  mode = GET_MODE (mem);
+
+  switch (mode)
+    {
+    case QImode: gen = gen_aarch64_atomic_casqi; break;
+    case HImode: gen = gen_aarch64_atomic_cashi; break;
+    case SImode: gen = gen_aarch64_atomic_cassi; break;
+    case DImode: gen = gen_aarch64_atomic_casdi; break;
+    default:
+      gcc_unreachable ();
+    }
+
+  /* Move the expected value into the CAS destination register.  */
+  emit_insn (gen_rtx_SET (rval, expected));
+
+  /* Emit the CAS.  */
+  emit_insn (gen (rval, mem, desired, model));
+
+  /* Compare the expected value with the value loaded by the CAS, to establish
+     whether the swap was made.  */
+  aarch64_gen_compare_reg (EQ, rval, expected);
 }
 
 /* Split a compare and swap pattern.  */

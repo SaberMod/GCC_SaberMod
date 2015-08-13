@@ -173,19 +173,6 @@ am__installdirs = "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(infodir)" \
 	"$(DESTDIR)$(fincludedir)" "$(DESTDIR)$(libsubincludedir)" \
 	"$(DESTDIR)$(toolexeclibdir)"
 LTLIBRARIES = $(toolexeclib_LTLIBRARIES)
-libgomp_plugin_host_nonshm_la_DEPENDENCIES = libgomp.la
-am_libgomp_plugin_host_nonshm_la_OBJECTS =  \
-	libgomp_plugin_host_nonshm_la-plugin-host.lo
-libgomp_plugin_host_nonshm_la_OBJECTS =  \
-	$(am_libgomp_plugin_host_nonshm_la_OBJECTS)
-AM_V_lt = $(am__v_lt_@AM_V@)
-am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
-am__v_lt_0 = --silent
-am__v_lt_1 = 
-libgomp_plugin_host_nonshm_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
-	$(libgomp_plugin_host_nonshm_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
-	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
-	$(libgomp_plugin_host_nonshm_la_LDFLAGS) $(LDFLAGS) -o $@
 am__DEPENDENCIES_1 =
 @PLUGIN_NVPTX_TRUE@libgomp_plugin_nvptx_la_DEPENDENCIES = libgomp.la \
 @PLUGIN_NVPTX_TRUE@	$(am__DEPENDENCIES_1)
@@ -249,43 +236,16 @@ am__v_FC_ = $(am__v_FC_@AM_DEFAULT_V@)
 am__v_FC_0 = @echo "  FC      " $@;
 am__v_FC_1 = 
 FCLD = $(FC)
-FCLINK = $(LIBTOOL) $(AM_V_lt) --tag=FC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(FCLD) $(AM_FCFLAGS) $(FCFLAGS) \
-	$(AM_LDFLAGS) $(LDFLAGS) -o $@
-AM_V_FCLD = $(am__v_FCLD_@AM_V@)
-am__v_FCLD_ = $(am__v_FCLD_@AM_DEFAULT_V@)
-am__v_FCLD_0 = @echo "  FCLD    " $@;
-am__v_FCLD_1 = 
-SOURCES = $(libgomp_plugin_host_nonshm_la_SOURCES) \
-	$(libgomp_plugin_nvptx_la_SOURCES) $(libgomp_la_SOURCES)
-AM_V_DVIPS = $(am__v_DVIPS_@AM_V@)
-am__v_DVIPS_ = $(am__v_DVIPS_@AM_DEFAULT_V@)
-am__v_DVIPS_0 = @echo "  DVIPS   " $@;
-am__v_DVIPS_1 = 
-AM_V_MAKEINFO = $(am__v_MAKEINFO_@AM_V@)
-am__v_MAKEINFO_ = $(am__v_MAKEINFO_@AM_DEFAULT_V@)
-am__v_MAKEINFO_0 = @echo "  MAKEINFO" $@;
-am__v_MAKEINFO_1 = 
-AM_V_INFOHTML = $(am__v_INFOHTML_@AM_V@)
-am__v_INFOHTML_ = $(am__v_INFOHTML_@AM_DEFAULT_V@)
-am__v_INFOHTML_0 = @echo "  INFOHTML" $@;
-am__v_INFOHTML_1 = 
-AM_V_TEXI2DVI = $(am__v_TEXI2DVI_@AM_V@)
-am__v_TEXI2DVI_ = $(am__v_TEXI2DVI_@AM_DEFAULT_V@)
-am__v_TEXI2DVI_0 = @echo "  TEXI2DVI" $@;
-am__v_TEXI2DVI_1 = 
-AM_V_TEXI2PDF = $(am__v_TEXI2PDF_@AM_V@)
-am__v_TEXI2PDF_ = $(am__v_TEXI2PDF_@AM_DEFAULT_V@)
-am__v_TEXI2PDF_0 = @echo "  TEXI2PDF" $@;
-am__v_TEXI2PDF_1 = 
-AM_V_texinfo = $(am__v_texinfo_@AM_V@)
-am__v_texinfo_ = $(am__v_texinfo_@AM_DEFAULT_V@)
-am__v_texinfo_0 = -q
-am__v_texinfo_1 = 
-AM_V_texidevnull = $(am__v_texidevnull_@AM_V@)
-am__v_texidevnull_ = $(am__v_texidevnull_@AM_DEFAULT_V@)
-am__v_texidevnull_0 = > /dev/null
-am__v_texidevnull_1 = 
+FCLINK = $(LIBTOOL) --tag=FC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=link $(FCLD) $(AM_FCFLAGS) $(FCFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
+SOURCES = $(libgomp_plugin_nvptx_la_SOURCES) $(libgomp_la_SOURCES)
+MULTISRCTOP = 
+MULTIBUILDTOP = 
+MULTIDIRS = 
+MULTISUBDIR = 
+MULTIDO = true
+MULTICLEAN = true
 INFO_DEPS = libgomp.info
 am__TEXINFO_TEX_DIR = $(srcdir)/../gcc/doc/include
 DVIS = libgomp.dvi
@@ -511,8 +471,7 @@ libsubincludedir = $(libdir)/gcc/$(target_alias)/$(gcc_version)/include
 AM_CPPFLAGS = $(addprefix -I, $(search_path))
 AM_CFLAGS = $(XCFLAGS)
 AM_LDFLAGS = $(XLDFLAGS) $(SECTION_LDFLAGS) $(OPT_LDFLAGS)
-toolexeclib_LTLIBRARIES = libgomp.la $(am__append_1) \
-	libgomp-plugin-host_nonshm.la
+toolexeclib_LTLIBRARIES = libgomp.la $(am__append_1)
 nodist_toolexeclib_HEADERS = libgomp.spec
 
 # -Wc is only a libtool option.
@@ -547,14 +506,6 @@ libgomp_la_SOURCES = alloc.c barrier.c critical.c env.c error.c iter.c \
 @PLUGIN_NVPTX_TRUE@	$(lt_host_flags) $(PLUGIN_NVPTX_LDFLAGS)
 @PLUGIN_NVPTX_TRUE@libgomp_plugin_nvptx_la_LIBADD = libgomp.la $(PLUGIN_NVPTX_LIBS)
 @PLUGIN_NVPTX_TRUE@libgomp_plugin_nvptx_la_LIBTOOLFLAGS = --tag=disable-static
-libgomp_plugin_host_nonshm_version_info = -version-info $(libtool_VERSION)
-libgomp_plugin_host_nonshm_la_SOURCES = plugin/plugin-host.c
-libgomp_plugin_host_nonshm_la_CPPFLAGS = $(AM_CPPFLAGS) -DHOST_NONSHM_PLUGIN
-libgomp_plugin_host_nonshm_la_LDFLAGS = \
-	$(libgomp_plugin_host_nonshm_version_info) $(lt_host_flags)
-
-libgomp_plugin_host_nonshm_la_LIBADD = libgomp.la
-libgomp_plugin_host_nonshm_la_LIBTOOLFLAGS = --tag=disable-static
 nodist_noinst_HEADERS = libgomp_f.h
 nodist_libsubinclude_HEADERS = omp.h openacc.h
 @USE_FORTRAN_TRUE@nodist_finclude_HEADERS = omp_lib.h omp_lib.f90 omp_lib.mod omp_lib_kinds.mod \
@@ -677,18 +628,12 @@ uninstall-toolexeclibLTLIBRARIES:
 
 clean-toolexeclibLTLIBRARIES:
 	-test -z "$(toolexeclib_LTLIBRARIES)" || rm -f $(toolexeclib_LTLIBRARIES)
-	@list='$(toolexeclib_LTLIBRARIES)'; \
-	locs=`for p in $$list; do echo $$p; done | \
-	      sed 's|^[^/]*$$|.|; s|/[^/]*$$||; s|$$|/so_locations|' | \
-	      sort -u`; \
-	test -z "$$locs" || { \
-	  echo rm -f $${locs}; \
-	  rm -f $${locs}; \
-	}
-
-libgomp-plugin-host_nonshm.la: $(libgomp_plugin_host_nonshm_la_OBJECTS) $(libgomp_plugin_host_nonshm_la_DEPENDENCIES) $(EXTRA_libgomp_plugin_host_nonshm_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(libgomp_plugin_host_nonshm_la_LINK) -rpath $(toolexeclibdir) $(libgomp_plugin_host_nonshm_la_OBJECTS) $(libgomp_plugin_host_nonshm_la_LIBADD) $(LIBS)
-
+	@list='$(toolexeclib_LTLIBRARIES)'; for p in $$list; do \
+	  dir="`echo $$p | sed -e 's|/[^/]*$$||'`"; \
+	  test "$$dir" != "$$p" || dir=.; \
+	  echo "rm -f \"$${dir}/so_locations\""; \
+	  rm -f "$${dir}/so_locations"; \
+	done
 libgomp-plugin-nvptx.la: $(libgomp_plugin_nvptx_la_OBJECTS) $(libgomp_plugin_nvptx_la_DEPENDENCIES) $(EXTRA_libgomp_plugin_nvptx_la_DEPENDENCIES) 
 	$(AM_V_CCLD)$(libgomp_plugin_nvptx_la_LINK) $(am_libgomp_plugin_nvptx_la_rpath) $(libgomp_plugin_nvptx_la_OBJECTS) $(libgomp_plugin_nvptx_la_LIBADD) $(LIBS)
 
@@ -712,7 +657,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/iter.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/iter_ull.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgomp-plugin.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgomp_plugin_host_nonshm_la-plugin-host.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgomp_plugin_nvptx_la-plugin-nvptx.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lock.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/loop.Plo@am__quote@
@@ -759,13 +703,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
-
-libgomp_plugin_host_nonshm_la-plugin-host.lo: plugin/plugin-host.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(libgomp_plugin_host_nonshm_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libgomp_plugin_host_nonshm_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libgomp_plugin_host_nonshm_la-plugin-host.lo -MD -MP -MF $(DEPDIR)/libgomp_plugin_host_nonshm_la-plugin-host.Tpo -c -o libgomp_plugin_host_nonshm_la-plugin-host.lo `test -f 'plugin/plugin-host.c' || echo '$(srcdir)/'`plugin/plugin-host.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libgomp_plugin_host_nonshm_la-plugin-host.Tpo $(DEPDIR)/libgomp_plugin_host_nonshm_la-plugin-host.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='plugin/plugin-host.c' object='libgomp_plugin_host_nonshm_la-plugin-host.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(libgomp_plugin_host_nonshm_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libgomp_plugin_host_nonshm_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libgomp_plugin_host_nonshm_la-plugin-host.lo `test -f 'plugin/plugin-host.c' || echo '$(srcdir)/'`plugin/plugin-host.c
 
 libgomp_plugin_nvptx_la-plugin-nvptx.lo: plugin/plugin-nvptx.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(libgomp_plugin_nvptx_la_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libgomp_plugin_nvptx_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libgomp_plugin_nvptx_la-plugin-nvptx.lo -MD -MP -MF $(DEPDIR)/libgomp_plugin_nvptx_la-plugin-nvptx.Tpo -c -o libgomp_plugin_nvptx_la-plugin-nvptx.lo `test -f 'plugin/plugin-nvptx.c' || echo '$(srcdir)/'`plugin/plugin-nvptx.c

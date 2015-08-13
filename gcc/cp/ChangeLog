@@ -1,3 +1,36 @@
+2015-08-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67104
+	* constexpr.c (cxx_eval_array_reference): Fix typo.
+
+	PR c++/67104
+	* constexpr.c (cxx_eval_array_reference): Handle sparse
+	CONSTRUCTORs.
+
+	PR c++/67108
+	* decl2.c (c_parse_final_cleanups): Set at_eof to 2 at end.
+	* error.c (dump_template_bindings): Don't tsubst in that case.
+
+	PR c++/67161
+	* error.c (dump_decl) [TEMPLATE_ID_EXPR]: Pass
+	TFF_NO_OMIT_DEFAULT_TEMPLATE_ARGUMENTS.
+
+2015-08-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67152
+	* pt.c (process_partial_specialization): Call
+	associate_classtype_constraints.
+
+	PR c++/67159
+	* constraint.cc (finish_template_introduction):
+	SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT.
+
+	PR c++/67142
+	* pt.c (equal): Make sure tmpl is actually a template.
+
+	PR c++/67144
+	* call.c (joust): Only call more_constrained on decls.
+
 2015-08-06  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	    Braden Obrzut  <admin@maniacsvault.net>
 	    Jason Merrill  <jason@redhat.com>

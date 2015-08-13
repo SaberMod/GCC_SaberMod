@@ -89,6 +89,12 @@ static const char * const gimple_alloc_kind_names[] = {
     "everything else"
 };
 
+/* Static gimple tuple members.  */
+const enum gimple_code gassign::code_;
+const enum gimple_code gcall::code_;
+const enum gimple_code gcond::code_;
+
+
 /* Gimple tuple constructors.
    Note: Any constructor taking a ``gimple_seq'' as a parameter, can
    be passed a NULL to start with an empty sequence.  */
