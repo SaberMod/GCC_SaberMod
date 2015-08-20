@@ -232,13 +232,10 @@ TOOLCHAIN_LICENSES=$ANDROID_NDK_ROOT/build/tools/toolchain-licenses
 #  1) The path exists and contain incorrect headers/libs
 #  2) The path exists at remote server and blocks GCC for seconds
 #  3) The path exists but not accessible, which crashes GCC!
-#
-# For canadian build --with-sysroot has to be sub-directory of --prefix.
-# Put TOOLCHAIN_BUILD_PREFIX to BUILD_OUT which is in $TMPDIR by default,
-# and TOOLCHAIN_BUILD_SYSROOT underneath.
 
-TOOLCHAIN_BUILD_PREFIX=$BUILD_OUT/prefix
-TOOLCHAIN_BUILD_SYSROOT=$TOOLCHAIN_BUILD_PREFIX/sysroot
+# For canadian build --with-sysroot has to be sub-directory of --prefix.
+TOOLCHAIN_INSTALL_PATH=$PACKAGE_DIR/gcc
+TOOLCHAIN_BUILD_SYSROOT=$TOOLCHAIN_INSTALL_PATH/sysroot
 dump "Sysroot  : Copying: $SYSROOT --> $TOOLCHAIN_BUILD_SYSROOT"
 mkdir -p $TOOLCHAIN_BUILD_SYSROOT && (cd $SYSROOT && tar chf - *) | (cd $TOOLCHAIN_BUILD_SYSROOT && tar xf -)
 if [ $? != 0 ] ; then
@@ -387,7 +384,7 @@ $BUILD_SRCDIR/configure --target=$ABI_CONFIGURE_TARGET \
                         --host=$ABI_CONFIGURE_HOST \
                         --build=$ABI_CONFIGURE_BUILD \
                         --disable-nls \
-                        --prefix=$TOOLCHAIN_BUILD_PREFIX \
+                        --prefix=$TOOLCHAIN_INSTALL_PATH \
                         --with-sysroot=$TOOLCHAIN_BUILD_SYSROOT \
                         --with-binutils-version=$BINUTILS_VERSION \
                         --with-mpfr-version=$MPFR_VERSION \
@@ -396,7 +393,7 @@ $BUILD_SRCDIR/configure --target=$ABI_CONFIGURE_TARGET \
                         --with-gcc-version=$CONFIGURE_GCC_VERSION \
                         --with-gdb-version=$GDB_VERSION \
                         $WITH_PYTHON \
-                        --with-gxx-include-dir=$TOOLCHAIN_BUILD_PREFIX/include/c++/$GCC_VERSION \
+                        --with-gxx-include-dir=$TOOLCHAIN_INSTALL_PATH/include/c++/$GCC_VERSION \
                         --with-bugurl=$DEFAULT_ISSUE_TRACKER_URL \
                         --enable-languages=$ENABLE_LANGUAGES \
                         $EXTRA_CONFIG_FLAGS \
@@ -518,7 +515,7 @@ create_unwind_library ()
     local ABI UNWIND_OBJS UNWIND_LIB
     for ABI in $ABIS; do
         UNWIND_OBJS=$(unwind_library_for_abi $ABI)
-        UNWIND_LIB_DIR="$NDK_DIR/$GCCUNWIND_SUBDIR/libs/$ABI/"
+        UNWIND_LIB_DIR="$PACKAGE_DIR/$GCCUNWIND_SUBDIR/libs/$ABI/"
         run mkdir -p $UNWIND_LIB_DIR
         run ar crsD $UNWIND_LIB_DIR/libgccunwind.a $UNWIND_OBJS
     done
@@ -530,53 +527,50 @@ if [ "$HOST_OS" = "linux" -a "$GCC_VERSION" = "$DEFAULT_GCC_VERSION" ]; then
     run create_unwind_library $ARCH $NDK_DIR
 fi
 
-# copy to toolchain path
-run copy_directory "$TOOLCHAIN_BUILD_PREFIX" "$TOOLCHAIN_PATH"
-
 if [ "$MINGW" = "yes" -o "$DARWIN" = "yes" ] ; then
     # For some reasons, libraries in $ABI_CONFIGURE_TARGET (*) are not installed.
     # Hack here to copy them over.
     # (*) FYI: libgcc.a and libgcov.a not installed there in the first place
     INSTALL_TARGET_LIB_PATH="$BUILD_OUT/host-$ABI_CONFIGURE_BUILD/install/$ABI_CONFIGURE_TARGET/lib"
-    TOOLCHAIN_TARGET_LIB_PATH="$TOOLCHAIN_PATH/$ABI_CONFIGURE_TARGET/lib"
+    TOOLCHAIN_TARGET_LIB_PATH="$TOOLCHAIN_INSTALL_PATH/$ABI_CONFIGURE_TARGET/lib"
     (cd "$INSTALL_TARGET_LIB_PATH" &&
         find . \( -name "*.a" -o -name "*.la" -o -name "*.spec" \) -exec install -D "{}" "$TOOLCHAIN_TARGET_LIB_PATH/{}" \;)
 fi
 
 # don't forget to copy the GPL and LGPL license files
-run cp -f $TOOLCHAIN_LICENSES/COPYING* $TOOLCHAIN_PATH
+run cp -f $TOOLCHAIN_LICENSES/COPYING* $TOOLCHAIN_INSTALL_PATH
 
 # remove some unneeded files
-run rm -f $TOOLCHAIN_PATH/bin/*-gccbug
-run rm -f $TOOLCHAIN_PATH/bin/*gdbtui$HOST_EXE
-run rm -f $TOOLCHAIN_PATH/bin/*-run$HOST_EXE
-run rm -rf $TOOLCHAIN_PATH/info
-run rm -rf $TOOLCHAIN_PATH/man
-run rm -rf $TOOLCHAIN_PATH/share/info
-run rm -rf $TOOLCHAIN_PATH/share/man
-run rm -rf $TOOLCHAIN_PATH/lib/gcc/$ABI_CONFIGURE_TARGET/*/install-tools
-run rm -rf $TOOLCHAIN_PATH/lib/gcc/$ABI_CONFIGURE_TARGET/*/plugin
-run rm -rf $TOOLCHAIN_PATH/libexec/gcc/$ABI_CONFIGURE_TARGET/*/install-tools
-run rm -rf $TOOLCHAIN_PATH/lib/libiberty.a
-run rm -rf $TOOLCHAIN_PATH/lib32/libiberty.a
-run rm -rf $TOOLCHAIN_PATH/lib64/libiberty.a
-run rm -rf $TOOLCHAIN_PATH/lib/x86_64/libiberty.a
-run rm -rf $TOOLCHAIN_PATH/$ABI_CONFIGURE_TARGET/lib/libiberty.a
-run rm -rf $TOOLCHAIN_PATH/$ABI_CONFIGURE_TARGET/lib/*/libiberty.a
-run rm -rf $TOOLCHAIN_PATH/$ABI_CONFIGURE_TARGET/lib/*/*/libiberty.a
-find $TOOLCHAIN_PATH -name "*.la" -exec rm -f {} \;
+run rm -f $TOOLCHAIN_INSTALL_PATH/bin/*-gccbug
+run rm -f $TOOLCHAIN_INSTALL_PATH/bin/*gdbtui$HOST_EXE
+run rm -f $TOOLCHAIN_INSTALL_PATH/bin/*-run$HOST_EXE
+run rm -rf $TOOLCHAIN_INSTALL_PATH/info
+run rm -rf $TOOLCHAIN_INSTALL_PATH/man
+run rm -rf $TOOLCHAIN_INSTALL_PATH/share/info
+run rm -rf $TOOLCHAIN_INSTALL_PATH/share/man
+run rm -rf $TOOLCHAIN_INSTALL_PATH/lib/gcc/$ABI_CONFIGURE_TARGET/*/install-tools
+run rm -rf $TOOLCHAIN_INSTALL_PATH/lib/gcc/$ABI_CONFIGURE_TARGET/*/plugin
+run rm -rf $TOOLCHAIN_INSTALL_PATH/libexec/gcc/$ABI_CONFIGURE_TARGET/*/install-tools
+run rm -rf $TOOLCHAIN_INSTALL_PATH/lib/libiberty.a
+run rm -rf $TOOLCHAIN_INSTALL_PATH/lib32/libiberty.a
+run rm -rf $TOOLCHAIN_INSTALL_PATH/lib64/libiberty.a
+run rm -rf $TOOLCHAIN_INSTALL_PATH/lib/x86_64/libiberty.a
+run rm -rf $TOOLCHAIN_INSTALL_PATH/$ABI_CONFIGURE_TARGET/lib/libiberty.a
+run rm -rf $TOOLCHAIN_INSTALL_PATH/$ABI_CONFIGURE_TARGET/lib/*/libiberty.a
+run rm -rf $TOOLCHAIN_INSTALL_PATH/$ABI_CONFIGURE_TARGET/lib/*/*/libiberty.a
+find $TOOLCHAIN_INSTALL_PATH -name "*.la" -exec rm -f {} \;
 # Remove host install in cross compilation
 if [ "$ABI_CONFIGURE_HOST" != "$ABI_CONFIGURE_TARGET" ]; then
-    run rm -rf "$TOOLCHAIN_PATH/$ABI_CONFIGURE_HOST"
+    run rm -rf "$TOOLCHAIN_INSTALL_PATH/$ABI_CONFIGURE_HOST"
 fi
 # remove sysroot
-run rm -rf "$TOOLCHAIN_PATH/sysroot"
+run rm -rf "$TOOLCHAIN_INSTALL_PATH/sysroot"
 
 # Remove libstdc++ for now (will add it differently later)
 # We had to build it to get libsupc++ which we keep.
-run rm -rf $TOOLCHAIN_PATH/$ABI_CONFIGURE_TARGET/lib/libstdc++.*
-run rm -rf $TOOLCHAIN_PATH/$ABI_CONFIGURE_TARGET/lib/*/libstdc++.*
-run rm -rf $TOOLCHAIN_PATH/$ABI_CONFIGURE_TARGET/include/c++
+run rm -rf $TOOLCHAIN_INSTALL_PATH/$ABI_CONFIGURE_TARGET/lib/libstdc++.*
+run rm -rf $TOOLCHAIN_INSTALL_PATH/$ABI_CONFIGURE_TARGET/lib/*/libstdc++.*
+run rm -rf $TOOLCHAIN_INSTALL_PATH/$ABI_CONFIGURE_TARGET/include/c++
 
 # strip binaries to reduce final package size
 test -z "$STRIP" && STRIP=strip
@@ -584,16 +578,16 @@ test -z "$STRIP" && STRIP=strip
 # that are only used by Python modules that must not be stripped. This
 # is not true of Windows which dynamically links to Python.
 if [ "$MINGW" = "yes" ] ; then
-    run $STRIP $TOOLCHAIN_PATH/bin/*
+    run $STRIP $TOOLCHAIN_INSTALL_PATH/bin/*
 else
-    find $TOOLCHAIN_PATH/bin -type f -not -name "*gdb" \
+    find $TOOLCHAIN_INSTALL_PATH/bin -type f -not -name "*gdb" \
         | while read EXECUTABLE; do run $STRIP "$EXECUTABLE"; done
 fi
-run $STRIP $TOOLCHAIN_PATH/$ABI_CONFIGURE_TARGET/bin/*
-run $STRIP $TOOLCHAIN_PATH/libexec/gcc/*/*/cc1$HOST_EXE
-run $STRIP $TOOLCHAIN_PATH/libexec/gcc/*/*/cc1plus$HOST_EXE
-run $STRIP $TOOLCHAIN_PATH/libexec/gcc/*/*/collect2$HOST_EXE
-run $STRIP $TOOLCHAIN_PATH/libexec/gcc/*/*/lto*$HOST_EXE
+run $STRIP $TOOLCHAIN_INSTALL_PATH/$ABI_CONFIGURE_TARGET/bin/*
+run $STRIP $TOOLCHAIN_INSTALL_PATH/libexec/gcc/*/*/cc1$HOST_EXE
+run $STRIP $TOOLCHAIN_INSTALL_PATH/libexec/gcc/*/*/cc1plus$HOST_EXE
+run $STRIP $TOOLCHAIN_INSTALL_PATH/libexec/gcc/*/*/collect2$HOST_EXE
+run $STRIP $TOOLCHAIN_INSTALL_PATH/libexec/gcc/*/*/lto*$HOST_EXE
 
 # Some of the files should really be links to save space.
 # This is mostly to reduce the size of the Windows zip archives,
@@ -614,9 +608,9 @@ do_relink () {
 }
 
 # <config>/bin/<name> should point to ../../<config>-<name>
-LINK_FILES=$(cd $TOOLCHAIN_PATH/$ABI_CONFIGURE_TARGET/bin && ls * 2>/dev/null)
+LINK_FILES=$(cd $TOOLCHAIN_INSTALL_PATH/$ABI_CONFIGURE_TARGET/bin && ls * 2>/dev/null)
 for LINK_FILE in $LINK_FILES; do
-  do_relink $TOOLCHAIN_PATH/$ABI_CONFIGURE_TARGET/bin/$LINK_FILE ../../bin/$ABI_CONFIGURE_TARGET-$LINK_FILE
+  do_relink $TOOLCHAIN_INSTALL_PATH/$ABI_CONFIGURE_TARGET/bin/$LINK_FILE ../../bin/$ABI_CONFIGURE_TARGET-$LINK_FILE
 done
 
 # $1: Source file prefix (e.g. 'c++')
@@ -624,15 +618,15 @@ done
 # $3: Alternative file prefix if $2 doesn't exist (eg. ld.bfd)
 do_relink_bin () {
     local DST_FILE=$2
-    if [ ! -f "$TOOLCHAIN_PATH/bin/$ABI_CONFIGURE_TARGET-$DST_FILE$HOST_EXE" ]; then
+    if [ ! -f "$TOOLCHAIN_INSTALL_PATH/bin/$ABI_CONFIGURE_TARGET-$DST_FILE$HOST_EXE" ]; then
         DST_FILE=$3
     fi
-    if [ ! -f "$TOOLCHAIN_PATH/bin/$ABI_CONFIGURE_TARGET-$DST_FILE$HOST_EXE" ]; then
+    if [ ! -f "$TOOLCHAIN_INSTALL_PATH/bin/$ABI_CONFIGURE_TARGET-$DST_FILE$HOST_EXE" ]; then
         echo "ERROR: Can't relink $1 to $DST_FILE because $DST_FILE doesn't exist"
         exit 1
     fi
     do_relink \
-        $TOOLCHAIN_PATH/bin/$ABI_CONFIGURE_TARGET-$1$HOST_EXE \
+        $TOOLCHAIN_INSTALL_PATH/bin/$ABI_CONFIGURE_TARGET-$1$HOST_EXE \
         $ABI_CONFIGURE_TARGET-$DST_FILE$HOST_EXE
 }
 
@@ -651,7 +645,7 @@ esac
 
 # copy SOURCES file if present
 if [ -f "$SRC_DIR/SOURCES" ]; then
-    cp "$SRC_DIR/SOURCES" "$TOOLCHAIN_PATH/SOURCES"
+    cp "$SRC_DIR/SOURCES" "$TOOLCHAIN_INSTALL_PATH/SOURCES"
 fi
 
 # check GLIBC/GLBICXX symbols
