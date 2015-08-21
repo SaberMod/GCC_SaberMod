@@ -1145,6 +1145,17 @@ proc check_effective_target_pie_enabled { } {
     }]
 }
 
+# Return 1 if the target generates -fstack-protector by default.
+
+proc check_effective_target_fstack_protector_enabled {} {
+    return [ check_no_compiler_messages fstack_protector_enabled assembly {
+    #if !defined(__SSP__) && !defined(__SSP_ALL__) && \
+      !defined(__SSP_STRONG__) && !defined(__SSP_EXPICIT__)
+    #error unsupported
+    #endif
+    }]
+}
+
 # Return 1 if the target does not use a status wrapper.
 
 proc check_effective_target_unwrapped { } {
@@ -2703,7 +2714,11 @@ proc check_effective_target_arm_neon_fp16_ok_nocache { } {
     set et_arm_neon_fp16_flags ""
     if { [check_effective_target_arm32] } {
 	foreach flags {"" "-mfloat-abi=softfp" "-mfpu=neon-fp16"
-	               "-mfpu=neon-fp16 -mfloat-abi=softfp"} {
+		       "-mfpu=neon-fp16 -mfloat-abi=softfp"
+		       "-mfp16-format=ieee"
+		       "-mfloat-abi=softfp -mfp16-format=ieee"
+		       "-mfpu=neon-fp16 -mfp16-format=ieee"
+		       "-mfpu=neon-fp16 -mfloat-abi=softfp -mfp16-format=ieee"} {
 	    if { [check_no_compiler_messages_nocache arm_neon_fp_16_ok object {
 		#include "arm_neon.h"
 		float16x4_t

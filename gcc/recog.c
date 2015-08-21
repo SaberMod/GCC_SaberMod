@@ -188,14 +188,14 @@ check_asm_operands (rtx x)
 
 /* Static data for the next two routines.  */
 
-typedef struct change_t
+struct change_t
 {
   rtx object;
   int old_code;
   rtx *loc;
   rtx old;
   bool unshare;
-} change_t;
+};
 
 static change_t *changes;
 static int changes_allocated;
@@ -3018,7 +3018,6 @@ split_all_insns_noflow (void)
   return 0;
 }
 
-#ifdef HAVE_peephole2
 struct peep2_insn_data
 {
   rtx_insn *insn;
@@ -3651,7 +3650,6 @@ peephole2_optimize (void)
   if (peep2_do_cleanup_cfg)
     cleanup_cfg (CLEANUP_CFG_CHANGED);
 }
-#endif /* HAVE_peephole2 */
 
 /* Common predicates for use with define_bypass.  */
 
@@ -3804,9 +3802,9 @@ if_test_bypass_p (rtx_insn *out_insn, rtx_insn *in_insn)
 static unsigned int
 rest_of_handle_peephole2 (void)
 {
-#ifdef HAVE_peephole2
-  peephole2_optimize ();
-#endif
+  if (HAVE_peephole2)
+    peephole2_optimize ();
+
   return 0;
 }
 

@@ -150,7 +150,6 @@ static void aarch64_elf_asm_constructor (rtx, int) ATTRIBUTE_UNUSED;
 static void aarch64_elf_asm_destructor (rtx, int) ATTRIBUTE_UNUSED;
 static void aarch64_override_options_after_change (void);
 static bool aarch64_vector_mode_supported_p (machine_mode);
-static unsigned bit_count (unsigned HOST_WIDE_INT);
 static bool aarch64_vectorize_vec_perm_const_ok (machine_mode vmode,
 						 const unsigned char *sel);
 static int aarch64_address_cost (rtx, machine_mode, addr_space_t, bool);
@@ -931,7 +930,7 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	       The generate instruction sequence for accessing global variable
 	       is:
 
-	         ldr reg, [pic_offset_table_rtx, #:gotpage_lo15:sym]
+		 ldr reg, [pic_offset_table_rtx, #:gotpage_lo15:sym]
 
 	       Only one instruction needed. But we must initialize
 	       pic_offset_table_rtx properly.  We generate initialize insn for
@@ -940,12 +939,12 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	       The final instruction sequences will look like the following
 	       for multiply global variables access.
 
-	         adrp pic_offset_table_rtx, _GLOBAL_OFFSET_TABLE_
+		 adrp pic_offset_table_rtx, _GLOBAL_OFFSET_TABLE_
 
-	         ldr reg, [pic_offset_table_rtx, #:gotpage_lo15:sym1]
-	         ldr reg, [pic_offset_table_rtx, #:gotpage_lo15:sym2]
-	         ldr reg, [pic_offset_table_rtx, #:gotpage_lo15:sym3]
-	         ...  */
+		 ldr reg, [pic_offset_table_rtx, #:gotpage_lo15:sym1]
+		 ldr reg, [pic_offset_table_rtx, #:gotpage_lo15:sym2]
+		 ldr reg, [pic_offset_table_rtx, #:gotpage_lo15:sym3]
+		 ...  */
 
 	    rtx s = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
 	    crtl->uses_pic_offset_table = 1;
@@ -4163,19 +4162,6 @@ aarch64_const_vec_all_same_int_p (rtx x, HOST_WIDE_INT val)
   return aarch64_const_vec_all_same_in_range_p (x, val, val);
 }
 
-static unsigned
-bit_count (unsigned HOST_WIDE_INT value)
-{
-  unsigned count = 0;
-
-  while (value)
-    {
-      count++;
-      value &= value - 1;
-    }
-
-  return count;
-}
 
 /* N Z C V.  */
 #define AARCH64_CC_V 1
@@ -4330,7 +4316,7 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	  return;
 	}
 
-      asm_fprintf (f, "%u", bit_count (INTVAL (x)));
+      asm_fprintf (f, "%u", popcount_hwi (INTVAL (x)));
       break;
 
     case 'H':
@@ -7915,20 +7901,6 @@ initialize_aarch64_code_model (struct gcc_options *opts)
      aarch64_cmodel = opts->x_aarch64_cmodel_var;
 }
 
-/* Print to F the architecture features specified by ISA_FLAGS.  */
-
-static void
-aarch64_print_extension (FILE *f, unsigned long isa_flags)
-{
-  const struct aarch64_option_extension *opt = NULL;
-
-  for (opt = all_extensions; opt->name != NULL; opt++)
-    if ((isa_flags & opt->flags_on) == opt->flags_on)
-      asm_fprintf (f, "+%s", opt->name);
-
-  asm_fprintf (f, "\n");
-}
-
 /* Implement TARGET_OPTION_SAVE.  */
 
 static void
@@ -7961,10 +7933,12 @@ aarch64_option_print (FILE *file, int indent, struct cl_target_option *ptr)
     = aarch64_get_tune_cpu (ptr->x_explicit_tune_core);
   unsigned long isa_flags = ptr->x_aarch64_isa_flags;
   const struct processor *arch = aarch64_get_arch (ptr->x_explicit_arch);
+  std::string extension
+    = aarch64_get_extension_string_for_isa_flags (isa_flags);
 
   fprintf (file, "%*sselected tune = %s\n", indent, "", cpu->name);
-  fprintf (file, "%*sselected arch = %s", indent, "", arch->name);
-  aarch64_print_extension (file, isa_flags);
+  fprintf (file, "%*sselected arch = %s%s\n", indent, "",
+	   arch->name, extension.c_str ());
 }
 
 static GTY(()) tree aarch64_previous_fndecl;
@@ -9904,31 +9878,10 @@ sizetochar (int size)
 static bool
 aarch64_vect_float_const_representable_p (rtx x)
 {
-  int i = 0;
-  REAL_VALUE_TYPE r0, ri;
-  rtx x0, xi;
-
-  if (GET_MODE_CLASS (GET_MODE (x)) != MODE_VECTOR_FLOAT)
-    return false;
-
-  x0 = CONST_VECTOR_ELT (x, 0);
-  if (!CONST_DOUBLE_P (x0))
-    return false;
-
-  REAL_VALUE_FROM_CONST_DOUBLE (r0, x0);
-
-  for (i = 1; i < CONST_VECTOR_NUNITS (x); i++)
-    {
-      xi = CONST_VECTOR_ELT (x, i);
-      if (!CONST_DOUBLE_P (xi))
-	return false;
-
-      REAL_VALUE_FROM_CONST_DOUBLE (ri, xi);
-      if (!REAL_VALUES_EQUAL (r0, ri))
-	return false;
-    }
-
-  return aarch64_float_const_representable_p (x0);
+  rtx elt;
+  return (GET_MODE_CLASS (GET_MODE (x)) == MODE_VECTOR_FLOAT
+	  && const_vec_duplicate_p (x, &elt)
+	  && aarch64_float_const_representable_p (elt));
 }
 
 /* Return true for valid and false for invalid.  */
@@ -10391,28 +10344,15 @@ aarch64_simd_dup_constant (rtx vals)
 {
   machine_mode mode = GET_MODE (vals);
   machine_mode inner_mode = GET_MODE_INNER (mode);
-  int n_elts = GET_MODE_NUNITS (mode);
-  bool all_same = true;
   rtx x;
-  int i;
 
-  if (GET_CODE (vals) != CONST_VECTOR)
-    return NULL_RTX;
-
-  for (i = 1; i < n_elts; ++i)
-    {
-      x = CONST_VECTOR_ELT (vals, i);
-      if (!rtx_equal_p (x, CONST_VECTOR_ELT (vals, 0)))
-	all_same = false;
-    }
-
-  if (!all_same)
+  if (!const_vec_duplicate_p (vals, &x))
     return NULL_RTX;
 
   /* We can load this constant by using DUP and a constant in a
      single ARM register.  This will be cheaper than a vector
      load.  */
-  x = copy_to_mode_reg (inner_mode, CONST_VECTOR_ELT (vals, 0));
+  x = copy_to_mode_reg (inner_mode, x);
   return gen_rtx_VEC_DUPLICATE (mode, x);
 }
 
@@ -10688,8 +10628,11 @@ aarch64_declare_function_name (FILE *stream, const char* name,
   const struct processor *this_arch
     = aarch64_get_arch (targ_options->x_explicit_arch);
 
-  asm_fprintf (asm_out_file, "\t.arch %s", this_arch->name);
-  aarch64_print_extension (asm_out_file, targ_options->x_aarch64_isa_flags);
+  unsigned long isa_flags = targ_options->x_aarch64_isa_flags;
+  std::string extension
+    = aarch64_get_extension_string_for_isa_flags (isa_flags);
+  asm_fprintf (asm_out_file, "\t.arch %s%s\n",
+	       this_arch->name, extension.c_str ());
 
   /* Print the cpu name we're tuning for in the comments, might be
      useful to readers of the generated asm.  */

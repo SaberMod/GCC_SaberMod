@@ -1,3 +1,547 @@
+2015-08-20  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* defaults.h (CONSTANT_ALIGNMENT): New macro definition.
+	* builtins.c (get_object_alignment_2): Adjust.
+	* varasm.c (align_variable): Likewise.
+	(get_variable_align): Likewise.
+	(build_constant_desc): Likewise.
+	(force_const_mem): Likewise.
+	* doc/tm.texi.in: Likewise.
+	* doc/tm.texi: Regenerate.
+
+2015-08-20  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* genconfig.c (main): Always define HAVE_cc0.
+	* recog.c (rest_of_handle_peephole2): Adjust.
+
+2015-08-20  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* reorg.c (relax_delay_slots): Don't use #if to check value of
+	HAVE_cc0.
+
+2015-08-20  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* genconfig.c (main): Always define HAVE_CONDITIONAL_EXECUTION.
+	* targhooks.c (default_have_conditional_execution): Adjust.
+
+2015-08-20  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* rtl.h (rtvec_all_equal_p): Declare.
+	(const_vec_duplicate_p, unwrap_const_vec_duplicate): New functions.
+	* rtl.c (rtvec_all_equal_p): New function.
+	* expmed.c (expand_mult): Use unwrap_const_vec_duplicate.
+	* config/aarch64/aarch64.c (aarch64_vect_float_const_representable_p)
+	(aarch64_simd_dup_constant): Use const_vec_duplicate_p.
+	* config/arm/arm.c (neon_vdup_constant): Likewise.
+	* config/s390/s390.c (s390_contiguous_bitmask_vector_p): Likewise.
+	* config/tilegx/constraints.md (W, Y): Likewise.
+	* config/tilepro/constraints.md (W, Y): Likewise.
+	* config/spu/spu.c (spu_legitimate_constant_p): Likewise.
+	(classify_immediate): Use unwrap_const_vec_duplicate.
+	* config/tilepro/predicates.md (reg_or_v4s8bit_operand): Likewise.
+	(reg_or_v2s8bit_operand): Likewise.
+	* config/tilegx/predicates.md (reg_or_v8s8bit_operand): Likewise.
+	(reg_or_v4s8bit_operand): Likewise.
+
+2015-08-20  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.h (vec_pmsum_be): New #define.
+	(vec_shasigma_be): New #define.
+	* config/rs6000/rs6000-builtin.def (VPMSUMB): New BU_P8V_AV2_2.
+	(VPMSUMH): Likewise.
+	(VPMSUMW): Likewise.
+	(VPMSUMD): Likewise.
+	(VPMSUM): New BU_P8V_OVERLOAD_2.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): New
+	entries for VEC_MADD and VEC_VPMSUM.
+
+2015-08-20  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.c (avr_insert_attributes): In diagnostic essage:
+	Multiply argument avr_n_flash by 64 to match unit of "KiB".
+	(avr_pgm_check_var_decl): Same.
+
+2015-08-20  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/arm/arm-builtins.c (arm_init_simd_builtin_types): Move
+	initialization of HFmode scalar type (float16_t) to...
+	(arm_init_fp16_builtins): ... Here. Combine with __fp16 initialization
+	code.
+
+	(arm_init_builtins): Call arm_init_fp16_builtins earlier and always.
+
+	* config/arm/arm_neon.h (vcvt_f16_f32, vcvt_f32_f16): Condition on
+	having an -mfp16-format.
+
+2015-08-20  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* config/i386/predicates.md (vector_all_ones_operand): Use
+	CONSTM1_RTX to simplify definition.
+
+2015-08-20  Richard Biener  <rguenther@suse.de>
+
+	* toplev.c (compile_file): Remove loop calling late_global_decl
+	on all symbols.
+	* varpool.c (varpool_node::assemble_decl): Call late_global_decl
+	on decls we assembled.
+
+2015-08-20  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* common/config/aarch64/aarch64-common.c
+	(AARCH64_CPU_NAME_LENGTH): Delete.
+	(aarch64_option_extension): New.
+	(all_extensions): Likewise.
+	(processor_name_to_arch): Likewise.
+	(arch_to_arch_name): Likewise.
+	(all_cores): New.
+	(all_architectures): Likewise.
+	(aarch64_get_extension_string_for_isa_flags): Likewise.
+	(aarch64_rewrite_selected_cpu): Change to rewrite CPU names to
+	architecture names.
+	* config/aarch64/aarch64-protos.h
+	(aarch64_get_extension_string_for_isa_flags): New.
+	* config/aarch64/aarch64.c (aarch64_print_extension): Delete.
+	(aarch64_option_print): Get the string to print from
+	aarch64_get_extension_string_for_isa_flags.
+	(aarch64_declare_function_name): Likewise.
+	* config/aarch64/aarch64.h (BIG_LITTLE_SPEC): Rename to...
+	(MCPU_TO_MARCH_SPEC): This.
+	(ASM_CPU_SPEC): Use it.
+	(BIG_LITTLE_SPEC_FUNCTIONS): Rename to...
+	(MCPU_TO_MARCH_SPEC_FUNCTIONS): ...This.
+	(EXTRA_SPEC_FUNCTIONS): Use it.
+
+2015-08-20  Simon Dardis  <simon.dardis@imgtec.com>
+
+	* config/mips/mips.c (mips_expand_block_move): Enable inline memcpy
+	expansion when !ISA_HAS_LWL_LWR.
+	(mips_block_move_straight): Update the size of elements copied to
+	account for alignment when !ISA_HAS_LWL_LWR.
+	* config/mips/mips.h (MIPS_MIN_MOVE_MEM_ALIGN): New macro.
+
+2015-08-19  Jiong Wang  <jiong.wang@arm.com>
+
+	* expr.c (expand_expr_real_2): Check gimple statement during
+	LSHIFT_EXPR expand.
+
+2015-08-19  Magnus Granberg  <zorry@gentoo.org>
+
+	* common.opt (fstack-protector): Initialize to -1.
+	(fstack-protector-all): Likewise.
+	(fstack-protector-strong): Likewise.
+	(fstack-protector-explicit): Likewise.
+	* configure.ac: Add --enable-default-ssp.
+	* defaults.h (DEFAULT_FLAG_SSP): New.  Default SSP to strong.
+	* opts.c (finish_options): Update opts->x_flag_stack_protect if it is
+	-1.
+	* doc/install.texi: Document --enable-default-ssp.
+	* config.in: Regenerated.
+	* configure: Likewise.
+
+2015-08-19  Alexandre Oliva <aoliva@redhat.com>
+
+	PR rtl-optimization/64164
+	* cfgexpand.c (parm_maybe_byref_p): Renamed to...
+	(parm_in_stack_slot_p): ... this.  Disregard mode, what
+	matters is whether the parm will live in a pseudo or a stack
+	slot.
+	(expand_one_ssa_partition): Deal with params without a default
+	def.  Disregard mode.
+	* cfgexpand.h: Renamed function declaration.
+	* tree-ssa-coalesce.c: Adjust.
+	* function.c (split_complex_args): Allocate stack slot for
+	unassigned parms before splitting.
+	(parm_in_unassigned_mem_p): New.  Use it instead of
+	parm_maybe_byref_p throughout this file.
+	(assign_parm_setup_block): Use it.  Accept pseudos in the
+	expand-assigned rtl.
+	(assign_parm_setup_reg): Drop BLKmode requirement.
+	(assign_parm_setup_stack): Allocate and fill in the address of
+	unassigned MEM parms.
+
+2015-08-19  David Sherwood  <david.sherwood@arm.com>
+
+	* genmodes.c (emit_mode_unit_size_inline): New function.
+	(emit_mode_unit_precision_inline): New function.
+	(emit_insn_modes_h): Emit new #define.  Emit new functions.
+	(emit_mode_unit_size): New function.
+	(emit_mode_unit_precision): New function.
+	(emit_mode_adjustments): Add mode_unit_size adjustments.
+	(emit_insn_modes_c): Emit new arrays.
+	* machmode.h (GET_MODE_UNIT_SIZE, GET_MODE_UNIT_PRECISION): Update to
+	use new inline methods.
+
+2015-08-19  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (bit_count): Delete prototype
+	and definition.
+	(aarch64_print_operand): Use popcount_hwi instead of the above.
+
+2015-08-19  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64-option-extensions.def: Delete obsolete
+	comment.
+
+2015-08-19  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/67133
+	* gimple-ssa-isolate-paths.c
+	(insert_trap_and_remove_trailing_statements): Rename to ...
+	(insert_trap): ... this.  Don't remove trailing statements; split
+	block instead.
+	(find_explicit_erroneous_behaviour): Don't remove all outgoing edges.
+
+2015-08-19  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR other/67042
+	* hwint.h (sext_hwi): Switch to unsigned for the left shift, and
+	conditionalize the whole on __GNUC__.  Add fallback code
+	depending neither on undefined nor implementation-defined behaviour.
+
+2015-08-19  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_load_symref_appropriately): Replace
+	whitespaces with tab.
+
+2015-08-19  Florian Weimer  <fweimer@redhat.com>
+
+	* prj.adb (For_Every_Project_Imported_Context.Recursive_Check_Context):
+	Move Name_Id_Set instantiation to the Prj package, to avoid trampolines.
+	* prj-proc.adb (Process.Process_Expression_Variable_Decl):
+	Move Name_Ids instantiation to the Prj.Proc package, to avoid
+	trampolines.
+
+2015-08-19  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.c (bounds_check): Use %wd print format
+	for HOST_WIDE_INT arguments.
+
+2015-08-18  Trevor Saunders  <tbsaunde@tbsaunde.org>
+
+	* bb-reorder.c, cfgloop.h, collect2.c, combine.c, dse.c,
+	dwarf2cfi.c, gcse-common.h, genopinit.c, ggc-page.c, machmode.h,
+	mcf.c, modulo-sched.c, omp-low.c, read-rtl.c, sched-rgn.c,
+	signop.h, tree-call-cdce.c, tree-dfa.c, tree-diagnostic.c,
+	tree-inline.h, tree-scalar-evolution.c, tree-ssa-address.c,
+	tree-ssa-loop-niter.c, tree-ssa-loop.h, tree-ssa-pre.c,
+	tree-ssa-reassoc.c, tree-ssa-sccvn.h, tree-ssa-structalias.c,
+	tree-ssa-uninit.c, tree-ssa.h, tree-vect-loop-manip.c,
+	tree-vectorizer.h, tree-vrp.c, var-tracking.c: Remove useless
+	typedefs.
+
+2015-08-18  trevor Saunders  <tbsaunde@tbsaunde.org>
+
+	* bt-load.c, cgraph.h, dwarf2out.c, dwarf2out.h, final.c,
+	function.c, graphite-scop-detection.c, haifa-sched.c,
+	ipa-devirt.c, ipa-split.c, recog.c, ree.c, stmt.c,
+	tree-data-ref.c, tree-ssa-dom.c, tree-ssa-loop-ivopts.c,
+	varasm.c: Remove typedefs of structs.
+
+2015-08-18  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
+
+	* config/rs6000/altivec.h (vec_adde): New define.
+	(vec_addec): Likewise.
+	(vec_double): Likewise.
+	(vec_bperm): Likewise.
+	(vec_gb): Likewise.
+	* config/rs6000/rs6000-builtin.def (ADDE): New
+	BU_ALTIVEC_OVERLOAD_3.
+	(ADDEC): Likewise.
+	(DOUBLE): New BU_VSX_OVERLOAD_1.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add new
+	entries for ALTIVEC_BUILTIN_VEC_ADDC, ALTIVEC_BUILTIN_VEC_ADDE,
+	ALTIVEC_BUILTIN_VEC_ADDEC, ALTIVEC_BUILTIN_VEC_ANDC,
+	VSX_BUILTIN_VEC_DOUBLE, ALTIVEC_BUILTIN_VEC_MERGEH,
+	ALTIVEC_BUILTIN_VEC_MERGEL, ALTIVEC_BUILTIN_VEC_NOR,
+	ALTIVEC_BUILTIN_VEC_OR, ALTIVEC_BUILTIN_VEC_XOR,
+	ALTIVEC_BUILTIN_VEC_PERM, ALTIVEC_BUILTIN_VEC_SEL,
+	P8V_BUILTIN_VEC_EQV, P8V_BUILTIN_VEC_NAND, P8V_BUILTIN_VEC_ORC,
+	and P8V_BUILTIN_VEC_VBPERMQ.
+
+2015-08-18  Jason Merrill  <jason@redhat.com>
+
+	* print-tree.c (print_node): Handle TREE_BINFO.
+
+2015-08-18  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR middle-end/36757
+	* builtins.c (expand_builtin_signbit): Add asserts to make sure
+	we can expand BUILT_IN_SIGNBIT inline.
+	* builtins.def (BUILT_IN_SIGNBIT): Make type-generic.
+	* doc/extend.texi: Document the type-generic __builtin_signbit.
+
+2015-08-18  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR rtl-optimization/67218
+	* simplify-rtx.c (exact_int_to_float_conversion_p): New function.
+	(simplify_unary_operation_1): Use it.
+
+2015-08-18  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/67222
+	* gimple-low.c (lower_stmt): Don't lower BUILT_IN_POSIX_MEMALIGN
+	if the call isn't valid.
+	* tree-ssa-alias.c (ref_maybe_used_by_call_p_1): Check builtins using
+	gimple_call_builtin_p.
+	(call_may_clobber_ref_p_1): Likewise.
+	(stmt_kills_ref_p): Likewise.
+
+2015-08-18  Robert Suchanek  <robert.suchanek@imgtec.com>
+
+	* config/mips/mips-protos.h (mips_hard_regno_rename_ok): New prototype.
+	* config/mips/mips.c (mips_hard_regno_rename_ok): New function.
+	(mips_hard_regno_scratch_ok): Likewise.
+	(TARGET_HARD_REGNO_SCRATCH_OK): Define macro.
+	* config/mips/mips.h (HARD_REGNO_RENAME_OK): New.
+
+2015-08-18  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-ssa-loop-niter.c (refine_value_range_using_guard): New.
+	(determine_value_range): Call refine_value_range_using_guard for
+	each loop initial condition to improve value range.
+
+2015-08-17  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/i386/i386.c: Remove include of fibheap.h.
+
+2015-08-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67221
+	* tree-ssa-sccvn.c (visit_phi): Keep all-TOP args TOP.
+	(sccvn_dom_walker::before_dom_children): Mark backedges of
+	non-executable blocks as not executable.
+
+2015-08-17  David Sherwood  <david.sherwood@arm.com>
+
+	* config/arm/arm.c (neon_element_bits): Replace call to
+	GET_MODE_BITSIZE (GET_MODE_INNER (m)) with GET_MODE_UNIT_BITSIZE (m).
+	* config/arm/neon.md (neon_vget_lane<mode>): Likewise.
+	(neon_vget_laneu<mode>, neon_vset_lane<mode>): Likewise
+	(neon_vdup_lane<mode>): Likewise.
+	* config/i386/i386.c (ix86_expand_int_vcond): Likewise.
+	(ix86_expand_multi_arg_builtin, ix86_expand_reduc): Likewise.
+	(expand_vec_perm_palignr, ix86_expand_sse2_abs): Likewise.
+	* config/rs6000/rs6000.c (rs6000_do_expand_vec_perm): Likewise.
+	* config/spu/spu.c (arith_immediate_p): Likewise.
+	* expmed.c (store_bit_field_1, extract_bit_field_1): Likewise.
+	* expr.c (expand_expr_real_2): Likewise.
+	* optabs.c (shift_amt_for_vec_perm_mask): Likewise.
+	* simplify-rtx.c (simplify_immed_subreg): Likewise.
+	* tree-cfg.c (verify_gimple_assign_ternary): Likewise.
+	* tree-vect-patterns.c (vect_recog_mixed_size_cond_pattern): Likewise.
+	New variable.
+	* fold-const.c (fold_binary_loc): Replace call to
+	GET_MODE_PRECISION (GET_MODE_INNER (m)) with
+	GET_MODE_UNIT_PRECISION (m).
+
+2015-08-17  Mike Stump  <mikestump@comcast.net>
+
+	* config/arm/arm.c (arm_block_move_unaligned_straight):
+	Emit normal move instead of unaligned load when source or destination
+	are appropriately aligned.
+
+2015-08-17  Richard Biener  <rguenther@suse.de>
+	    Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	PR middle-end/16107
+	* match.pd (div (coss (op @0) : New simplifier.
+
+2015-08-14  Alexandre Oliva <aoliva@redhat.com>
+
+	PR rtl-optimization/64164
+	PR bootstrap/66978
+	PR middle-end/66983
+	PR rtl-optimization/67000
+	PR middle-end/67034
+	PR middle-end/67035
+	* Makefile.in (OBJS): Drop tree-ssa-copyrename.o.
+	* tree-ssa-copyrename.c: Removed.
+	* opts.c (default_options_table): Drop -ftree-copyrename.  Add
+	-ftree-coalesce-vars.
+	* passes.def: Drop all occurrences of pass_rename_ssa_copies.
+	* common.opt (ftree-copyrename): Ignore.
+	(ftree-coalesce-inlined-vars): Likewise.
+	* doc/invoke.texi: Remove the ignored options above.
+	* gimple-expr.h (gimple_can_coalesce_p): Move declaration
+	* tree-ssa-coalesce.h: ... here.
+	* tree-ssa-uncprop.c: Include tree-ssa-coalesce.h and other
+	headers required by it.
+	* gimple-expr.c (gimple_can_coalesce_p): Allow coalescing
+	across variables when flag_tree_coalesce_vars.  Check register
+	use and promoted modes to allow coalescing.  Do not coalesce
+	maybe-byref parms with SSA_NAMEs of other variables, or
+	anonymous SSA_NAMEs.  Moved to tree-ssa-coalesce.c.
+	* tree-ssa-live.c (struct tree_int_map_hasher): Move along
+	with its member functions to tree-ssa-coalesce.c.
+	(var_map_base_init): Likewise.  Renamed to
+	compute_samebase_partition_bases.
+	(partition_view_normal): Drop want_bases parameter.
+	(partition_view_bitmap): Likewise.
+	* tree-ssa-live.h: Adjust declarations.
+	* tree-ssa-coalesce.c: Include explow.h and cfgexpand.h.
+	(build_ssa_conflict_graph): Process PARM_ and RESULT_DECLs's
+	default defs at the entry point.
+	(dump_part_var_map): New.
+	(compute_optimized_partition_bases): New, called by...
+	(coalesce_ssa_name): ... when flag_tree_coalesce_vars, instead
+	of compute_samebase_partition_bases.  Adjust.
+	* alias.c (nonoverlapping_memrefs_p): Disregard gimple-regs.
+	* cfgexpand.c (leader_merge, parm_maybe_byref_p): New.
+	(ssa_default_def_partition): New.
+	(get_rtl_for_parm_ssa_default_def): New.
+	(align_local_variable, add_stack_var): Support anonymous SSA
+	names.
+	(defer_stack_allocation): Likewise.  Declare earlier.
+	(set_rtl): Merge exprs and attrs, even for MEMs and non-SSA
+	vars.  Update DECL_RTL for PARM_DECLs and RESULT_DECLs too.
+	Do no record deferred-allocation marker in
+	SA.partition_to_pseudo.
+	(expand_stack_vars): Adjust check for the marker in it.
+	(expand_one_stack_var_at): Handle anonymous SSA_NAMEs.  Drop
+	redundant MEM attr setting.
+	(expand_one_stack_var_1): Handle anonymous SSA_NAMEs.  Renamed
+	from...
+	(expand_one_stack_var): ... this.  New wrapper to check and
+	skip already expanded SSA partitions.
+	(record_alignment_for_reg_var): New, factored out of...
+	(expand_one_var): ... this.
+	(expand_one_ssa_partition): New.
+	(adjust_one_expanded_partition_var): New.
+	(expand_one_register_var): Check and skip already expanded SSA
+	partitions.
+	(expand_used_vars): Don't create DECLs for anonymous SSA
+	names.  Expand all SSA partitions, then adjust all SSA names.
+	(pass::execute): Replace the loops that set
+	SA.partition_to_pseudo from partition leaders and cleared
+	DECL_RTL for multi-location variables, and that which used to
+	rename vars and set attrs, with one that clears DECL_RTL and
+	checks that PARMs and RESULTs default_defs match DECL_RTL.
+	* cfgexpand.h (get_rtl_for_parm_ssa_default_def): Declare.
+	* emit-rtl.c: Include stor-layout.h.
+	(set_reg_attrs_for_parm): Handle NULL decl.
+	(set_reg_attrs_for_decl_rtl): Take mode from expression if
+	it's not a DECL.
+	* stmt.c (emit_case_decision_tree): Pass it the SSA_NAME
+	rather than its possibly-NULL DECL.
+	* explow.c (promote_ssa_mode): New.
+	* explow.h (promote_ssa_mode): Declare.
+	* expr.c (expand_expr_real_1): Handle anonymous SSA_NAMEs.
+	(read_complex_part): Export.
+	* expr.h (read_complex_part): Declare.
+	* cfgexpand.h (parm_maybe_byref_p): Declare.
+	* function.c: Include cfgexpand.h.
+	(use_register_for_decl): Handle SSA_NAMEs, anonymous or not.
+	(use_register_for_parm_decl): Wrapper for the above to
+	special-case the result_ptr.
+	(rtl_for_parm): Ditto for get_rtl_for_parm_ssa_default_def.
+	(split_complex_args): Take assign_parm_data_all argument.
+	Pass it to rtl_for_parm.  Set up rtl and context for split
+	args.  Reset complex parm before fetching its default decl
+	rtl.
+	(assign_parms_unsplit_complex): Use the default-def complex
+	parm rtl if it matches the components.
+	(assign_parms_augmented_arg_list): Adjust.
+	(maybe_reset_rtl_for_parm): Reset DECL_RTL of parms with
+	multiple locations.  Recognize split complex args.
+	(assign_parm_adjust_stack_rtl): Add all and parm arguments,
+	for rtl_for_parm.  For SSA-assigned parms, zero stack_parm.
+	(assign_parm_setup_block): Prefer SSA-assigned location, and
+	fill in its address if the memory location of a maybe-byref
+	parm was not assigned by cfgexpand.
+	(assign_parm_setup_reg): Likewise.  Adjust its mode as
+	needed.  Use entry_parm for equiv if stack_parm is NULL.  Make
+	sure passed_pointer parms don't need conversion.  Copy address
+	or value as needed.
+	(assign_parm_setup_stack): Prefer SSA-assigned location.
+	(assign_parms): Maybe reset DECL_RTL of params.  Adjust stack
+	rtl before testing for pointer bounds.  Special-case result_ptr.
+	(expand_function_start): Maybe reset DECL_RTL of result.
+	Prefer SSA-assigned location for result and static chain.
+	Factor out DECL_RESULT and SET_DECL_RTL.  Convert static chain
+	to Pmode if needed, from H.J. Lu  <hongjiu.lu@intel.com>.
+	* tree-outof-ssa.c (insert_value_copy_on_edge): Handle
+	anonymous SSA names.  Use promote_ssa_mode.
+	(get_temp_reg): Likewise.
+	(remove_ssa_form): Adjust.
+	* stor-layout.c (layout_decl): Don't set mem attributes of
+	non-MEMs.
+	* var-tracking.c (dataflow_set_clear_at_call): Take call_insn
+	and get its reg_usage for reg invalidation.
+	(compute_bb_dataflow): Pass it insn.
+	(emit_notes_in_bb): Likewise.
+
+2015-08-14  Marek Polacek  <polacek@redhat.com>
+
+	* tree-core.h (tree_base): Fix typo.
+
+2015-08-14  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/67133
+	* gimple.c (infer_nonnull_range_by_attribute): Check that the
+	nonnull argument position is not outside function arguments.
+
+2015-08-14  Matthew Wahab  <matthew.wahab@arm.com>
+
+	PR target/67143
+	* config/aarch64/atomics.md (atomic_<optab><mode>): Replace
+	'lconst_atomic' with 'const_atomic'.
+	(atomic_fetch_<optab><mode>): Likewise.
+	(atomic_<optab>_fetch<mode>): Likewise.
+	* config/aarch64/iterators.md (lconst-atomic): Move below
+	'const_atomic'.
+	(const_atomic): New.
+
+2015-08-14  Thomas Schwinge  <thomas@codesourcery.com>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_option_override): Don't override
+	debug options.
+	* config/nvptx/nvptx.h (DWARF2_LINENO_DEBUGGING_INFO): Define.
+	(DWARF2_DEBUGGING_INFO): Don't define.
+	* debug.h (dwarf2_lineno_debug_hooks): Declare.
+	* toplev.c (process_options): Add a case for it.
+	* dwarf2out.c (dwarf2_lineno_debug_hooks): New variable.
+	(dwarf2out_init): Skip most initializations if
+	DWARF2_LINENO_DEBUGGING_INFO, but set cur_line_info_table in that
+	case.
+	* defaults.h (PREFERRED_DEBUGGING_TYPE): Also use DWARF2_DEBUG if
+	DWARF2_LINENO_DEBUGGING_INFO.
+	* opts.c (set_debug_level): Likewise.
+
+2015-08-14  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/types.md (is_neon_type): Add missing types.
+
+2015-08-14  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Add support
+	for skylake.
+	* config/i386/i386.c (PTA_SKYLAKE): New macros.
+	(processor_alias_table): Add skylake description.
+	(enum processor_model): Add skylake processor.
+	(arch_names_table): Add skylake record.
+	* doc/invoke.texi: Add skylake item.
+
+2015-08-13  Andrew MacLeod  <amacleod@redhat.com>
+
+	* ira-int.h: Include recog.h.
+	* ira-build.c: Don't include recog.h.
+	* ira-color.c: Likewise.
+	* ira-conflicts.c: Likewise.
+	* ira-costs.c: Likewise.
+	* ira-emit.c: Likewise.
+	* ira-lives.c: Likewise.
+	* ira.c: Likewise.
+	* sched-deps.c: Likewise.
+	* sel-sched.c: Likewise.
+	* target-globals.c: Likewise.
+
+2015-08-13  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR bootstrap/55035
+	* reload1.c (elimination_costs_in_insn): Make it obvious to the
+	compiler that the n_dups and n_operands loop bounds are invariant.
+
 2015-08-13  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
 	* ifcvt.c (noce_try_store_flag_constants): Handle PLUS-immediate
@@ -397,8 +941,8 @@
 	* configure.ac: Define LIBICONV_DEP with in-tree libiconv.
 	* configure: Regenerate.
 
-2015-08-06    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
-	      Jiong Wang  <jiong.wang@arm.com>
+2015-08-06  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	    Jiong Wang  <jiong.wang@arm.com>
 
 	* config/aarch64/aarch64.d (tlsdesc_small_pseudo_<mode>): New pattern.
 	* config/aarch64/aarch64.h (reg_class): New enumeration FIXED_REG0.

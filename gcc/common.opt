@@ -2124,15 +2124,15 @@ Common RejectNegative Joined Var(common_deferred_options) Defer
 -fstack-limit-symbol=<name>	Trap if the stack goes past symbol <name>
 
 fstack-protector
-Common Report Var(flag_stack_protect, 1)
+Common Report Var(flag_stack_protect, 1) Init(-1)
 Use propolice as a stack protection method
 
 fstack-protector-all
-Common Report RejectNegative Var(flag_stack_protect, 2)
+Common Report RejectNegative Var(flag_stack_protect, 2) Init(-1)
 Use a stack protection method for every function
 
 fstack-protector-strong
-Common Report RejectNegative Var(flag_stack_protect, 3)
+Common Report RejectNegative Var(flag_stack_protect, 3) Init(-1)
 Use a smart stack protection method for certain functions
 
 fstack-protector-explicit
@@ -2234,16 +2234,16 @@ Common Report Var(flag_tree_ch) Optimization
 Enable loop header copying on trees
 
 ftree-coalesce-inlined-vars
-Common Report Var(flag_ssa_coalesce_vars,1) Init(2) RejectNegative Optimization
-Enable coalescing of copy-related user variables that are inlined
+Common Ignore RejectNegative
+Does nothing.  Preserved for backward compatibility.
 
 ftree-coalesce-vars
-Common Report Var(flag_ssa_coalesce_vars,2) Optimization
-Enable coalescing of all copy-related user variables
+Common Report Var(flag_tree_coalesce_vars) Optimization
+Enable SSA coalescing of user variables
 
 ftree-copyrename
-Common Report Var(flag_tree_copyrename) Optimization
-Replace SSA temporaries with better names in copies
+Common Ignore
+Does nothing.  Preserved for backward compatibility.
 
 ftree-copy-prop
 Common Report Var(flag_tree_copy_prop) Optimization
