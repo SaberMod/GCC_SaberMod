@@ -107,8 +107,7 @@ def main():
         toolchain_name = '-'.join([toolchain, GCC_VERSION])
         build_cmd = [
             'bash', 'build-gcc.sh', toolchain_path, ndk_path, toolchain_name,
-            package_dir_arg, '--verbose', try_64_arg, mingw_arg,
-            '--with-python=prebuilt', jobs_arg,
+            package_dir_arg, '--verbose', try_64_arg, mingw_arg, jobs_arg,
         ]
 
         subprocess.check_call(build_cmd, env=build_env)

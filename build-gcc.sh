@@ -75,9 +75,6 @@ register_var_option "--isl-version=<version>" ISL_VERSION "Specify ISL version"
 PPL_VERSION=$DEFAULT_PPL_VERSION
 register_var_option "--ppl-version=<version>" PPL_VERSION "Specify ppl version"
 
-WITH_PYTHON=
-register_var_option "--with-python=<path/to/python-config.sh>" WITH_PYTHON "Specify python config script, or prebuilt"
-
 PACKAGE_DIR=
 register_var_option "--package-dir=<path>" PACKAGE_DIR "Create archive tarball in specific directory"
 
@@ -180,19 +177,6 @@ if [ ! -d $SRC_DIR/gdb/gdb-$GDB_VERSION ] ; then
     echo "ERROR: Missing gdb sources: $SRC_DIR/gdb/gdb-$GDB_VERSION"
     echo "       Use --gdb-version=<version> to specify alternative."
     exit 1
-fi
-
-if [ ! -z "$WITH_PYTHON" ] ; then
-    if [ "$WITH_PYTHON" = "prebuilt" ] ; then
-        WITH_PYTHON_SCRIPT="$ANDROID_NDK_ROOT/prebuilt/$HOST_TAG/bin/python-config.sh"
-    fi
-    if [ ! -f "$WITH_PYTHON_SCRIPT" ] ; then
-        echo "ERROR: --with-python ($WITH_PYTHON_SCRIPT)"
-        echo "       Does not exist!"
-        exit 1
-    else
-        WITH_PYTHON="--with-python=$WITH_PYTHON_SCRIPT"
-    fi
 fi
 
 fix_option MPFR_VERSION "$OPTION_MPFR_VERSION" "mpfr version"
@@ -392,7 +376,6 @@ $BUILD_SRCDIR/configure --target=$ABI_CONFIGURE_TARGET \
                         --with-gmp-version=$GMP_VERSION \
                         --with-gcc-version=$CONFIGURE_GCC_VERSION \
                         --with-gdb-version=$GDB_VERSION \
-                        $WITH_PYTHON \
                         --with-gxx-include-dir=$TOOLCHAIN_INSTALL_PATH/include/c++/$GCC_VERSION \
                         --with-bugurl=$DEFAULT_ISSUE_TRACKER_URL \
                         --enable-languages=$ENABLE_LANGUAGES \
