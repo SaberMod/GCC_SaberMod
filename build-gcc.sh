@@ -218,7 +218,15 @@ TOOLCHAIN_LICENSES=$ANDROID_NDK_ROOT/build/tools/toolchain-licenses
 #  3) The path exists but not accessible, which crashes GCC!
 
 # For canadian build --with-sysroot has to be sub-directory of --prefix.
-TOOLCHAIN_INSTALL_PATH=$PACKAGE_DIR/gcc
+if [ -z "$HOST_TAG" ]; then
+    echo "Error: HOST_TAG not set!"
+    exit 1
+fi
+
+TOOLCHAIN_SUBDIR=toolchains/$HOST_TAG/$TOOLCHAIN/prebuilt
+TOOLCHAIN_INSTALL_PATH=$PACKAGE_DIR/$TOOLCHAIN_SUBDIR
+dump "Using TOOLCHAIN_INSTALL_PATH=$TOOLCHAIN_INSTALL_PATH"
+dump "Using TOOLCHAIN_SUBDIR=$TOOLCHAIN_SUBDIR"
 TOOLCHAIN_BUILD_SYSROOT=$TOOLCHAIN_INSTALL_PATH/sysroot
 dump "Sysroot  : Copying: $SYSROOT --> $TOOLCHAIN_BUILD_SYSROOT"
 mkdir -p $TOOLCHAIN_BUILD_SYSROOT && (cd $SYSROOT && tar chf - *) | (cd $TOOLCHAIN_BUILD_SYSROOT && tar xf -)
@@ -633,9 +641,10 @@ fi
 
 if [ "$PACKAGE_DIR" ]; then
     ARCHIVE="$TOOLCHAIN-$HOST_TAG.tar.bz2"
-    SUBDIR=$(get_toolchain_install_subdir $TOOLCHAIN $HOST_TAG)
-    dump "Packaging $ARCHIVE"
-    pack_archive "$PACKAGE_DIR/$ARCHIVE" "$NDK_DIR" "$SUBDIR"
+    dump "Packaging $ARCHIVE from $PACKAGE_DIR/$TOOLCHAIN_SUBDIR"
+    pack_archive "$PACKAGE_DIR/$ARCHIVE" "$PACKAGE_DIR" "$TOOLCHAIN_SUBDIR"
+    fail_panic "Could not package $TOOLCHAIN GCC!"
+
     # package libgccunwind.a
     ABIS=$(commas_to_spaces $(convert_archs_to_abis $ARCH))
     if [ "$HOST_OS" = "linux" -a "$GCC_VERSION" = "$DEFAULT_GCC_VERSION" ]; then
