@@ -68,13 +68,40 @@ class ArgParser(argparse.ArgumentParser):
             help='Toolchain to build. Builds all if not present.')
 
 
+def toolchain_to_arch(toolchain):
+    return {
+        'arm-linux-androideabi': 'arm',
+        'aarch64-linux-android': 'arm64',
+        'mipsel-linux-android': 'mips',
+        'mips64el-linux-android': 'mips64',
+        'x86': 'x86',
+        'x86_64': 'x86_64',
+    }[toolchain]
+
+
+def default_api_level(arch):
+    if '64' in arch:
+        return 21
+    else:
+        return 9
+
+
+def sysroot_path(toolchain):
+    arch = toolchain_to_arch(toolchain)
+    version = default_api_level(arch)
+
+    prebuilt_ndk = 'prebuilts/ndk/current'
+    sysroot_subpath = 'platforms/android-{}/arch-{}'.format(version, arch)
+    return android_path(os.path.join(prebuilt_ndk, sysroot_subpath))
+
+
 def main():
     args = ArgParser().parse_args()
 
     os.chdir(android_path('toolchain/gcc'))
 
     toolchain_path = android_path('toolchain')
-    ndk_path = android_path('prebuilts/ndk/current')
+    ndk_path = android_path('ndk')
 
     GCC_VERSION = '4.9'
     jobs_arg = '-j{}'.format(multiprocessing.cpu_count() * 2)
@@ -89,14 +116,6 @@ def main():
     if host is None:
         host = get_default_host()
 
-    mingw_arg = ''
-    if host in ('windows', 'windows64'):
-        mingw_arg = '--mingw'
-
-    try_64_arg = '--try-64'
-    if host == 'windows':
-        try_64_arg = ''
-
     ndk_build_tools_path = android_path('prebuilts/ndk/current/build/tools')
     build_env = dict(os.environ)
     build_env['NDK_BUILDTOOLS_PATH'] = ndk_build_tools_path
@@ -105,10 +124,17 @@ def main():
     print('Building {} toolchains: {}'.format(host, ' '.join(toolchains)))
     for toolchain in toolchains:
         toolchain_name = '-'.join([toolchain, GCC_VERSION])
+        sysroot_arg = '--sysroot={}'.format(sysroot_path(toolchain))
         build_cmd = [
             'bash', 'build-gcc.sh', toolchain_path, ndk_path, toolchain_name,
-            package_dir_arg, '--verbose', mingw_arg, try_64_arg, jobs_arg,
+            package_dir_arg, '--verbose', jobs_arg, sysroot_arg,
         ]
+
+        if host in ('windows', 'windows64'):
+            build_cmd.append('--mingw')
+
+        if host != 'windows':
+            build_cmd.append('--try-64')
 
         subprocess.check_call(build_cmd, env=build_env)
 
