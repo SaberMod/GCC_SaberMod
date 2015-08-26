@@ -95,7 +95,7 @@ def main():
 
     try_64_arg = '--try-64'
     if host == 'windows':
-        try_64_arg = '--try-64'
+        try_64_arg = ''
 
     ndk_build_tools_path = android_path('prebuilts/ndk/current/build/tools')
     build_env = dict(os.environ)
@@ -107,7 +107,7 @@ def main():
         toolchain_name = '-'.join([toolchain, GCC_VERSION])
         build_cmd = [
             'bash', 'build-gcc.sh', toolchain_path, ndk_path, toolchain_name,
-            package_dir_arg, '--verbose', try_64_arg, mingw_arg, jobs_arg,
+            package_dir_arg, '--verbose', mingw_arg, try_64_arg, jobs_arg,
         ]
 
         subprocess.check_call(build_cmd, env=build_env)
