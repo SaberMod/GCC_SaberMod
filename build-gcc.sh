@@ -442,82 +442,6 @@ if [ $? != 0 ] ; then
     fi
 fi
 
-unwind_library_for_abi ()
-{
-    local ABI="$1"
-    local BASE_DIR OBJS UNWIND_OBJS
-
-    case $ABI in
-    armeabi)
-    BASE_DIR="$BUILD_OUT/gcc-$CONFIGURE_GCC_VERSION/$ABI_CONFIGURE_TARGET/libgcc/"
-    OBJS="unwind-arm.o \
-          libunwind.o \
-          pr-support.o \
-          unwind-c.o"
-    ;;
-    armeabi-v7a)
-    BASE_DIR="$BUILD_OUT/gcc-$CONFIGURE_GCC_VERSION/$ABI_CONFIGURE_TARGET/armv7-a/libgcc/"
-    OBJS="unwind-arm.o \
-          libunwind.o \
-          pr-support.o \
-          unwind-c.o"
-    ;;
-    armeabi-v7a-hard)
-    BASE_DIR="$BUILD_OUT/gcc-$CONFIGURE_GCC_VERSION/$ABI_CONFIGURE_TARGET/armv7-a/hard/libgcc/"
-    OBJS="unwind-arm.o \
-          libunwind.o \
-          pr-support.o \
-          unwind-c.o"
-    ;;
-    x86|mips|mips32r6)
-    BASE_DIR="$BUILD_OUT/gcc-$CONFIGURE_GCC_VERSION/$ABI_CONFIGURE_TARGET/libgcc/"
-    if [ "$GCC_VERSION" = "4.6" -o "$GCC_VERSION" = "4.4.3" ]; then
-       OBJS="unwind-c.o \
-          unwind-dw2-fde-glibc.o \
-          unwind-dw2.o"
-    else
-       OBJS="unwind-c.o \
-          unwind-dw2-fde-dip.o \
-          unwind-dw2.o"
-    fi
-    ;;
-    arm64-v8a|x86_64|mips64)
-    BASE_DIR="$BUILD_OUT/gcc-$CONFIGURE_GCC_VERSION/$ABI_CONFIGURE_TARGET/libgcc/"
-    OBJS="unwind-c.o \
-       unwind-dw2-fde-dip.o \
-       unwind-dw2.o"
-    ;;
-    esac
-
-    for OBJ in $OBJS; do
-        UNWIND_OBJS=$UNWIND_OBJS" $BASE_DIR/$OBJ"
-    done
-    echo $UNWIND_OBJS
-}
-
-# Create libgccunwind.a for app linking
-# $1: arch name
-# $2: NDK_DIR
-create_unwind_library ()
-{
-    local ARCH="$1"
-    local NDK_DIR="$2"
-    local ABIS="$(commas_to_spaces $(convert_archs_to_abis $ARCH))"
-    local ABI UNWIND_OBJS UNWIND_LIB
-    for ABI in $ABIS; do
-        UNWIND_OBJS=$(unwind_library_for_abi $ABI)
-        UNWIND_LIB_DIR="$PACKAGE_DIR/$GCCUNWIND_SUBDIR/libs/$ABI/"
-        run mkdir -p $UNWIND_LIB_DIR
-        run ar crsD $UNWIND_LIB_DIR/libgccunwind.a $UNWIND_OBJS
-    done
-}
-
-# Only create libgccunwind.a when building default version of gcc
-DEFAULT_GCC_VERSION=$(get_default_gcc_version_for_arch $ARCH)
-if [ "$HOST_OS" = "linux" -a "$GCC_VERSION" = "$DEFAULT_GCC_VERSION" ]; then
-    run create_unwind_library $ARCH $NDK_DIR
-fi
-
 if [ "$MINGW" = "yes" -o "$DARWIN" = "yes" ] ; then
     # For some reasons, libraries in $ABI_CONFIGURE_TARGET (*) are not installed.
     # Hack here to copy them over.
@@ -644,19 +568,6 @@ if [ "$PACKAGE_DIR" ]; then
     dump "Packaging $ARCHIVE from $PACKAGE_DIR/$TOOLCHAIN_SUBDIR"
     pack_archive "$PACKAGE_DIR/$ARCHIVE" "$PACKAGE_DIR" "$TOOLCHAIN_SUBDIR"
     fail_panic "Could not package $TOOLCHAIN GCC!"
-
-    # package libgccunwind.a
-    ABIS=$(commas_to_spaces $(convert_archs_to_abis $ARCH))
-    if [ "$HOST_OS" = "linux" -a "$GCC_VERSION" = "$DEFAULT_GCC_VERSION" ]; then
-        for ABI in $ABIS; do
-            FILES="$PACKAGE_DIR/$GCCUNWIND_SUBDIR/libs/$ABI/libgccunwind.a"
-            PACKAGE="$PACKAGE_DIR/libgccunwind-libs-$ABI.tar.bz2"
-            log "Packaging: $PACKAGE"
-            pack_archive "$PACKAGE" "$NDK_DIR" "$FILES"
-            fail_panic "Could not package $ABI libgccunwind binaries!"
-            dump "Packaging: $PACKAGE"
-        done
-    fi
 fi
 
 dump "Done."
