@@ -25,10 +25,6 @@ import sys
 
 def android_path(path=''):
     top = os.getenv('ANDROID_BUILD_TOP', '')
-    if not top:
-        sys.exit('ANDROID_BUILD_TOP not set. Cannot continue.\n'
-                 'Please set ANDROID_BUILD_TOP to point to the root of an '
-                 'Android tree.')
     return os.path.realpath(os.path.join(top, path))
 
 
@@ -97,6 +93,10 @@ def sysroot_path(toolchain):
 
 def main():
     args = ArgParser().parse_args()
+
+    if 'ANDROID_BUILD_TOP' not in os.environ:
+        top = os.path.join(os.path.dirname(__file__), '../..')
+        os.environ['ANDROID_BUILD_TOP'] = os.path.realpath(top)
 
     os.chdir(android_path('toolchain/gcc'))
 
