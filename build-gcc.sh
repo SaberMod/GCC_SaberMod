@@ -41,14 +41,6 @@ register_var_option "--platform=<name>"  PLATFORM "Specify platform name"
 OPTION_SYSROOT=
 register_var_option "--sysroot=<path>"   OPTION_SYSROOT   "Specify sysroot directory directly"
 
-GDB_VERSION=$DEFAULT_GDB_VERSION
-EXPLICIT_GDB_VERSION=
-register_option "--gdb-version=<version>"  do_gdb_version "Specify gdb version" "$GDB_VERSION"
-do_gdb_version () {
-    GDB_VERSION=$1
-    EXPLICIT_GDB_VERSION=true
-}
-
 BINUTILS_VERSION=$DEFAULT_BINUTILS_VERSION
 EXPLICIT_BINUTILS_VERSION=
 register_option "--binutils-version=<version>" do_binutils_version "Specify binutils version" "$BINUTILS_VERSION"
@@ -151,12 +143,6 @@ fix_sysroot "$OPTION_SYSROOT"
 
 check_toolchain_src_dir "$SRC_DIR"
 
-if [ ! -d $SRC_DIR/gdb/gdb-$GDB_VERSION ] ; then
-    echo "ERROR: Missing gdb sources: $SRC_DIR/gdb/gdb-$GDB_VERSION"
-    echo "       Use --gdb-version=<version> to specify alternative."
-    exit 1
-fi
-
 if [ -z "$EXPLICIT_BINUTILS_VERSION" ]; then
     BINUTILS_VERSION=$(get_default_binutils_version_for_gcc $TOOLCHAIN)
     dump "Auto-config: --binutils-version=$BINUTILS_VERSION"
@@ -165,17 +151,6 @@ fi
 if [ ! -d $SRC_DIR/binutils/binutils-$BINUTILS_VERSION ] ; then
     echo "ERROR: Missing binutils sources: $SRC_DIR/binutils/binutils-$BINUTILS_VERSION"
     echo "       Use --binutils-version=<version> to specify alternative."
-    exit 1
-fi
-
-if [ -z "$EXPLICIT_GDB_VERSION" ]; then
-    GDB_VERSION=$(get_default_gdb_version_for_gcc $TOOLCHAIN)
-    dump "Auto-config: --gdb-version=$GDB_VERSION"
-fi
-
-if [ ! -d $SRC_DIR/gdb/gdb-$GDB_VERSION ] ; then
-    echo "ERROR: Missing gdb sources: $SRC_DIR/gdb/gdb-$GDB_VERSION"
-    echo "       Use --gdb-version=<version> to specify alternative."
     exit 1
 fi
 
@@ -254,9 +229,7 @@ export CXXFLAGS_FOR_TARGET="$ABI_CXXFLAGS_FOR_TARGET"
 export ABI=$HOST_GMP_ABI
 
 # Note that the following flags only apply for "build" in canadian
-# -Wno-error is needed because our gdb-6.6 sources use -Werror by default
-# and fail to build with recent GCC versions.
-CFLAGS_FOR_BUILD="-O2 -s -Wno-error"
+CFLAGS_FOR_BUILD="-O2 -s"
 LDFLAGS_FOR_BUILD=
 
 if [ "$MINGW" = "yes" ] ; then
@@ -383,7 +356,7 @@ $BUILD_SRCDIR/configure --target=$ABI_CONFIGURE_TARGET \
                         --with-mpc-version=$MPC_VERSION \
                         --with-gmp-version=$GMP_VERSION \
                         --with-gcc-version=$CONFIGURE_GCC_VERSION \
-                        --with-gdb-version=$GDB_VERSION \
+                        --with-gdb-version=none \
                         --with-gxx-include-dir=$TOOLCHAIN_INSTALL_PATH/include/c++/$GCC_VERSION \
                         --with-bugurl=$DEFAULT_ISSUE_TRACKER_URL \
                         --enable-languages=$ENABLE_LANGUAGES \
@@ -489,15 +462,8 @@ run rm -rf $TOOLCHAIN_INSTALL_PATH/$ABI_CONFIGURE_TARGET/include/c++
 
 # strip binaries to reduce final package size
 test -z "$STRIP" && STRIP=strip
-# because libpython is statically linked to GDB, it introduces symbols
-# that are only used by Python modules that must not be stripped. This
-# is not true of Windows which dynamically links to Python.
-if [ "$MINGW" = "yes" ] ; then
-    run $STRIP $TOOLCHAIN_INSTALL_PATH/bin/*
-else
-    find $TOOLCHAIN_INSTALL_PATH/bin -type f -not -name "*gdb" \
-        | while read EXECUTABLE; do run $STRIP "$EXECUTABLE"; done
-fi
+
+run $STRIP $TOOLCHAIN_INSTALL_PATH/bin/*
 run $STRIP $TOOLCHAIN_INSTALL_PATH/$ABI_CONFIGURE_TARGET/bin/*
 run $STRIP $TOOLCHAIN_INSTALL_PATH/libexec/gcc/*/*/cc1$HOST_EXE
 run $STRIP $TOOLCHAIN_INSTALL_PATH/libexec/gcc/*/*/cc1plus$HOST_EXE
