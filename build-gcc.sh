@@ -529,6 +529,14 @@ if [ -f "$SRC_DIR/SOURCES" ]; then
     cp "$SRC_DIR/SOURCES" "$TOOLCHAIN_INSTALL_PATH/SOURCES"
 fi
 
+echo "Removing sysroot for $TC"
+rm -rf $TOOLCHAIN_INSTALL_PATH/sysroot
+
+# TODO: Do we not actually know what $SYSTEM is going to be here?
+# Why do we need to check these and the above?
+rm -rf $DSTDIR64/toolchains/${SYSTEM}_64/$TC/prebuilt/sysroot
+rm -rf $DSTDIR64/toolchains/${SYSTEM}-x86_64/$TC/prebuilt/sysroot
+
 if [ "$PACKAGE_DIR" ]; then
     ARCHIVE="$TOOLCHAIN-$HOST_TAG.tar.bz2"
     dump "Packaging $ARCHIVE from $PACKAGE_DIR/$TOOLCHAIN_SUBDIR"
