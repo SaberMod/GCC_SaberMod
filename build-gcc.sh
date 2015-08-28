@@ -199,7 +199,7 @@ if [ -z "$HOST_TAG" ]; then
 fi
 
 TOOLCHAIN_SUBDIR=toolchains/$HOST_TAG/$TOOLCHAIN/prebuilt
-TOOLCHAIN_INSTALL_PATH=$PACKAGE_DIR/$TOOLCHAIN_SUBDIR
+TOOLCHAIN_INSTALL_PATH=$TMPDIR/$TOOLCHAIN_SUBDIR
 dump "Using TOOLCHAIN_INSTALL_PATH=$TOOLCHAIN_INSTALL_PATH"
 dump "Using TOOLCHAIN_SUBDIR=$TOOLCHAIN_SUBDIR"
 TOOLCHAIN_BUILD_SYSROOT=$TOOLCHAIN_INSTALL_PATH/sysroot
@@ -529,18 +529,13 @@ if [ -f "$SRC_DIR/SOURCES" ]; then
     cp "$SRC_DIR/SOURCES" "$TOOLCHAIN_INSTALL_PATH/SOURCES"
 fi
 
-echo "Removing sysroot for $TC"
+echo "Removing sysroot for $TOOLCHAIN"
 rm -rf $TOOLCHAIN_INSTALL_PATH/sysroot
-
-# TODO: Do we not actually know what $SYSTEM is going to be here?
-# Why do we need to check these and the above?
-rm -rf $DSTDIR64/toolchains/${SYSTEM}_64/$TC/prebuilt/sysroot
-rm -rf $DSTDIR64/toolchains/${SYSTEM}-x86_64/$TC/prebuilt/sysroot
 
 if [ "$PACKAGE_DIR" ]; then
     ARCHIVE="$TOOLCHAIN-$HOST_TAG.tar.bz2"
-    dump "Packaging $ARCHIVE from $PACKAGE_DIR/$TOOLCHAIN_SUBDIR"
-    pack_archive "$PACKAGE_DIR/$ARCHIVE" "$PACKAGE_DIR" "$TOOLCHAIN_SUBDIR"
+    dump "Packaging $ARCHIVE from $TMPDIR/$TOOLCHAIN_SUBDIR"
+    pack_archive "$PACKAGE_DIR/$ARCHIVE" "$TMPDIR" "$TOOLCHAIN_SUBDIR"
     fail_panic "Could not package $TOOLCHAIN GCC!"
 fi
 
