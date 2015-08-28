@@ -2087,17 +2087,17 @@ AC_DEFUN([GLIBCXX_ENABLE_CLOCALE], [
     dragonfly)
       AC_MSG_RESULT(dragonfly)
 
-      CLOCALE_H=config/locale/generic/c_locale.h
+      CLOCALE_H=config/locale/dragonfly/c_locale.h
       CLOCALE_CC=config/locale/dragonfly/c_locale.cc
-      CCODECVT_CC=config/locale/generic/codecvt_members.cc
-      CCOLLATE_CC=config/locale/generic/collate_members.cc
+      CCODECVT_CC=config/locale/dragonfly/codecvt_members.cc
+      CCOLLATE_CC=config/locale/dragonfly/collate_members.cc
       CCTYPE_CC=config/locale/dragonfly/ctype_members.cc
       CMESSAGES_H=config/locale/generic/messages_members.h
       CMESSAGES_CC=config/locale/generic/messages_members.cc
-      CMONEY_CC=config/locale/generic/monetary_members.cc
-      CNUMERIC_CC=config/locale/generic/numeric_members.cc
-      CTIME_H=config/locale/generic/time_members.h
-      CTIME_CC=config/locale/generic/time_members.cc
+      CMONEY_CC=config/locale/dragonfly/monetary_members.cc
+      CNUMERIC_CC=config/locale/dragonfly/numeric_members.cc
+      CTIME_H=config/locale/dragonfly/time_members.h
+      CTIME_CC=config/locale/dragonfly/time_members.cc
       CLOCALE_INTERNAL_H=config/locale/generic/c++locale_internal.h
       ;;
 
@@ -2325,14 +2325,19 @@ AC_DEFUN([GLIBCXX_ENABLE_VTABLE_VERIFY], [
     case ${target_os} in
       cygwin*|mingw32*)
         VTV_CXXFLAGS="-fvtable-verify=std -Wl,-lvtv,-u_vtable_map_vars_start,-u_vtable_map_vars_end"
+        VTV_CXXLINKFLAGS="-L${toplevel_builddir}/libvtv/.libs -Wl,--rpath -Wl,${toplevel_builddir}/libvtv/.libs"
         vtv_cygmin=yes
+        ;;
+      darwin*)
+        VTV_CXXFLAGS="-fvtable-verify=std -Wl,-u,_vtable_map_vars_start -Wl,-u,_vtable_map_vars_end"
+        VTV_CXXLINKFLAGS="-L${toplevel_builddir}/libvtv/.libs -Wl,-rpath,${toplevel_builddir}/libvtv/.libs"
         ;;
       *)
         VTV_CXXFLAGS="-fvtable-verify=std -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end"
+        VTV_CXXLINKFLAGS="-L${toplevel_builddir}/libvtv/.libs -Wl,--rpath -Wl,${toplevel_builddir}/libvtv/.libs"
         ;;
     esac
     VTV_PCH_CXXFLAGS="-fvtable-verify=std"
-    VTV_CXXLINKFLAGS="-L${toplevel_builddir}/libvtv/.libs -Wl,--rpath -Wl,${toplevel_builddir}/libvtv/.libs"		
   else
     VTV_CXXFLAGS= 
     VTV_PCH_CXXFLAGS=

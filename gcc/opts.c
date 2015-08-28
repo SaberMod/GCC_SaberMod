@@ -445,12 +445,12 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS, OPT_fsplit_wide_types, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_ccp, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_ftree_bit_ccp, NULL, 1 },
+    { OPT_LEVELS_1_PLUS, OPT_ftree_coalesce_vars, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_dce, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_dominator_opts, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_dse, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_ter, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_ftree_sra, NULL, 1 },
-    { OPT_LEVELS_1_PLUS, OPT_ftree_copyrename, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_fre, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_copy_prop, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_sink, NULL, 1 },
@@ -753,6 +753,11 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	opts->x_flag_shlib = 1;
       opts->x_flag_opts_finished = true;
     }
+
+  /* We initialize opts->x_flag_stack_protect to -1 so that targets
+     can set a default value.  */
+  if (opts->x_flag_stack_protect == -1)
+    opts->x_flag_stack_protect = DEFAULT_FLAG_SSP;
 
   if (opts->x_optimize == 0)
     {
@@ -2223,7 +2228,7 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg,
 
 	  if (extended == 2)
 	    {
-#ifdef DWARF2_DEBUGGING_INFO
+#if defined DWARF2_DEBUGGING_INFO || defined DWARF2_LINENO_DEBUGGING_INFO
 	      opts->x_write_symbols = DWARF2_DEBUG;
 #elif defined DBX_DEBUGGING_INFO
 	      opts->x_write_symbols = DBX_DEBUG;

@@ -56,8 +56,6 @@ enum mangling_flags
   mf_use_underscores_around_value = 2
 };
 
-typedef enum mangling_flags mangling_flags;
-
 static void do_build_copy_assign (tree);
 static void do_build_copy_constructor (tree);
 static tree make_alias_for_thunk (tree);
@@ -1923,6 +1921,14 @@ implicitly_declare_fn (special_function_kind kind, tree type,
     DECL_COMDAT (fn) = 1;
   rest_of_decl_compilation (fn, toplevel_bindings_p (), at_eof);
   gcc_assert (!TREE_USED (fn));
+
+  /* Propagate constraints from the inherited constructor. */
+  if (flag_concepts && inherited_ctor)
+    if (tree orig_ci = get_constraints (inherited_ctor))
+      {
+        tree new_ci = copy_node (orig_ci);
+        set_constraints (fn, new_ci);
+      }
 
   /* Restore PROCESSING_TEMPLATE_DECL.  */
   processing_template_decl = saved_processing_template_decl;

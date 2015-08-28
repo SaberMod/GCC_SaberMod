@@ -2258,23 +2258,14 @@ s390_contiguous_bitmask_vector_p (rtx op, int *start, int *end)
 {
   unsigned HOST_WIDE_INT mask;
   int length, size;
+  rtx elt;
 
-  if (!VECTOR_MODE_P (GET_MODE (op))
-      || GET_CODE (op) != CONST_VECTOR
-      || !CONST_INT_P (XVECEXP (op, 0, 0)))
+  if (!const_vec_duplicate_p (op, &elt)
+      || !CONST_INT_P (elt))
     return false;
 
-  if (GET_MODE_NUNITS (GET_MODE (op)) > 1)
-    {
-      int i;
-
-      for (i = 1; i < GET_MODE_NUNITS (GET_MODE (op)); ++i)
-	if (!rtx_equal_p (XVECEXP (op, 0, i), XVECEXP (op, 0, 0)))
-	  return false;
-    }
-
   size = GET_MODE_UNIT_BITSIZE (GET_MODE (op));
-  mask = UINTVAL (XVECEXP (op, 0, 0));
+  mask = UINTVAL (elt);
   if (s390_contiguous_bitmask_p (mask, size, start,
 				 end != NULL ? &length : NULL))
     {
@@ -6497,6 +6488,10 @@ s390_dwarf_frame_reg_mode (int regno)
 {
   machine_mode save_mode = default_dwarf_frame_reg_mode (regno);
 
+  /* Make sure not to return DImode for any GPR with -m31 -mzarch.  */
+  if (GENERAL_REGNO_P (regno))
+    save_mode = Pmode;
+
   /* The rightmost 64 bits of vector registers are call-clobbered.  */
   if (GET_MODE_SIZE (save_mode) > 8)
     save_mode = DImode;
@@ -10356,6 +10351,7 @@ s390_emit_prologue (void)
 		       current_function_name(), cfun_frame_layout.frame_size,
 		       s390_stack_size);
 	      emit_insn (gen_trap ());
+	      emit_barrier ();
 	    }
 	  else
 	    {
@@ -11623,7 +11619,14 @@ s390_expand_tbegin (rtx dest, rtx tdb, rtx retry, bool clobber_fprs_p)
     }
 
   if (clobber_fprs_p)
-    emit_insn (gen_tbegin_1 (gen_rtx_CONST_INT (VOIDmode, TBEGIN_MASK), tdb));
+    {
+      if (TARGET_VX)
+	emit_insn (gen_tbegin_1_z13 (gen_rtx_CONST_INT (VOIDmode, TBEGIN_MASK),
+				     tdb));
+      else
+	emit_insn (gen_tbegin_1 (gen_rtx_CONST_INT (VOIDmode, TBEGIN_MASK),
+				 tdb));
+    }
   else
     emit_insn (gen_tbegin_nofloat_1 (gen_rtx_CONST_INT (VOIDmode, TBEGIN_MASK),
 				     tdb));

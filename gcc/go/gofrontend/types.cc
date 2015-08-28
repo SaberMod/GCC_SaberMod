@@ -5781,6 +5781,8 @@ Array_type::verify_length()
 bool
 Array_type::do_verify()
 {
+  if (this->element_type()->is_error_type())
+    return false;
   if (!this->verify_length())
     this->length_ = Expression::make_error(this->length_->location());
   return true;
@@ -6423,7 +6425,10 @@ Array_type::array_gc_symbol(Gogo* gogo, Expression_list** vals,
   unsigned long bound;
   if (!this->length_->numeric_constant_value(&nc)
       || nc.to_unsigned_long(&bound) == Numeric_constant::NC_UL_NOTINT)
-    go_assert(saw_errors());
+    {
+      go_assert(saw_errors());
+      return;
+    }
 
   Btype* pbtype = gogo->backend()->pointer_type(gogo->backend()->void_type());
   int64_t pwidth = gogo->backend()->type_size(pbtype);

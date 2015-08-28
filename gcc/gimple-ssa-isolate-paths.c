@@ -66,10 +66,10 @@ check_loadstore (gimple stmt, tree op, tree, void *data)
   return false;
 }
 
-/* Insert a trap after SI and remove SI and all statements after the trap.  */
+/* Insert a trap after SI and split the block after the trap.  */
 
 static void
-insert_trap_and_remove_trailing_statements (gimple_stmt_iterator *si_p, tree op)
+insert_trap (gimple_stmt_iterator *si_p, tree op)
 {
   /* We want the NULL pointer dereference to actually occur so that
      code that wishes to catch the signal can do so.
@@ -115,18 +115,8 @@ insert_trap_and_remove_trailing_statements (gimple_stmt_iterator *si_p, tree op)
   else
     gsi_insert_before (si_p, seq, GSI_NEW_STMT);
 
-  /* We must remove statements from the end of the block so that we
-     never reference a released SSA_NAME.  */
-  basic_block bb = gimple_bb (gsi_stmt (*si_p));
-  for (gimple_stmt_iterator si = gsi_last_bb (bb);
-       gsi_stmt (si) != gsi_stmt (*si_p);
-       si = gsi_last_bb (bb))
-    {
-      stmt = gsi_stmt (si);
-      unlink_stmt_vdef (stmt);
-      gsi_remove (&si, true);
-      release_defs (stmt);
-    }
+  split_block (gimple_bb (new_stmt), new_stmt);
+  *si_p = gsi_for_stmt (stmt);
 }
 
 /* BB when reached via incoming edge E will exhibit undefined behaviour
@@ -215,7 +205,7 @@ isolate_path (basic_block bb, basic_block duplicate,
 	  update_stmt (ret);
 	}
       else
-	insert_trap_and_remove_trailing_statements (&si2, op);
+	insert_trap (&si2, op);
     }
 
   return duplicate;
@@ -331,11 +321,29 @@ find_implicit_erroneous_behaviour (void)
 		  if (gimple_bb (use_stmt) != bb)
 		    continue;
 
-		  if (infer_nonnull_range (use_stmt, lhs,
-					   flag_isolate_erroneous_paths_dereference,
-					   flag_isolate_erroneous_paths_attribute))
+		  bool by_dereference 
+		    = infer_nonnull_range_by_dereference (use_stmt, lhs);
 
+		  if (by_dereference 
+		      || infer_nonnull_range_by_attribute (use_stmt, lhs))
 		    {
+		      location_t loc = gimple_location (use_stmt)
+			? gimple_location (use_stmt)
+			: gimple_phi_arg_location (phi, i);
+
+		      if (by_dereference)
+			{
+			  warning_at (loc, OPT_Wnull_dereference,
+				      "potential null pointer dereference");
+			  if (!flag_isolate_erroneous_paths_dereference)
+			    continue;
+			}
+		      else 
+			{
+			  if (!flag_isolate_erroneous_paths_attribute)
+			    continue;
+			}
+
 		      duplicate = isolate_path (bb, duplicate, e,
 						use_stmt, lhs, false);
 
@@ -381,21 +389,31 @@ find_explicit_erroneous_behaviour (void)
 	{
 	  gimple stmt = gsi_stmt (si);
 
-	  /* By passing null_pointer_node, we can use infer_nonnull_range
-	     to detect explicit NULL pointer dereferences and other uses
-	     where a non-NULL value is required.  */
-	  if (infer_nonnull_range (stmt, null_pointer_node,
-				   flag_isolate_erroneous_paths_dereference,
-				   flag_isolate_erroneous_paths_attribute))
+	  /* By passing null_pointer_node, we can use the
+	     infer_nonnull_range functions to detect explicit NULL
+	     pointer dereferences and other uses where a non-NULL
+	     value is required.  */
+	  
+	  bool by_dereference
+	    = infer_nonnull_range_by_dereference (stmt, null_pointer_node);
+	  if (by_dereference
+	      || infer_nonnull_range_by_attribute (stmt, null_pointer_node))
 	    {
-	      insert_trap_and_remove_trailing_statements (&si,
-							  null_pointer_node);
+	      if (by_dereference)
+		{
+		  warning_at (gimple_location (stmt), OPT_Wnull_dereference,
+			      "null pointer dereference");
+		  if (!flag_isolate_erroneous_paths_dereference)
+		    continue;
+		}
+	      else
+		{
+		  if (!flag_isolate_erroneous_paths_attribute)
+		    continue;
+		}
 
-	      /* And finally, remove all outgoing edges from BB.  */
-	      edge e;
-	      for (edge_iterator ei = ei_start (bb->succs);
-		   (e = ei_safe_edge (ei)); )
-		remove_edge (e);
+	      insert_trap (&si, null_pointer_node);
+	      bb = gimple_bb (gsi_stmt (si));
 
 	      /* Ignore any more operands on this statement and
 		 continue the statement iterator (which should
@@ -534,7 +552,8 @@ public:
       /* If we do not have a suitable builtin function for the trap statement,
 	 then do not perform the optimization.  */
       return (flag_isolate_erroneous_paths_dereference != 0
-	      || flag_isolate_erroneous_paths_attribute != 0);
+	      || flag_isolate_erroneous_paths_attribute != 0
+	      || warn_null_dereference);
     }
 
   virtual unsigned int execute (function *)

@@ -339,6 +339,11 @@ dump_template_bindings (cxx_pretty_printer *pp, tree parms, tree args,
       && !DECL_LANG_SPECIFIC (current_function_decl))
     return;
 
+  /* Don't try to do this once cgraph starts throwing away front-end
+     information.  */
+  if (at_eof >= 2)
+    return;
+
   FOR_EACH_VEC_SAFE_ELT (typenames, i, t)
     {
       if (need_semicolon)
@@ -1212,7 +1217,8 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
 	if (args == error_mark_node)
 	  pp_string (pp, M_("<template arguments error>"));
 	else if (args)
-	  dump_template_argument_list (pp, args, flags);
+	  dump_template_argument_list
+	    (pp, args, flags|TFF_NO_OMIT_DEFAULT_TEMPLATE_ARGUMENTS);
       	pp_cxx_end_template_argument_list (pp);
       }
       break;
@@ -1332,6 +1338,15 @@ dump_template_decl (cxx_pretty_printer *pp, tree t, int flags)
 	    pp_cxx_ws_string (pp, "...");
 	}
     }
+
+  if (flag_concepts)
+    if (tree ci = get_constraints (t))
+      if (check_constraint_info (ci))
+        if (tree reqs = CI_TEMPLATE_REQS (ci))
+	  {
+	    pp_cxx_requires_clause (pp, reqs);
+	    pp_cxx_whitespace (pp);
+	  }
 
   if (DECL_CLASS_TEMPLATE_P (t))
     dump_type (pp, TREE_TYPE (t),
@@ -1563,6 +1578,11 @@ dump_function_decl (cxx_pretty_printer *pp, tree t, int flags)
 
       if (show_return)
 	dump_type_suffix (pp, TREE_TYPE (fntype), flags);
+
+      if (flag_concepts)
+        if (tree ci = get_constraints (t))
+          if (tree reqs = CI_DECLARATOR_REQS (ci))
+            pp_cxx_requires_clause (pp, reqs);
 
       dump_substitution (pp, t, template_parms, template_args, flags);
     }
@@ -2687,6 +2707,38 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
       pp_cxx_left_paren (pp);
       dump_expr (pp, TREE_OPERAND (t, 0), flags | TFF_EXPR_IN_PARENS);
       pp_cxx_right_paren (pp);
+      break;
+
+    case REQUIRES_EXPR:
+      pp_cxx_requires_expr (cxx_pp, t);
+      break;
+
+    case SIMPLE_REQ:
+      pp_cxx_simple_requirement (cxx_pp, t);
+      break;
+
+    case TYPE_REQ:
+      pp_cxx_type_requirement (cxx_pp, t);
+      break;
+
+    case COMPOUND_REQ:
+      pp_cxx_compound_requirement (cxx_pp, t);
+      break;
+
+    case NESTED_REQ:
+      pp_cxx_nested_requirement (cxx_pp, t);
+      break;
+
+    case PRED_CONSTR:
+    case EXPR_CONSTR:
+    case TYPE_CONSTR:
+    case ICONV_CONSTR:
+    case DEDUCT_CONSTR:
+    case EXCEPT_CONSTR:
+    case PARM_CONSTR:
+    case CONJ_CONSTR:
+    case DISJ_CONSTR:
+      pp_cxx_constraint (cxx_pp, t);
       break;
 
     case PLACEHOLDER_EXPR:

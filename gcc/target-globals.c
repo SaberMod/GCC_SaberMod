@@ -49,7 +49,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gcse.h"
 #include "bb-reorder.h"
 #include "lower-subreg.h"
-#include "recog.h"
 
 #if SWITCHABLE_TARGET
 struct target_globals default_target_globals = {

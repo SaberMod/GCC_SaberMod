@@ -40,17 +40,15 @@ gen_insn (md_rtx_info *info)
   if (name[0] != 0 && name[0] != '*')
     {
       if (truth == 0)
-	printf ("#define CODE_FOR_%s CODE_FOR_nothing\n", name);
+	printf (",\n   CODE_FOR_%s = CODE_FOR_nothing", name);
       else
-	printf ("  CODE_FOR_%s = %d,\n", name, info->index);
+	printf (",\n  CODE_FOR_%s = %d", name, info->index);
     }
 }
 
 int
 main (int argc, char **argv)
 {
-  int last = 1;
-
   progname = "gencodes";
 
   /* We need to see all the possibilities.  Elided insns may have
@@ -60,7 +58,7 @@ main (int argc, char **argv)
   if (!init_rtx_reader_args (argc, argv))
     return (FATAL_EXIT_CODE);
 
-  puts ("\
+  printf ("\
 /* Generated automatically by the program `gencodes'\n\
    from the machine description file `md'.  */\n\
 \n\
@@ -68,7 +66,7 @@ main (int argc, char **argv)
 #define GCC_INSN_CODES_H\n\
 \n\
 enum insn_code {\n\
-  CODE_FOR_nothing = 0,\n");
+  CODE_FOR_nothing = 0");
 
   /* Read the machine description.  */
 
@@ -79,17 +77,16 @@ enum insn_code {\n\
       case DEFINE_INSN:
       case DEFINE_EXPAND:
 	gen_insn (&info);
-	last = info.index + 1;
 	break;
 
       default:
 	break;
     }
 
-  printf ("  LAST_INSN_CODE = %d\n\
-};\n\
+  printf ("\n};\n\
 \n\
-#endif /* GCC_INSN_CODES_H */\n", last);
+const unsigned int NUM_INSN_CODES = %d;\n\
+#endif /* GCC_INSN_CODES_H */\n", get_num_insn_codes ());
 
   if (ferror (stdout) || fflush (stdout) || fclose (stdout))
     return FATAL_EXIT_CODE;

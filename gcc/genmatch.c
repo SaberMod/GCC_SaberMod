@@ -2177,11 +2177,19 @@ expr::gen_transform (FILE *f, int indent, const char *dest, bool gimple,
 	fprintf_indent (f, indent, "res = fold_build%d_loc (loc, %s, %s",
 			ops.length(), opr_name, type);
       else
-	fprintf_indent (f, indent, "res = build_call_expr_loc (loc, "
-			"builtin_decl_implicit (%s), %d", opr_name, ops.length());
+	{
+	  fprintf_indent (f, indent, "{\n");
+	  fprintf_indent (f, indent, "  tree decl = builtin_decl_implicit (%s);\n",
+			  opr_name);
+	  fprintf_indent (f, indent, "  if (!decl) return NULL_TREE;\n");
+	  fprintf_indent (f, indent, "  res = build_call_expr_loc (loc, "
+			  "decl, %d", ops.length());
+	}
       for (unsigned i = 0; i < ops.length (); ++i)
 	fprintf (f, ", ops%d[%u]", depth, i);
       fprintf (f, ");\n");
+      if (opr->kind != id_base::CODE)
+	fprintf_indent (f, indent, "}\n");
       if (*opr == CONVERT_EXPR)
 	{
 	  indent -= 2;
@@ -2396,7 +2404,7 @@ dt_operand::gen_gimple_expr (FILE *f, int indent)
 		 match this.  The only sensible operand types are
 		 SSA names and invariants.  */
 	      fprintf_indent (f, indent,
-			      "tree %s = TREE_OPERAND (gimple_assign_rhs1 (def_stmt), %i);\n",
+			      "tree %s = TREE_OPERAND (gimple_assign_rhs1 (def), %i);\n",
 			      child_opname, i);
 	      fprintf_indent (f, indent,
 			      "if ((TREE_CODE (%s) == SSA_NAME\n",
@@ -2414,12 +2422,12 @@ dt_operand::gen_gimple_expr (FILE *f, int indent)
 	    }
 	  else
 	    fprintf_indent (f, indent,
-			    "tree %s = gimple_assign_rhs%u (def_stmt);\n",
+			    "tree %s = gimple_assign_rhs%u (def);\n",
 			    child_opname, i + 1);
 	}
       else
 	fprintf_indent (f, indent,
-			"tree %s = gimple_call_arg (def_stmt, %u);\n",
+			"tree %s = gimple_call_arg (def, %u);\n",
 			child_opname, i);
       fprintf_indent (f, indent,
 		      "if ((%s = do_valueize (valueize, %s)))\n",
@@ -2600,9 +2608,9 @@ dt_node::gen_kids_1 (FILE *f, int indent, bool gimple,
       if (exprs_len)
 	{
 	  fprintf_indent (f, indent,
-			  "if (is_gimple_assign (def_stmt))\n");
+			  "if (gassign *def = dyn_cast <gassign *> (def_stmt))\n");
 	  fprintf_indent (f, indent,
-			  "  switch (gimple_assign_rhs_code (def_stmt))\n");
+			  "  switch (gimple_assign_rhs_code (def))\n");
 	  indent += 4;
 	  fprintf_indent (f, indent, "{\n");
 	  for (unsigned i = 0; i < exprs_len; ++i)
@@ -2625,16 +2633,15 @@ dt_node::gen_kids_1 (FILE *f, int indent, bool gimple,
 
       if (fns_len)
 	{
-	  if (exprs_len)
-	    fprintf_indent (f, indent, "else ");
-	  else
-	    fprintf_indent (f, indent, " ");
-
-	  fprintf (f, "if (gimple_call_builtin_p (def_stmt, BUILT_IN_NORMAL))\n");
+	  fprintf_indent (f, indent,
+			  "%sif (gimple_call_builtin_p (def_stmt, BUILT_IN_NORMAL))\n",
+			  exprs_len ? "else " : "");
 	  fprintf_indent (f, indent,
 			  "  {\n");
 	  fprintf_indent (f, indent,
-			  "    tree fndecl = gimple_call_fndecl (def_stmt);\n");
+			  "    gcall *def = as_a <gcall *> (def_stmt);\n");
+	  fprintf_indent (f, indent,
+			  "    tree fndecl = gimple_call_fndecl (def);\n");
 	  fprintf_indent (f, indent,
 			  "    switch (DECL_FUNCTION_CODE (fndecl))\n");
 	  fprintf_indent (f, indent,
@@ -3070,13 +3077,24 @@ dt_simplify::gen_1 (FILE *f, int indent, bool gimple, operand *result)
 				    *e->operation == CONVERT_EXPR
 				    ? "NOP_EXPR" : e->operation->id);
 		  else
-		    fprintf_indent (f, indent,
-				    "res = build_call_expr_loc "
-				    "(loc, builtin_decl_implicit (%s), %d",
-				    e->operation->id, e->ops.length());
+		    {
+		      fprintf_indent (f, indent,
+				      "{\n");
+		      fprintf_indent (f, indent,
+				      "  tree decl = builtin_decl_implicit (%s);\n",
+				      e->operation->id);
+		      fprintf_indent (f, indent,
+				      "  if (!decl) return NULL_TREE;\n");
+		      fprintf_indent (f, indent,
+				      "  res = build_call_expr_loc "
+				      "(loc, decl, %d",
+				      e->ops.length());
+		    }
 		  for (unsigned j = 0; j < e->ops.length (); ++j)
 		    fprintf (f, ", res_op%d", j);
 		  fprintf (f, ");\n");
+		  if (!is_a <operator_id *> (opr))
+		    fprintf_indent (f, indent, "}\n");
 		}
 	    }
 	}

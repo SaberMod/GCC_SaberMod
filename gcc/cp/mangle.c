@@ -95,7 +95,7 @@ along with GCC; see the file COPYING3.  If not see
 	   && (PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (NODE))))))
 
 /* Things we only need one of.  This module is not reentrant.  */
-typedef struct GTY(()) globals {
+struct GTY(()) globals {
   /* An array of the current substitution candidates, in the order
      we've seen them.  */
   vec<tree, va_gc> *substitutions;
@@ -109,7 +109,7 @@ typedef struct GTY(()) globals {
   /* True if the mangling will be different in a future version of the
      ABI.  */
   bool need_abi_warning;
-} globals;
+};
 
 static GTY (()) globals G;
 
@@ -2822,7 +2822,9 @@ write_expression (tree expr)
     {
       tree fn = TREE_OPERAND (expr, 0);
       if (is_overloaded_fn (fn))
-	fn = DECL_NAME (get_first_fn (fn));
+	fn = get_first_fn (fn);
+      if (DECL_P (fn))
+	fn = DECL_NAME (fn);
       if (IDENTIFIER_OPNAME_P (fn))
 	write_string ("on");
       write_unqualified_id (fn);

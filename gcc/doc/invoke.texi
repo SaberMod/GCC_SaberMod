@@ -260,6 +260,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wimplicit  -Wimplicit-function-declaration  -Wimplicit-int @gol
 -Winit-self  -Winline  -Wno-int-conversion @gol
 -Wno-int-to-pointer-cast -Wno-invalid-offsetof @gol
+-Wnull-dereference @gol
 -Winvalid-pch -Wlarger-than=@var{len}  -Wunsafe-loop-optimizations @gol
 -Wlogical-op -Wlogical-not-parentheses -Wlong-long @gol
 -Wmain -Wmaybe-uninitialized -Wmemset-transposed-args @gol
@@ -341,7 +342,6 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-phiprop@r{[}-@var{n}@r{]} @gol
 -fdump-tree-phiopt@r{[}-@var{n}@r{]} @gol
 -fdump-tree-forwprop@r{[}-@var{n}@r{]} @gol
--fdump-tree-copyrename@r{[}-@var{n}@r{]} @gol
 -fdump-tree-nrv -fdump-tree-vect @gol
 -fdump-tree-sink @gol
 -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
@@ -447,9 +447,8 @@ Objective-C and Objective-C++ Dialects}.
 -fstack-protector-explicit -fstdarg-opt -fstrict-aliasing @gol
 -fstrict-overflow -fthread-jumps -ftracer -ftree-bit-ccp @gol
 -ftree-builtin-call-dce -ftree-ccp -ftree-ch @gol
--ftree-coalesce-inline-vars -ftree-coalesce-vars -ftree-copy-prop @gol
--ftree-copyrename -ftree-dce -ftree-dominator-opts -ftree-dse @gol
--ftree-forwprop -ftree-fre -ftree-loop-if-convert @gol
+-ftree-coalesce-vars -ftree-copy-prop -ftree-dce -ftree-dominator-opts @gol
+-ftree-dse -ftree-forwprop -ftree-fre -ftree-loop-if-convert @gol
 -ftree-loop-if-convert-stores -ftree-loop-im @gol
 -ftree-phiprop -ftree-loop-distribution -ftree-loop-distribute-patterns @gol
 -ftree-loop-ivcanon -ftree-loop-linear -ftree-loop-optimize @gol
@@ -515,6 +514,7 @@ Objective-C and Objective-C++ Dialects}.
 -mstrict-align @gol
 -momit-leaf-frame-pointer  -mno-omit-leaf-frame-pointer @gol
 -mtls-dialect=desc  -mtls-dialect=traditional @gol
+-mtls-size=@var{size} @gol
 -mfix-cortex-a53-835769  -mno-fix-cortex-a53-835769 @gol
 -mfix-cortex-a53-843419  -mno-fix-cortex-a53-843419 @gol
 -march=@var{name}  -mcpu=@var{name}  -mtune=@var{name}}
@@ -963,6 +963,7 @@ See RS/6000 and PowerPC Options.
 -mbackchain  -mno-backchain -mpacked-stack  -mno-packed-stack @gol
 -msmall-exec  -mno-small-exec  -mmvcle -mno-mvcle @gol
 -m64  -m31  -mdebug  -mno-debug  -mesa  -mzarch @gol
+-mhtm -mvx -mzvector @gol
 -mtpf-trace -mno-tpf-trace  -mfused-madd  -mno-fused-madd @gol
 -mwarn-framesize  -mwarn-dynamicstack  -mstack-size -mstack-guard @gol
 -mhotpatch=@var{halfwords},@var{halfwords}}
@@ -1118,6 +1119,7 @@ See RS/6000 and PowerPC Options.
 -mforce-no-pic @gol
 -mserialize-volatile  -mno-serialize-volatile @gol
 -mtext-section-literals  -mno-text-section-literals @gol
+-mauto-litpools  -mno-auto-litpools @gol
 -mtarget-align  -mno-target-align @gol
 -mlongcalls  -mno-longcalls}
 
@@ -3719,6 +3721,15 @@ requiring a non-null value by the @code{nonnull} function attribute.
 
 @option{-Wnonnull} is included in @option{-Wall} and @option{-Wformat}.  It
 can be disabled with the @option{-Wno-nonnull} option.
+
+@item -Wnull-dereference
+@opindex Wnull-dereference
+@opindex Wno-null-dereference
+Warn if the compiler detects paths that trigger erroneous or
+undefined behavior due to dereferencing a null pointer.  This option
+is only active when @option{-fdelete-null-pointer-checks} is active,
+which is enabled by optimizations in most targets.  The precision of
+the warnings depends on the optimization options used.
 
 @item -Winit-self @r{(C, C++, Objective-C and Objective-C++ only)}
 @opindex Winit-self
@@ -7121,11 +7132,6 @@ name is made by appending @file{.phiopt} to the source file name.
 Dump each function after forward propagating single use variables.  The file
 name is made by appending @file{.forwprop} to the source file name.
 
-@item copyrename
-@opindex fdump-tree-copyrename
-Dump each function after applying the copy rename optimization.  The file
-name is made by appending @file{.copyrename} to the source file name.
-
 @item nrv
 @opindex fdump-tree-nrv
 Dump each function after applying the named return value optimization on
@@ -7590,8 +7596,8 @@ compilation time.
 -ftree-ccp @gol
 -fssa-phiopt @gol
 -ftree-ch @gol
+-ftree-coalesce-vars @gol
 -ftree-copy-prop @gol
--ftree-copyrename @gol
 -ftree-dce @gol
 -ftree-dominator-opts @gol
 -ftree-dse @gol
@@ -8728,102 +8734,19 @@ Perform loop optimizations on trees.  This flag is enabled by default
 at @option{-O} and higher.
 
 @item -ftree-loop-linear
+@itemx -floop-interchange
+@itemx -floop-strip-mine
+@itemx -floop-block
+@itemx -floop-unroll-and-jam
 @opindex ftree-loop-linear
-Perform loop interchange transformations on tree.  Same as
-@option{-floop-interchange}.  To use this code transformation, GCC has
+@opindex floop-interchange
+@opindex floop-strip-mine
+@opindex floop-block
+@opindex floop-unroll-and-jam
+Perform loop nest optimizations.  Same as
+@option{-floop-nest-optimize}.  To use this code transformation, GCC has
 to be configured with @option{--with-isl} to enable the Graphite loop
 transformation infrastructure.
-
-@item -floop-interchange
-@opindex floop-interchange
-Perform loop interchange transformations on loops.  Interchanging two
-nested loops switches the inner and outer loops.  For example, given a
-loop like:
-@smallexample
-DO J = 1, M
-  DO I = 1, N
-    A(J, I) = A(J, I) * C
-  ENDDO
-ENDDO
-@end smallexample
-@noindent
-loop interchange transforms the loop as if it were written:
-@smallexample
-DO I = 1, N
-  DO J = 1, M
-    A(J, I) = A(J, I) * C
-  ENDDO
-ENDDO
-@end smallexample
-which can be beneficial when @code{N} is larger than the caches,
-because in Fortran, the elements of an array are stored in memory
-contiguously by column, and the original loop iterates over rows,
-potentially creating at each access a cache miss.  This optimization
-applies to all the languages supported by GCC and is not limited to
-Fortran.  To use this code transformation, GCC has to be configured
-with @option{--with-isl} to enable the Graphite loop transformation
-infrastructure.
-
-@item -floop-strip-mine
-@opindex floop-strip-mine
-Perform loop strip mining transformations on loops.  Strip mining
-splits a loop into two nested loops.  The outer loop has strides
-equal to the strip size and the inner loop has strides of the
-original loop within a strip.  The strip length can be changed
-using the @option{loop-block-tile-size} parameter.  For example,
-given a loop like:
-@smallexample
-DO I = 1, N
-  A(I) = A(I) + C
-ENDDO
-@end smallexample
-@noindent
-loop strip mining transforms the loop as if it were written:
-@smallexample
-DO II = 1, N, 51
-  DO I = II, min (II + 50, N)
-    A(I) = A(I) + C
-  ENDDO
-ENDDO
-@end smallexample
-This optimization applies to all the languages supported by GCC and is
-not limited to Fortran.  To use this code transformation, GCC has to
-be configured with @option{--with-isl} to enable the Graphite loop
-transformation infrastructure.
-
-@item -floop-block
-@opindex floop-block
-Perform loop blocking transformations on loops.  Blocking strip mines
-each loop in the loop nest such that the memory accesses of the
-element loops fit inside caches.  The strip length can be changed
-using the @option{loop-block-tile-size} parameter.  For example, given
-a loop like:
-@smallexample
-DO I = 1, N
-  DO J = 1, M
-    A(J, I) = B(I) + C(J)
-  ENDDO
-ENDDO
-@end smallexample
-@noindent
-loop blocking transforms the loop as if it were written:
-@smallexample
-DO II = 1, N, 51
-  DO JJ = 1, M, 51
-    DO I = II, min (II + 50, N)
-      DO J = JJ, min (JJ + 50, M)
-        A(J, I) = B(I) + C(J)
-      ENDDO
-    ENDDO
-  ENDDO
-ENDDO
-@end smallexample
-which can be beneficial when @code{M} is larger than the caches,
-because the innermost loop iterates over a smaller amount of data
-which can be kept in the caches.  This optimization applies to all the
-languages supported by GCC and is not limited to Fortran.  To use this
-code transformation, GCC has to be configured with @option{--with-isl}
-to enable the Graphite loop transformation infrastructure.
 
 @item -fgraphite-identity
 @opindex fgraphite-identity
@@ -8841,19 +8764,21 @@ optimizer based on the Pluto optimization algorithms.  It calculates a loop
 structure optimized for data-locality and parallelism.  This option
 is experimental.
 
-@item -floop-unroll-and-jam
-@opindex floop-unroll-and-jam
-Enable unroll and jam for the ISL based loop nest optimizer.  The unroll 
-factor can be changed using the @option{loop-unroll-jam-size} parameter.
-The unrolled dimension (counting from the most inner one) can be changed 
-using the @option{loop-unroll-jam-depth} parameter.                 .
-
 @item -floop-parallelize-all
 @opindex floop-parallelize-all
 Use the Graphite data dependence analysis to identify loops that can
 be parallelized.  Parallelize all the loops that can be analyzed to
 not contain loop carried dependences without checking that it is
 profitable to parallelize the loops.
+
+@item -ftree-coalesce-vars
+@opindex ftree-coalesce-vars
+Tell the compiler to attempt to combine small user-defined variables
+too, instead of just compiler temporaries.  This may severely limit the
+ability to debug an optimized program compiled with
+@option{-fno-var-tracking-assignments}.  In the negated form, this flag
+prevents SSA coalescing of user variables.  This option is enabled by
+default if optimization is enabled.
 
 @item -ftree-loop-if-convert
 @opindex ftree-loop-if-convert
@@ -8967,32 +8892,6 @@ enabled by default at @option{-O} and higher.
 Perform scalar replacement of aggregates.  This pass replaces structure
 references with scalars to prevent committing structures to memory too
 early.  This flag is enabled by default at @option{-O} and higher.
-
-@item -ftree-copyrename
-@opindex ftree-copyrename
-Perform copy renaming on trees.  This pass attempts to rename compiler
-temporaries to other variables at copy locations, usually resulting in
-variable names which more closely resemble the original variables.  This flag
-is enabled by default at @option{-O} and higher.
-
-@item -ftree-coalesce-inlined-vars
-@opindex ftree-coalesce-inlined-vars
-Tell the copyrename pass (see @option{-ftree-copyrename}) to attempt to
-combine small user-defined variables too, but only if they are inlined
-from other functions.  It is a more limited form of
-@option{-ftree-coalesce-vars}.  This may harm debug information of such
-inlined variables, but it keeps variables of the inlined-into
-function apart from each other, such that they are more likely to
-contain the expected values in a debugging session.
-
-@item -ftree-coalesce-vars
-@opindex ftree-coalesce-vars
-Tell the copyrename pass (see @option{-ftree-copyrename}) to attempt to
-combine small user-defined variables too, instead of just compiler
-temporaries.  This may severely limit the ability to debug an optimized
-program compiled with @option{-fno-var-tracking-assignments}.  In the
-negated form, this flag prevents SSA coalescing of user variables,
-including inlined ones.  This option is enabled by default.
 
 @item -ftree-ter
 @opindex ftree-ter
@@ -12420,6 +12319,11 @@ of TLS variables.  This is the default.
 @opindex mtls-dialect=traditional
 Use traditional TLS as the thread-local storage mechanism for dynamic accesses
 of TLS variables.
+
+@item -mtls-size=@var{size}
+@opindex mtls-size
+Specify bit size of immediate TLS offsets.  Valid values are 12, 24, 32, 48.
+This option depends on binutils higher than 2.25.
 
 @item -mfix-cortex-a53-835769
 @itemx -mno-fix-cortex-a53-835769
@@ -20500,6 +20404,46 @@ When generating code compliant to the GNU/Linux for S/390 ABI,
 the default is @option{-mesa}.  When generating code compliant
 to the GNU/Linux for zSeries ABI, the default is @option{-mzarch}.
 
+@item -mhtm
+@itemx -mno-htm
+@opindex mhtm
+@opindex mno-htm
+The @option{-mhtm} option enables a set of builtins making use of
+instructions available with the transactional execution facility
+introduced with the IBM zEnterprise EC12 machine generation
+@ref{S/390 System z Built-in Functions}.
+@option{-mhtm} is enabled by default when using @option{-march=zEC12}.
+
+@item -mvx
+@itemx -mno-vx
+@opindex mvx
+@opindex mno-vx
+When @option{-mvx} is specified, generate code using the instructions
+available with the vector extension facility introduced with the IBM
+z13 machine generation.
+This option changes the ABI for some vector type values with regard to
+alignment and calling conventions.  In case vector type values are
+being used in an ABI-relevant context a GAS @samp{.gnu_attribute}
+command will be added to mark the resulting binary with the ABI used.
+@option{-mvx} is enabled by default when using @option{-march=z13}.
+
+@item -mzvector
+@itemx -mno-zvector
+@opindex mzvector
+@opindex mno-zvector
+The @option{-mzvector} option enables vector language extensions and
+builtins using instructions available with the vector extension
+facility introduced with the IBM z13 machine generation.
+This option adds support for @samp{vector} to be used as a keyword to
+define vector type variables and arguments.  @samp{vector} is only
+available when GNU extensions are enabled.  It will not be expanded
+when requesting strict standard compliance e.g. with @option{-std=c99}.
+In addition to the GCC low-level builtins @option{-mzvector} enables
+a set of builtins added for compatibility with Altivec-style
+implementations like Power and Cell.  In order to make use of these
+builtins the header file @file{vecintrin.h} needs to be included.
+@option{-mzvector} is disabled by default.
+
 @item -mmvcle
 @itemx -mno-mvcle
 @opindex mmvcle
@@ -22352,6 +22296,12 @@ Intel Broadwell CPU with 64-bit extensions, MOVBE, MMX, SSE, SSE2, SSE3, SSSE3,
 SSE4.1, SSE4.2, POPCNT, AVX, AVX2, AES, PCLMUL, FSGSBASE, RDRND, FMA,
 BMI, BMI2, F16C, RDSEED, ADCX and PREFETCHW instruction set support.
 
+@item skylake
+Intel Skylake CPU with 64-bit extensions, MOVBE, MMX, SSE, SSE2, SSE3, SSSE3,
+SSE4.1, SSE4.2, POPCNT, AVX, AVX2, AES, PCLMUL, FSGSBASE, RDRND, FMA,
+BMI, BMI2, F16C, RDSEED, ADCX, PREFETCHW, CLFLUSHOPT, XSAVEC and
+XSAVES instruction set support.
+
 @item bonnell
 Intel Bonnell CPU with 64-bit extensions, MOVBE, MMX, SSE, SSE2, SSE3 and SSSE3
 instruction set support.
@@ -23554,7 +23504,23 @@ pools from separate object files to remove redundant literals and
 improve code size.  With @option{-mtext-section-literals}, the literals
 are interspersed in the text section in order to keep them as close as
 possible to their references.  This may be necessary for large assembly
-files.
+files.  Literals for each function are placed right before that function.
+
+@item -mauto-litpools
+@itemx -mno-auto-litpools
+@opindex mauto-litpools
+@opindex mno-auto-litpools
+These options control the treatment of literal pools.  The default is
+@option{-mno-auto-litpools}, which places literals in a separate
+section in the output file unless @option{-mtext-section-literals} is
+used.  With @option{-mauto-litpools} the literals are interspersed in
+the text section by the assembler.  Compiler does not produce explicit
+@code{.literal} directives and loads literals into registers with
+@code{MOVI} instructions instead of @code{L32R} to let the assembler
+do relaxation and place literals as necessary.  This option allows
+assembler to create several literal pools per function and assemble
+very big functions, which may not be possible with
+@option{-mtext-section-literals}.
 
 @item -mtarget-align
 @itemx -mno-target-align

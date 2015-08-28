@@ -66,12 +66,12 @@ enum vect_def_type {
 
 /* Structure to encapsulate information about a group of like
    instructions to be presented to the target cost model.  */
-typedef struct _stmt_info_for_cost {
+struct stmt_info_for_cost {
   int count;
   enum vect_cost_for_stmt kind;
   gimple stmt;
   int misalign;
-} stmt_info_for_cost;
+};
 
 
 typedef vec<stmt_info_for_cost> stmt_vector_for_cost;
@@ -1135,7 +1135,7 @@ extern void vect_slp_transform_bb (basic_block);
    Additional pattern recognition functions can (and will) be added
    in the future.  */
 typedef gimple (* vect_recog_func_ptr) (vec<gimple> *, tree *, tree *);
-#define NUM_PATTERNS 12
+#define NUM_PATTERNS 13
 void vect_pattern_recog (loop_vec_info, bb_vec_info);
 
 /* In tree-vectorizer.c.  */

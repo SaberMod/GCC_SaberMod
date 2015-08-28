@@ -73,7 +73,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cselib.h"
 #include "debug.h"
 #include "sched-int.h"
-#include "fibheap.h"
 #include "opts.h"
 #include "diagnostic.h"
 #include "dumpfile.h"
@@ -437,7 +436,7 @@ struct processor_costs iamcu_cost = {
   COSTS_N_INSNS (3),			/* cost of movsx */
   COSTS_N_INSNS (2),			/* cost of movzx */
   8,					/* "large" insn */
-  6,					/* MOVE_RATIO */
+  9,					/* MOVE_RATIO */
   6,				     /* cost for loading QImode using movzbl */
   {2, 4, 2},				/* cost of loading integer registers
 					   in QImode, HImode and SImode.
@@ -3285,6 +3284,8 @@ ix86_option_override_internal (bool main_args_p,
    | PTA_FMA | PTA_MOVBE | PTA_HLE)
 #define PTA_BROADWELL \
   (PTA_HASWELL | PTA_ADX | PTA_PRFCHW | PTA_RDSEED)
+#define PTA_SKYLAKE \
+  (PTA_BROADWELL | PTA_CLFLUSHOPT | PTA_XSAVEC | PTA_XSAVES)
 #define PTA_KNL \
   (PTA_BROADWELL | PTA_AVX512PF | PTA_AVX512ER | PTA_AVX512F | PTA_AVX512CD)
 #define PTA_BONNELL \
@@ -3347,11 +3348,12 @@ ix86_option_override_internal (bool main_args_p,
       {"haswell", PROCESSOR_HASWELL, CPU_NEHALEM, PTA_HASWELL},
       {"core-avx2", PROCESSOR_HASWELL, CPU_NEHALEM, PTA_HASWELL},
       {"broadwell", PROCESSOR_HASWELL, CPU_NEHALEM, PTA_BROADWELL},
+      {"skylake", PROCESSOR_HASWELL, CPU_NEHALEM, PTA_SKYLAKE},
       {"bonnell", PROCESSOR_BONNELL, CPU_ATOM, PTA_BONNELL},
       {"atom", PROCESSOR_BONNELL, CPU_ATOM, PTA_BONNELL},
       {"silvermont", PROCESSOR_SILVERMONT, CPU_SLM, PTA_SILVERMONT},
       {"slm", PROCESSOR_SILVERMONT, CPU_SLM, PTA_SILVERMONT},
-      {"knl", PROCESSOR_KNL, CPU_KNL, PTA_KNL},
+      {"knl", PROCESSOR_KNL, CPU_SLM, PTA_KNL},
       {"intel", PROCESSOR_INTEL, CPU_SLM, PTA_NEHALEM},
       {"geode", PROCESSOR_GEODE, CPU_GEODE,
 	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE | PTA_PRFCHW},
@@ -21245,7 +21247,7 @@ ix86_expand_int_movcc (rtx operands[])
       operands[0] = tmp;
 
       /* Recurse to get the constant loaded.  */
-      if (ix86_expand_int_movcc (operands) == 0)
+      if (!ix86_expand_int_movcc (operands))
         return false;
 
       /* Mask in the interesting variable.  */
@@ -21786,7 +21788,7 @@ ix86_expand_int_vcond (rtx operands[])
 	  || (TARGET_AVX2 && GET_MODE_SIZE (data_mode) == 32)))
     {
       rtx negop = operands[2 - (code == LT)];
-      int shift = GET_MODE_BITSIZE (GET_MODE_INNER (data_mode)) - 1;
+      int shift = GET_MODE_UNIT_BITSIZE (data_mode) - 1;
       if (negop == CONST1_RTX (data_mode))
 	{
 	  rtx res = expand_simple_binop (mode, LSHIFTRT, cop0, GEN_INT (shift),
@@ -25529,7 +25531,7 @@ ix86_expand_strlensi_unroll_1 (rtx out, rtx src, rtx align_rtx)
 
   /* Avoid branch in fixing the byte.  */
   tmpreg = gen_lowpart (QImode, tmpreg);
-  emit_insn (gen_addqi3_cc (tmpreg, tmpreg, tmpreg));
+  emit_insn (gen_addqi3_cconly_overflow (tmpreg, tmpreg));
   tmp = gen_rtx_REG (CCmode, FLAGS_REG);
   cmp = gen_rtx_LTU (VOIDmode, tmp, const0_rtx);
   emit_insn (ix86_gen_sub3_carry (out, out, GEN_INT (3), tmp, cmp));
@@ -31734,9 +31736,9 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_ROUND, CODE_FOR_roundv4sf2, "__builtin_ia32_roundps_az", IX86_BUILTIN_ROUNDPS_AZ, UNKNOWN, (int) V4SF_FTYPE_V4SF },
   { OPTION_MASK_ISA_ROUND, CODE_FOR_roundv4sf2_sfix, "__builtin_ia32_roundps_az_sfix", IX86_BUILTIN_ROUNDPS_AZ_SFIX, UNKNOWN, (int) V4SI_FTYPE_V4SF },
 
-  { OPTION_MASK_ISA_ROUND, CODE_FOR_sse4_1_ptest, "__builtin_ia32_ptestz128", IX86_BUILTIN_PTESTZ, EQ, (int) INT_FTYPE_V2DI_V2DI_PTEST },
-  { OPTION_MASK_ISA_ROUND, CODE_FOR_sse4_1_ptest, "__builtin_ia32_ptestc128", IX86_BUILTIN_PTESTC, LTU, (int) INT_FTYPE_V2DI_V2DI_PTEST },
-  { OPTION_MASK_ISA_ROUND, CODE_FOR_sse4_1_ptest, "__builtin_ia32_ptestnzc128", IX86_BUILTIN_PTESTNZC, GTU, (int) INT_FTYPE_V2DI_V2DI_PTEST },
+  { OPTION_MASK_ISA_ROUND, CODE_FOR_sse4_1_ptestv2di, "__builtin_ia32_ptestz128", IX86_BUILTIN_PTESTZ, EQ, (int) INT_FTYPE_V2DI_V2DI_PTEST },
+  { OPTION_MASK_ISA_ROUND, CODE_FOR_sse4_1_ptestv2di, "__builtin_ia32_ptestc128", IX86_BUILTIN_PTESTC, LTU, (int) INT_FTYPE_V2DI_V2DI_PTEST },
+  { OPTION_MASK_ISA_ROUND, CODE_FOR_sse4_1_ptestv2di, "__builtin_ia32_ptestnzc128", IX86_BUILTIN_PTESTNZC, GTU, (int) INT_FTYPE_V2DI_V2DI_PTEST },
 
   /* SSE4.2 */
   { OPTION_MASK_ISA_SSE4_2, CODE_FOR_sse4_2_gtv2di3, "__builtin_ia32_pcmpgtq", IX86_BUILTIN_PCMPGTQ, UNKNOWN, (int) V2DI_FTYPE_V2DI_V2DI },
@@ -31892,9 +31894,9 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestps256, "__builtin_ia32_vtestzps256", IX86_BUILTIN_VTESTZPS256, EQ, (int) INT_FTYPE_V8SF_V8SF_PTEST },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestps256, "__builtin_ia32_vtestcps256", IX86_BUILTIN_VTESTCPS256, LTU, (int) INT_FTYPE_V8SF_V8SF_PTEST },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestps256, "__builtin_ia32_vtestnzcps256", IX86_BUILTIN_VTESTNZCPS256, GTU, (int) INT_FTYPE_V8SF_V8SF_PTEST },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_ptest256, "__builtin_ia32_ptestz256", IX86_BUILTIN_PTESTZ256, EQ, (int) INT_FTYPE_V4DI_V4DI_PTEST },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_ptest256, "__builtin_ia32_ptestc256", IX86_BUILTIN_PTESTC256, LTU, (int) INT_FTYPE_V4DI_V4DI_PTEST },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_ptest256, "__builtin_ia32_ptestnzc256", IX86_BUILTIN_PTESTNZC256, GTU, (int) INT_FTYPE_V4DI_V4DI_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_ptestv4di, "__builtin_ia32_ptestz256", IX86_BUILTIN_PTESTZ256, EQ, (int) INT_FTYPE_V4DI_V4DI_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_ptestv4di, "__builtin_ia32_ptestc256", IX86_BUILTIN_PTESTC256, LTU, (int) INT_FTYPE_V4DI_V4DI_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_ptestv4di, "__builtin_ia32_ptestnzc256", IX86_BUILTIN_PTESTNZC256, GTU, (int) INT_FTYPE_V4DI_V4DI_PTEST },
 
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_movmskpd256, "__builtin_ia32_movmskpd256", IX86_BUILTIN_MOVMSKPD256, UNKNOWN, (int) INT_FTYPE_V4DF  },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_movmskps256, "__builtin_ia32_movmskps256", IX86_BUILTIN_MOVMSKPS256, UNKNOWN, (int) INT_FTYPE_V8SF },
@@ -34574,6 +34576,7 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
     P_PROC_SSE4_2,
     P_POPCNT,
     P_AES,
+    P_PCLMUL,
     P_AVX,
     P_PROC_AVX,
     P_BMI,
@@ -34612,6 +34615,7 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
       {"sse4.2", P_SSE4_2},
       {"popcnt", P_POPCNT},
       {"aes", P_AES},
+      {"pclmul", P_PCLMUL},
       {"avx", P_AVX},
       {"bmi", P_BMI},
       {"fma4", P_FMA4},
@@ -35600,6 +35604,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
     F_BMI,
     F_BMI2,
     F_AES,
+    F_PCLMUL,
     F_MAX
   };
 
@@ -35633,7 +35638,8 @@ fold_builtin_cpu (tree fndecl, tree *args)
     M_AMDFAM15H_BDVER4,
     M_INTEL_COREI7_IVYBRIDGE,
     M_INTEL_COREI7_HASWELL,
-    M_INTEL_COREI7_BROADWELL
+    M_INTEL_COREI7_BROADWELL,
+    M_INTEL_COREI7_SKYLAKE
   };
 
   static struct _arch_names_table
@@ -35655,6 +35661,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
       {"ivybridge", M_INTEL_COREI7_IVYBRIDGE},
       {"haswell", M_INTEL_COREI7_HASWELL},
       {"broadwell", M_INTEL_COREI7_BROADWELL},
+      {"skylake", M_INTEL_COREI7_SKYLAKE},
       {"bonnell", M_INTEL_BONNELL},
       {"silvermont", M_INTEL_SILVERMONT},
       {"knl", M_INTEL_KNL},
@@ -35696,7 +35703,8 @@ fold_builtin_cpu (tree fndecl, tree *args)
       {"avx512f",F_AVX512F},
       {"bmi",    F_BMI},
       {"bmi2",   F_BMI2},
-      {"aes",    F_AES}
+      {"aes",    F_AES},
+      {"pclmul", F_PCLMUL}
     };
 
   tree __processor_model_type = build_processor_model_struct ();
@@ -36218,7 +36226,7 @@ ix86_expand_multi_arg_builtin (enum insn_code icode, tree exp, rtx target,
 		xop_rotl:
 		  if (CONST_INT_P (op))
 		    {
-		      int mask = GET_MODE_BITSIZE (GET_MODE_INNER (tmode)) - 1;
+		      int mask = GET_MODE_UNIT_BITSIZE (tmode) - 1;
 		      op = GEN_INT (INTVAL (op) & mask);
 		      gcc_checking_assert
 			(insn_data[icode].operand[i + 1].predicate (op, mode));
@@ -39502,60 +39510,57 @@ rdseed_step:
       return target;
 
     case IX86_BUILTIN_SBB32:
-      icode = CODE_FOR_subsi3_carry;
+      icode = CODE_FOR_subborrowsi;
       mode0 = SImode;
-      goto addcarryx;
+      goto handlecarry;
 
     case IX86_BUILTIN_SBB64:
-      icode = CODE_FOR_subdi3_carry;
+      icode = CODE_FOR_subborrowdi;
       mode0 = DImode;
-      goto addcarryx;
+      goto handlecarry;
 
     case IX86_BUILTIN_ADDCARRYX32:
-      icode = TARGET_ADX ? CODE_FOR_adcxsi3 : CODE_FOR_addsi3_carry;
+      icode = CODE_FOR_addcarrysi;
       mode0 = SImode;
-      goto addcarryx;
+      goto handlecarry;
 
     case IX86_BUILTIN_ADDCARRYX64:
-      icode = TARGET_ADX ? CODE_FOR_adcxdi3 : CODE_FOR_adddi3_carry;
+      icode = CODE_FOR_addcarrydi;
       mode0 = DImode;
 
-addcarryx:
+    handlecarry:
       arg0 = CALL_EXPR_ARG (exp, 0); /* unsigned char c_in.  */
       arg1 = CALL_EXPR_ARG (exp, 1); /* unsigned int src1.  */
       arg2 = CALL_EXPR_ARG (exp, 2); /* unsigned int src2.  */
       arg3 = CALL_EXPR_ARG (exp, 3); /* unsigned int *sum_out.  */
 
-      op0 = gen_reg_rtx (QImode);
-
-      /* Generate CF from input operand.  */
       op1 = expand_normal (arg0);
       op1 = copy_to_mode_reg (QImode, convert_to_mode (QImode, op1, 1));
-      emit_insn (gen_addqi3_cc (op0, op1, constm1_rtx));
 
-      /* Gen ADCX instruction to compute X+Y+CF.  */
       op2 = expand_normal (arg1);
-      op3 = expand_normal (arg2);
-
-      if (!REG_P (op2))
+      if (!register_operand (op2, mode0))
 	op2 = copy_to_mode_reg (mode0, op2);
-      if (!REG_P (op3))
+
+      op3 = expand_normal (arg2);
+      if (!register_operand (op3, mode0))
 	op3 = copy_to_mode_reg (mode0, op3);
 
-      op0 = gen_reg_rtx (mode0);
-
-      op4 = gen_rtx_REG (CCCmode, FLAGS_REG);
-      pat = gen_rtx_LTU (VOIDmode, op4, const0_rtx);
-      emit_insn (GEN_FCN (icode) (op0, op2, op3, op4, pat));
-
-      /* Store the result.  */
       op4 = expand_normal (arg3);
       if (!address_operand (op4, VOIDmode))
 	{
 	  op4 = convert_memory_address (Pmode, op4);
 	  op4 = copy_addr_to_reg (op4);
 	}
-      emit_move_insn (gen_rtx_MEM (mode0, op4), op0);
+
+      /* Generate CF from input operand.  */
+      emit_insn (gen_addqi3_cconly_overflow (op1, constm1_rtx));
+
+      /* Generate instruction that consumes CF.  */
+      op0 = gen_reg_rtx (mode0);
+
+      op1 = gen_rtx_REG (CCCmode, FLAGS_REG);
+      pat = gen_rtx_LTU (mode0, op1, const0_rtx);
+      emit_insn (GEN_FCN (icode) (op0, op2, op3, op1, pat));
 
       /* Return current CF value.  */
       if (target == 0)
@@ -39563,6 +39568,10 @@ addcarryx:
 
       PUT_MODE (pat, QImode);
       emit_insn (gen_rtx_SET (target, pat));
+
+      /* Store the result.  */
+      emit_move_insn (gen_rtx_MEM (mode0, op4), op0);
+
       return target;
 
     case IX86_BUILTIN_READ_FLAGS:
@@ -45562,12 +45571,12 @@ ix86_expand_reduc (rtx (*fn) (rtx, rtx, rtx), rtx dest, rtx in)
     }
 
   for (i = GET_MODE_BITSIZE (mode);
-       i > GET_MODE_BITSIZE (GET_MODE_INNER (mode));
+       i > GET_MODE_UNIT_BITSIZE (mode);
        i >>= 1)
     {
       half = gen_reg_rtx (mode);
       emit_reduc_half (half, vec, i);
-      if (i == GET_MODE_BITSIZE (GET_MODE_INNER (mode)) * 2)
+      if (i == GET_MODE_UNIT_BITSIZE (mode) * 2)
 	dst = dest;
       else
 	dst = gen_reg_rtx (mode);
@@ -47950,7 +47959,7 @@ expand_vec_perm_palignr (struct expand_vec_perm_d *d, bool single_insn_only_p)
       return expand_vec_perm_1 (&dcopy);
     }
 
-  shift = GEN_INT (min * GET_MODE_BITSIZE (GET_MODE_INNER (d->vmode)));
+  shift = GEN_INT (min * GET_MODE_UNIT_BITSIZE (d->vmode));
   if (GET_MODE_SIZE (d->vmode) == 16)
     {
       target = gen_reg_rtx (TImode);
@@ -50400,8 +50409,7 @@ ix86_expand_sse2_abs (rtx target, rtx input)
 	 value of X is (((signed) X >> (W-1)) ^ X) - ((signed) X >> (W-1)).  */
       case V4SImode:
 	tmp0 = expand_simple_binop (mode, ASHIFTRT, input,
-				    GEN_INT (GET_MODE_BITSIZE
-					     (GET_MODE_INNER (mode)) - 1),
+				    GEN_INT (GET_MODE_UNIT_BITSIZE (mode) - 1),
 				    NULL, 0, OPTAB_DIRECT);
 	tmp1 = expand_simple_binop (mode, XOR, tmp0, input,
 				    NULL, 0, OPTAB_DIRECT);

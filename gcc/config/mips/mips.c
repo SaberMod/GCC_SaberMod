@@ -1255,32 +1255,6 @@ static const struct mips_rtx_cost_data
 		    2,            /* branch_cost */
 		    4             /* memory_latency */
   },
-  { /* W32 */
-    COSTS_N_INSNS (4),            /* fp_add */
-    COSTS_N_INSNS (4),            /* fp_mult_sf */
-    COSTS_N_INSNS (5),            /* fp_mult_df */
-    COSTS_N_INSNS (17),           /* fp_div_sf */
-    COSTS_N_INSNS (32),           /* fp_div_df */
-    COSTS_N_INSNS (5),            /* int_mult_si */
-    COSTS_N_INSNS (5),            /* int_mult_di */
-    COSTS_N_INSNS (41),           /* int_div_si */
-    COSTS_N_INSNS (41),           /* int_div_di */
-		     1,           /* branch_cost */
-		     4            /* memory_latency */
-  },
-  { /* W64 */
-    COSTS_N_INSNS (4),            /* fp_add */
-    COSTS_N_INSNS (4),            /* fp_mult_sf */
-    COSTS_N_INSNS (5),            /* fp_mult_df */
-    COSTS_N_INSNS (17),           /* fp_div_sf */
-    COSTS_N_INSNS (32),           /* fp_div_df */
-    COSTS_N_INSNS (5),            /* int_mult_si */
-    COSTS_N_INSNS (5),            /* int_mult_di */
-    COSTS_N_INSNS (41),           /* int_div_si */
-    COSTS_N_INSNS (41),           /* int_div_di */
-		     1,           /* branch_cost */
-		     4            /* memory_latency */
-  },
   { /* M5100 */
     COSTS_N_INSNS (4),            /* fp_add */
     COSTS_N_INSNS (4),            /* fp_mult_sf */
@@ -7656,12 +7630,22 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
      half-word alignment, it is usually better to move in half words.
      For instance, lh/lh/sh/sh is usually better than lwl/lwr/swl/swr
      and lw/lw/sw/sw is usually better than ldl/ldr/sdl/sdr.
-     Otherwise move word-sized chunks.  */
-  if (MEM_ALIGN (src) == BITS_PER_WORD / 2
-      && MEM_ALIGN (dest) == BITS_PER_WORD / 2)
-    bits = BITS_PER_WORD / 2;
+     Otherwise move word-sized chunks.
+
+     For ISA_HAS_LWL_LWR we rely on the lwl/lwr & swl/swr load. Otherwise
+     picking the minimum of alignment or BITS_PER_WORD gets us the
+     desired size for bits.  */
+
+  if (!ISA_HAS_LWL_LWR)
+    bits = MIN (BITS_PER_WORD, MIN (MEM_ALIGN (src), MEM_ALIGN (dest)));
   else
-    bits = BITS_PER_WORD;
+    {
+      if (MEM_ALIGN (src) == BITS_PER_WORD / 2
+	  && MEM_ALIGN (dest) == BITS_PER_WORD / 2)
+	bits = BITS_PER_WORD / 2;
+      else
+	bits = BITS_PER_WORD;
+    }
 
   mode = mode_for_size (bits, MODE_INT, 0);
   delta = bits / BITS_PER_UNIT;
@@ -7780,8 +7764,9 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
 bool
 mips_expand_block_move (rtx dest, rtx src, rtx length)
 {
-  /* Disable entirely for R6 initially.  */
-  if (!ISA_HAS_LWL_LWR)
+  if (!ISA_HAS_LWL_LWR
+      && (MEM_ALIGN (src) < MIPS_MIN_MOVE_MEM_ALIGN
+	  || MEM_ALIGN (dest) < MIPS_MIN_MOVE_MEM_ALIGN))
     return false;
 
   if (CONST_INT_P (length))
@@ -12307,6 +12292,33 @@ mips_hard_regno_mode_ok_p (unsigned int regno, machine_mode mode)
   return false;
 }
 
+/* Return nonzero if register OLD_REG can be renamed to register NEW_REG.  */
+
+bool
+mips_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
+			   unsigned int new_reg)
+{
+  /* Interrupt functions can only use registers that have already been
+     saved by the prologue, even if they would normally be call-clobbered.  */
+  if (cfun->machine->interrupt_handler_p && !df_regs_ever_live_p (new_reg))
+    return false;
+
+  return true;
+}
+
+/* Return nonzero if register REGNO can be used as a scratch register
+   in peephole2.  */
+
+bool
+mips_hard_regno_scratch_ok (unsigned int regno)
+{
+  /* See mips_hard_regno_rename_ok.  */
+  if (cfun->machine->interrupt_handler_p && !df_regs_ever_live_p (regno))
+    return false;
+
+  return true;
+}
+
 /* Implement HARD_REGNO_NREGS.  */
 
 unsigned int
@@ -13615,7 +13627,7 @@ mips_store_data_bypass_p (rtx_insn *out_insn, rtx_insn *in_insn)
   if (GET_CODE (PATTERN (in_insn)) == UNSPEC_VOLATILE)
     return false;
 
-  return !store_data_bypass_p (out_insn, in_insn);
+  return store_data_bypass_p (out_insn, in_insn);
 }
 
 
@@ -19852,6 +19864,9 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
 #define TARGET_LRA_P mips_lra_p
 #undef TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS
 #define TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS mips_ira_change_pseudo_allocno_class
+
+#undef TARGET_HARD_REGNO_SCRATCH_OK
+#define TARGET_HARD_REGNO_SCRATCH_OK mips_hard_regno_scratch_ok
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

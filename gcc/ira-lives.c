@@ -31,7 +31,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "except.h"
 #include "insn-config.h"
-#include "recog.h"
 #include "diagnostic-core.h"
 #include "params.h"
 #include "sparseset.h"
@@ -831,7 +830,8 @@ single_reg_operand_class (int op_num)
    might be used by insn reloads because the constraints are too
    strict.  */
 void
-ira_implicitly_set_insn_hard_regs (HARD_REG_SET *set)
+ira_implicitly_set_insn_hard_regs (HARD_REG_SET *set,
+				   alternative_mask preferred)
 {
   int i, c, regno = 0;
   enum reg_class cl;
@@ -854,7 +854,6 @@ ira_implicitly_set_insn_hard_regs (HARD_REG_SET *set)
 	  mode = (GET_CODE (op) == SCRATCH
 		  ? GET_MODE (op) : PSEUDO_REGNO_MODE (regno));
 	  cl = NO_REGS;
-	  alternative_mask preferred = preferred_alternatives;
 	  for (; (c = *p); p += CONSTRAINT_LEN (c, p))
 	    if (c == '#')
 	      preferred &= ~ALTERNATIVE_BIT (0);

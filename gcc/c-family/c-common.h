@@ -142,6 +142,7 @@ enum rid
   RID_IS_EMPTY,                RID_IS_ENUM,
   RID_IS_FINAL,                RID_IS_LITERAL_TYPE,
   RID_IS_POD,                  RID_IS_POLYMORPHIC,
+  RID_IS_SAME_AS,
   RID_IS_STD_LAYOUT,           RID_IS_TRIVIAL,
   RID_IS_TRIVIALLY_ASSIGNABLE, RID_IS_TRIVIALLY_CONSTRUCTIBLE,
   RID_IS_TRIVIALLY_COPYABLE,
@@ -149,6 +150,9 @@ enum rid
 
   /* C++11 */
   RID_CONSTEXPR, RID_DECLTYPE, RID_NOEXCEPT, RID_NULLPTR, RID_STATIC_ASSERT,
+
+  /* C++ concepts */
+  RID_CONCEPT, RID_REQUIRES,
 
   /* Cilk Plus keywords.  */
   RID_CILK_SPAWN, RID_CILK_SYNC, RID_CILK_FOR,
@@ -386,6 +390,9 @@ extern machine_mode c_default_pointer_mode;
 #define D_OBJC		0x080	/* In Objective C and neither C nor C++.  */
 #define D_CXX_OBJC	0x100	/* In Objective C, and C++, but not C.  */
 #define D_CXXWARN	0x200	/* In C warn with -Wcxx-compat.  */
+#define D_CXX_CONCEPTS  0x400   /* In C++, only with concepts. */
+
+#define D_CXX_CONCEPTS_FLAGS D_CXXONLY | D_CXX_CONCEPTS
 
 /* The reserved keyword table.  */
 extern const struct c_common_resword c_common_reswords[];
@@ -467,14 +474,13 @@ struct GTY(()) sorted_fields_type {
    These may be shadowed, and may be referenced from nested functions.  */
 #define C_DECLARED_LABEL_FLAG(label) TREE_LANG_FLAG_1 (label)
 
-typedef enum c_language_kind
+enum c_language_kind
 {
   clk_c		= 0,		/* C90, C94, C99 or C11 */
   clk_objc	= 1,		/* clk_c with ObjC features.  */
   clk_cxx	= 2,		/* ANSI/ISO C++ */
   clk_objcxx	= 3		/* clk_cxx with ObjC features.  */
-}
-c_language_kind;
+};
 
 /* To test for a specific language use c_language, defined by each
    front end.  For "ObjC features" or "not C++" use the macros.  */
@@ -484,7 +490,7 @@ extern c_language_kind c_language;
 #define c_dialect_objc()	((c_language & clk_objc) != 0)
 
 /* The various name of operator that appears in error messages. */
-typedef enum ref_operator {
+enum ref_operator {
   /* NULL */
   RO_NULL,
   /* array indexing */
@@ -497,7 +503,7 @@ typedef enum ref_operator {
   RO_IMPLICIT_CONVERSION,
   /* ->* */
   RO_ARROW_STAR
-} ref_operator;
+};
 
 /* Information about a statement tree.  */
 

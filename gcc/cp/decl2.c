@@ -714,6 +714,10 @@ check_classfn (tree ctype, tree function, tree template_parms)
 	      != type_memfn_rqual (TREE_TYPE (fndecl)))
 	    continue;
 
+	  // Include constraints in the match.
+	  tree c1 = get_constraints (function);
+	  tree c2 = get_constraints (fndecl);
+
 	  /* While finding a match, same types and params are not enough
 	     if the function is versioned.  Also check version ("target")
 	     attributes.  */
@@ -724,6 +728,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
 	      && (!is_template
 		  || comp_template_parms (template_parms,
 					  DECL_TEMPLATE_PARMS (fndecl)))
+	      && equivalent_constraints (c1, c2)
 	      && (DECL_TEMPLATE_SPECIALIZATION (function)
 		  == DECL_TEMPLATE_SPECIALIZATION (fndecl))
 	      && (!DECL_TEMPLATE_SPECIALIZATION (function)
@@ -1741,6 +1746,9 @@ mark_vtable_entries (tree decl)
 {
   tree fnaddr;
   unsigned HOST_WIDE_INT idx;
+
+  /* It's OK for the vtable to refer to deprecated virtual functions.  */
+  warning_sentinel w(warn_deprecated_decl);
 
   FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (DECL_INITIAL (decl)),
 			      idx, fnaddr)
@@ -4841,6 +4849,9 @@ c_parse_final_cleanups (void)
 
   timevar_stop (TV_PHASE_DEFERRED);
   timevar_start (TV_PHASE_PARSING);
+
+  /* Indicate that we're done with front end processing.  */
+  at_eof = 2;
 }
 
 /* Perform any post compilation-proper cleanups for the C++ front-end.
@@ -5081,6 +5092,7 @@ mark_used (tree decl, tsubst_flags_t complain)
 	  || (TREE_CODE (decl) == FUNCTION_DECL
 	      && DECL_OMP_DECLARE_REDUCTION_P (decl))
 	  || undeduced_auto_decl (decl))
+      && !DECL_DECLARED_CONCEPT_P (decl)
       && !uses_template_parms (DECL_TI_ARGS (decl)))
     {
       /* Instantiating a function will result in garbage collection.  We
@@ -5179,6 +5191,7 @@ mark_used (tree decl, tsubst_flags_t complain)
     }
   else if (VAR_OR_FUNCTION_DECL_P (decl)
 	   && DECL_TEMPLATE_INFO (decl)
+           && !DECL_DECLARED_CONCEPT_P (decl)
 	   && (!DECL_EXPLICIT_INSTANTIATION (decl)
 	       || always_instantiate_p (decl)))
     /* If this is a function or variable that is an instance of some

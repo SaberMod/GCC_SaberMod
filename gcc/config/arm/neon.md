@@ -2672,12 +2672,12 @@
 	 to this model.  */
       unsigned int elt = INTVAL (operands[2]);
       unsigned int reg_nelts
-	= 64 / GET_MODE_BITSIZE (GET_MODE_INNER (<MODE>mode));
+	= 64 / GET_MODE_UNIT_BITSIZE (<MODE>mode);
       elt ^= reg_nelts - 1;
       operands[2] = GEN_INT (elt);
     }
 
-  if (GET_MODE_BITSIZE (GET_MODE_INNER (<MODE>mode)) == 32)
+  if (GET_MODE_UNIT_BITSIZE (<MODE>mode) == 32)
     emit_insn (gen_vec_extract<mode> (operands[0], operands[1], operands[2]));
   else
     emit_insn (gen_neon_vget_lane<mode>_sext_internal (operands[0],
@@ -2701,12 +2701,12 @@
 	 to this model.  */
       unsigned int elt = INTVAL (operands[2]);
       unsigned int reg_nelts
-	= 64 / GET_MODE_BITSIZE (GET_MODE_INNER (<MODE>mode));
+	= 64 / GET_MODE_UNIT_BITSIZE (<MODE>mode);
       elt ^= reg_nelts - 1;
       operands[2] = GEN_INT (elt);
     }
 
-  if (GET_MODE_BITSIZE (GET_MODE_INNER (<MODE>mode)) == 32)
+  if (GET_MODE_UNIT_BITSIZE (<MODE>mode) == 32)
     emit_insn (gen_vec_extract<mode> (operands[0], operands[1], operands[2]));
   else
     emit_insn (gen_neon_vget_lane<mode>_zext_internal (operands[0],
@@ -2731,7 +2731,22 @@
    (match_operand:SI 2 "immediate_operand" "")]
   "TARGET_NEON"
 {
-  int lane = INTVAL (operands[2]);
+  int lane;
+
+if (BYTES_BIG_ENDIAN)
+    {
+      /* The intrinsics are defined in terms of a model where the
+	 element ordering in memory is vldm order, whereas the generic
+	 RTL is defined in terms of a model where the element ordering
+	 in memory is array order.  Convert the lane number to conform
+	 to this model.  */
+      unsigned int elt = INTVAL (operands[2]);
+      unsigned int reg_nelts = 2;
+      elt ^= reg_nelts - 1;
+      operands[2] = GEN_INT (elt);
+    }
+
+  lane = INTVAL (operands[2]);
   gcc_assert ((lane ==0) || (lane == 1));
   emit_move_insn (operands[0], lane == 0
 				? gen_lowpart (DImode, operands[1])
@@ -2751,7 +2766,7 @@
   if (BYTES_BIG_ENDIAN)
     {
       unsigned int reg_nelts
-	= 64 / GET_MODE_BITSIZE (GET_MODE_INNER (<MODE>mode));
+	= 64 / GET_MODE_UNIT_BITSIZE (<MODE>mode);
       elt ^= reg_nelts - 1;
     }
 
@@ -2854,7 +2869,7 @@
     {
       unsigned int elt = INTVAL (operands[2]);
       unsigned int reg_nelts
-	= 64 / GET_MODE_BITSIZE (GET_MODE_INNER (<V_double_vector_mode>mode));
+	= 64 / GET_MODE_UNIT_BITSIZE (<V_double_vector_mode>mode);
       elt ^= reg_nelts - 1;
       operands[2] = GEN_INT (elt);
     }

@@ -433,17 +433,6 @@ enum cv_qualifier {
   TYPE_QUAL_ATOMIC   = 0x8
 };
 
-/* Enumerate visibility settings.  */
-#ifndef SYMBOL_VISIBILITY_DEFINED
-#define SYMBOL_VISIBILITY_DEFINED
-enum symbol_visibility {
-  VISIBILITY_DEFAULT,
-  VISIBILITY_PROTECTED,
-  VISIBILITY_HIDDEN,
-  VISIBILITY_INTERNAL
-};
-#endif  // SYMBOL_VISIBILITY_DEFINED
-
 /* Standard named or nameless data types of the C compiler.  */
 enum tree_index {
   TI_ERROR_MARK,
@@ -1099,7 +1088,7 @@ struct GTY(()) tree_base {
        TREE_THIS_NOTRAP in
           INDIRECT_REF, MEM_REF, TARGET_MEM_REF, ARRAY_REF, ARRAY_RANGE_REF
 
-       SSA_NAME_IN_FREELIST in
+       SSA_NAME_IN_FREE_LIST in
           SSA_NAME
 
        DECL_NONALIASED in

@@ -1642,6 +1642,9 @@ Using the GNU Compiler Collection (GCC)},
 See ``RS/6000 and PowerPC Options'' in the main manual
 @end ifhtml
 
+@item --enable-default-ssp
+Turn on @option{-fstack-protector-strong} by default.
+
 @item --enable-cld
 This option enables @option{-mcld} by default for 32-bit x86 targets.
 @ifnothtml
@@ -1853,36 +1856,27 @@ include and lib options directly.
 These flags are applicable to the host platform only.  When building
 a cross compiler, they will not be used to configure target libraries.
 
-@item --with-host-libstdcxx=@var{linker-args}
-If you are linking with a static copy of PPL, you can use this option
-to specify how the linker should find the standard C++ library used
-internally by PPL.  Typical values of @var{linker-args} might be
-@samp{-lstdc++} or @samp{-Wl,-Bstatic,-lstdc++,-Bdynamic -lm}.  If you are
-linking with a shared copy of PPL, you probably do not need this
-option; shared library dependencies will cause the linker to search
-for the standard C++ library automatically.
-
 @item --with-stage1-ldflags=@var{flags}
 This option may be used to set linker flags to be used when linking
 stage 1 of GCC.  These are also used when linking GCC if configured with
-@option{--disable-bootstrap}.  By default no special flags are used.
+@option{--disable-bootstrap}.  If @option{–with-stage1-libs} is not set to a
+value, then the default is @samp{-static-libstdc++ -static-libgcc}, if
+supported.
 
 @item --with-stage1-libs=@var{libs}
 This option may be used to set libraries to be used when linking stage 1
 of GCC.  These are also used when linking GCC if configured with
-@option{--disable-bootstrap}.  The default is the argument to
-@option{--with-host-libstdcxx}, if specified.
+@option{--disable-bootstrap}.
 
 @item --with-boot-ldflags=@var{flags}
 This option may be used to set linker flags to be used when linking
-stage 2 and later when bootstrapping GCC.  If neither --with-boot-libs
-nor --with-host-libstdcxx is set to a value, then the default is
+stage 2 and later when bootstrapping GCC.  If --with-boot-libs
+is not is set to a value, then the default is
 @samp{-static-libstdc++ -static-libgcc}.
 
 @item --with-boot-libs=@var{libs}
 This option may be used to set libraries to be used when linking stage 2
-and later when bootstrapping GCC.  The default is the argument to
-@option{--with-host-libstdcxx}, if specified.
+and later when bootstrapping GCC.
 
 @item --with-debug-prefix-map=@var{map}
 Convert source directory names using @option{-fdebug-prefix-map} when
@@ -3159,35 +3153,23 @@ contact their makers.
 AIX:
 @itemize
 @item
-@uref{http://www.bullfreeware.com,,Bull's Freeware and Shareware Archive for AIX};
+@uref{http://www.bullfreeware.com,,Bull's Open Source Software Archive for
+for AIX 5L and AIX 6};
 
 @item
-@uref{http://pware.hvcc.edu,,Hudson Valley Community College Open Source Software for IBM System p};
-
-@item
-@uref{http://www.perzl.org/aix/,,AIX 5L and 6 Open Source Packages}.
+@uref{http://www.perzl.org/aix/,,AIX Open Source Packages (AIX5L AIX 6.1
+AIX 7.1)}.
 @end itemize
 
 @item
 DOS---@uref{http://www.delorie.com/djgpp/,,DJGPP}.
 
 @item
-Renesas H8/300[HS]---@uref{http://h8300-hms.sourceforge.net/,,GNU
-Development Tools for the Renesas H8/300[HS] Series}.
-
-@item
 HP-UX:
 @itemize
 @item
 @uref{http://hpux.connect.org.uk/,,HP-UX Porting Center};
-
-@item
-@uref{ftp://sunsite.informatik.rwth-aachen.de/pub/packages/gcc_hpux/,,Binaries for HP-UX 11.00 at Aachen University of Technology}.
 @end itemize
-
-@item
-@uref{http://www.sco.com/skunkware/devtools/index.html#gcc,,SCO
-OpenServer/Unixware}.
 
 @item
 Solaris 2 (SPARC, Intel):
@@ -3205,16 +3187,9 @@ Microsoft Windows:
 @item
 The @uref{http://sourceware.org/cygwin/,,Cygwin} project;
 @item
-The @uref{http://www.mingw.org/,,MinGW} project.
+The @uref{http://www.mingw.org/,,MinGW} and
+@uref{http://mingw-w64.org/,,mingw-w64} projects.
 @end itemize
-
-@item
-@uref{ftp://ftp.thewrittenword.com/packages/by-name/,,The
-Written Word} offers binaries for
-AIX 4.3.3, 5.1 and 5.2,
-GNU/Linux (i386),
-HP-UX 10.20, 11.00, and 11.11, and
-Solaris/SPARC 2.5.1, 2.6, 7, 8, 9 and 10.
 
 @item
 @uref{http://www.openpkg.org/,,OpenPKG} offers binaries for quite a
