@@ -36,6 +36,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 /* Borrowed from basic-block.h.  */
 #define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
 
+#ifdef __MINGW32__
+#define realpath(path,resolved_path) _fullpath((resolved_path),(path),_MAX_PATH)
+#endif
+
 extern gcov_position_t gcov_position();
 extern int gcov_is_error();
 extern size_t gcov_max_filename;

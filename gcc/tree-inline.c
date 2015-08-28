@@ -800,8 +800,12 @@ remap_dependence_clique (copy_body_data *id, unsigned short clique)
   void **newc = pointer_map_contains (id->dependence_map,
 				      (void *)(uintptr_t)clique);
   if (!newc)
-    newc = pointer_map_insert (id->dependence_map,
-			       (void *)(uintptr_t)++cfun->last_clique);
+    {
+      newc = pointer_map_insert (id->dependence_map,
+			         (void *)(uintptr_t)clique);
+      *newc = (void *)(uintptr_t)++cfun->last_clique;
+    }
+
   return (uintptr_t)*newc;
 }
 
