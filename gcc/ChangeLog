@@ -1,3 +1,18 @@
+2015-09-09  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline:
+	2015-09-09  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/67512
+	* tree-ssa-uninit.c (pred_equal_p): Only call invert_tree_comparison
+	for comparisons.
+
+2015-09-09  Alan Modra  <amodra@gmail.com>
+
+	PR target/67378
+	* config/rs6000/rs6000.c (rs6000_secondary_reload_gpr): Find
+	reload replacement for PRE_MODIFY address reg.
+
 2015-09-07  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* config/i386/intelmic-mkoffload.c (prepare_target_image): Handle all

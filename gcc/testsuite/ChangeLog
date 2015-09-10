@@ -1,3 +1,25 @@
+2015-09-09  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline:
+	2015-09-09  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/67512
+	* gcc.dg/pr67512.c: New test.
+
+2015-09-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/67504
+	* g++.dg/gomp/pr67504.C: New test.
+
+	PR c/67501
+	* c-c++-common/gomp/pr67501.c: New test.
+
+	PR c/67500
+	* gcc.dg/gomp/pr67500.c: New test.
+
+	PR c/67495
+	* gcc.dg/gomp/pr67495.c: New test.
+
 2015-09-08  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/67369
