@@ -1,3 +1,37 @@
+2015-09-10  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67526
+	* gfortran.dg/pr67526.f90: New test.
+
+2015-09-10  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	PR target/67506
+	* gcc.c-torture/compile/pr67506.c: New test.
+
+2015-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/67523
+	* g++.dg/gomp/pr67523.C: New test.
+
+	PR c++/67522
+	* g++.dg/gomp/pr67522.C: New test.
+
+	PR middle-end/67521
+	* c-c++-common/gomp/pr67521.c: New test.
+
+	PR middle-end/67517
+	* c-c++-common/gomp/pr67517.c: New test.
+
+	PR c++/67514
+	* g++.dg/gomp/pr67514.C: New test.
+
+	PR c++/67511
+	* g++.dg/gomp/pr67511.C: New test.
+
+	PR c/67502
+	* c-c++-common/gomp/pr67502.c: New test.
+
 2015-09-09  Marek Polacek  <polacek@redhat.com>
 
 	Backport from mainline:

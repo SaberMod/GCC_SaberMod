@@ -1,3 +1,41 @@
+2015-09-10  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2015-09-10  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/67506
+	* config/sh/sh.c (sh_extending_set_of_reg::use_as_extended_reg): Add
+	missing simplify_gen_subreg.
+
+2015-09-10  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline
+	2015-08-27  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config.gcc (*-*-solaris2*): Enable default_use_cxa_atexit on
+	Solaris 12+.
+
+2015-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/67523
+	* gimplify.c (gimplify_omp_for): If inner stmt is not found
+	for combined loop, assert seen_error () and return GS_ERROR.
+
+	PR middle-end/67521
+	* gimplify.c (gimplify_omp_for): Don't call omp_add_variable
+	if decl is already in outer->variables.
+
+	PR middle-end/67517
+	* gimplify.c (gimplify_scan_omp_clauses): Instead of
+	asserting that decl is not specified in octx->variables,
+	break out of the loop if it is.
+
+	PR c++/67514
+	* gimplify.c (gimplify_omp_for): For loop SIMD construct, if
+	iterator is not explicitly determined, but is defined inside
+	of the combined workshare region, handle it like if it has
+	DECL_EXPR in OMP_FOR_PRE_BODY.
+
 2015-09-09  Marek Polacek  <polacek@redhat.com>
 
 	Backport from mainline:
