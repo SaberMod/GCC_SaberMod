@@ -91,6 +91,22 @@ void foo (void);
       ;;
   esac])
 
+dnl Check whether target effectively supports weakref
+AC_DEFUN([LIBGFOR_CHECK_WEAKREF], [
+  AC_CACHE_CHECK([whether the target supports weakref],
+		 libgfor_cv_have_weakref, [
+  save_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS -Wunknown-pragmas -Werror"
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+static int mytoto (int) __attribute__((__weakref__("toto")));
+]], [[return (mytoto != 0);]])],
+		 libgfor_cv_have_weakref=yes, libgfor_cv_have_weakref=no)
+  CFLAGS="$save_CFLAGS"])
+  if test $libgfor_cv_have_weakref = yes; then
+    AC_DEFINE(SUPPORTS_WEAKREF, 1,
+	      [Define to 1 if the target supports weakref])
+  fi])
+
 dnl Check whether target can unlink a file still open.
 AC_DEFUN([LIBGFOR_CHECK_UNLINK_OPEN_FILE], [
   AC_CACHE_CHECK([whether the target can unlink an open file],

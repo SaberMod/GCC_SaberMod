@@ -598,6 +598,9 @@ LIBGFOR_CHECK_SYNC_FETCH_AND_ADD
 # Check out #pragma weak.
 LIBGFOR_GTHREAD_WEAK
 
+# Check out weakref support.
+LIBGFOR_CHECK_WEAKREF
+
 # Various other checks on target
 LIBGFOR_CHECK_UNLINK_OPEN_FILE
 

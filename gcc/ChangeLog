@@ -1,3 +1,969 @@
+2015-09-11  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/constraints.md: Make "U" constraint a real register
+	constraint.
+	* config/sparc/sparc.c (TARGET_LRA_P): Define.
+	(D_MODES, DF_MODES): Add missing cast.
+	(TF_MODES, TF_MODES_NO_S): Include T_MODE.
+	(OF_MODES, OF_MODES_NO_S): Include O_MODE.
+	(sparc_register_move_cost): Decrease Niagara/UltrsSPARC memory
+	cost to 8.
+	* config/sparc/sparc.h (PROMOTE_MODE): Define.
+	* config/sparc/sparc.md (*movsi_lo_sum, *movsi_high): Do not
+	provide these insn when flag_pic.
+
+2015-09-11  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/47679
+	* tree-ssa-dom.c (struct cond_equivalence): Update comment.
+	* tree-ssa-scopedtables.h (class const_and_copies): Prefix data
+	member with m_.  Update inline member functions as necessary.  Add
+	toplevel comment.
+	* tree-ssa-scopedtables.c: Update const_and_copies's member
+	functions to use m_ prefix to access the stack.
+
+2015-09-11  Aditya Kumar  <aditya.k7@samsung.com>
+
+        * graphite-optimize-isl.c (disable_tiling): Remove.
+	(get_schedule_for_band): Do not use disable_tiling.
+	(get_prevector_map): Delete function.
+	(enable_polly_vector): Remove.
+        (get_schedule_for_band_list): Remove dead code.
+
+2015-09-11  Aditya Kumar  <aditya.k7@samsung.com>
+
+        * graphite-optimize-isl.c (get_tile_map): Refactor.
+        (get_schedule_for_band): Same.
+        (getScheduleForBand): Same.
+        (get_prevector_map): Same.
+        (get_schedule_for_band_list): Same.
+        (get_schedule_map): Same.
+        (get_single_map): Same.
+        (apply_schedule_map_to_scop): Same.
+        (optimize_isl): Same.
+
+2015-09-10  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/63304
+        * config/aarch64/aarch.md (mov<mode>:GPF_F16): Use GPF_TF_F16.
+        (movtf): Delete.
+        * config/aarch64/iterators.md (GPF_TF_F16): New.
+        (GPF_F16): Delete.
+
+2015-09-10  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx.c (nvptx_expand_call): Add spacing.
+	(nvptx_reorg): Adjust comments.
+
+2015-09-15  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR bootstrap/67363
+	* configure.ac: Check if setenv and unsetenv are declared.
+	* configure: Rebuild.
+	* config.in: Rebuild.
+	* system.h: Declare setenv and unsetenv if not declared.
+
+2015-09-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (swap_web_entry): Update preceding
+	commentary to simplify permute mask adjustment equation.
+	(special_handling_values): Add SH_VPERM.
+	(const_load_sequence_p): New function.
+	(insn_is_swappable_p): Add logic to recognize an UNSPEC_VPERM with
+	the mask loaded from the constant pool.
+	(adjust_vperm): New function.
+	(handle_special_swappables): Call adjust_vperm.
+	(dump_swap_insn_table): Handle SH_VPERM.
+
+2015-09-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* shrink-wrap.c (requires_stack_frame_p): Remove static.
+	* shrink-wrap.h (requires_stack_frame_p): Put back.
+
+2015-09-10  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* reload1.c (elimination_costs_in_insn): Locally turn
+	-Wmaybe-uninitialized into a warning.
+
+2015-09-10  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* shrink-wrap.c (requires_stack_frame_p): Make static.
+	(prepare_shrink_wrap): Likewise.
+	(dup_block_and_redirect): Likewise.
+	* shrink-wrap.h: Remove declarations of those functions.
+
+2015-09-10  Mark Wielaard  <mjw@redhat.com>
+
+	* doc/invoke.texi (Wnonnull): Also warns when comparing against NULL.
+
+2015-09-10  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/67506
+	* config/sh/sh.c (sh_extending_set_of_reg::use_as_extended_reg): Add
+	missing simplify_gen_subreg.
+
+2015-09-10  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_contiguous_bitmask_vector_p): Reject if
+	the vector element is bigger than 64 bit.
+
+2015-09-10  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/vx-builtins.md ("vec_vmal<mode>", "vec_vmah<mode>")
+	("vec_vmalh<mode>"): Change mode iterator from VI_HW to VI_HW_QHS.
+
+2015-09-10  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c: Add V1TImode to constant pool modes.
+
+2015-09-10  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/67439
+	* config/arm/arm.md (*arm32_movhf): Remove !arm_restrict_it from
+	predicate.  Set predicable_short_it attr to "no".
+
+2015-09-10  Jiong Wang  <jiong.wang@arm.com>
+
+	PR rtl-optimization/67421
+	* expr.c (expand_expr_real_2): Cost instrcution sequences when doing
+	left wide shift tranformation.
+
+2015-09-10  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* common/config/arc/arc-common.c: Remove references to A5.
+	* config/arc/arc-opts.h: Likewise.
+	* config/arc/arc.c, config/arc/arc.h, config/arc/arc.md: Likewise.
+	* config/arc/arc.opt, config/arc/constraints.md: Likewise.
+	* config/arc/t-arc-newlib: Likewise.
+
+2015-09-10  Claudiu Zissulescu <claziss@synopsys.com>
+
+	* config/arc/arc.md (length): Fix attribute length for conditional
+	executed instructions with long immediate.
+
+2015-09-10  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.md (*and<mode>3nr_compare0): Use logics_imm
+	type for second alternative.
+
+2015-09-10  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	* doc/invoke.texi (Downloading GCC): Mention
+	contrib/download_prerequisites script.
+
+2015-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/67523
+	* gimplify.c (gimplify_omp_for): If inner stmt is not found
+	for combined loop, assert seen_error () and return GS_ERROR.
+
+	PR middle-end/67521
+	* gimplify.c (gimplify_omp_for): Don't call omp_add_variable
+	if decl is already in outer->variables.
+
+	PR middle-end/67517
+	* gimplify.c (gimplify_scan_omp_clauses): Instead of
+	asserting that decl is not specified in octx->variables,
+	break out of the loop if it is.
+
+	PR c++/67514
+	* gimplify.c (gimplify_omp_for): For loop SIMD construct, if
+	iterator is not explicitly determined, but is defined inside
+	of the combined workshare region, handle it like if it has
+	DECL_EXPR in OMP_FOR_PRE_BODY.
+
+2015-09-09  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx.md (call_operation): Move bound out of loop.
+	(*cmp<mode>): Add assembler spacing.
+	(setcc_int<mode>, set_cc_float<mode>): Likewise.
+	* config/nvptx/nvptx.c (nvptx_option_override): Override debug
+	level.
+	(write_func_decl_from_insn): Refactor argument loops & comma emission.
+	(nvptx_expand_call): Likewise.
+	(nvptx_output_call_insn): Likewise.
+	(nvptx_reorg_subreg): Add spacing.
+
+2015-09-09  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/67512
+	* tree-ssa-uninit.c (pred_equal_p): Only call invert_tree_comparison
+	for comparisons.
+
+2015-09-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53184
+	* doc/invoke.texi ([Wsubobject-linkage]): Document.
+
+2015-09-09  Tom de Vries  <tom@codesourcery.com>
+
+	* params-list.h: Add missing copyright notice.
+
+2015-09-09  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx.md (atomic_compare_and_swap<mode>): Use
+	sel_truesi, not andsi.
+
+2015-09-09  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.md (*subsi3_compare0): Rename to...
+	(subsi3_compare0): ... This.
+	(modsi3): New define_expand.
+	* config/arm/arm.c (arm_new_rtx_costs, MOD case): Handle case
+	when operand is power of 2.
+
+2015-09-09  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.md (mod<mode>3): New define_expand.
+	(*neg<mode>2_compare0): Rename to...
+	(neg<mode>2_compare0): ... This.
+	* config/aarch64/aarch64.c (aarch64_rtx_costs, MOD case):
+	Move check for speed inside the if-then-elses.  Reflect
+	CSNEG sequence in MOD by power of 2 case.
+
+2015-09-09  Alan Modra  <amodra@gmail.com>
+
+	PR target/67378
+	* config/rs6000/rs6000.c (rs6000_secondary_reload_gpr): Find
+	reload replacement for PRE_MODIFY address reg.
+
+2015-09-09  Sebastian Pop  <s.pop@samsung.com>
+
+	PR tree-optimization/53852
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* configure.ac (HAVE_ISL_CTX_MAX_OPERATIONS): Detect.
+	* graphite-optimize-isl.c (optimize_isl): Stop computation when
+	PARAM_MAX_ISL_OPERATIONS is reached.
+	* params.def (PARAM_MAX_ISL_OPERATIONS): Add.
+	* graphite-dependences.c (extend_schedule): Remove gcc_asserts on
+	result equal to isl_stat_ok as the status now can be isl_error_quota.
+	(subtract_commutative_associative_deps): Same.
+	(compute_deps): Same.
+
+2015-09-08  Aditya Kumar  <hiraditya@msn.com>
+            Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-isl-ast-to-gimple.c (gcc_expression_from_isl_ast_expr_id):
+	Return the parameter if it was saved in corresponding
+	parameter_rename_map of the region.
+	(copy_def): Copy def from sese region to the newly created region.
+	(copy_internal_parameters): Copy all the internal parameters defined
+	within a region to the newly created region.
+	(graphite_regenerate_ast_isl): Copy parameters to the new region before
+	translating isl to gimple.
+	* graphite-scop-detection.c (graphite_can_represent_loop): Bail out if
+	the loop-nest does not have any data-references.
+	(build_graphite_scops): Create a scop only when there is at least one
+	loop inside it.
+	(contains_only_close_phi_nodes): Deleted.
+	(print_graphite_scop_statistics): Deleted
+	(print_graphite_statistics): Deleted
+	(limit_scops): Deleted.
+	(build_scops): Removed call to limit_scops.
+	* sese.c (new_sese): Construct.
+	(free_sese): Destruct.
+	(sese_add_exit_phis_edge): update_stmt after exit phi edge has been
+	added.
+	(set_rename): Pass sese region so that parameters inside the region can
+	be added to its parameter_rename_map.
+	(rename_uses): Pass sese region.
+	(graphite_copy_stmts_from_block): Do not copy parameters that have been
+	generated in the header of the scop. For each SSA_NAME in the
+	parameter_rename_map rename its usage.
+	(invariant_in_sese_p_rec): Return false if tree t is defined outside
+	sese region.
+	(scalar_evolution_in_region): If the tree t is invariant just return t.
+	* sese.h: Added a parameter renamne map (parameter_rename_map_t) to
+	struct sese to keep track of all the parameters which need renaming.
+	* tree-data-ref.c (loop_nest_has_data_refs): Check if a loop nest has
+	any data-refs.
+	* tree-data-ref.h: Declaration of loop_nest_has_data_refs.
+
+2015-09-08  Tom de Vries  <tom@codesourcery.com>
+
+	* Makefile.in (generated_files): Add params.list.
+	(params.list, s-params.list): Add rule.
+	* params.h (enum compiler_param): Include params-list.h.  Move define
+	DEFPARAM, include params.def and undef DEFPARAM ...
+	* params-list.h: ... here.  New file.
+
+2015-09-08  David Malcolm  <dmalcolm@redhat.com>
+
+	* pretty-print.h (printer_fn): Fix typo in comment.
+
+2015-09-07  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-scopedtables.h (class const_and_copies): Fix comment typo.
+
+2015-09-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* doc/sourcebuild.texi (arm_neon_fp16): Correct cross-reference.
+	(arm_neon_fp16_ok): Document adding of -mfp16-format=ieee flag.
+	(arm_neon_fp16_hw): New.
+
+2015-09-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* fold-const.c (native_interpret_real): Fix HFmode for bigendian where
+	UNITS_PER_WORD >= 4.
+
+2015-09-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64-simd.md (aarch64_simd_vec_unpacks_lo_<mode>,
+	aarch64_simd_vec_unpacks_hi_<mode>): New insn.
+	(vec_unpacks_lo_v4sf, vec_unpacks_hi_v4sf): Delete insn.
+	(vec_unpacks_lo_<mode>, vec_unpacks_hi_<mode>): New expand.
+	(aarch64_float_extend_lo_v2df): Rename to...
+	(aarch64_float_extend_lo_<Vwide>): this, using VDF and so adding V4SF.
+
+	* config/aarch64/aarch64-simd-builtins.def (vec_unpacks_hi): Add v8hf.
+	(float_extend_lo): Add v4sf.
+
+	* config/aarch64/arm_neon.h (vcvt_f32_f16, vcvt_high_f32_f16): New.
+	* config/aarch64/iterators.md (VQ_HSF): New iterator.
+	(VWIDE, Vwtype, Vhalftype): Add V8HF, V4SF.
+	(Vwide): New mode_attr.
+
+2015-09-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64-simd.md (aarch64_simd_dup<mode>,
+	aarch64_dup_lane<mode>, aarch64_dup_lane_<vswap_width_name><mode>,
+	aarch64_simd_vec_set<mode>, vec_set<mode>, vec_perm_const<mode>,
+	vec_init<mode>, *aarch64_simd_ld1r<mode>, vec_extract<mode>): Add
+	V4HF and V8HF variants to iterator.
+
+	* config/aarch64/aarch64.c (aarch64_evpc_dup): Add V4HF and V8HF cases.
+
+	* config/aarch64/iterators.md (VDQF_F16): New.
+	(VSWAP_WIDTH, vswap_width_name): Add V4HF and V8HF cases.
+
+2015-09-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/arm_neon.h (vreinterpret_p8_f16, vreinterpret_p16_f16,
+	vreinterpret_f16_f64, vreinterpret_f16_s8, vreinterpret_f16_s16,
+	vreinterpret_f16_s32, vreinterpret_f16_s64, vreinterpret_f16_f32,
+	vreinterpret_f16_u8, vreinterpret_f16_u16, vreinterpret_f16_u32,
+	vreinterpret_f16_u64, vreinterpret_f16_p8, vreinterpret_f16_p16,
+	vreinterpretq_f16_f64, vreinterpretq_f16_s8, vreinterpretq_f16_s16,
+	vreinterpretq_f16_s32, vreinterpretq_f16_s64, vreinterpretq_f16_f32,
+	vreinterpretq_f16_u8, vreinterpretq_f16_u16, vreinterpretq_f16_u32,
+	vreinterpretq_f16_u64, vreinterpretq_f16_p8, vreinterpretq_f16_p16,
+	vreinterpret_f32_f16, vreinterpret_f64_f16, vreinterpret_s64_f16,
+	vreinterpret_u64_f16, vreinterpretq_u64_f16, vreinterpret_s8_f16,
+	vreinterpret_s16_f16, vreinterpret_s32_f16, vreinterpret_u8_f16,
+	vreinterpret_u16_f16, vreinterpret_u32_f16, vreinterpretq_p8_f16,
+	vreinterpretq_p16_f16, vreinterpretq_f32_f16, vreinterpretq_f64_f16,
+	vreinterpretq_s64_f16, vreinterpretq_s8_f16, vreinterpretq_s16_f16,
+	vreinterpretq_s32_f16, vreinterpretq_u8_f16, vreinterpretq_u16_f16,
+	vreinterpretq_u32_f16, vget_low_f16, vget_high_f16, vld1_dup_f16,
+	vld1q_dup_f16): New.
+
+2015-09-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64-simd.md (aarch64_float_truncate_lo_v2sf):
+	Reparameterize to...
+	(aarch64_float_truncate_lo_<mode>): ...this, for both V2SF and V4HF.
+	(aarch64_float_truncate_hi_v4sf): Reparameterize to...
+	(aarch64_float_truncate_hi_<Vdbl>): ...this, for both V4SF and V8HF.
+
+	* config/aarch64/aarch64-simd-builtins.def (float_truncate_hi_): Add
+	v8hf variant.
+	(float_truncate_lo_): Use BUILTIN_VDF iterator.
+
+	* config/aarch64/arm_neon.h (vcvt_f16_f32, vcvt_high_f16_f32): New.
+
+	* config/aarch64/iterators.md (VDF, Vdtype): New.
+	(VWIDE, Vmwtype): Add cases for V4HF and V2SF.
+
+2015-09-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_split_simd_combine): Add V4HFmode.
+	* config/aarch64/aarch64-builtins.c (VAR13, VAR14): New.
+	(aarch64_scalar_builtin_types, aarch64_init_simd_builtin_scalar_types):
+	Add __builtin_aarch64_simd_hf.
+	* config/aarch64/arm_neon.h (float16x4x2_t, float16x8x2_t,
+	float16x4x3_t, float16x8x3_t, float16x4x4_t, float16x8x4_t,
+	vcombine_f16, vst2_lane_f16, vst2q_lane_f16, vst3_lane_f16,
+	vst3q_lane_f16, vst4_lane_f16, vst4q_lane_f16, vld2_f16, vld2q_f16,
+	vld3_f16, vld3q_f16, vld4_f16, vld4q_f16, vld2_dup_f16, vld2q_dup_f16,
+	vld3_dup_f16, vld3q_dup_f16, vld4_dup_f16, vld4q_dup_f16,
+	vld2_lane_f16, vld2q_lane_f16, vld3_lane_f16, vld3q_lane_f16,
+	vld4_lane_f16, vld4q_lane_f16, vst2_f16, vst2q_f16, vst3_f16,
+	vst3q_f16, vst4_f16, vst4q_f16, vcreate_f16): New.
+
+	* config/aarch64/iterators.md (VALLDIF, Vtype, Vetype, Vbtype,
+	V_cmp_result, v_cmp_result): Add cases for V4HF and V8HF.
+	(VDC, Vdbl): Add V4HF.
+
+2015-09-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_vector_mode_supported_p): Support
+	V4HFmode and V8HFmode.
+	(aarch64_split_simd_move): Add case for V8HFmode.
+	* config/aarch64/aarch64-builtins.c (v4hf_UP, v8hf_UP): Define.
+	(aarch64_simd_builtin_std_type): Handle HFmode.
+	(aarch64_init_simd_builtin_types): Include Float16x4_t and Float16x8_t.
+
+	* config/aarch64/aarch64-simd.md (mov<mode>, aarch64_get_lane<mode>,
+	aarch64_ld1<VALL:mode>, aarch64_st1<VALL:mode): Use VALL_F16 iterator.
+	(aarch64_be_ld1<mode>, aarch64_be_st1<mode>): Use VALLDI_F16 iterator.
+
+	* config/aarch64/aarch64-simd-builtin-types.def: Add Float16x4_t,
+	Float16x8_t.
+
+	* config/aarch64/aarch64-simd-builtins.def (ld1, st1): Use VALL_F16.
+	* config/aarch64/arm_neon.h (float16x4_t, float16x8_t, float16_t):
+	New typedefs.
+	(vget_lane_f16, vgetq_lane_f16, vset_lane_f16, vsetq_lane_f16,
+	vld1_f16, vld1q_f16, vst1_f16, vst1q_f16, vst1_lane_f16,
+	vst1q_lane_f16): New.
+	* config/aarch64/iterators.md (VD, VQ, VQ_NO2E): Add vectors of HFmode.
+	(VALLDI_F16, VALL_F16): New.
+	(Vmtype, VEL, VCONQ, VHALF, V_TWO_ELEM, V_THREE_ELEM, V_FOUR_ELEM, q):
+	Add cases for V4HF and V8HF.
+	(VDBL, VRL2, VRL3, VRL4): Add V4HF case.
+
+2015-09-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/arm/arm-builtins.c (VAR11, VAR12): New.
+	* config/arm/arm_neon_builtins.def (vcombine, vld2_dup, vld3_dup,
+	vld4_dup): Add v4hf variant.
+	(vget_high, vget_low): Add v8hf variant.
+	(vld1, vst1, vst1_lane, vld2, vld2_lane, vst2, vst2_lane, vld3,
+	vld3_lane, vst3, vst3_lane, vld4, vld4_lane, vst4, vst4_lane): Add
+	v4hf and v8hf variants.
+
+	* config/arm/iterators.md (VD_LANE, VD_RE, VQ2, VQ_HS): New.
+	(VDX): Add V4HF.
+	(V_DOUBLE): Add case for V4HF.
+	(VQX): Add V8HF.
+	(V_HALF): Add case for V8HF.
+	(VDQX): Add V4HF, V8HF.
+	(V_elem, V_two_elem, V_three_elem, V_four_elem, V_cmp_result,
+	V_uf_sclr, V_sz_elem, V_mode_nunits, q): Add cases for V4HF & V8HF.
+
+	* config/arm/neon.md (vec_set<mode>internal, vec_extract<mode>,
+	neon_vget_lane<mode>_sext_internal, neon_vget_lane<mode>_zext_internal,
+	vec_load_lanesoi<mode>, neon_vld2<mode>, vec_store_lanesoi<mode>,
+	neon_vst2<mode>, vec_load_lanesci<mode>, neon_vld3<mode>,
+	neon_vld3qa<mode>, neon_vld3qb<mode>, vec_store_lanesci<mode>,
+	neon_vst3<mode>, neon_vst3qa<mode>, neon_vst3qb<mode>,
+	vec_load_lanesxi<mode>, neon_vld4<mode>, neon_vld4qa<mode>,
+	neon_vld4qb<mode>, vec_store_lanesxi<mode>, neon_vst4<mode>,
+	neon_vst4qa<mode>, neon_vst4qb<mode>): Change VQ iterator to VQ2.
+
+	(neon_vcreate, neon_vreinterpretv8qi<mode>,
+	neon_vreinterpretv4hi<mode>, neon_vreinterpretv2si<mode>,
+	neon_vreinterpretv2sf<mode>, neon_vreinterpretdi<mode>):
+	Change VDX to VD_RE.
+
+	(neon_vld2_lane<mode>, neon_vst2_lane<mode>, neon_vld3_lane<mode>,
+	neon_vst3_lane<mode>, neon_vld4_lane<mode>, neon_vst4_lane<mode>):
+	Change VD iterator to VD_LANE, and VMQ iterator to VQ_HS.
+
+	* config/arm/arm_neon.h (float16x4x2_t, float16x8x2_t, float16x4x3_t,
+	float16x8x3_t, float16x4x4_t, float16x8x4_t, vcombine_f16,
+	vget_high_f16, vget_low_f16, vld1_f16, vld1q_f16, vst1_f16, vst1q_f16,
+	vst1_lane_f16, vst1q_lane_f16, vld2_f16, vld2q_f16, vld2_lane_f16,
+	vld2q_lane_f16, vld2_dup_f16, vst2_f16, vst2q_f16, vst2_lane_f16,
+	vst2q_lane_f16, vld3_f16, vld3q_f16, vld3_lane_f16, vld3q_lane_f16,
+	vld3_dup_f16, vst3_f16, vst3q_f16, vst3_lane_f16, vst3q_lane_f16,
+	vld4_f16, vld4q_f16, vld4_lane_f16, vld4q_lane_f16, vld4_dup_f16,
+	vst4_f16, vst4q_f16, vst4_lane_f16, vst4q_lane_f16): New.
+
+2015-09-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/arm/arm_neon.h (vgetq_lane_f16, vsetq_lane_f16, vld1q_lane_f16,
+	vld1q_dup_f16, vreinterpretq_p8_f16, vreinterpretq_p16_f16,
+	vreinterpretq_f16_p8, vreinterpretq_f16_p16, vreinterpretq_f16_f32,
+	vreinterpretq_f16_p64, vreinterpretq_f16_p128, vreinterpretq_f16_s64,
+	vreinterpretq_f16_u64, vreinterpretq_f16_s8, vreinterpretq_f16_s16,
+	vreinterpretq_f16_s32, vreinterpretq_f16_u8, vreinterpretq_f16_u16,
+	vreinterpretq_f16_u32, vreinterpretq_f32_f16, vreinterpretq_p64_f16,
+	vreinterpretq_p128_f16, vreinterpretq_s64_f16, vreinterpretq_u64_f16,
+	vreinterpretq_s8_f16, vreinterpretq_s16_f16, vreinterpretq_s32_f16,
+	vreinterpretq_u8_f16, vreinterpretq_u16_f16, vreinterpretq_u32_f16):
+	New.
+
+2015-09-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/arm/arm.h (VALID_NEON_QREG_MODE): Add V8HFmode.
+
+	* config/arm/arm.c (arm_vector_mode_supported_p): Support V8HFmode.
+
+	* config/arm/arm-builtins.c (v8hf_UP): New.
+	(arm_init_simd_builtin_types): Initialise Float16x8_t.
+
+	* config/arm/arm-simd-builtin-types.def (Float16x8_t): New.
+
+	* config/arm/arm_neon.h (float16x8_t): New typedef.
+
+2015-09-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/arm/arm_neon.h (float16_t, vget_lane_f16, vset_lane_f16,
+	vcreate_f16, vld1_lane_f16, vld1_dup_f16, vreinterpret_p8_f16,
+	vreinterpret_p16_f16, vreinterpret_f16_p8, vreinterpret_f16_p16,
+	vreinterpret_f16_f32, vreinterpret_f16_p64, vreinterpret_f16_s64,
+	vreinterpret_f16_u64, vreinterpret_f16_s8, vreinterpret_f16_s16,
+	vreinterpret_f16_s32, vreinterpret_f16_u8, vreinterpret_f16_u16,
+	vreinterpret_f16_u32, vreinterpret_f32_f16, vreinterpret_p64_f16,
+	vreinterpret_s64_f16, vreinterpret_u64_f16, vreinterpret_s8_f16,
+	vreinterpret_s16_f16, vreinterpret_s32_f16, vreinterpret_u8_f16,
+	vreinterpret_u16_f16, vreinterpret_u32_f16): New.
+
+2015-09-07  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* config/i386/intelmic-mkoffload.c (prepare_target_image): Handle all
+	non-alphanumeric characters in the symbol name.
+
+2015-09-07  Marek Polacek  <polacek@redhat.com>
+
+	PR inline-asm/67448
+	* gimplify.c (gimplify_asm_expr): Don't allow MODIFY_EXPR as
+	a memory input.
+
+2015-09-07  Marek Polacek  <polacek@redhat.com>
+
+	* system.h (INTTYPE_MINIMUM): Rewrite to avoid shift warning.
+
+2015-09-04  Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/i386/cygming.h (SUBTARGET_OVERRIDE_OPTIONS): Do
+	not warn.
+
+2015-09-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/67452
+	* tree-ssa-live.c: Include cfgloop.h.
+	(remove_unused_locals): Clear loop->simduid if simduid is about
+	to be removed from cfun->local_decls.
+
+2015-09-02  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	PR target/65210
+	* config/avr/avr.c (avr_eval_addr_attrib): Look for io_low
+	attribute as well.
+
+2015-09-04  Tom de Vries  <tom@codesourcery.com>
+
+	* doc/invoke.texi (@item -ftrapv, @item -fwrapv): Document interaction.
+
+2015-09-04  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-scopedtables.c (const_and_copies::const_and_copies): Remove
+	unnecessary constructor.  It's now trivial and implemented inside...
+	* tree-ssa-scopedtables.h (const_and_copies): Implement trivial
+	constructor.  Add comments to various methods.  Remove unused
+	private fields.
+	* tree-ssa-dom.c (pass_dominator::execute): Corresponding changes.
+	* tree-vrp.c (identify_jump_threads): Likewise.
+	* tree-ssa-threadedge.c (thread_through_normal_block): Fix minor
+	indentation issues.
+	(thread_across_edge): Similarly.
+	(record_temporary_equivalences_from_stmts_at_dest): Remove unused
+	arguments in constructor call.
+
+2015-09-04  Jonas Hahnfeld  <Hahnfeld@itc.rwth-aachen.de>
+
+	* config/i386/intelmic-mkoffload.c (prepare_target_image): Fix if the
+	temp path contains a '-'.
+
+2015-09-04  Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Petr Murzin  <petr.murzin@intel.com>
+	    Kirill Yukhin <kirill.yukhin@intel.com>
+
+	* config/i386/i386-builtin-types.def
+	(VOID_PFLOAT_HI_V8DI_V16SF_INT): New.
+	(VOID_PDOUBLE_QI_V16SI_V8DF_INT): Ditto.
+	(VOID_PINT_HI_V8DI_V16SI_INT): Ditto.
+	(VOID_PLONGLONG_QI_V16SI_V8DI_INT): Ditto.
+	* config/i386/i386.c
+	(ix86_builtins): Add IX86_BUILTIN_SCATTERALTSIV8DF,
+	IX86_BUILTIN_SCATTERALTDIV16SF, IX86_BUILTIN_SCATTERALTSIV8DI,
+	IX86_BUILTIN_SCATTERALTDIV16SI.
+	(ix86_init_mmx_sse_builtins): Define __builtin_ia32_scatteraltsiv8df,
+	__builtin_ia32_scatteraltdiv8sf, __builtin_ia32_scatteraltsiv8di,
+	__builtin_ia32_scatteraltdiv8si.
+	(ix86_expand_builtin): Handle IX86_BUILTIN_SCATTERALTSIV8DF,
+	IX86_BUILTIN_SCATTERALTDIV16SF, IX86_BUILTIN_SCATTERALTSIV8DI,
+	IX86_BUILTIN_SCATTERALTDIV16SI.
+	(ix86_vectorize_builtin_scatter): New.
+	(TARGET_VECTORIZE_BUILTIN_SCATTER): Define as
+	ix86_vectorize_builtin_scatter.
+
+2015-09-04  Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Petr Murzin  <petr.murzin@intel.com>
+	    Kirill Yukhin <kirill.yukhin@intel.com>
+
+	* doc/tm.texi.in (TARGET_VECTORIZE_BUILTIN_SCATTER): New.
+	* doc/tm.texi: Regenerate.
+	* target.def: Add scatter builtin.
+	* tree-vectorizer.h: Rename gather_p to gather_scatter_p and use it
+	for loads/stores in case of gather/scatter accordingly.
+	(STMT_VINFO_GATHER_SCATTER_P(S)): Use it instead of STMT_VINFO_GATHER_P(S).
+	(vect_check_gather): Rename to ...
+	(vect_check_gather_scatter): this.
+	* tree-vect-data-refs.c (vect_analyze_data_ref_dependence): Use
+	STMT_VINFO_GATHER_SCATTER_P instead of STMT_VINFO_SCATTER_P.
+	(vect_check_gather_scatter): Use it instead of vect_check_gather.
+	(vect_analyze_data_refs): Add gatherscatter enum and maybe_scatter variable
+	and new checkings for it accordingly.
+	* tree-vect-stmts.c
+	(STMT_VINFO_GATHER_SCATTER_P(S)): Use it instead of STMT_VINFO_GATHER_P(S).
+	(vect_check_gather_scatter): Use it instead of vect_check_gather.
+	(vectorizable_store): Add checkings for STMT_VINFO_GATHER_SCATTER_P.
+
+2015-09-03  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
+
+	* config/rs6000/altivec.md (altivec_vperm_v8hiv16qi): New
+	define_insn.
+	(mulv16qi3): New define_expand.
+
+2015-09-03  Martin Sebor  <msebor@redhat.com>
+
+	PR c/66516
+	* doc/extend.texi (Other Builtins): Document when the address
+	of a built-in function can be taken.
+
+2015-09-03  Richard Biener  <rguenther@suse.de>
+
+	* dwarf2out.c (flush_limbo_die_list): Split out from ...
+	(dwarf2out_early_finish): ... here.
+	(dwarf2out_finish): Do not call dwarf2out_early_finish but
+	flush_limbo_die_list.  Assert we have no deferred asm names.
+
+2015-09-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* optabs.c (expand_binop): Don't create a broadcast vector with a
+	source element wider than the inner mode.
+
+2015-09-03  Richard Biener  <rguenther@suse.de>
+
+	* varasm.c (output_constant): Use fold_convert instead of
+	wide_int_to_tree.
+
+2015-09-03  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/65637
+	* omp-low.c (expand_omp_for_static_chunk): Handle case that fin_bb has 2
+	predecessors.
+
+2015-09-03  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/65637
+	* omp-low.c (find_phi_with_arg_on_edge): New function.
+	(expand_omp_for_static_chunk): Fix inner loop phi.
+
+2015-09-03  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/65637
+	* omp-low.c (expand_omp_for_static_chunk): Fix gcc_assert for the case
+	that head is NULL.
+
+2015-09-03  Tom de Vries  <tom@codesourcery.com>
+
+	* omp-low.c (expand_omp_for_static_chunk): Handle simple latch bb.
+
+2015-09-03  Tom de Vries  <tom@codesourcery.com>
+
+	* doc/invoke.texi (parloops-chunk-size): Add item.
+	* params.def (PARAM_PARLOOPS_CHUNK_SIZE): Add DEFPARAM.
+	* tree-parloops.c: Include params.h.
+	(create_parallel_loop): Set chunk-size of schedule of omp-for loop, if
+	param parloops-chunk-size is used.
+
+2015-09-03  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	PR middle-end/67351
+	* fold-const.c (fold_binary_loc) : Move 
+	Transform (x >> c) << c into x & (-1<<c) or
+	transform (x << c) >> c into x & ((unsigned)-1 >> c) for unsigned
+	types using simplify and match.
+	* match.pd (lshift (rshift @0 INTEGER_CST@1) @1) : New simplifier.
+	(rshift (lshift @0 INTEGER_CST@1) @1) : New Simplifier
+
+2015-09-03  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/66705
+	* tree-ssa-structalias.c (ctor_for_analysis): New function.
+	(create_variable_info_for_1): Use ctor_for_analysis instead
+	of get_constructor.
+	(create_variable_info_for): Likewise.
+
+2015-09-02  Charles Baylis  <charles.baylis@linaro.org>
+
+	PR ipa/67280
+	* cgraphunit.c (cgraph_node::create_wrapper): Set can_throw_external
+	in new callgraph edge.
+
+2015-09-02  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	PR target/59810
+	PR target/63652
+	PR target/63653
+	* config/aarch64/aarch64-simd.md
+	(aarch64_ld<VSTRUCT:nregs><VQ:mode>): Call
+	gen_aarch64_simd_ld<VSTRUCT:nregs><VQ:mode>.
+	(aarch64_st<VSTRUCT:nregs><VQ:mode>): Call
+	gen_aarch64_simd_st<VSTRUCT:nregs><VQ:mode>.
+
+2015-09-02  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/sysv4le.h (LINK_TARGET_SPEC): Don't define.
+	* config/rs6000/sysv4.h (LINK_TARGET_SPEC): Likewise.
+	(LINK_SPEC, SUBTARGET_EXTRA_SPECS): Delete link_target.
+
+2015-09-02  Alan Modra  <amodra@gmail.com>
+
+	PR target/67417
+	* config/rs6000/predicates.md (current_file_function_operand): Don't
+	return true for weak symbols.
+	* config/rs6000/rs6000.c (rs6000_function_ok_for_sibcall): Likewise.
+
+2015-09-01  Matthew Fortune  <matthew.fortune@imgtec.com>
+	    Andrew Bennett  <andrew.bennett@imgtec.com>
+
+	* config/mips/mips-opts.h (mips_cb_setting): New enum.
+	* config/mips/mips-protos.h: Add definitions for
+	mips_output_jump and mips_output_equal_conditional_branch
+	* gcc/config/mips/mips.c (MIPS_JR): Change to support the
+	JIC instruction.
+	(mips_emit_compare): Add support for the MIPS R6 conditional
+	compact branches.
+	(mips_process_sync_loop): Likewise.
+	(mips_output_order_conditional_branch): Likewise.
+	(mips16_build_call_stub): Change MIPS_CALL to
+	mips_output_jump.
+	(mips_print_operand_punctuation): Update 's' case to only
+	apply to micromips r2.
+	(mips_adjust_insn_length): Add support for forbidden slot
+	hazards.
+	(mips_avoid_hazard): Likewise.
+	(mips_reorg_process_insns): Likewise.
+	(mips_output_jump): New function.
+	(mips_output_equal_conditional_branch): Likewise.
+	(mips_output_conditional_branch): Use jrc/bc if compact
+	branch support is enabled.  Ensure the forbidden slots
+	between the two branch instructions is filled with a nop.
+	(mips_option_override): Add support to process the compact
+	branch option and set the correct defaults.  Prevent
+	non-explict relocs being using for MIPS R6.
+	(mips_trampoline_init): Add compact branch support.
+	(mips_mult_zero_zero_cost): Allow zero initialisation of
+	accumulators with TARGET_DSP.
+	* gcc/config/mips/mips.h (TARGET_CB_NEVER): New define.
+	(TARGET_CB_MAYBE): New define.
+	(TARGET_CB_ALWAYS): New define.
+	(ISA_HAS_DELAY_SLOTS): New define.
+	(ISA_HAS_COMPACT_BRANCHES): New define.
+	(ISA_HAS_JRC): New define.
+	(MIPS_BRANCH_C): New define.
+	(MIPS_CALL): Removed.
+	(MICROMIPS_J): Removed.
+	* config/mips/mips.md (compact_form): New attr.
+	(hazard): Add support for forbidden slots.
+	(define_delay): Add support for compact branches.
+	(*branch_order<mode>): Likewise.
+	(*branch_order<mode>_inverted): Likewise.
+	(*branch_equality<mode>): Likewise.
+	(*branch_equality<mode>_inverted): Likewise.
+	(*jump_absolute): Likewise.
+	(*jump_pic): Likewise.
+	(indirect_jump): Use mips_output_jump to produce assembly output.
+	(tablejump_<mode>"): Likewise.
+	(*<optab>"): Likewise.
+	(<optab>_internal): Likewise.
+	(sibcall_internal): Likewise.
+	(sibcall_value_internal): Likewise.
+	(sibcall_value_multiple_internal): Likewise.
+	(call_internal): Likewise.
+	(call_split): Likewise.
+	(call_internal_direct): Likewise.
+	(call_direct_split): Likewise.
+	(call_value_internal): Likewise.
+	(call_value_split): Likewise.
+	(call_value_internal_direct): Likewise.
+	(call_value_direct_split): Likewise.
+	(call_value_multiple_internal): Likewise.
+	(call_value_multiple_split): Likewise.
+	(mips_get_fcsr_mips16_<mode>): Likewise.
+	(mips_set_fcsr_mips16_<mode>): Likewise.
+	(tls_get_tp_mips16_<mode>): Likewise.
+	* config/mips/mips.opt: Add -mcompact-branches option.
+	* config/mips/predicates.md (order_operator): Ensure the
+	conditional compact branches are only used if the ISA them.
+	* doc/invoke.texi: Document -mcompact-branches option.
+
+2015-09-01  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/61578
+	* lra-lives.c (process_bb_lives): Process move pseudos with the
+	same value for copies and preferences
+	* lra-constraints.c (match_reload): Create match reload pseudo
+	with the same value from single dying input pseudo.
+
+2015-09-01  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR target/67405
+	* tree-chkp.c (chkp_find_bound_slots_1): Add NULL check.
+
+2015-09-01  Aldy Hernandez  <aldyh@redhat.com>
+
+	* trans-mem.c: Add contributed-by.
+	* trans-mem.h: Same.
+
+2015-09-01  Richard Biener  <rguenther@suse.de>
+
+	* expr.c (expand_expr_real_1): For expanding TERed defs
+	set the current location to that of the def if not UNKNOWN.
+
+2015-09-01  David Sherwood  <david.sherwood@arm.com>
+
+	* genmodes.c: Add CONST_MODE_UNIT_SIZE modifier.
+
+2015-09-01  Kyrylo Tkachov <kyrylo.tkachov@arm.com>
+
+	* ifcvt.c (struct noce_if_info): Add then_simple, else_simple,
+	then_cost, else_cost fields.  Change branch_cost field to unsigned
+	int.
+	(end_ifcvt_sequence): Call set_used_flags on each insn in the
+	sequence.
+	Include rtl-iter.h.
+	(noce_simple_bbs): New function.
+	(noce_try_move): Bail if basic blocks are not simple.
+	(noce_try_store_flag): Likewise.
+	(noce_try_store_flag_constants): Likewise.
+	(noce_try_addcc): Likewise.
+	(noce_try_store_flag_mask): Likewise.
+	(noce_try_cmove): Likewise.
+	(noce_try_minmax): Likewise.
+	(noce_try_abs): Likewise.
+	(noce_try_sign_mask): Likewise.
+	(noce_try_bitop): Likewise.
+	(bbs_ok_for_cmove_arith): New function.
+	(noce_emit_all_but_last): Likewise.
+	(noce_emit_insn): Likewise.
+	(noce_emit_bb): Likewise.
+	(noce_try_cmove_arith): Handle non-simple basic blocks.
+	(insn_valid_noce_process_p): New function.
+	(contains_mem_rtx_p): Likewise.
+	(bb_valid_for_noce_process_p): Likewise.
+	(noce_process_if_block): Allow non-simple basic blocks
+	where appropriate.
+
+2015-08-31  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* tree-ssa-dom.c (record_equivalences_from_phis,
+	record_equivalences_from_stmt, optimize_stmt): Use dom_valueize.
+	(lookup_avail_expr): Likewise, and remove comment and unused temp.
+
+2015-09-01  Nick Clifton  <nickc@redhat.com>
+
+	* config/msp430/msp430.opt (mcpu): Fix typo.
+
+2015-09-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_set_current_function):
+	Re-layout any vector parameters have non-simd layout.
+	* config/aarch64/aarch64-builtins.c (aarch64_relayout_simd_param):
+	Delete.
+	(aarch64_simd_expand_args): Delete call to the above.
+
+2015-08-31  Mike Frysinger  <vapier@gentoo.org>
+
+	* doc/invoke.texi (asan-stack): Add space before option.
+
+2015-08-31  Marc Glisse  <marc.glisse@inria.fr>
+
+	* tree.h (zerop): New function.
+	* tree.c (zerop): Likewise.
+	(element_precision): Handle expressions.
+	* match.pd (define_predicates): Add zerop.
+	(x <= +Inf): Fix comment.
+	(abs (x) == 0, A & C == C, A & C != 0): Converted from ...
+	* fold-const.c (fold_binary_loc): ... here. Remove.
+
+2015-08-31  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67381
+	* genmatch.c (dt_node::gen_kids): Also treat matches as barrier.
+
+2015-08-31  Marc Glisse  <marc.glisse@inria.fr>
+
+	* match.pd (SIN, COS, TAN, COSH): Reorder for consistency.
+	(CEXPI): New operator list.
+	(real (conj (x)), imag (conj (x)), real (x +- y), real (cexpi (x)),
+	imag (cexpi (x)), conj (conj (x)), conj (complex (x, y))):
+	Converted from ...
+	* fold-const.c (fold_unary_loc, fold_binary_loc): ... here. Remove.
+
+2015-08-31  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-loop-manip.c (find_uses_to_rename_stmt)
+	(find_uses_to_rename_bb, find_uses_to_rename): Add and handle use_flags
+	parameter.
+	(find_uses_to_rename_def, find_uses_to_rename_in_loop): New function.
+	(rewrite_into_loop_closed_ssa_1): New function, factored out of ...
+	(rewrite_into_loop_closed_ssa): ... here.
+	(replace_uses_in_dominated_bbs): Remove function.
+	(rewrite_virtuals_into_loop_closed_ssa): Reimplement using
+	rewrite_into_loop_closed_ssa_1.
+
+2015-08-31  Michael Matz  <matz@suse.de>
+
+	* cfganal.c (pre_and_rev_post_order_compute_fn): Correctly
+	enter entry and exit blocks for reverse post order.
+
+2015-08-31  Richard Biener  <rguenther@suse.de>
+
+	* lto-streamer.h (lto_location_cache::cached_location::sysp): Add.
+	(lto_location_cache::current_sysp): Likewise.
+	(output_block::current_sysp): Likewise.
+	* lto-streamer-in.c (lto_location_cache::cmp_loc): Compare sysp.
+	(lto_location_cache::apply_location_cache): Properly record
+	system header locations.
+	(lto_location_cache::input_location): Input whether a file
+	is a system header.
+	* lto-streamer-out.c (lto_output_location): Stream whether a file
+	is a system header.
+
+2015-08-31  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR bootstrap/67363
+	* gcc.c (env_manager::xput): Replace strndup by xstrndup.
+
+2015-08-31  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-loop-manip.c (find_uses_to_rename_use)
+	(find_uses_to_rename_stmt, find_uses_to_rename_bb, find_uses_to_rename):
+	Improve function header comments.
+
+2015-08-30  Michael Collison  <michael.collison@linaro.org>
+
+	PR other/67320
+	* doc.md.texi: Rename [su]sum_widen to widen_[su]sum to reflect correct
+	standard names
+
+2015-08-30  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (swap_web_entry): Enlarge
+	special_handling bitfield.
+	(special_handling_values): Add SH_XXPERMDI and SH_CONCAT.
+	(rtx_is_swappable_p): Add handling for vec_select/vec_concat form
+	that represents a general xxpermdi.
+	(insn_is_swappable_p): Add handling for vec_concat of two
+	doublewords, which maps to a specific xxpermdi.
+	(adjust_xxpermdi): New function.
+	(adjust_concat): Likewise.
+	(handle_special_swappables): Call adjust_xxpermdi and
+	adjust_concat.
+	(dump_swap_insn_table): Handle SH_XXPERMDI and SH_CONCAT.
+
+2015-08-30  Rich Felker <dalias@libc.org>
+
+	* config.gcc (supported_defaults): Handle sh[123456ble]*-*-*
+	case instead of sh[123456ble]-*-*.
+
 2015-08-29  Anatoly Sokolov  <aesok@post.ru>
 
 	* ira.c (print_unform_and_important_classes,

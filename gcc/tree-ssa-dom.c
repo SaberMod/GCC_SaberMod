@@ -92,8 +92,7 @@ struct cond_equivalence
 };
 
 
-/* Structure for recording edge equivalences as well as any pending
-   edge redirections during the dominator optimizer.
+/* Structure for recording edge equivalences.
 
    Computing and storing the edge equivalences instead of creating
    them on-demand can save significant amounts of time, particularly
@@ -101,10 +100,7 @@ struct cond_equivalence
 
    These structures live for a single iteration of the dominator
    optimizer in the edge's AUX field.  At the end of an iteration we
-   free each of these structures and update the AUX field to point
-   to any requested redirection target (the code for updating the
-   CFG and SSA graph for edge redirection expects redirection edge
-   targets to be in the AUX field for each edge.  */
+   free each of these structures.  */
 
 struct edge_info
 {
@@ -1168,7 +1164,7 @@ pass_dominator::execute (function *fun)
   /* Create our hash tables.  */
   avail_exprs = new hash_table<expr_elt_hasher> (1024);
   avail_exprs_stack.create (20);
-  const_and_copies = new class const_and_copies (dump_file, dump_flags);
+  const_and_copies = new class const_and_copies ();
   need_eh_cleanup = BITMAP_ALLOC (NULL);
   need_noreturn_fixup.create (0);
 
@@ -1577,12 +1573,7 @@ record_equivalences_from_phis (basic_block bb)
 	  if (lhs == t)
 	    continue;
 
-	  /* Valueize t.  */
-	  if (TREE_CODE (t) == SSA_NAME)
-	    {
-	      tree tmp = SSA_NAME_VALUE (t);
-	      t = tmp ? tmp : t;
-	    }
+	  t = dom_valueize (t);
 
 	  /* If we have not processed an alternative yet, then set
 	     RHS to this alternative.  */
@@ -2160,12 +2151,7 @@ record_equivalences_from_stmt (gimple stmt, int may_optimize_p)
 	  && (TREE_CODE (rhs) == SSA_NAME
 	      || is_gimple_min_invariant (rhs)))
 	{
-	  /* Valueize rhs.  */
-	  if (TREE_CODE (rhs) == SSA_NAME)
-	    {
-	      tree tmp = SSA_NAME_VALUE (rhs);
-	      rhs = tmp ? tmp : rhs;
-	    }
+	  rhs = dom_valueize (rhs);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -2442,12 +2428,7 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si)
 	  tree rhs = gimple_assign_rhs1 (stmt);
 	  tree cached_lhs;
 	  gassign *new_stmt;
-	  if (TREE_CODE (rhs) == SSA_NAME)
-	    {
-	      tree tem = SSA_NAME_VALUE (rhs);
-	      if (tem)
-		rhs = tem;
-	    }
+	  rhs = dom_valueize (rhs);
 	  /* Build a new statement with the RHS and LHS exchanged.  */
 	  if (TREE_CODE (rhs) == SSA_NAME)
 	    {
@@ -2569,7 +2550,6 @@ lookup_avail_expr (gimple stmt, bool insert)
 {
   expr_hash_elt **slot;
   tree lhs;
-  tree temp;
   struct expr_hash_elt element;
 
   /* Get LHS of phi, assignment, or call; else NULL_TREE.  */
@@ -2664,14 +2644,7 @@ lookup_avail_expr (gimple stmt, bool insert)
      definition of another variable.  */
   lhs = (*slot)->lhs;
 
-  /* See if the LHS appears in the CONST_AND_COPIES table.  If it does, then
-     use the value from the const_and_copies table.  */
-  if (TREE_CODE (lhs) == SSA_NAME)
-    {
-      temp = SSA_NAME_VALUE (lhs);
-      if (temp)
-	lhs = temp;
-    }
+  lhs = dom_valueize (lhs);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {

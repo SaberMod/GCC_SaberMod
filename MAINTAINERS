@@ -57,6 +57,7 @@ epiphany port		Joern Rennecke		<gnu@amylaar.uk>
 fr30 port		Nick Clifton		<nickc@redhat.com>
 frv port		Nick Clifton		<nickc@redhat.com>
 frv port		Alexandre Oliva		<aoliva@redhat.com>
+ft32 port		James Bowman		<james.bowman@ftdichip.com>
 h8 port			Jeff Law		<law@redhat.com>
 h8 port			Kazu Hirata		<kazu@codesourcery.com>
 hppa port		Jeff Law		<law@redhat.com>
@@ -469,7 +470,7 @@ Terry Laurenzo					<tlaurenzo@gmail.com>
 Alan Lawrence					<alan.lawrence@arm.com>
 Georg-Johann Lay				<avr@gjlay.de>
 Marc Lehmann					<pcg@goof.com>
-James Lemke					<jwlemke@codesourcery.com>
+James Lemke					<jim@lemke.org>
 Kriang Lerdsuwanakij				<lerdsuwa@users.sourceforge.net>
 Renlin Li					<renlin.li@arm.com>
 Xinliang David Li				<davidxl@google.com>
