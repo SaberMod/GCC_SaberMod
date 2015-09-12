@@ -1032,47 +1032,6 @@ ztoa_big (const char *s, char *buffer, int len, GFC_UINTEGER_LARGEST *n)
   return buffer;
 }
 
-/* gfc_itoa()-- Integer to decimal conversion.
-   The itoa function is a widespread non-standard extension to standard
-   C, often declared in <stdlib.h>.  Even though the itoa defined here
-   is a static function we take care not to conflict with any prior
-   non-static declaration.  Hence the 'gfc_' prefix, which is normally
-   reserved for functions with external linkage.  */
-
-static const char *
-gfc_itoa (GFC_INTEGER_LARGEST n, char *buffer, size_t len)
-{
-  int negative;
-  char *p;
-  GFC_UINTEGER_LARGEST t;
-
-  assert (len >= GFC_ITOA_BUF_SIZE);
-
-  if (n == 0)
-    return "0";
-
-  negative = 0;
-  t = n;
-  if (n < 0)
-    {
-      negative = 1;
-      t = -n; /*must use unsigned to protect from overflow*/
-    }
-
-  p = buffer + GFC_ITOA_BUF_SIZE - 1;
-  *p = '\0';
-
-  while (t != 0)
-    {
-      *--p = '0' + (t % 10);
-      t /= 10;
-    }
-
-  if (negative)
-    *--p = '-';
-  return p;
-}
-
 
 void
 write_i (st_parameter_dt *dtp, const fnode *f, const char *p, int len)
@@ -1874,7 +1833,8 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
 		+ strlen (obj->var_name) + obj->var_rank * NML_DIGITS + 1;
 	      ext_name = xmalloc (ext_name_len);
 
-	      memcpy (ext_name, base_name, base_name_len);
+	      if (base_name)
+		memcpy (ext_name, base_name, base_name_len);
 	      clen = strlen (obj->var_name + base_var_name_len);
 	      memcpy (ext_name + base_name_len, 
 		      obj->var_name + base_var_name_len, clen);

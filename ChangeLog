@@ -1,3 +1,11 @@
+2015-09-01  James Bowman  <james.bowman@ftdichip.com>
+
+	* MAINTAINERS (ft32 port): Add myself.
+
+2015-08-28  David Sherwood  <david.sherwood@arm.com>
+
+	* MAINTAINERS: Add myself.
+
 2015-08-27  Patrick Marlier  <patrick.marlier@gmail.com>
 
 	* MAINTAINERS (Write After Approval): Add myself.

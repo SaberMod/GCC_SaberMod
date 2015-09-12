@@ -1247,7 +1247,7 @@ AC_CHECK_DECLS([basename(const char*), strstr(const char*,const char*)], , ,[
 
 gcc_AC_CHECK_DECLS(getenv atol atoll asprintf sbrk abort atof getcwd getwd \
 	madvise stpcpy strnlen strsignal strverscmp \
-	strtol strtoul strtoll strtoull \
+	strtol strtoul strtoll strtoull setenv unsetenv \
 	errno snprintf vsnprintf vasprintf malloc realloc calloc \
 	free getopt clock getpagesize ffs gcc_UNLOCKED_FUNCS, , ,[
 #include "ansidecl.h"
@@ -5821,6 +5821,13 @@ if test "x${ISLLIBS}" != "x" ; then
               [ac_has_isl_options_set_schedule_serialize_sccs=no])
   AC_MSG_RESULT($ac_has_isl_options_set_schedule_serialize_sccs)
 
+  AC_MSG_CHECKING([Checking for isl_ctx_get_max_operations])
+  AC_TRY_LINK([#include <isl/ctx.h>],
+              [isl_ctx_get_max_operations (isl_ctx_alloc ());],
+              [ac_has_isl_ctx_get_max_operations=yes],
+              [ac_has_isl_ctx_get_max_operations=no])
+  AC_MSG_RESULT($ac_has_isl_ctx_get_max_operations)
+
   LIBS="$saved_LIBS"
   CXXFLAGS="$saved_CXXFLAGS"
 
@@ -5832,6 +5839,10 @@ if test "x${ISLLIBS}" != "x" ; then
   if test x"$ac_has_isl_options_set_schedule_serialize_sccs" = x"yes"; then
      AC_DEFINE(HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS, 1,
                [Define if isl_options_set_schedule_serialize_sccs exists.])
+  fi
+  if test x"$ac_has_isl_ctx_get_max_operations" = x"yes"; then
+     AC_DEFINE(HAVE_ISL_CTX_MAX_OPERATIONS, 1,
+               [Define if isl_ctx_get_max_operations exists.])
   fi
 fi
 

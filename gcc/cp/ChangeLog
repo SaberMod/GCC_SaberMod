@@ -1,3 +1,84 @@
+2015-09-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67318
+	* parser.c (cp_parser_parameter_declaration): Consume the ellipsis
+	and set template_parameter_pack_p also when the type is null.
+
+2015-09-09  Mark Wielaard  <mjw@redhat.com>
+
+	* typeck.c (cp_build_binary_op): Check and warn when nonnull arg
+	parm against NULL.
+
+2015-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/67522
+	* semantics.c (handle_omp_array_sections_1): Only run
+	type_dependent_expression_p on VAR_DECL/PARM_DECLs.
+	(finish_omp_clauses) <case OMP_CLAUSE_LINEAR>: Likewise.
+	Don't adjust OMP_CLAUSE_LINEAR_STEP if OMP_CLAUSE_DECL
+	is not a VAR_DECL/PARM_DECL.
+
+	PR c++/67511
+	* semantics.c (handle_omp_for_class_iterator): Don't wrap
+	error_mark_node into a NOP_EXPR to void_type_node.
+
+2015-09-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53184
+	* decl2.c (constrain_class_visibility): Use Wsubobject-linkage.
+
+2015-09-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/67504
+	* parser.c (cp_parser_omp_clause_collapse): Test tree_fits_shwi_p
+	before INTEGRAL_TYPE_P test.
+
+2015-09-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67041
+	* pt.c (tsubst_copy_and_build): Handle variables like functions.
+
+2015-09-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67369
+	* pt.c (tsubst_copy, [case FUNCTION_DECL]): Do not call tsubst
+	if the first argument isn't a template.
+
+2015-09-03  Martin Sebor  <msebor@redhat.com>
+
+	PR c/66516
+	* cp-tree.h (mark_rvalue_use, decay_conversion): Add new
+	argument(s).
+	* expr.c (mark_rvalue_use): Use new argument.
+	* call.c (build_addr_func): Call decay_conversion with new
+	argument.
+	* pt.c (convert_template_argument): Call reject_gcc_builtin.
+	* typeck.c (decay_conversion): Use new argument.
+	(c_decl_implicit): Define.
+
+2015-09-02  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	PR middle-end/60586
+	* cp-gimplify.c (cilk_cp_gimplify_call_params_in_spawned_fn): New
+	function.
+	(cp_gimplify_expr): Added a call to the function
+	cilk_cp_gimplify_call_params_in_spawned_fn.
+
+2015-09-01  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/61753
+	* decl.c (smallest_type_quals_location): New.
+	(check_special_function_return_type): Use the latter; add int and
+	const location_t* parameters.
+	(grokdeclarator): Adjust check_special_function_return_type call.
+
+2015-08-29  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR c++/67371
+	* constexpr.c (potential_constant_expression_1): Remove IF_STMT
+	case. Move label to COND_EXPR case. Remove checking of
+	SWITCH_STMT_BODY.
+
 2015-08-22  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/63693

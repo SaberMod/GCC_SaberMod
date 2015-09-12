@@ -8892,7 +8892,6 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	    && ! unsignedp
 	    && mode == GET_MODE_WIDER_MODE (word_mode)
 	    && GET_MODE_SIZE (mode) == 2 * GET_MODE_SIZE (word_mode)
-	    && ! have_insn_for (ASHIFT, mode)
 	    && TREE_CONSTANT (treeop1)
 	    && TREE_CODE (treeop0) == SSA_NAME)
 	  {
@@ -8908,6 +8907,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 		    && ((TREE_INT_CST_LOW (treeop1) + GET_MODE_BITSIZE (rmode))
 			>= GET_MODE_BITSIZE (word_mode)))
 		  {
+		    rtx_insn *seq, *seq_old;
 		    unsigned int high_off = subreg_highpart_offset (word_mode,
 								    mode);
 		    rtx low = lowpart_subreg (word_mode, op0, mode);
@@ -8918,6 +8918,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 					     - TREE_INT_CST_LOW (treeop1));
 		    tree rshift = build_int_cst (TREE_TYPE (treeop1), ramount);
 
+		    start_sequence ();
 		    /* dest_high = src_low >> (word_size - C).  */
 		    temp = expand_variable_shift (RSHIFT_EXPR, word_mode, low,
 						  rshift, dest_high, unsignedp);
@@ -8930,7 +8931,28 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 		    if (temp != dest_low)
 		      emit_move_insn (dest_low, temp);
 
+		    seq = get_insns ();
+		    end_sequence ();
 		    temp = target ;
+
+		    if (have_insn_for (ASHIFT, mode))
+		      {
+			bool speed_p = optimize_insn_for_speed_p ();
+			start_sequence ();
+			rtx ret_old = expand_variable_shift (code, mode, op0,
+							     treeop1, target,
+							     unsignedp);
+
+			seq_old = get_insns ();
+			end_sequence ();
+			if (seq_cost (seq, speed_p)
+			    >= seq_cost (seq_old, speed_p))
+			  {
+			    seq = seq_old;
+			    temp = ret_old;
+			  }
+		      }
+		      emit_insn (seq);
 		  }
 	      }
 	  }
@@ -9463,6 +9485,10 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
       if (g)
 	{
 	  rtx r;
+	  location_t saved_loc = curr_insn_location ();
+	  location_t loc = gimple_location (g);
+	  if (loc != UNKNOWN_LOCATION)
+	    set_curr_insn_location (loc);
 	  ops.code = gimple_assign_rhs_code (g);
           switch (get_gimple_rhs_class (ops.code))
 	    {
@@ -9484,21 +9510,19 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	    case GIMPLE_UNARY_RHS:
 	      ops.op0 = gimple_assign_rhs1 (g);
 	      ops.type = TREE_TYPE (gimple_assign_lhs (g));
-	      ops.location = gimple_location (g);
+	      ops.location = loc;
 	      r = expand_expr_real_2 (&ops, target, tmode, modifier);
 	      break;
 	    case GIMPLE_SINGLE_RHS:
 	      {
-		location_t saved_loc = curr_insn_location ();
-		set_curr_insn_location (gimple_location (g));
 		r = expand_expr_real (gimple_assign_rhs1 (g), target,
 				      tmode, modifier, NULL, inner_reference_p);
-		set_curr_insn_location (saved_loc);
 		break;
 	      }
 	    default:
 	      gcc_unreachable ();
 	    }
+	  set_curr_insn_location (saved_loc);
 	  if (REG_P (r) && !REG_EXPR (r))
 	    set_reg_attrs_for_decl_rtl (SSA_NAME_VAR (exp), r);
 	  return r;

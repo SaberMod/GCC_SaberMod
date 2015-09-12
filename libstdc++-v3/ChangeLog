@@ -1,3 +1,554 @@
+2015-09-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/67173
+	* src/filesystem/ops.cc (filesystem::canonical): Allocate buffer for
+	realpath on Solaris 10.
+
+	PR libstdc++/65142
+	* src/c++11/random.cc (random_device::_M_getval()): Check read result.
+
+2015-09-11  John Marino  <gnugcc@marino.st>
+	    Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/67096
+	* testsuite/22_locale/codecvt/in/wchar_t/4.cc: Do not test code points
+	above U+10FFFF.
+	* testsuite/22_locale/codecvt/in/wchar_t/8.cc: Likewise.
+	* testsuite/22_locale/codecvt/in/wchar_t/9.cc: Likewise.
+	* testsuite/22_locale/codecvt/length/wchar_t/4.cc: Likewise.
+	* testsuite/22_locale/codecvt/out/wchar_t/4.cc: Likewise.
+	* testsuite/22_locale/codecvt/unshift/wchar_t/4.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/seekoff/wchar_t/1.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/seekpos/wchar_t/9874.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/underflow/wchar_t/1.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/underflow/wchar_t/2.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/underflow/wchar_t/3.cc: Likewise.
+	* testsuite/27_io/objects/wchar_t/10.cc: Likewise.
+	* testsuite/27_io/objects/wchar_t/11.cc: Likewise.
+	* testsuite/27_io/objects/wchar_t/12.cc: Likewise.
+	* testsuite/27_io/objects/wchar_t/13.cc: Likewise.
+
+2015-09-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64857
+	* doc/xml/manual/using.xml: Improve aggregate header documentation.
+	* doc/html/manual/*: Regenerate.
+	* include/precompiled/extc++.h: Include <bits/stdc++.h> for C++11
+	and later and include more extension headers.
+	* testsuite/17_intro/headers/c++1998/all_attributes.cc: Remove
+	redundant header.
+	* testsuite/17_intro/headers/c++200x/: Rename to c++2011.
+	* testsuite/17_intro/headers/c++2014/all_attributes.cc: Remove
+	redundant headers.
+	* testsuite/17_intro/headers/c++2014/all_no_exceptions.cc: New.
+	* testsuite/17_intro/headers/c++2014/all_no_rtti.cc: New.
+	* testsuite/17_intro/headers/c++2014/all_pedantic_errors.cc: New.
+	* testsuite/17_intro/headers/c++2014/operator_names.cc: New.
+	* testsuite/17_intro/headers/c++2014/stdc++.cc: New.
+	* testsuite/17_intro/headers/c++2014/stdc++_multiple_inclusion.cc:
+	New.
+
+	PR libstdc++/58265
+	* doc/xml/manual/intro.xml: Document LWG 2063 and 2064 resolutions.
+	* doc/html/manual/bugs.html: Regenerate.
+	* include/bits/basic_string.h (basic_string): Implement N4258. Add
+	correct exception-specifications and propagate allocators correctly.
+	* include/bits/basic_string.tcc (basic_string::swap): Propagate
+	allocators correctly.
+	* include/debug/string (__gnu_debug::basic_string): Add correct
+	exceptions-specifications and allcoator-extended constructors.
+	* testsuite/21_strings/basic_string/allocator/char/copy.cc: New.
+	* testsuite/21_strings/basic_string/allocator/char/copy_assign.cc:
+	New.
+	* testsuite/21_strings/basic_string/allocator/char/minimal.cc: New.
+	* testsuite/21_strings/basic_string/allocator/char/move.cc: New.
+	* testsuite/21_strings/basic_string/allocator/char/move_assign.cc:
+	New.
+	* testsuite/21_strings/basic_string/allocator/char/noexcept.cc: New.
+	* testsuite/21_strings/basic_string/allocator/char/swap.cc: New.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/copy.cc: New.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/copy_assign.cc:
+	New.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/minimal.cc: New.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/move.cc: New.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/move_assign.cc:
+	New.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/noexcept.cc: New.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/swap.cc: New.
+	* testsuite/util/testsuite_allocator.h (tracker_allocator): Define
+	defaulted assignment operators.
+
+	PR libstdc++/65092
+	* include/bits/stl_queue.h (queue, priority_queue): Add
+	allocator-extended constructors.
+	* include/bits/stl_stack.h (stack): Likewise.
+	* testsuite/23_containers/priority_queue/requirements/
+	uses_allocator.cc: Test allocator-extended constructors.
+	* testsuite/23_containers/queue/requirements/uses_allocator.cc:
+	Likewise.
+	* testsuite/23_containers/stack/requirements/uses_allocator.cc:
+	Likewise.
+
+2015-09-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/util/testsuite_allocator.h (PointerBase::operator[]): Add.
+
+	* testsuite/21_strings/basic_string/operators/char/1.cc: Verify the
+	string contents.
+
+2015-09-09  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/using.xml (_GLIBCXX_ASSERTIONS): Document.
+	* doc/html/manual/using_macros.html: Regenerate.
+	* include/bits/c++config: Define _GLIBCXX_ASSERTIONS when
+	_GLIBCXX_DEBUG is defined. Disable std::string extern templates when
+	(_GLIBCXX_EXTERN_TEMPLATE, __glibcxx_assert): Depend on
+	_GLIBCXX_ASSERTIONS instead of _GLIBCXX_DEBUG.
+	* include/debug/debug.h [!_GLIBCXX_DEBUG]: Define
+	__glibcxx_requires_non_empty_range and __glibcxx_requires_nonempty.
+	* include/backward/auto_ptr.h (auto_ptr::operator*,
+	auto_ptr::operator->): Replace _GLIBCXX_DEBUG_ASSERT with
+	__glibcxx_assert.
+	* include/bits/basic_string.h (basic_string::operator[],
+	basic_string::front, basic_string::back, basic_string::pop_back):
+	Likewise.
+	* include/bits/random.h
+	(uniform_int_distribution::param_type::param_type,
+	uniform_real_distribution::param_type::param_type,
+	normal_distribution::param_type::param_type,
+	gamma_distribution::param_type::param_type,
+	bernoulli_distribution::param_type::param_type,
+	binomial_distribution::param_type::param_type,
+	geometric_distribution::param_type::param_type,
+	negative_binomial_distribution::param_type::param_type,
+	poisson_distribution::param_type::param_type,
+	exponential_distribution::param_type::param_type): Likewise.
+	* include/bits/regex.h (match_results::operator[],
+	match_results::prefix, match_results::suffix): Likewise.
+	* include/bits/regex.tcc (format, regex_iterator::operator++):
+	Likewise.
+	* include/bits/regex_automaton.tcc (_StateSeq::_M_clone): Likewise.
+	* include/bits/regex_compiler.tcc (_Compiler::_Compiler,
+	_Compiler::_M_insert_character_class_matcher): Likewise.
+	* include/bits/regex_executor.tcc (_Executor::_M_dfs): Likewise.
+	* include/bits/regex_scanner.tcc (_Scanner::_M_advance,
+	_Scanner::_M_scan_normal): Likewise.
+	* include/bits/shared_ptr_base.h (__shared_ptr::_M_reset,
+	__shared_ptr::operator*): Likewise.
+	* include/bits/stl_iterator_base_funcs.h (__advance): Likewise.
+	* include/bits/unique_ptr.h (unique_ptr::operator*,
+	unique_ptr::operator[]): Likewise.
+	* include/experimental/fs_path.h (path::path(string_type, _Type),
+	path::iterator::operator++, path::iterator::operator--,
+	path::iterator::operator*): Likewise.
+	* include/experimental/string_view (basic_string_view::operator[],
+	basic_string_view::front, basic_string_view::back,
+	basic_string_view::remove_prefix): Likewise.
+	* include/ext/random (beta_distribution::param_type::param_type,
+	normal_mv_distribution::param_type::param_type,
+	rice_distribution::param_type::param_type,
+	pareto_distribution::param_type::param_type,
+	k_distribution::param_type::param_type,
+	arcsine_distribution::param_type::param_type,
+	hoyt_distribution::param_type::param_type,
+	triangular_distribution::param_type::param_type,
+	von_mises_distribution::param_type::param_type,
+	hypergeometric_distribution::param_type::param_type,
+	logistic_distribution::param_type::param_type): Likewise.
+	* include/ext/vstring.h (__versa_string::operator[]): Likewise.
+	* include/std/complex (polar): Likewise.
+	* include/std/mutex [!_GTHREAD_USE_MUTEX_TIMEDLOCK]
+	(timed_mutex::~timed_mutex, timed_mutex::unlock,
+	(recursive_timed_mutex::~timed_mutex, recursive_timed_mutex::unlock):
+	Likewise.
+	* include/std/shared_mutex [!PTHREAD_RWLOCK_INITIALIZER]
+	(__shared_mutex_pthread::__shared_mutex_pthread,
+	__shared_mutex_pthread::~__shared_mutex_pthread): Likewise.
+	(__shared_mutex_pthread::lock, __shared_mutex_pthread::try_lock,
+	__shared_mutex_pthread::unlock, __shared_mutex_pthread::lock_shared,
+	__shared_mutex_pthread::try_lock_shared): Likewise.
+	(__shared_mutex_cv::~__shared_mutex_cv, __shared_mutex_cv::unlock,
+	__shared_mutex_cv::unlock_shared): Likewise.
+	(shared_timed_mutex::try_lock_until,
+	shared_timed_mutex::try_lock_shared_until): Likewise.
+	* include/std/valarray (valarray::valarray(const _Tp*, size_t),
+	valarray::operator=, valarray::sum, valarray::min, valarray::max,
+	_DEFINE_VALARRAY_AUGMENTED_ASSIGNMENT, _DEFINE_BINARY_OPERATOR):
+	Likewise.
+
+2015-09-07  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/shared_ptr_base.h (__shared_ptr::operator->): Change
+	_GLIBCXX_DEBUG_ASSERT to _GLIBCXX_DEBUG_PEDASSERT.
+	* include/bits/unique_ptr.h (unique_ptr::operator->): Likewise.
+	* testsuite/20_util/shared_ptr/observers/get.cc: Test operator-> on
+	empty shared_ptr.
+
+	* include/bits/regex_compiler.h (_BracketMatcher::_M_is_ready):
+	Initialize using NSDMI and set using _GLIBCXX_DEBUG_ONLY.
+
+	* testsuite/30_threads/timed_mutex/try_lock_until/57641.cc: Rename
+	shadowed variable.
+
+	* testsuite/30_threads/recursive_timed_mutex/unlock/2.cc: Run on
+	darwin.
+	* testsuite/30_threads/timed_mutex/unlock/2.cc: Run on darwin.
+
+2015-09-04  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/65704
+	* include/std/mutex (recursive_timed_mutex): Fix uses of _Can_lock.
+
+	PR libstdc++/65704
+	* include/Makefile.am: Add <bits/mutex.h>.
+	* include/Makefile.in: Regenerate.
+	* include/bits/mutex.h (__mutex_base, mutex, lock_guard, unique_lock):
+	New file containing types moved from <mutex>.
+	* include/std/condition_variable: Include <bits/mutex.h> instead of
+	<mutex>.
+	* include/std/mutex (__mutex_base, mutex, lock_guard, unique_lock):
+	Move to <bits/mutex.h>.
+	*  testsuite/30_threads/recursive_timed_mutex/cons/1.cc: Remove
+	dg-require-gthreads-timed.
+	*  testsuite/30_threads/recursive_timed_mutex/cons/assign_neg.cc:
+	Likewise.
+	*  testsuite/30_threads/recursive_timed_mutex/cons/copy_neg.cc:
+	Likewise.
+	*  testsuite/30_threads/recursive_timed_mutex/dest/
+	destructor_locked.cc: Likewise.
+	*  testsuite/30_threads/recursive_timed_mutex/lock/1.cc: Likewise.
+	*  testsuite/30_threads/recursive_timed_mutex/lock/2.cc: Likewise.
+	*  testsuite/30_threads/recursive_timed_mutex/try_lock/1.cc: Likewise.
+	*  testsuite/30_threads/recursive_timed_mutex/try_lock/2.cc: Likewise.
+	*  testsuite/30_threads/recursive_timed_mutex/try_lock_for/1.cc:
+	Likewise.
+	*  testsuite/30_threads/recursive_timed_mutex/try_lock_for/2.cc:
+	Likewise.
+	*  testsuite/30_threads/recursive_timed_mutex/try_lock_for/3.cc:
+	Likewise.
+	*  testsuite/30_threads/recursive_timed_mutex/try_lock_until/1.cc:
+	Likewise.
+	*  testsuite/30_threads/recursive_timed_mutex/try_lock_until/2.cc:
+	Likewise.
+	*  testsuite/30_threads/recursive_timed_mutex/unlock/1.cc: Likewise.
+	*  testsuite/30_threads/timed_mutex/cons/1.cc: Likewise.
+	*  testsuite/30_threads/timed_mutex/cons/assign_neg.cc: Likewise.
+	*  testsuite/30_threads/timed_mutex/cons/copy_neg.cc: Likewise.
+	*  testsuite/30_threads/timed_mutex/dest/destructor_locked.cc:
+	Likewise.
+	*  testsuite/30_threads/timed_mutex/lock/1.cc: Likewise.
+	*  testsuite/30_threads/timed_mutex/requirements/standard_layout.cc:
+	Likewise.
+	*  testsuite/30_threads/timed_mutex/try_lock/1.cc: Likewise.
+	*  testsuite/30_threads/timed_mutex/try_lock/2.cc: Likewise.
+	*  testsuite/30_threads/timed_mutex/try_lock_for/1.cc: Likewise.
+	*  testsuite/30_threads/timed_mutex/try_lock_for/2.cc: Likewise.
+	*  testsuite/30_threads/timed_mutex/try_lock_for/3.cc: Likewise.
+	*  testsuite/30_threads/timed_mutex/try_lock_until/1.cc: Likewise.
+	*  testsuite/30_threads/timed_mutex/try_lock_until/2.cc: Likewise.
+	*  testsuite/30_threads/timed_mutex/try_lock_until/57641.cc: Likewise.
+	*  testsuite/30_threads/timed_mutex/unlock/1.cc: Likewise.
+	*  testsuite/30_threads/unique_lock/cons/5.cc: Likewise.
+	*  testsuite/30_threads/unique_lock/cons/6.cc: Likewise.
+	*  testsuite/30_threads/unique_lock/locking/3.cc: Likewise.
+	*  testsuite/30_threads/unique_lock/locking/4.cc: Likewise.
+
+2015-09-04  Edward Smith-Rowland  <3dw4rd@verizon.net>
+	    Jonathan Wakely  <jwakely@redhat.com>
+
+	Add C++11 header <cuchar>.
+	* acinclude.m4 (GLIBCXX_CHECK_UCHAR_H): Define.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* configure.ac: Check for <uchar.h>.
+	* include/Makefile.am: Add new headers.
+	* include/Makefile.in: Regenerate.
+	* include/c/cuchar: New.
+	* include/c_compatibility/uchar.h: New.
+	* include/c_global/cuchar: New.
+	* include/c_std/cuchar: New.
+	* include/precompiled/stdc++.h: Include <cuchar>.
+	* testsuite/17_intro/headers/c++200x/stdc++.cc: Include <uchar.h>.
+	* testsuite/17_intro/headers/c++200x/stdc++_multiple_inclusion.cc:
+	Include <uchar.h>.
+
+2015-09-04  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/65473
+	* include/c/cassert: Include <bits/c++config.h>.
+	* include/c/cerrno: Likewise.
+	* include/c/cfloat: Likewise.
+	* include/c/ciso646: Likewise.
+	* include/c/climits: Likewise.
+	* include/c_global/cassert: Likewise.
+	* include/c_global/cerrno: Likewise.
+	* include/c_global/cfloat: Likewise.
+	* include/c_global/ciso646: Likewise.
+	* include/c_global/climits: Likewise.
+	* include/c_std/cassert: Likewise.
+	* include/c_std/cerrno: Likewise.
+	* include/c_std/cfloat: Likewise.
+	* include/c_std/ciso646: Likewise.
+	* include/c_std/climits: Likewise.
+
+2015-09-03  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/shared_ptr_base.h: Add required header.
+	* include/std/condition_variable: Likewise.
+	* include/std/mutex: Remove unused header.
+	* include/std/shared_mutex: Remove redundant header.
+	(shared_mutex::shared_mutex()): Replace throw with __throw_bad_alloc.
+
+	PR libstdc++/66902
+	* src/c++11/debug.cc (_S_debug_messages): Make array const.
+
+	PR libstdc++/66998
+	* include/experimental/functional (_Not_fn): Add exception
+	specifications and non-deduced return types.
+	(not_fn): Add exception specification and wrap pointer-to-member.
+	* testsuite/experimental/functional/not_fn.cc: Test in SFINAE context
+	and test pointer-to-member.
+
+	PR libstdc++/62039
+	* include/bits/stl_iterator_base_funcs.h (next, prev): Add concept
+	checks.
+	* testsuite/24_iterators/operations/prev_neg.cc: New.
+	* testsuite/24_iterators/operations/next_neg.cc: New.
+
+2015-09-03  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* testsuite/18_support/pthread_guard.cc: Add *-*-rtems* target
+	selector to all lines which contain a *-*-cygwin target selector.
+	* testsuite/20_util/shared_ptr/atomic/3.cc: Likewise.
+	* testsuite/20_util/shared_ptr/thread/default_weaktoshared.cc: Likewise.
+	* testsuite/20_util/shared_ptr/thread/mutex_weaktoshared.cc: Likewise.
+	* testsuite/21_strings/basic_string/pthread18185.cc: Likewise.
+	* testsuite/21_strings/basic_string/pthread33394.cc: Likewise.
+	* testsuite/21_strings/basic_string/pthread4.cc: Likewise.
+	* testsuite/22_locale/locale/cons/12658_thread-1.cc: Likewise.
+	* testsuite/22_locale/locale/cons/12658_thread-2.cc: Likewise.
+	* testsuite/23_containers/list/pthread1.cc: Likewise.
+	* testsuite/23_containers/list/pthread5.cc: Likewise.
+	* testsuite/23_containers/map/pthread6.cc: Likewise.
+	* testsuite/23_containers/vector/debug/multithreaded_swap.cc: Likewise.
+	* testsuite/27_io/basic_ofstream/pthread2.cc: Likewise.
+	* testsuite/27_io/basic_ostringstream/pthread3.cc: Likewise.
+	* testsuite/30_threads/async/42819.cc: Likewise.
+	* testsuite/30_threads/async/49668.cc: Likewise.
+	* testsuite/30_threads/async/54297.cc: Likewise.
+	* testsuite/30_threads/async/any.cc: Likewise.
+	* testsuite/30_threads/async/async.cc: Likewise.
+	* testsuite/30_threads/async/launch.cc: Likewise.
+	* testsuite/30_threads/async/lwg2021.cc: Likewise.
+	* testsuite/30_threads/async/sync.cc: Likewise.
+	* testsuite/30_threads/call_once/39909.cc: Likewise.
+	* testsuite/30_threads/call_once/49668.cc: Likewise.
+	* testsuite/30_threads/call_once/60497.cc: Likewise.
+	* testsuite/30_threads/call_once/call_once1.cc: Likewise.
+	* testsuite/30_threads/condition_variable/54185.cc: Likewise.
+	* testsuite/30_threads/condition_variable/cons/1.cc: Likewise.
+	* testsuite/30_threads/condition_variable/members/1.cc: Likewise.
+	* testsuite/30_threads/condition_variable/members/2.cc: Likewise.
+	* testsuite/30_threads/condition_variable/members/3.cc: Likewise.
+	* testsuite/30_threads/condition_variable/members/53841.cc: Likewise.
+	* testsuite/30_threads/condition_variable/native_handle/typesizes.cc:
+	Likewise.
+	* testsuite/30_threads/condition_variable_any/50862.cc: Likewise.
+	* testsuite/30_threads/condition_variable_any/53830.cc: Likewise.
+	* testsuite/30_threads/condition_variable_any/cons/1.cc: Likewise.
+	* testsuite/30_threads/condition_variable_any/members/1.cc: Likewise.
+	* testsuite/30_threads/condition_variable_any/members/2.cc: Likewise.
+	* testsuite/30_threads/future/cons/move.cc: Likewise.
+	* testsuite/30_threads/future/members/45133.cc: Likewise.
+	* testsuite/30_threads/future/members/get.cc: Likewise.
+	* testsuite/30_threads/future/members/get2.cc: Likewise.
+	* testsuite/30_threads/future/members/share.cc: Likewise.
+	* testsuite/30_threads/future/members/valid.cc: Likewise.
+	* testsuite/30_threads/future/members/wait.cc: Likewise.
+	* testsuite/30_threads/future/members/wait_for.cc: Likewise.
+	* testsuite/30_threads/future/members/wait_until.cc: Likewise.
+	* testsuite/30_threads/lock/1.cc: Likewise.
+	* testsuite/30_threads/lock/2.cc: Likewise.
+	* testsuite/30_threads/lock/3.cc: Likewise.
+	* testsuite/30_threads/lock/4.cc: Likewise.
+	* testsuite/30_threads/mutex/cons/1.cc: Likewise.
+	* testsuite/30_threads/mutex/dest/destructor_locked.cc: Likewise.
+	* testsuite/30_threads/mutex/lock/1.cc: Likewise.
+	* testsuite/30_threads/mutex/native_handle/1.cc: Likewise.
+	* testsuite/30_threads/mutex/native_handle/typesizes.cc: Likewise.
+	* testsuite/30_threads/mutex/try_lock/1.cc: Likewise.
+	* testsuite/30_threads/mutex/try_lock/2.cc: Likewise.
+	* testsuite/30_threads/mutex/unlock/1.cc: Likewise.
+	* testsuite/30_threads/mutex/unlock/2.cc: Likewise.
+	* testsuite/30_threads/packaged_task/49668.cc: Likewise.
+	* testsuite/30_threads/packaged_task/60564.cc: Likewise.
+	* testsuite/30_threads/packaged_task/cons/1.cc: Likewise.
+	* testsuite/30_threads/packaged_task/cons/2.cc: Likewise.
+	* testsuite/30_threads/packaged_task/cons/3.cc: Likewise.
+	* testsuite/30_threads/packaged_task/cons/56492.cc: Likewise.
+	* testsuite/30_threads/packaged_task/cons/alloc.cc: Likewise.
+	* testsuite/30_threads/packaged_task/cons/move.cc: Likewise.
+	* testsuite/30_threads/packaged_task/cons/move_assign.cc: Likewise.
+	* testsuite/30_threads/packaged_task/members/at_thread_exit.cc:
+	Likewise.
+	* testsuite/30_threads/packaged_task/members/get_future.cc: Likewise.
+	* testsuite/30_threads/packaged_task/members/get_future2.cc: Likewise.
+	* testsuite/30_threads/packaged_task/members/invoke.cc: Likewise.
+	* testsuite/30_threads/packaged_task/members/invoke2.cc: Likewise.
+	* testsuite/30_threads/packaged_task/members/invoke3.cc: Likewise.
+	* testsuite/30_threads/packaged_task/members/invoke4.cc: Likewise.
+	* testsuite/30_threads/packaged_task/members/invoke5.cc: Likewise.
+	* testsuite/30_threads/packaged_task/members/reset.cc: Likewise.
+	* testsuite/30_threads/packaged_task/members/reset2.cc: Likewise.
+	* testsuite/30_threads/packaged_task/members/swap.cc: Likewise.
+	* testsuite/30_threads/packaged_task/members/valid.cc: Likewise.
+	* testsuite/30_threads/promise/60966.cc: Likewise.
+	* testsuite/30_threads/promise/cons/1.cc: Likewise.
+	* testsuite/30_threads/promise/cons/alloc.cc: Likewise.
+	* testsuite/30_threads/promise/cons/move.cc: Likewise.
+	* testsuite/30_threads/promise/cons/move_assign.cc: Likewise.
+	* testsuite/30_threads/promise/members/at_thread_exit.cc: Likewise.
+	* testsuite/30_threads/promise/members/get_future.cc: Likewise.
+	* testsuite/30_threads/promise/members/get_future2.cc: Likewise.
+	* testsuite/30_threads/promise/members/set_exception.cc: Likewise.
+	* testsuite/30_threads/promise/members/set_exception2.cc: Likewise.
+	* testsuite/30_threads/promise/members/set_value.cc: Likewise.
+	* testsuite/30_threads/promise/members/set_value2.cc: Likewise.
+	* testsuite/30_threads/promise/members/set_value3.cc: Likewise.
+	* testsuite/30_threads/promise/members/swap.cc: Likewise.
+	* testsuite/30_threads/recursive_mutex/cons/1.cc: Likewise.
+	* testsuite/30_threads/recursive_mutex/dest/destructor_locked.cc:
+	Likewise.
+	* testsuite/30_threads/recursive_mutex/lock/1.cc: Likewise.
+	* testsuite/30_threads/recursive_mutex/native_handle/1.cc: Likewise.
+	* testsuite/30_threads/recursive_mutex/native_handle/typesizes.cc:
+	Likewise.
+	* testsuite/30_threads/recursive_mutex/try_lock/1.cc: Likewise.
+	* testsuite/30_threads/recursive_mutex/try_lock/2.cc: Likewise.
+	* testsuite/30_threads/recursive_mutex/unlock/1.cc: Likewise.
+	* testsuite/30_threads/recursive_mutex/unlock/2.cc: Likewise.
+	* testsuite/30_threads/recursive_timed_mutex/cons/1.cc: Likewise.
+	* testsuite/30_threads/recursive_timed_mutex/dest/destructor_locked.cc:
+	Likewise.
+	* testsuite/30_threads/recursive_timed_mutex/lock/1.cc: Likewise.
+	* testsuite/30_threads/recursive_timed_mutex/lock/2.cc: Likewise.
+	* testsuite/30_threads/recursive_timed_mutex/native_handle/1.cc:
+	Likewise.
+	* testsuite/30_threads/recursive_timed_mutex/native_handle/typesizes.cc:
+	Likewise.
+	* testsuite/30_threads/recursive_timed_mutex/try_lock/1.cc: Likewise.
+	* testsuite/30_threads/recursive_timed_mutex/try_lock/2.cc: Likewise.
+	* testsuite/30_threads/recursive_timed_mutex/try_lock_for/1.cc:
+	Likewise.
+	* testsuite/30_threads/recursive_timed_mutex/try_lock_for/2.cc:
+	Likewise.
+	* testsuite/30_threads/recursive_timed_mutex/try_lock_for/3.cc:
+	Likewise.
+	* testsuite/30_threads/recursive_timed_mutex/try_lock_until/1.cc:
+	Likewise.
+	* testsuite/30_threads/recursive_timed_mutex/try_lock_until/2.cc:
+	Likewise.
+	* testsuite/30_threads/recursive_timed_mutex/unlock/1.cc: Likewise.
+	* testsuite/30_threads/recursive_timed_mutex/unlock/2.cc: Likewise.
+	* testsuite/30_threads/shared_future/cons/move.cc: Likewise.
+	* testsuite/30_threads/shared_future/members/45133.cc: Likewise.
+	* testsuite/30_threads/shared_future/members/get.cc: Likewise.
+	* testsuite/30_threads/shared_future/members/get2.cc: Likewise.
+	* testsuite/30_threads/shared_future/members/valid.cc: Likewise.
+	* testsuite/30_threads/shared_future/members/wait.cc: Likewise.
+	* testsuite/30_threads/shared_future/members/wait_for.cc: Likewise.
+	* testsuite/30_threads/shared_future/members/wait_until.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/1.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/2.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/3.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/4.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/5.cc: Likewise.
+	* testsuite/30_threads/shared_lock/cons/6.cc: Likewise.
+	* testsuite/30_threads/shared_lock/locking/1.cc: Likewise.
+	* testsuite/30_threads/shared_lock/locking/2.cc: Likewise.
+	* testsuite/30_threads/shared_lock/locking/3.cc: Likewise.
+	* testsuite/30_threads/shared_lock/locking/4.cc: Likewise.
+	* testsuite/30_threads/shared_lock/modifiers/1.cc: Likewise.
+	* testsuite/30_threads/shared_mutex/cons/1.cc: Likewise.
+	* testsuite/30_threads/shared_mutex/try_lock/1.cc: Likewise.
+	* testsuite/30_threads/shared_mutex/try_lock/2.cc: Likewise.
+	* testsuite/30_threads/shared_mutex/unlock/1.cc: Likewise.
+	* testsuite/30_threads/shared_timed_mutex/cons/1.cc: Likewise.
+	* testsuite/30_threads/shared_timed_mutex/try_lock/1.cc: Likewise.
+	* testsuite/30_threads/shared_timed_mutex/try_lock/2.cc: Likewise.
+	* testsuite/30_threads/shared_timed_mutex/try_lock/3.cc: Likewise.
+	* testsuite/30_threads/shared_timed_mutex/unlock/1.cc: Likewise.
+	* testsuite/30_threads/this_thread/1.cc: Likewise.
+	* testsuite/30_threads/this_thread/2.cc: Likewise.
+	* testsuite/30_threads/this_thread/3.cc: Likewise.
+	* testsuite/30_threads/this_thread/4.cc: Likewise.
+	* testsuite/30_threads/thread/cons/1.cc: Likewise.
+	* testsuite/30_threads/thread/cons/2.cc: Likewise.
+	* testsuite/30_threads/thread/cons/3.cc: Likewise.
+	* testsuite/30_threads/thread/cons/4.cc: Likewise.
+	* testsuite/30_threads/thread/cons/49668.cc: Likewise.
+	* testsuite/30_threads/thread/cons/5.cc: Likewise.
+	* testsuite/30_threads/thread/cons/6.cc: Likewise.
+	* testsuite/30_threads/thread/cons/7.cc: Likewise.
+	* testsuite/30_threads/thread/cons/8.cc: Likewise.
+	* testsuite/30_threads/thread/cons/9.cc: Likewise.
+	* testsuite/30_threads/thread/cons/moveable.cc: Likewise.
+	* testsuite/30_threads/thread/members/1.cc: Likewise.
+	* testsuite/30_threads/thread/members/2.cc: Likewise.
+	* testsuite/30_threads/thread/members/3.cc: Likewise.
+	* testsuite/30_threads/thread/members/4.cc: Likewise.
+	* testsuite/30_threads/thread/members/5.cc: Likewise.
+	* testsuite/30_threads/thread/members/hardware_concurrency.cc: Likewise.
+	* testsuite/30_threads/thread/native_handle/cancel.cc: Likewise.
+	* testsuite/30_threads/thread/swap/1.cc: Likewise.
+	* testsuite/30_threads/timed_mutex/cons/1.cc: Likewise.
+	* testsuite/30_threads/timed_mutex/dest/destructor_locked.cc: Likewise.
+	* testsuite/30_threads/timed_mutex/lock/1.cc: Likewise.
+	* testsuite/30_threads/timed_mutex/native_handle/1.cc: Likewise.
+	* testsuite/30_threads/timed_mutex/native_handle/typesizes.cc: Likewise.
+	* testsuite/30_threads/timed_mutex/try_lock/1.cc: Likewise.
+	* testsuite/30_threads/timed_mutex/try_lock/2.cc: Likewise.
+	* testsuite/30_threads/timed_mutex/try_lock_for/1.cc: Likewise.
+	* testsuite/30_threads/timed_mutex/try_lock_for/2.cc: Likewise.
+	* testsuite/30_threads/timed_mutex/try_lock_for/3.cc: Likewise.
+	* testsuite/30_threads/timed_mutex/try_lock_until/1.cc: Likewise.
+	* testsuite/30_threads/timed_mutex/try_lock_until/2.cc: Likewise.
+	* testsuite/30_threads/timed_mutex/try_lock_until/57641.cc: Likewise.
+	* testsuite/30_threads/timed_mutex/unlock/1.cc: Likewise.
+	* testsuite/30_threads/timed_mutex/unlock/2.cc: Likewise.
+	* testsuite/30_threads/try_lock/1.cc: Likewise.
+	* testsuite/30_threads/try_lock/2.cc: Likewise.
+	* testsuite/30_threads/try_lock/3.cc: Likewise.
+	* testsuite/30_threads/try_lock/4.cc: Likewise.
+	* testsuite/30_threads/unique_lock/cons/1.cc: Likewise.
+	* testsuite/30_threads/unique_lock/cons/2.cc: Likewise.
+	* testsuite/30_threads/unique_lock/cons/3.cc: Likewise.
+	* testsuite/30_threads/unique_lock/cons/4.cc: Likewise.
+	* testsuite/30_threads/unique_lock/cons/5.cc: Likewise.
+	* testsuite/30_threads/unique_lock/cons/6.cc: Likewise.
+	* testsuite/30_threads/unique_lock/locking/1.cc: Likewise.
+	* testsuite/30_threads/unique_lock/locking/2.cc: Likewise.
+	* testsuite/30_threads/unique_lock/locking/3.cc: Likewise.
+	* testsuite/30_threads/unique_lock/locking/4.cc: Likewise.
+	* testsuite/30_threads/unique_lock/modifiers/1.cc: Likewise.
+	* testsuite/ext/rope/pthread7-rope.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/shared_ptr/thread/default_weaktoshared.cc:
+	Likewise.
+	* testsuite/tr1/2_general_utilities/shared_ptr/thread/mutex_weaktoshared.cc:
+	Likewise.
+
+2015-09-02  Dmitry Vyukov  <dvyukov@google.com>
+
+	* include/bits/basic_string.h: Fix data races on _M_refcount.
+
+2015-09-02  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	PR libstdc++/67408
+	* include/std/mutex (__timed_mutex_impl::_M_try_lock_until): Use
+	_Derived::_M_timedlock().
+	(timed_mutex): Add _M_timedlock() and make base class a friend.
+	(recursive_timed_mutex): Likewise.
+
 2015-08-28  Tim Shen  <timshen@google.com>
 
 	PR libstdc++/67362
