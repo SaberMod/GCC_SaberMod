@@ -420,7 +420,7 @@ move_insn_for_shrink_wrap (basic_block bb, rtx_insn *insn,
    to call-saved registers because their values are live across one or
    more calls during the function.  */
 
-void
+static void
 prepare_shrink_wrap (basic_block entry_block)
 {
   rtx_insn *insn, *curr;
@@ -465,7 +465,7 @@ prepare_shrink_wrap (basic_block entry_block)
 
 /* Create a copy of BB instructions and insert at BEFORE.  Redirect
    preds of BB to COPY_BB if they don't appear in NEED_PROLOGUE.  */
-void
+static void
 dup_block_and_redirect (basic_block bb, basic_block copy_bb, rtx_insn *before,
 			bitmap_head *need_prologue)
 {

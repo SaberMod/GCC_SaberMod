@@ -934,6 +934,13 @@
 #endif
 
 
+/* Define to 1 if we found a declaration for 'setenv', otherwise define to 0.
+   */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DECL_SETENV
+#endif
+
+
 /* Define to 1 if we found a declaration for 'setrlimit', otherwise define to
    0. */
 #ifndef USED_FOR_TARGET
@@ -1022,6 +1029,13 @@
    */
 #ifndef USED_FOR_TARGET
 #undef HAVE_DECL_TIMES
+#endif
+
+
+/* Define to 1 if we found a declaration for 'unsetenv', otherwise define to
+   0. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DECL_UNSETENV
 #endif
 
 
@@ -1329,6 +1343,12 @@
 /* Define if you have a working <inttypes.h> header file. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_INTTYPES_H
+#endif
+
+
+/* Define if isl_ctx_get_max_operations exists. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_ISL_CTX_MAX_OPERATIONS
 #endif
 
 

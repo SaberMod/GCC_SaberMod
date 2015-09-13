@@ -432,7 +432,8 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
       if (cached_lhs
 	  && (TREE_CODE (cached_lhs) == SSA_NAME
 	      || is_gimple_min_invariant (cached_lhs)))
-	const_and_copies->record_const_or_copy (gimple_get_lhs (stmt), cached_lhs);
+	const_and_copies->record_const_or_copy (gimple_get_lhs (stmt),
+						cached_lhs);
       else if (backedge_seen)
 	const_and_copies->invalidate (gimple_get_lhs (stmt));
     }
@@ -552,6 +553,24 @@ simplify_control_stmt_condition (edge e,
       if (!cached_lhs
           || !is_gimple_min_invariant (cached_lhs))
         cached_lhs = (*simplify) (dummy_cond, stmt);
+
+      /* If we were just testing that an integral type was != 0, and that
+	 failed, just return the first operand.  This gives the FSM code a
+	 chance to optimize the path.  */
+      if (cached_lhs == NULL
+	  && cond_code == NE_EXPR)
+	{
+	  /* Recover the original operands.  They may have been simplified
+	     using context sensitive equivalences.  Those context sensitive
+	     equivalences may not be valid on paths found by the FSM optimizer.  */
+	  tree op0 = gimple_cond_lhs (stmt);
+	  tree op1 = gimple_cond_rhs (stmt);
+
+	  if (INTEGRAL_TYPE_P (TREE_TYPE (op0))
+	      && TREE_CODE (op0) == SSA_NAME
+	      && integer_zerop (op1))
+	    return op0;
+	}
 
       return cached_lhs;
     }
@@ -974,6 +993,21 @@ fsm_find_control_statement_thread_paths (tree expr,
 	  return;
 	}
 
+      /* Make sure we haven't already visited any of the nodes in
+	 NEXT_PATH.  Don't add them here to avoid pollution.  */
+      for (unsigned int i = 0; i < next_path->length () - 1; i++)
+	{
+	  if (visited_bbs->contains ((*next_path)[i]))
+	    {
+	      vec_free (next_path);
+	      return;
+	    }
+	}
+
+      /* Now add the nodes to VISISTED_BBS.  */
+      for (unsigned int i = 0; i < next_path->length () - 1; i++)
+	visited_bbs->add ((*next_path)[i]);
+
       /* Append all the nodes from NEXT_PATH to PATH.  */
       vec_safe_splice (path, next_path);
       next_path_length = next_path->length ();
@@ -1175,7 +1209,8 @@ thread_through_normal_block (edge e,
   /* Now walk each statement recording any context sensitive
      temporary equivalences we can detect.  */
   gimple stmt
-    = record_temporary_equivalences_from_stmts_at_dest (e, const_and_copies, simplify,
+    = record_temporary_equivalences_from_stmts_at_dest (e, const_and_copies,
+							simplify,
 							*backedge_seen_p);
 
   /* There's two reasons STMT might be null, and distinguishing
@@ -1441,8 +1476,8 @@ thread_across_edge (gcond *dummy_cond,
 	if (!found)
 	  found = thread_through_normal_block (path->last ()->e, dummy_cond,
 					       handle_dominating_asserts,
-					       const_and_copies, simplify, path, visited,
-					       &backedge_seen) > 0;
+					       const_and_copies, simplify, path,
+					       visited, &backedge_seen) > 0;
 
 	/* If we were able to thread through a successor of E->dest, then
 	   record the jump threading opportunity.  */

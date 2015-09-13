@@ -1,9 +1,9 @@
 // FreeBSD wants warning clean system headers:
 // { dg-options "-Wall -Wsystem-headers" { target *-*-freebsd* *-*-dragonfly* } }
-// { dg-options "-std=gnu++11" }
+// { dg-options "-std=gnu++14" }
 // { dg-do compile }
 
-// Copyright (C) 2007-2015 Free Software Foundation, Inc.
+// Copyright (C) 2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -59,6 +59,9 @@
 #include <tgmath.h>
 #endif
 #include <time.h>
+#if __has_include(<uchar.h>)
+#include <uchar.h>
+#endif
 #ifdef _GLIBCXX_HAVE_WCHAR_H
 #include <wchar.h>
 #endif
@@ -103,6 +106,9 @@
 #include <tgmath.h>
 #endif
 #include <time.h>
+#if __has_include(<uchar.h>)
+#include <uchar.h>
+#endif
 #ifdef _GLIBCXX_HAVE_WCHAR_H
 #include <wchar.h>
 #endif
