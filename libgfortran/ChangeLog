@@ -1,3 +1,14 @@
+2015-09-02  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/67414
+	* runtime/error.c (gf_strerror): Handle newlocale() failure.
+
+2015-08-28  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* configure.ac: Define HAVE_FTRUNCATE for ARM/AArch64/SH newlib
+	builds.
+	* configure: Regenerate.
+
 2015-08-18  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
 	PR libfortran/66936

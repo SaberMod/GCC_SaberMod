@@ -1,3 +1,105 @@
+2015-09-11  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/pie-link.c: Add -pie to dg-options.
+
+2015-09-11  Alex Velenko  <Alex.Velenko@arm.com>
+
+	Backport from mainline
+	* gcc.target/arm/pr63210.c (dg-skip-if): Skip armv4t.
+	(dg-additional-options): Add -march=armv5t if arm_arch_v5t_ok.
+
+2015-09-10  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67526
+	* gfortran.dg/pr67526.f90: New test.
+
+2015-09-10  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	PR target/67506
+	* gcc.c-torture/compile/pr67506.c: New test.
+
+2015-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/67523
+	* g++.dg/gomp/pr67523.C: New test.
+
+	PR c++/67522
+	* g++.dg/gomp/pr67522.C: New test.
+
+	PR middle-end/67521
+	* c-c++-common/gomp/pr67521.c: New test.
+
+	PR middle-end/67517
+	* c-c++-common/gomp/pr67517.c: New test.
+
+	PR c++/67514
+	* g++.dg/gomp/pr67514.C: New test.
+
+	PR c++/67511
+	* g++.dg/gomp/pr67511.C: New test.
+
+	PR c/67502
+	* c-c++-common/gomp/pr67502.c: New test.
+
+2015-09-09  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline:
+	2015-09-09  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/67512
+	* gcc.dg/pr67512.c: New test.
+
+2015-09-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/67504
+	* g++.dg/gomp/pr67504.C: New test.
+
+	PR c/67501
+	* c-c++-common/gomp/pr67501.c: New test.
+
+	PR c/67500
+	* gcc.dg/gomp/pr67500.c: New test.
+
+	PR c/67495
+	* gcc.dg/gomp/pr67495.c: New test.
+
+2015-09-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67369
+	* g++.dg/cpp1y/lambda-generic-ice4.C: New.
+
+2015-09-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/67452
+	* gcc.dg/lto/pr67452_0.c: New test.
+
+2015-09-03  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/66705
+	* g++.dg/lto/pr66705_0.C: New testcase.
+
+2015-09-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2015-08-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/67317
+	* gcc.target/i386/pr67317-1.c: New test.
+	* gcc.target/i386/pr67317-2.c: Ditto.
+	* gcc.target/i386/pr67317-3.c: Ditto.
+	* gcc.target/i386/pr67317-4.c: Ditto.
+	* gcc.target/i386/adx-addcarryx32-1.c: Also scan for adcl.
+	* gcc.target/i386/adx-addcarryx32-2.c: Also scan for adcq.
+
+2015-08-31  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2015-08-27  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/67005
+	* gcc.dg/torture/pr67005.c: New test.
+
 2015-08-27  Pat Haugen  <pthaugen@us.ibm.com>
 
 	Backport from mainline:
