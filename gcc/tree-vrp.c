@@ -54,16 +54,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-propagate.h"
 #include "tree-chrec.h"
 #include "tree-ssa-threadupdate.h"
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "emit-rtl.h"
-#include "varasm.h"
-#include "stmt.h"
-#include "expr.h"
 #include "insn-codes.h"
-#include "optabs.h"
+#include "optabs-tree.h"
 #include "tree-ssa-scopedtables.h"
 #include "tree-ssa-threadedge.h"
 
@@ -10205,7 +10197,7 @@ identify_jump_threads (void)
 	      if (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX))
 		continue;
 
-	      thread_across_edge (dummy, e, true, equiv_stack,
+	      thread_across_edge (dummy, e, true, equiv_stack, NULL,
 				  simplify_stmt_for_jump_threading);
 	    }
 	}
