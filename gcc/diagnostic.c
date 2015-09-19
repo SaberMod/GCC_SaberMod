@@ -137,7 +137,6 @@ diagnostic_initialize (diagnostic_context *context, int n_opts)
   new (context->printer) pretty_printer ();
 
   memset (context->diagnostic_count, 0, sizeof context->diagnostic_count);
-  context->some_warnings_are_errors = false;
   context->warning_as_error_requested = false;
   context->n_opts = n_opts;
   context->classify_diagnostic = XNEWVEC (diagnostic_t, n_opts);
@@ -204,7 +203,7 @@ void
 diagnostic_finish (diagnostic_context *context)
 {
   /* Some of the errors may actually have been warnings.  */
-  if (context->some_warnings_are_errors)
+  if (diagnostic_kind_count (context, DK_WERROR))
     {
       /* -Werror was given.  */
       if (context->warning_as_error_requested)
@@ -306,134 +305,6 @@ diagnostic_build_prefix (diagnostic_context *context,
 			     s.column, locus_ce, text_cs, text, text_ce)
      : build_message_string ("%s%s:%d:%s %s%s%s", locus_cs, s.file, s.line,
 			     locus_ce, text_cs, text, text_ce));
-}
-
-/* If LINE is longer than MAX_WIDTH, and COLUMN is not smaller than
-   MAX_WIDTH by some margin, then adjust the start of the line such
-   that the COLUMN is smaller than MAX_WIDTH minus the margin.  The
-   margin is either CARET_LINE_MARGIN characters or the difference
-   between the column and the length of the line, whatever is smaller.
-   The length of LINE is given by LINE_WIDTH.  */
-static const char *
-adjust_line (const char *line, int line_width,
-	     int max_width, int *column_p)
-{
-  int right_margin = CARET_LINE_MARGIN;
-  int column = *column_p;
-
-  gcc_checking_assert (line_width >= column);
-  right_margin = MIN (line_width - column, right_margin);
-  right_margin = max_width - right_margin;
-  if (line_width >= max_width && column > right_margin)
-    {
-      line += column - right_margin;
-      *column_p = right_margin;
-    }
-  return line;
-}
-
-/* Print the physical source line corresponding to the location of
-   this diagnostic, and a caret indicating the precise column.  This
-   function only prints two caret characters if the two locations
-   given by DIAGNOSTIC are on the same line according to
-   diagnostic_same_line().  */
-void
-diagnostic_show_locus (diagnostic_context * context,
-		       const diagnostic_info *diagnostic)
-{
-  if (!context->show_caret
-      || diagnostic_location (diagnostic, 0) <= BUILTINS_LOCATION
-      || diagnostic_location (diagnostic, 0) == context->last_location)
-    return;
-
-  context->last_location = diagnostic_location (diagnostic, 0);
-  expanded_location s0 = diagnostic_expand_location (diagnostic, 0);
-  expanded_location s1 = { }; 
-  /* Zero-initialized. This is checked later by diagnostic_print_caret_line.  */
-
-  if (diagnostic_location (diagnostic, 1) > BUILTINS_LOCATION)
-    s1 = diagnostic_expand_location (diagnostic, 1);
-
-  diagnostic_print_caret_line (context, s0, s1,
-			       context->caret_chars[0],
-			       context->caret_chars[1]);
-}
-
-/* Print (part) of the source line given by xloc1 with caret1 pointing
-   at the column.  If xloc2.column != 0 and it fits within the same
-   line as xloc1 according to diagnostic_same_line (), then caret2 is
-   printed at xloc2.colum.  Otherwise, the caller has to set up things
-   to print a second caret line for xloc2.  */
-void
-diagnostic_print_caret_line (diagnostic_context * context,
-			     expanded_location xloc1,
-			     expanded_location xloc2,
-			     char caret1, char caret2)
-{
-  if (!diagnostic_same_line (context, xloc1, xloc2))
-    /* This will mean ignore xloc2.  */
-    xloc2.column = 0;
-  else if (xloc1.column == xloc2.column)
-    xloc2.column++;
-  
-  int cmax = MAX (xloc1.column, xloc2.column);
-  int line_width;
-  const char *line = location_get_source_line (xloc1, &line_width);
-  if (line == NULL || cmax > line_width)
-    return;
-
-  /* Center the interesting part of the source line to fit in
-     max_width, and adjust all columns accordingly.  */
-  int max_width = context->caret_max_width;
-  int offset = (int) cmax;
-  line = adjust_line (line, line_width, max_width, &offset);
-  offset -= cmax;
-  cmax += offset;
-  xloc1.column += offset;
-  if (xloc2.column)
-    xloc2.column += offset;
-
-  /* Print the source line.  */
-  pp_newline (context->printer);
-  const char *saved_prefix = pp_get_prefix (context->printer);
-  pp_set_prefix (context->printer, NULL);
-  pp_space (context->printer);
-  while (max_width > 0 && line_width > 0)
-    {
-      char c = *line == '\t' ? ' ' : *line;
-      if (c == '\0')
-	c = ' ';
-      pp_character (context->printer, c);
-      max_width--;
-      line_width--;
-      line++;
-    }
-  pp_newline (context->printer);
-
-  /* Print the caret under the line.  */
-  const char *caret_cs, *caret_ce;
-  caret_cs = colorize_start (pp_show_color (context->printer), "caret");
-  caret_ce = colorize_stop (pp_show_color (context->printer));
-  int cmin = xloc2.column 
-    ? MIN (xloc1.column, xloc2.column) : xloc1.column;
-  int caret_min = cmin == xloc1.column ? caret1 : caret2;
-  int caret_max = cmin == xloc1.column ? caret2 : caret1;
-
-  /* cmin is >= 1, but we indent with an extra space at the start like
-     we did above.  */
-  int i;
-  for (i = 0; i < cmin; i++)
-    pp_space (context->printer);
-  pp_printf (context->printer, "%s%c%s", caret_cs, caret_min, caret_ce);
-
-  if (xloc2.column)
-    {
-      for (i++; i < cmax; i++)
-	pp_space (context->printer);
-      pp_printf (context->printer, "%s%c%s", caret_cs, caret_max, caret_ce);
-    }
-  pp_set_prefix (context->printer, saved_prefix);
-  pp_needs_newline (context->printer) = true;
 }
 
 /* Functions at which to stop the backtrace print.  It's not
@@ -860,9 +731,6 @@ diagnostic_report_diagnostic (diagnostic_context *context,
       if (diagnostic->kind == DK_IGNORED)
 	return false;
     }
-
-  if (orig_diag_kind == DK_WARNING && diagnostic->kind == DK_ERROR)
-    context->some_warnings_are_errors = true;
 
   context->lock++;
 

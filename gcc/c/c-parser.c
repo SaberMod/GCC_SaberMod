@@ -1539,8 +1539,16 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
           || c_parser_peek_2nd_token (parser)->type == CPP_MULT)
       && (!nested || !lookup_name (c_parser_peek_token (parser)->value)))
     {
-      error_at (here, "unknown type name %qE",
-                c_parser_peek_token (parser)->value);
+      tree name = c_parser_peek_token (parser)->value;
+      error_at (here, "unknown type name %qE", name);
+      /* Give a hint to the user.  This is not C++ with its implicit
+	 typedef.  */
+      if (tag_exists_p (RECORD_TYPE, name))
+	inform (here, "use %<struct%> keyword to refer to the type");
+      else if (tag_exists_p (UNION_TYPE, name))
+	inform (here, "use %<union%> keyword to refer to the type");
+      else if (tag_exists_p (ENUMERAL_TYPE, name))
+	inform (here, "use %<enum%> keyword to refer to the type");
 
       /* Parse declspecs normally to get a correct pointer type, but avoid
          a further "fails to be a type name" error.  Refuse nested functions
@@ -9838,12 +9846,15 @@ c_parser_pragma (c_parser *parser, enum pragma_context context)
 /* The interface the pragma parsers have to the lexer.  */
 
 enum cpp_ttype
-pragma_lex (tree *value)
+pragma_lex (tree *value, location_t *loc)
 {
   c_token *tok = c_parser_peek_token (the_parser);
   enum cpp_ttype ret = tok->type;
 
   *value = tok->value;
+  if (loc)
+    *loc = tok->location;
+
   if (ret == CPP_PRAGMA_EOL || ret == CPP_EOF)
     ret = CPP_EOF;
   else

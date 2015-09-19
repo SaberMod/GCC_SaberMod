@@ -1,3 +1,92 @@
+2015-09-19  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/67361
+	* include/bits/regex_error.h: Add __throw_regex_error that
+	supports string.
+	* include/bits/regex_automaton.h: Add more specific exception
+	messages.
+	* include/bits/regex_automaton.tcc: Likewise.
+	* include/bits/regex_compiler.h: Likewise.
+	* include/bits/regex_compiler.tcc: Likewise.
+	* include/bits/regex_scanner.h: Likewise.
+	* include/bits/regex_scanner.tcc: Likewise.
+
+2015-09-18  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/precompiled/extc++.h: Fix bootstrap error due to
+	unconditional inclusion of <ext/enc_filebuf.h>.
+	* include/ext/random: Check for definition of UINT32_C.
+
+2015-09-17  Catherine Moore  <clm@codesourcery.com>
+
+	* src/c++11/debug.cc: Include <cstdio>.
+
+2015-09-17  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* src/c++11/random.cc: Include <cerrno>.
+
+2015-09-17  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/debug/formatter.h
+	(_Error_formatter::_Parameter::_M_print_field): Deprecate.
+	(_Error_formatter::_Parameter::_M_print_description): Likewise.
+	(_Error_formatter::_M_format_word): Likewise.
+	(_Error_formatter::_M_print_word): Likewise.
+	(_Error_formatter::_M_print_string): Likewise.
+	(_Error_formatter::_M_get_max_length): Likewise.
+	(_Error_formatter::_M_max_length): Delete.
+	(_Error_formatter::_M_indent): Likewise.
+	(_Error_formatter::_M_column): Likewise.
+	(_Error_formatter::_M_first_line): Likewise.
+	(_Error_formatter::_M_wordwrap): Likewise.
+	* src/c++11/debug.cc: Adapt.
+
+2015-09-17  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/65913
+	* include/bits/atomic_base.h (__atomic_base<_TTp>::is_lock_free(),
+	__atomic_base<_PTp*>::is_lock_free()): Call the built-in with the
+	immediate pointer value, not a variable.
+	* include/std/atomic (atomic<T>::is_lock_free()): Likewise.
+	* testsuite/29_atomics/atomic/65913.cc: New.
+
+	* testsuite/experimental/filesystem/operations/canonical.cc: Remove
+	non-deterministic part of the test.
+
+	PR libstdc++/65142
+	* src/c++11/random.cc (random_device::_M_getval()): Retry after short
+	reads.
+
+	* include/std/system_error (error_code::operator bool(),
+	error_condition::operator bool()): Remove redundant conditional
+	expression.
+
+	* include/bits/allocator.h (__shrink_to_fit_aux<T, true>::_S_do_it):
+	Do nothing if exceptions are disabled.
+	* include/bits/basic_string.h (basic_string::shrink_to_fit): Likewise.
+
+2015-09-16  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/67173
+	* acinclude.m4 (GLIBCXX_CHECK_FILESYSTEM_DEPS): Check _XOPEN_VERSION
+	and PATH_MAX for _GLIBCXX_USE_REALPATH.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* src/filesystem/ops.cc: (canonical) [!_GLIBCXX_USE_REALPATH]: Add
+	alternative implementation.
+	* testsuite/experimental/filesystem/operations/canonical.cc: New.
+	* testsuite/experimental/filesystem/operations/exists.cc: Add more
+	tests.
+	* testsuite/experimental/filesystem/operations/absolute.cc: Add test
+	variables.
+	* testsuite/experimental/filesystem/operations/copy.cc: Likewise.
+	* testsuite/experimental/filesystem/operations/current_path.cc:
+	Likewise.
+	* testsuite/experimental/filesystem/operations/file_size.cc: Likewise.
+	* testsuite/experimental/filesystem/operations/status.cc: Likewise.
+	* testsuite/experimental/filesystem/operations/temp_directory_path.cc:
+	Likewise.
+
 2015-09-11  Jonathan Wakely  <jwakely@redhat.com>
 
 	PR libstdc++/67173
