@@ -1171,7 +1171,7 @@ aarch64_expand_builtin (tree exp,
 	  icode = (fcode == AARCH64_BUILTIN_SET_FPSR) ?
 	    CODE_FOR_set_fpsr : CODE_FOR_set_fpcr;
 	  arg0 = CALL_EXPR_ARG (exp, 0);
-	  op0 = expand_normal (arg0);
+	  op0 = force_reg (SImode, expand_normal (arg0));
 	  pat = GEN_FCN (icode) (op0);
 	}
       emit_insn (pat);
@@ -1371,10 +1371,10 @@ bool
 aarch64_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 {
   bool changed = false;
-  gimple stmt = gsi_stmt (*gsi);
+  gimple *stmt = gsi_stmt (*gsi);
   tree call = gimple_call_fn (stmt);
   tree fndecl;
-  gimple new_stmt = NULL;
+  gimple *new_stmt = NULL;
 
   if (call)
     {

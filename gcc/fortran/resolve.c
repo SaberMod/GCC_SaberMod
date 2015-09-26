@@ -9844,8 +9844,8 @@ nonscalar_typebound_assign (gfc_symbol *derived, int depth)
    "An intrinsic assignment where the variable is of derived type is
    performed as if each component of the variable were assigned from the
    corresponding component of expr using pointer assignment (7.2.2) for
-   each pointer component, deﬁned assignment for each nonpointer
-   nonallocatable component of a type that has a type-bound deﬁned
+   each pointer component, defined assignment for each nonpointer
+   nonallocatable component of a type that has a type-bound defined
    assignment consistent with the component, intrinsic assignment for
    each other nonpointer nonallocatable component, ..."
 
@@ -10377,15 +10377,22 @@ gfc_resolve_code (gfc_code *code, gfc_namespace *ns)
 	  }
 
 	case EXEC_ARITHMETIC_IF:
-	  if (t
-	      && code->expr1->ts.type != BT_INTEGER
-	      && code->expr1->ts.type != BT_REAL)
-	    gfc_error ("Arithmetic IF statement at %L requires a numeric "
-		       "expression", &code->expr1->where);
+	  {
+	    gfc_expr *e = code->expr1;
 
-	  resolve_branch (code->label1, code);
-	  resolve_branch (code->label2, code);
-	  resolve_branch (code->label3, code);
+	    gfc_resolve_expr (e);
+	    if (e->expr_type == EXPR_NULL)
+	      gfc_error ("Invalid NULL at %L", &e->where);
+
+	    if (t && (e->rank > 0
+		      || !(e->ts.type == BT_REAL || e->ts.type == BT_INTEGER)))
+	      gfc_error ("Arithmetic IF statement at %L requires a scalar "
+			 "REAL or INTEGER expression", &e->where);
+
+	    resolve_branch (code->label1, code);
+	    resolve_branch (code->label2, code);
+	    resolve_branch (code->label3, code);
+	  }
 	  break;
 
 	case EXEC_IF:
@@ -11740,7 +11747,10 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 	{
 	  gfc_error ("Mismatch in PURE attribute between MODULE "
 		     "PROCEDURE at %L and its interface in %s",
-		     &sym->declared_at, iface->module);
+		     &sym->declared_at, 
+		     /* FIXME: PR fortran/67567: iface->module should
+			not be NULL !  */
+		     iface->module ? iface->module : "");
 	  return false;
 	}
 
@@ -11756,7 +11766,10 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 	{
 	  gfc_error ("Mismatch in RECURSIVE attribute between MODULE "
 		     "PROCEDURE at %L and its interface in %s",
-		     &sym->declared_at, iface->module);
+		     &sym->declared_at, 
+		     /* FIXME: PR fortran/67567: iface->module should
+			not be NULL !  */
+		     iface->module ? iface->module : "");
 	  return false;
 	}
 
@@ -11765,7 +11778,10 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 	{
 	  gfc_error ("%s between the MODULE PROCEDURE declaration "
 		     "in module %s and the declaration at %L in "
-		     "SUBMODULE %s", errmsg, iface->module,
+		     "SUBMODULE %s", errmsg, 
+		     /* FIXME: PR fortran/67567: iface->module should
+			not be NULL !  */
+		     iface->module ? iface->module : "",
 		     &sym->declared_at, sym->ns->proc_name->name);
 	  return false;
 	}

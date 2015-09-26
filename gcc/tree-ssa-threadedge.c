@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-scopedtables.h"
 #include "tree-ssa-threadedge.h"
 #include "tree-ssa-loop.h"
+#include "tree-ssa-dom.h"
 #include "builtins.h"
 #include "cfganal.h"
 
@@ -56,7 +57,7 @@ static int stmt_count;
 /* Array to record value-handles per SSA_NAME.  */
 vec<tree> ssa_name_values;
 
-typedef tree (pfn_simplify) (gimple, gimple, class avail_exprs_stack *);
+typedef tree (pfn_simplify) (gimple *, gimple *, class avail_exprs_stack *);
 
 /* Set the value for the SSA name NAME to VALUE.  */
 
@@ -125,10 +126,10 @@ potentially_threadable_block (basic_block bb)
    BB.  If no such ASSERT_EXPR is found, return OP.  */
 
 static tree
-lhs_of_dominating_assert (tree op, basic_block bb, gimple stmt)
+lhs_of_dominating_assert (tree op, basic_block bb, gimple *stmt)
 {
   imm_use_iterator imm_iter;
-  gimple use_stmt;
+  gimple *use_stmt;
   use_operand_p use_p;
 
   FOR_EACH_IMM_USE_FAST (use_p, imm_iter, op)
@@ -193,7 +194,7 @@ record_temporary_equivalences_from_phis (edge e, const_and_copies *const_and_cop
    May return NULL_TREE if no simplification is possible.  */
 
 static tree
-fold_assignment_stmt (gimple stmt)
+fold_assignment_stmt (gimple *stmt)
 {
   enum tree_code subcode = gimple_assign_rhs_code (stmt);
 
@@ -256,14 +257,14 @@ fold_assignment_stmt (gimple stmt)
    a context sensitive equivalence which may help us simplify
    later statements in E->dest.  */
 
-static gimple
+static gimple *
 record_temporary_equivalences_from_stmts_at_dest (edge e,
     const_and_copies *const_and_copies,
     avail_exprs_stack *avail_exprs_stack,
     pfn_simplify simplify,
     bool backedge_seen)
 {
-  gimple stmt = NULL;
+  gimple *stmt = NULL;
   gimple_stmt_iterator gsi;
   int max_stmt_count;
 
@@ -447,7 +448,7 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
    necessarily valid.  We use this callback rather than the ones provided by
    DOM/VRP to achieve that effect.  */
 static tree
-dummy_simplify (gimple stmt1 ATTRIBUTE_UNUSED, gimple stmt2 ATTRIBUTE_UNUSED,
+dummy_simplify (gimple *stmt1 ATTRIBUTE_UNUSED, gimple *stmt2 ATTRIBUTE_UNUSED,
 		class avail_exprs_stack *avail_exprs_stack ATTRIBUTE_UNUSED)
 {
   return NULL_TREE;
@@ -468,7 +469,7 @@ dummy_simplify (gimple stmt1 ATTRIBUTE_UNUSED, gimple stmt2 ATTRIBUTE_UNUSED,
 
 static tree
 simplify_control_stmt_condition (edge e,
-				 gimple stmt,
+				 gimple *stmt,
 				 class avail_exprs_stack *avail_exprs_stack,
 				 gcond *dummy_cond,
 				 pfn_simplify simplify,
@@ -657,7 +658,7 @@ propagate_threaded_block_debug_into (basic_block dest, basic_block src)
   for (gimple_stmt_iterator si = gsi;
        i * 4 <= alloc_count * 3 && !gsi_end_p (si); gsi_next (&si))
     {
-      gimple stmt = gsi_stmt (si);
+      gimple *stmt = gsi_stmt (si);
       if (!is_gimple_debug (stmt))
 	break;
       i++;
@@ -677,7 +678,7 @@ propagate_threaded_block_debug_into (basic_block dest, basic_block src)
      duplicates in FEWVARS.  */
   for (gimple_stmt_iterator si = gsi; !gsi_end_p (si); gsi_next (&si))
     {
-      gimple stmt = gsi_stmt (si);
+      gimple *stmt = gsi_stmt (si);
       if (!is_gimple_debug (stmt))
 	break;
 
@@ -704,7 +705,7 @@ propagate_threaded_block_debug_into (basic_block dest, basic_block src)
       for (gimple_stmt_iterator si = gsi_last_bb (bb);
 	   !gsi_end_p (si); gsi_prev (&si))
 	{
-	  gimple stmt = gsi_stmt (si);
+	  gimple *stmt = gsi_stmt (si);
 	  if (!is_gimple_debug (stmt))
 	    continue;
 
@@ -786,7 +787,7 @@ thread_around_empty_blocks (edge taken_edge,
 {
   basic_block bb = taken_edge->dest;
   gimple_stmt_iterator gsi;
-  gimple stmt;
+  gimple *stmt;
   tree cond;
 
   /* The key property of these blocks is that they need not be duplicated
@@ -940,7 +941,7 @@ fsm_find_control_statement_thread_paths (tree expr,
 					 bool seen_loop_phi)
 {
   tree var = SSA_NAME_VAR (expr);
-  gimple def_stmt = SSA_NAME_DEF_STMT (expr);
+  gimple *def_stmt = SSA_NAME_DEF_STMT (expr);
   basic_block var_bb = gimple_bb (def_stmt);
 
   if (var == NULL || var_bb == NULL)
@@ -1103,7 +1104,7 @@ fsm_find_control_statement_thread_paths (tree expr,
 
 	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	    {
-	      gimple stmt = gsi_stmt (gsi);
+	      gimple *stmt = gsi_stmt (gsi);
 	      /* Do not count empty statements and labels.  */
 	      if (gimple_code (stmt) != GIMPLE_NOP
 		  && gimple_code (stmt) != GIMPLE_LABEL
@@ -1213,6 +1214,10 @@ thread_through_normal_block (edge e,
   if (*backedge_seen_p)
     simplify = dummy_simplify;
 
+  /* We want to record any equivalences created by traversing E.  */
+  if (!handle_dominating_asserts)
+    record_temporary_equivalences (e, const_and_copies, avail_exprs_stack);
+
   /* PHIs create temporary equivalences.
      Note that if we found a PHI that made the block non-threadable, then
      we need to bubble that up to our caller in the same manner we do
@@ -1222,7 +1227,7 @@ thread_through_normal_block (edge e,
 
   /* Now walk each statement recording any context sensitive
      temporary equivalences we can detect.  */
-  gimple stmt
+  gimple *stmt
     = record_temporary_equivalences_from_stmts_at_dest (e, const_and_copies,
 							avail_exprs_stack,
 							simplify,
@@ -1378,7 +1383,7 @@ thread_across_edge (gcond *dummy_cond,
 		    bool handle_dominating_asserts,
 		    class const_and_copies *const_and_copies,
 		    class avail_exprs_stack *avail_exprs_stack,
-		    tree (*simplify) (gimple, gimple,
+		    tree (*simplify) (gimple *, gimple *,
 				      class avail_exprs_stack *))
 {
   bitmap visited = BITMAP_ALLOC (NULL);

@@ -1,3 +1,31 @@
+2015-09-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67614
+	* resolve.c (gfc_resolve_code): Prevent ICE for invalid EXPR_NULL.
+
+2015-09-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67525
+	* parse.c (match_deferred_characteristics): Remove an assert, which
+	allows an invalid SELECT TYPE selector to be detected.
+
+2015-09-25  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR pretty-print/67567
+	* resolve.c (resolve_fl_procedure): Work-around when iface->module
+	== NULL.
+
+2015-09-21  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* resolve.c (nonscalar_typebound_assign): Fix typos in comment.
+ 
+
+2015-09-21  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67615
+	* resolve.c (gfc_resolve_code): Check for scalar expression in 
+	arithmetic-if.
+
 2015-09-17  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/52846

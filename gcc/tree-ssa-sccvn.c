@@ -406,7 +406,7 @@ tree
 vn_get_expr_for (tree name)
 {
   vn_ssa_aux_t vn = VN_INFO (name);
-  gimple def_stmt;
+  gimple *def_stmt;
   tree expr = NULL_TREE;
   enum tree_code code;
 
@@ -489,7 +489,7 @@ vn_get_expr_for (tree name)
    associated with.  */
 
 enum vn_kind
-vn_get_stmt_kind (gimple stmt)
+vn_get_stmt_kind (gimple *stmt)
 {
   switch (gimple_code (stmt))
     {
@@ -773,6 +773,8 @@ copy_reference_ops_from_ref (tree ref, vec<vn_reference_op_s> *result)
       temp.op1 = TMR_STEP (ref);
       temp.op2 = TMR_OFFSET (ref);
       temp.off = -1;
+      temp.clique = MR_DEPENDENCE_CLIQUE (ref);
+      temp.base = MR_DEPENDENCE_BASE (ref);
       result->quick_push (temp);
 
       memset (&temp, 0, sizeof (temp));
@@ -816,11 +818,19 @@ copy_reference_ops_from_ref (tree ref, vec<vn_reference_op_s> *result)
 	  temp.op0 = TREE_OPERAND (ref, 1);
 	  if (tree_fits_shwi_p (TREE_OPERAND (ref, 1)))
 	    temp.off = tree_to_shwi (TREE_OPERAND (ref, 1));
+	  temp.clique = MR_DEPENDENCE_CLIQUE (ref);
+	  temp.base = MR_DEPENDENCE_BASE (ref);
 	  break;
 	case BIT_FIELD_REF:
 	  /* Record bits and position.  */
 	  temp.op0 = TREE_OPERAND (ref, 1);
 	  temp.op1 = TREE_OPERAND (ref, 2);
+	  if (tree_fits_shwi_p (TREE_OPERAND (ref, 2)))
+	    {
+	      HOST_WIDE_INT off = tree_to_shwi (TREE_OPERAND (ref, 2));
+	      if (off % BITS_PER_UNIT == 0)
+		temp.off = off / BITS_PER_UNIT;
+	    }
 	  break;
 	case COMPONENT_REF:
 	  /* The field decl is enough to unambiguously specify the field,
@@ -1017,6 +1027,8 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 	  base_alias_set = get_deref_alias_set (op->op0);
 	  *op0_p = build2 (MEM_REF, op->type,
 			   NULL_TREE, op->op0);
+	  MR_DEPENDENCE_CLIQUE (*op0_p) = op->clique;
+	  MR_DEPENDENCE_BASE (*op0_p) = op->base;
 	  op0_p = &TREE_OPERAND (*op0_p, 0);
 	  break;
 
@@ -1224,7 +1236,7 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
   unsigned int i = *i_p;
   vn_reference_op_t op = &(*ops)[i];
   vn_reference_op_t mem_op = &(*ops)[i - 1];
-  gimple def_stmt;
+  gimple *def_stmt;
   enum tree_code code;
   offset_int off;
 
@@ -1651,7 +1663,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 		       bool disambiguate_only)
 {
   vn_reference_t vr = (vn_reference_t)vr_;
-  gimple def_stmt = SSA_NAME_DEF_STMT (vuse);
+  gimple *def_stmt = SSA_NAME_DEF_STMT (vuse);
   tree base;
   HOST_WIDE_INT offset, maxsize;
   static vec<vn_reference_op_s>
@@ -1830,7 +1842,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	   && TREE_CODE (gimple_assign_rhs1 (def_stmt)) == SSA_NAME)
     {
       tree rhs1 = gimple_assign_rhs1 (def_stmt);
-      gimple def_stmt2 = SSA_NAME_DEF_STMT (rhs1);
+      gimple *def_stmt2 = SSA_NAME_DEF_STMT (rhs1);
       if (is_gimple_assign (def_stmt2)
 	  && (gimple_assign_rhs_code (def_stmt2) == COMPLEX_EXPR
 	      || gimple_assign_rhs_code (def_stmt2) == CONSTRUCTOR)
@@ -2039,7 +2051,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	  lhs = SSA_VAL (lhs);
 	  if (TREE_CODE (lhs) == SSA_NAME)
 	    {
-	      gimple def_stmt = SSA_NAME_DEF_STMT (lhs);
+	      gimple *def_stmt = SSA_NAME_DEF_STMT (lhs);
 	      if (gimple_assign_single_p (def_stmt)
 		  && gimple_assign_rhs_code (def_stmt) == ADDR_EXPR)
 		lhs = gimple_assign_rhs1 (def_stmt);
@@ -2464,7 +2476,7 @@ init_vn_nary_op_from_op (vn_nary_op_t vno, tree op)
 /* Return the number of operands for a vn_nary ops structure from STMT.  */
 
 static unsigned int
-vn_nary_length_from_stmt (gimple stmt)
+vn_nary_length_from_stmt (gimple *stmt)
 {
   switch (gimple_assign_rhs_code (stmt))
     {
@@ -2487,7 +2499,7 @@ vn_nary_length_from_stmt (gimple stmt)
 /* Initialize VNO from STMT.  */
 
 static void
-init_vn_nary_op_from_stmt (vn_nary_op_t vno, gimple stmt)
+init_vn_nary_op_from_stmt (vn_nary_op_t vno, gimple *stmt)
 {
   unsigned i;
 
@@ -2588,7 +2600,7 @@ vn_nary_op_lookup (tree op, vn_nary_op_t *vnresult)
    vn_nary_op_t from the hashtable if it exists.  */
 
 tree
-vn_nary_op_lookup_stmt (gimple stmt, vn_nary_op_t *vnresult)
+vn_nary_op_lookup_stmt (gimple *stmt, vn_nary_op_t *vnresult)
 {
   vn_nary_op_t vno1
     = XALLOCAVAR (struct vn_nary_op_s,
@@ -2672,8 +2684,8 @@ vn_nary_op_insert (tree op, tree result)
 /* Insert the rhs of STMT into the current hash table with a value number of
    RESULT.  */
 
-vn_nary_op_t
-vn_nary_op_insert_stmt (gimple stmt, tree result)
+static vn_nary_op_t
+vn_nary_op_insert_stmt (gimple *stmt, tree result)
 {
   vn_nary_op_t vno1
     = alloc_vn_nary_op (vn_nary_length_from_stmt (stmt),
@@ -2754,7 +2766,7 @@ static vec<tree> shared_lookup_phiargs;
    it does not exist in the hash table. */
 
 static tree
-vn_phi_lookup (gimple phi)
+vn_phi_lookup (gimple *phi)
 {
   vn_phi_s **slot;
   struct vn_phi_s vp1;
@@ -2789,7 +2801,7 @@ vn_phi_lookup (gimple phi)
    RESULT.  */
 
 static vn_phi_t
-vn_phi_insert (gimple phi, tree result)
+vn_phi_insert (gimple *phi, tree result)
 {
   vn_phi_s **slot;
   vn_phi_t vp1 = current_info->phis_pool->allocate ();
@@ -2925,7 +2937,7 @@ mark_use_processed (tree use)
 {
   ssa_op_iter iter;
   def_operand_p defp;
-  gimple stmt = SSA_NAME_DEF_STMT (use);
+  gimple *stmt = SSA_NAME_DEF_STMT (use);
 
   if (SSA_NAME_IS_DEFAULT_DEF (use) || gimple_code (stmt) == GIMPLE_PHI)
     {
@@ -2945,7 +2957,7 @@ mark_use_processed (tree use)
    Return true if a value number changed. */
 
 static bool
-defs_to_varying (gimple stmt)
+defs_to_varying (gimple *stmt)
 {
   bool changed = false;
   ssa_op_iter iter;
@@ -2982,7 +2994,7 @@ visit_copy (tree lhs, tree rhs)
    value number of LHS has changed as a result.  */
 
 static bool
-visit_nary_op (tree lhs, gimple stmt)
+visit_nary_op (tree lhs, gimple *stmt)
 {
   bool changed = false;
   tree result = vn_nary_op_lookup_stmt (stmt, NULL);
@@ -3062,7 +3074,7 @@ visit_reference_op_call (tree lhs, gcall *stmt)
    and return true if the value number of the LHS has changed as a result.  */
 
 static bool
-visit_reference_op_load (tree lhs, tree op, gimple stmt)
+visit_reference_op_load (tree lhs, tree op, gimple *stmt)
 {
   bool changed = false;
   tree last_vuse;
@@ -3162,7 +3174,7 @@ visit_reference_op_load (tree lhs, tree op, gimple stmt)
    and return true if the value number of the LHS has changed as a result.  */
 
 static bool
-visit_reference_op_store (tree lhs, tree op, gimple stmt)
+visit_reference_op_store (tree lhs, tree op, gimple *stmt)
 {
   bool changed = false;
   vn_reference_t vnresult = NULL;
@@ -3263,7 +3275,7 @@ visit_reference_op_store (tree lhs, tree op, gimple stmt)
    changed.  */
 
 static bool
-visit_phi (gimple phi)
+visit_phi (gimple *phi)
 {
   bool changed = false;
   tree result;
@@ -3349,7 +3361,7 @@ expr_has_constants (tree expr)
 /* Return true if STMT contains constants.  */
 
 static bool
-stmt_has_constants (gimple stmt)
+stmt_has_constants (gimple *stmt)
 {
   tree tem;
 
@@ -3393,7 +3405,7 @@ stmt_has_constants (gimple stmt)
    simplified. */
 
 static tree
-simplify_binary_expression (gimple stmt)
+simplify_binary_expression (gimple *stmt)
 {
   tree result = NULL_TREE;
   tree op0 = gimple_assign_rhs1 (stmt);
@@ -3569,7 +3581,7 @@ static bool
 visit_use (tree use)
 {
   bool changed = false;
-  gimple stmt = SSA_NAME_DEF_STMT (use);
+  gimple *stmt = SSA_NAME_DEF_STMT (use);
 
   mark_use_processed (use);
 
@@ -3845,8 +3857,8 @@ compare_ops (const void *pa, const void *pb)
 {
   const tree opa = *((const tree *)pa);
   const tree opb = *((const tree *)pb);
-  gimple opstmta = SSA_NAME_DEF_STMT (opa);
-  gimple opstmtb = SSA_NAME_DEF_STMT (opb);
+  gimple *opstmta = SSA_NAME_DEF_STMT (opa);
+  gimple *opstmtb = SSA_NAME_DEF_STMT (opb);
   basic_block bba;
   basic_block bbb;
 
@@ -4072,7 +4084,7 @@ DFS (tree name)
   vec<ssa_op_iter> itervec = vNULL;
   vec<tree> namevec = vNULL;
   use_operand_p usep = NULL;
-  gimple defstmt;
+  gimple *defstmt;
   tree use;
   ssa_op_iter iter;
 
@@ -4535,7 +4547,7 @@ sccvn_dom_walker::before_dom_children (basic_block bb)
 	  break;
       if (e2 && (e2->flags & EDGE_EXECUTABLE))
 	{
-	  gimple stmt = last_stmt (e->src);
+	  gimple *stmt = last_stmt (e->src);
 	  if (stmt
 	      && gimple_code (stmt) == GIMPLE_COND)
 	    {
@@ -4580,7 +4592,7 @@ sccvn_dom_walker::before_dom_children (basic_block bb)
     }
 
   /* Finally look at the last stmt.  */
-  gimple stmt = last_stmt (bb);
+  gimple *stmt = last_stmt (bb);
   if (!stmt)
     return;
 
