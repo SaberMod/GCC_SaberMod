@@ -1,3 +1,57 @@
+2015-09-26  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/67721
+	* trans-expr.c (gfc_trans_assignment_1): Remove the non-constantness
+	condition guarding deep copy.
+
+2013-09-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67567
+	* resolve.c (resolve_fl_procedure): For module procedures, take
+	the parent module name and the submodule name from the name of
+	the namespace.
+
+2015-09-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67614
+	* resolve.c (gfc_resolve_code): Prevent ICE for invalid EXPR_NULL.
+
+2015-09-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67525
+	* parse.c (match_deferred_characteristics): Remove an assert, which
+	allows an invalid SELECT TYPE selector to be detected.
+
+2015-09-25  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR pretty-print/67567
+	* resolve.c (resolve_fl_procedure): Work-around when iface->module
+	== NULL.
+
+2015-09-21  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* resolve.c (nonscalar_typebound_assign): Fix typos in comment.
+
+
+2015-09-21  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67615
+	* resolve.c (gfc_resolve_code): Check for scalar expression in
+	arithmetic-if.
+
+2015-09-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/52846
+	PR fortran/67588
+	* module.c : Add static no_module_procedures.
+	(gfc_match_submodule): Correct memory leakage caused during the
+	freeing of use_lists.
+	(mio_symbol_attribute): Reset above if module procedure is
+	encountered.
+	(gfc_dump_module): Set above and exit without writing smod file
+	if it reset.
+	* gfortran.texi : Add section on submodule support.
+
 2015-09-10  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/67526

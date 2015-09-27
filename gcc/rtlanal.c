@@ -723,7 +723,7 @@ nonzero_address_p (const_rtx x)
   switch (code)
     {
     case SYMBOL_REF:
-      return !SYMBOL_REF_WEAK (x);
+      return flag_delete_null_pointer_checks && !SYMBOL_REF_WEAK (x);
 
     case LABEL_REF:
       return true;
@@ -5805,9 +5805,9 @@ split_double (rtx value, rtx *first, rtx *second)
       if (BITS_PER_WORD < HOST_BITS_PER_LONG && BITS_PER_WORD == 32)
 	{
 	  if (l[0] & ((long) 1 << 31))
-	    l[0] |= ((long) (-1) << 32);
+	    l[0] |= ((unsigned long) (-1) << 32);
 	  if (l[1] & ((long) 1 << 31))
-	    l[1] |= ((long) (-1) << 32);
+	    l[1] |= ((unsigned long) (-1) << 32);
 	}
 #endif
 

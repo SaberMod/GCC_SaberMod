@@ -83,6 +83,9 @@ typedef struct vn_reference_op_struct
   ENUM_BITFIELD(tree_code) opcode : 16;
   /* 1 for instrumented calls.  */
   unsigned with_bounds : 1;
+  /* Dependence info, used for [TARGET_]MEM_REF only.  */
+  unsigned short clique;
+  unsigned short base;
   /* Constant offset this op adds or -1 if it is variable.  */
   HOST_WIDE_INT off;
   tree type;
@@ -123,7 +126,7 @@ typedef struct vn_constant_s
 } *vn_constant_t;
 
 enum vn_kind { VN_NONE, VN_CONSTANT, VN_NARY, VN_REFERENCE, VN_PHI };
-enum vn_kind vn_get_stmt_kind (gimple);
+enum vn_kind vn_get_stmt_kind (gimple *);
 
 /* Hash the type TYPE using bits that distinguishes it in the
    types_compatible_p sense.  */
@@ -197,15 +200,12 @@ tree vn_get_expr_for (tree);
 bool run_scc_vn (vn_lookup_kind);
 void free_scc_vn (void);
 tree vn_nary_op_lookup (tree, vn_nary_op_t *);
-tree vn_nary_op_lookup_stmt (gimple, vn_nary_op_t *);
+tree vn_nary_op_lookup_stmt (gimple *, vn_nary_op_t *);
 tree vn_nary_op_lookup_pieces (unsigned int, enum tree_code,
 			       tree, tree *, vn_nary_op_t *);
 vn_nary_op_t vn_nary_op_insert (tree, tree);
-vn_nary_op_t vn_nary_op_insert_stmt (gimple, tree);
 vn_nary_op_t vn_nary_op_insert_pieces (unsigned int, enum tree_code,
 				       tree, tree *, tree, unsigned int);
-void vn_reference_fold_indirect (vec<vn_reference_op_s> *,
-				 unsigned int *);
 bool ao_ref_init_from_vn_reference (ao_ref *, alias_set_type, tree,
 				    vec<vn_reference_op_s> );
 tree vn_reference_lookup_pieces (tree, alias_set_type, tree,

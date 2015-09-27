@@ -52,17 +52,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    type in the GIMPLE type system that is language-independent?  */
 #include "langhooks.h"
 
-/* Need to include expr.h and optabs.h for lshift_cheap_p.  */
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "stmt.h"
-#include "expr.h"
 #include "insn-codes.h"
-#include "optabs.h"
+#include "optabs-tree.h"
 
 /* Maximum number of case bit tests.
    FIXME: This should be derived from PARAM_CASE_VALUES_THRESHOLD and
@@ -595,10 +586,10 @@ struct switch_conv_info
 
   /* The first load statement that loads a temporary from a new static array.
    */
-  gimple arr_ref_first;
+  gimple *arr_ref_first;
 
   /* The last load statement that loads a temporary from a new static array.  */
-  gimple arr_ref_last;
+  gimple *arr_ref_last;
 
   /* String reason why the case wasn't a good candidate that is written to the
      dump file, if there is one.  */
@@ -1033,7 +1024,7 @@ build_one_array (gswitch *swtch, int num, tree arr_index_type,
 		 gphi *phi, tree tidx, struct switch_conv_info *info)
 {
   tree name, cst;
-  gimple load;
+  gimple *load;
   gimple_stmt_iterator gsi = gsi_for_stmt (swtch);
   location_t loc = gimple_location (swtch);
 
@@ -1101,7 +1092,7 @@ build_arrays (gswitch *swtch, struct switch_conv_info *info)
 {
   tree arr_index_type;
   tree tidx, sub, utype;
-  gimple stmt;
+  gimple *stmt;
   gimple_stmt_iterator gsi;
   gphi_iterator gpi;
   int i;
@@ -1459,7 +1450,7 @@ pass_convert_switch::execute (function *fun)
   FOR_EACH_BB_FN (bb, fun)
   {
     const char *failure_reason;
-    gimple stmt = last_stmt (bb);
+    gimple *stmt = last_stmt (bb);
     if (stmt && gimple_code (stmt) == GIMPLE_SWITCH)
       {
 	if (dump_file)

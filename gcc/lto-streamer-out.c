@@ -66,6 +66,7 @@ clear_line_info (struct output_block *ob)
   ob->current_file = NULL;
   ob->current_line = 0;
   ob->current_col = 0;
+  ob->current_sysp = false;
 }
 
 
@@ -2076,7 +2077,7 @@ output_function (struct cgraph_node *node)
 	  for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
 	       gsi_next (&gsi))
 	    {
-	      gimple stmt = gsi_stmt (gsi);
+	      gimple *stmt = gsi_stmt (gsi);
 	      gimple_set_uid (stmt, inc_gimple_stmt_max_uid (cfun));
 	    }
 	}

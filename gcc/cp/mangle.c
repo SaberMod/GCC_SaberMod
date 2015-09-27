@@ -94,6 +94,11 @@ along with GCC; see the file COPYING3.  If not see
        || (CLASSTYPE_TEMPLATE_INFO (NODE) != NULL			\
 	   && (PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (NODE))))))
 
+/* For deciding whether to set G.need_abi_warning, we need to consider both
+   warn_abi_version and flag_abi_compat_version.  */
+#define abi_warn_or_compat_version_crosses(N) \
+  (abi_version_crosses (N) || abi_compat_version_crosses (N))
+
 /* Things we only need one of.  This module is not reentrant.  */
 struct GTY(()) globals {
   /* An array of the current substitution candidates, in the order
@@ -829,7 +834,7 @@ write_name (tree decl, const int ignore_local_scope)
 
   gcc_assert (context != NULL_TREE);
 
-  if (abi_version_crosses (7)
+  if (abi_warn_or_compat_version_crosses (7)
       && ignore_local_scope
       && TREE_CODE (context) == PARM_DECL)
     G.need_abi_warning = 1;
@@ -1918,7 +1923,7 @@ write_type (tree type)
 	    write_function_type (t);
 	  else
 	    write_type (t);
-	  if (abi_version_crosses (8))
+	  if (abi_warn_or_compat_version_crosses (8))
 	    G.need_abi_warning = 1;
 	}
       else
@@ -2027,7 +2032,7 @@ write_type (tree type)
 		   but you can't have a pointer/reference to such a type.  */
 		if (TREE_CODE (target) == FUNCTION_TYPE)
 		  {
-		    if (abi_version_crosses (5)
+		    if (abi_warn_or_compat_version_crosses (5)
 			&& TYPE_QUALS (target) != TYPE_UNQUALIFIED)
 		      G.need_abi_warning = 1;
 		    if (abi_version_at_least (5))
@@ -2073,7 +2078,7 @@ write_type (tree type)
 		}
 	      else
 		write_string ("U8__vector");
-	      if (abi_version_crosses (4))
+	      if (abi_warn_or_compat_version_crosses (4))
 		G.need_abi_warning = 1;
 	      write_type (TREE_TYPE (type));
 	      break;
@@ -2110,7 +2115,7 @@ write_type (tree type)
 
 		  if (etype && !type_uses_auto (etype))
 		    {
-		      if (abi_version_crosses (5))
+		      if (abi_warn_or_compat_version_crosses (5))
 			G.need_abi_warning = 1;
 		      if (!abi_version_at_least (5))
 			{
@@ -2135,7 +2140,7 @@ write_type (tree type)
 	      write_string ("Dn");
 	      if (abi_version_at_least (7))
 		++is_builtin_type;
-	      if (abi_version_crosses (7))
+	      if (abi_warn_or_compat_version_crosses (7))
 		G.need_abi_warning = 1;
 	      break;
 
@@ -2196,7 +2201,7 @@ write_CV_qualifiers_for_type (const tree type)
      We don't do this with classes and enums because their attributes
      are part of their definitions, not something added on.  */
 
-  if (abi_version_at_least (10) && !OVERLOAD_TYPE_P (type))
+  if (!OVERLOAD_TYPE_P (type))
     {
       auto_vec<tree> vec;
       for (tree a = TYPE_ATTRIBUTES (type); a; a = TREE_CHAIN (a))
@@ -2207,31 +2212,34 @@ write_CV_qualifiers_for_type (const tree type)
 	      && !is_attribute_p ("abi_tag", name))
 	    vec.safe_push (a);
 	}
-      vec.qsort (attr_strcmp);
-      while (!vec.is_empty())
+      if (abi_warn_or_compat_version_crosses (10) && !vec.is_empty ())
+	G.need_abi_warning = true;
+      if (abi_version_at_least (10))
 	{
-	  tree a = vec.pop();
-	  const attribute_spec *as
-	    = lookup_attribute_spec (get_attribute_name (a));
-
-	  write_char ('U');
-	  write_unsigned_number (strlen (as->name));
-	  write_string (as->name);
-	  if (TREE_VALUE (a))
+	  vec.qsort (attr_strcmp);
+	  while (!vec.is_empty())
 	    {
-	      write_char ('I');
-	      for (tree args = TREE_VALUE (a); args;
-		   args = TREE_CHAIN (args))
-		{
-		  tree arg = TREE_VALUE (args);
-		  write_template_arg (arg);
-		}
-	      write_char ('E');
-	    }
+	      tree a = vec.pop();
+	      const attribute_spec *as
+		= lookup_attribute_spec (get_attribute_name (a));
 
-	  ++num_qualifiers;
-	  if (abi_version_crosses (10))
-	    G.need_abi_warning = true;
+	      write_char ('U');
+	      write_unsigned_number (strlen (as->name));
+	      write_string (as->name);
+	      if (TREE_VALUE (a))
+		{
+		  write_char ('I');
+		  for (tree args = TREE_VALUE (a); args;
+		       args = TREE_CHAIN (args))
+		    {
+		      tree arg = TREE_VALUE (args);
+		      write_template_arg (arg);
+		    }
+		  write_char ('E');
+		}
+
+	      ++num_qualifiers;
+	    }
 	}
     }
 
@@ -2744,7 +2752,7 @@ write_expression (tree expr)
 	      write_char ('L');
 	      write_unsigned_number (delta - 1);
 	    }
-	  if (abi_version_crosses (5))
+	  if (abi_warn_or_compat_version_crosses (5))
 	    G.need_abi_warning = true;
 	}
       write_char ('p');
@@ -2986,7 +2994,7 @@ write_expression (tree expr)
       if (code == CONST_CAST_EXPR
 	  || code == STATIC_CAST_EXPR)
 	{
-	  if (abi_version_crosses (6))
+	  if (abi_warn_or_compat_version_crosses (6))
 	    G.need_abi_warning = 1;
 	  if (!abi_version_at_least (6))
 	    name = operator_name_info[CAST_EXPR].mangled_name;
@@ -3060,7 +3068,7 @@ write_expression (tree expr)
 	case PREDECREMENT_EXPR:
 	  if (abi_version_at_least (6))
 	    write_char ('_');
-	  if (abi_version_crosses (6))
+	  if (abi_warn_or_compat_version_crosses (6))
 	    G.need_abi_warning = 1;
 	  /* Fall through.  */
 
@@ -3197,7 +3205,7 @@ write_template_arg (tree node)
     {
       if (abi_version_at_least (6))
 	node = BASELINK_FUNCTIONS (node);
-      if (abi_version_crosses (6))
+      if (abi_warn_or_compat_version_crosses (6))
 	/* We wrongly wrapped a class-scope function in X/E.  */
 	G.need_abi_warning = 1;
     }
@@ -3211,7 +3219,7 @@ write_template_arg (tree node)
 	write_char ('J');
       else
 	write_char ('I');
-      if (abi_version_crosses (6))
+      if (abi_warn_or_compat_version_crosses (6))
 	G.need_abi_warning = 1;
       for (i = 0; i < length; ++i)
         write_template_arg (TREE_VEC_ELT (args, i));
@@ -3235,7 +3243,7 @@ write_template_arg (tree node)
 	write_char ('Z');
       else
 	write_string ("_Z");
-      if (abi_version_crosses (3))
+      if (abi_warn_or_compat_version_crosses (3))
 	G.need_abi_warning = 1;
       write_encoding (node);
       write_char ('E');
@@ -3624,32 +3632,41 @@ mangle_decl (const tree decl)
 	}
 
       save_ver = flag_abi_version;
+
       flag_abi_version = flag_abi_compat_version;
       id2 = mangle_decl_string (decl);
       id2 = targetm.mangle_decl_assembler_name (decl, id2);
-      flag_abi_version = save_ver;
 
-      if (id2 == id)
-	return;
+      if (id2 != id)
+	note_mangling_alias (decl, id2);
 
       if (warn_abi)
 	{
-	  if (flag_abi_compat_version != 0
-	      && abi_version_at_least (flag_abi_compat_version))
+	  if (flag_abi_compat_version != warn_abi_version)
+	    {
+	      flag_abi_version = warn_abi_version;
+	      id2 = mangle_decl_string (decl);
+	      id2 = targetm.mangle_decl_assembler_name (decl, id2);
+	    }
+
+	  if (id2 == id)
+	    /* OK.  */;
+	  else if (warn_abi_version != 0
+		   && abi_version_at_least (warn_abi_version))
 	    warning_at (DECL_SOURCE_LOCATION (G.entity), OPT_Wabi,
 			"the mangled name of %qD changed between "
 			"-fabi-version=%d (%D) and -fabi-version=%d (%D)",
-			G.entity, flag_abi_compat_version, id2,
+			G.entity, warn_abi_version, id2,
 			flag_abi_version, id);
 	  else
 	    warning_at (DECL_SOURCE_LOCATION (G.entity), OPT_Wabi,
 			"the mangled name of %qD changes between "
 			"-fabi-version=%d (%D) and -fabi-version=%d (%D)",
 			G.entity, flag_abi_version, id,
-			flag_abi_compat_version, id2);
+			warn_abi_version, id2);
 	}
 
-      note_mangling_alias (decl, id2);
+      flag_abi_version = save_ver;
     }
 }
 

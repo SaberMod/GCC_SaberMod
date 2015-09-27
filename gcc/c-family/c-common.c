@@ -239,6 +239,9 @@ const char *constant_string_class_name;
 
 /* C++ language option variables.  */
 
+/* The reference version of the ABI for -Wabi.  */
+
+int warn_abi_version = -1;
 
 /* Nonzero means generate separate instantiation control files and
    juggle them at link time.  */
@@ -12142,7 +12145,7 @@ warn_for_sign_compare (location_t location,
           if (bits < TYPE_PRECISION (result_type)
               && bits < HOST_BITS_PER_LONG && unsignedp)
             {
-              mask = (~ (HOST_WIDE_INT) 0) << bits;
+              mask = (~ (unsigned HOST_WIDE_INT) 0) << bits;
               if ((mask & constant) != mask)
 		{
 		  if (constant == 0)
