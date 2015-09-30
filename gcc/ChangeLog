@@ -1,3 +1,84 @@
+2015-09-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2015-08-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/67029
+	* ira-color.c: Include "recog.h" before including "ira-int.h".
+	* target-globals.c: Likewise.
+	* ira-lives.c (ira_implicitly_set_insn_hard_regs): Add an
+	adds an alternative_mask argument and use it instead of
+	preferred_alternatives.
+	* ira.h (ira_implicitly_set_insn_hard_regs): Moved to ...
+	* ira-int.h (ira_implicitly_set_insn_hard_regs): Here.
+	* sched-deps.c: Include "ira-int.h" after including "ira.h".
+	(sched_analyze_insn): Update call to
+	ira_implicitly_set_insn_hard_regs.
+	* sel-sched.c: Include "ira-int.h" after including "ira.h".
+	(implicit_clobber_conflict_p): Update call to
+	ira_implicitly_set_insn_hard_regs.
+
+2015-09-30  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2015-09-30  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/67690
+	* tree-ssa-ifcombine.c (pass_tree_ifcombine::execute): Call
+	reset_flow_sensitive_info_in_bb.
+	* tree-ssa-tail-merge.c: Include "stringpool.h" and "tree-ssanames.h".
+	(replace_block_by): Call reset_flow_sensitive_info_in_bb.
+	* tree-ssanames.c: Include "gimple-iterator.h".
+	(reset_flow_sensitive_info_in_bb): New function.
+	* tree-ssanames.h (reset_flow_sensitive_info_in_bb): Declare.
+
+2015-09-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Backport from mainline
+	2015-07-21  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR ipa/66424.
+	* lra-remat.c (operand_to_remat): Prevent using insns with input
+	subregs processed separately by IRA.
+
+2015-09-29  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2015-09-10  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_contiguous_bitmask_vector_p): Reject if
+	the vector element is bigger than 64 bit.
+
+2015-09-29  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2015-09-10  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/vx-builtins.md ("vec_vmal<mode>", "vec_vmah<mode>")
+	("vec_vmalh<mode>"): Change mode iterator from VI_HW to VI_HW_QHS.
+
+2015-09-29  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2015-09-10  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c: Add V1TImode to constant pool modes.
+
+2015-09-29  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2015-06-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/vx-builtins.md
+	("vec_scatter_element<mode>_<non_vec_int>")
+	("vec_scatter_element<V_HW_64:mode>_SI"): Replace gf mode
+	attribute with bhfgq.
+
+2015-09-29  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64.md (prefetch):
+	Change the predicate of operand 0 to register_operand.
+
 2015-09-28  Daniel Hellstrom  <daniel@gaisler.com>
 
 	* config/sparc/t-rtems: Remove -muser-mode. Add ut699, at697f and leon.
@@ -1112,20 +1193,7 @@
 	* doc/invoke.texi (i386 and x86-64 Options): -mno-fancy-math-387
 	is not actually the default on FreeBSD.
 
-2015-07-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
-
-	Backport from mainline
-	2015-06-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
-
-	* config/s390/vx-builtins.md
-	("vec_scatter_element<mode>_<non_vec_int>")
-	("vec_scatter_element<V_HW_64:mode>_SI"): Replace gf mode
-	attribute with bhfgq.
-
-2015-07-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
-
-	Backport from mainline
-	2015-06-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+2015-06-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
 
 	* config/s390/s390-builtins.def: Fix vpopct instruction comments.
 
