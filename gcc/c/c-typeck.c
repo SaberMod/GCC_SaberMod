@@ -5690,8 +5690,18 @@ maybe_warn_string_init (location_t loc, tree type, struct c_expr expr)
    ERRTYPE says whether it is argument passing, assignment,
    initialization or return.
 
-   LOCATION is the location of the assignment, EXPR_LOC is the location of
-   the RHS or, for a function, location of an argument.
+   In the following example, '~' denotes where EXPR_LOC and '^' where
+   LOCATION point to:
+
+     f (var);      [ic_argpass]
+     ^  ~~~
+     x = var;      [ic_assign]
+       ^ ~~~;
+     int x = var;  [ic_init]
+	     ^^^
+     return x;     [ic_return]
+	    ^
+
    FUNCTION is a tree for the function being called.
    PARMNUM is the number of the argument, for printing in error messages.  */
 
@@ -9369,8 +9379,12 @@ c_finish_return (location_t loc, tree retval, tree origtype)
   bool npc = false;
   size_t rank = 0;
 
+  /* Use the expansion point to handle cases such as returning NULL
+     in a function returning void.  */
+  source_location xloc = expansion_point_location_if_in_system_header (loc);
+
   if (TREE_THIS_VOLATILE (current_function_decl))
-    warning_at (loc, 0,
+    warning_at (xloc, 0,
 		"function declared %<noreturn%> has a %<return%> statement");
 
   if (flag_cilkplus && contains_array_notation_expr (retval))
@@ -9425,10 +9439,10 @@ c_finish_return (location_t loc, tree retval, tree origtype)
     {
       current_function_returns_null = 1;
       if (TREE_CODE (TREE_TYPE (retval)) != VOID_TYPE)
-	pedwarn (loc, 0,
+	pedwarn (xloc, 0,
 		 "%<return%> with a value, in function returning void");
       else
-	pedwarn (loc, OPT_Wpedantic, "ISO C forbids "
+	pedwarn (xloc, OPT_Wpedantic, "ISO C forbids "
 		 "%<return%> with expression, in function returning void");
     }
   else

@@ -17,6 +17,10 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+/* Legacy warning!  Please add no further builtin simplifications here
+   (apart from pure constant folding) - builtin simplifications should go
+   to match.pd or gimple-fold.c instead.  */
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -64,7 +68,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-chkp.h"
 #include "rtl-chkp.h"
-#include "gomp-constants.h"
 
 
 static tree do_mpc_arg1 (tree, tree, int (*)(mpc_ptr, mpc_srcptr, mpc_rnd_t));
@@ -5859,46 +5862,6 @@ expand_stack_save (void)
 }
 
 
-/* Expand OpenACC acc_on_device.
-
-   This has to happen late (that is, not in early folding; expand_builtin_*,
-   rather than fold_builtin_*), as we have to act differently for host and
-   acceleration device (ACCEL_COMPILER conditional).  */
-
-static rtx
-expand_builtin_acc_on_device (tree exp, rtx target)
-{
-  if (!validate_arglist (exp, INTEGER_TYPE, VOID_TYPE))
-    return NULL_RTX;
-
-  tree arg = CALL_EXPR_ARG (exp, 0);
-
-  /* Return (arg == v1 || arg == v2) ? 1 : 0.  */
-  machine_mode v_mode = TYPE_MODE (TREE_TYPE (arg));
-  rtx v = expand_normal (arg), v1, v2;
-#ifdef ACCEL_COMPILER
-  v1 = GEN_INT (GOMP_DEVICE_NOT_HOST);
-  v2 = GEN_INT (ACCEL_COMPILER_acc_device);
-#else
-  v1 = GEN_INT (GOMP_DEVICE_NONE);
-  v2 = GEN_INT (GOMP_DEVICE_HOST);
-#endif
-  machine_mode target_mode = TYPE_MODE (integer_type_node);
-  if (!target || !register_operand (target, target_mode))
-    target = gen_reg_rtx (target_mode);
-  emit_move_insn (target, const1_rtx);
-  rtx_code_label *done_label = gen_label_rtx ();
-  do_compare_rtx_and_jump (v, v1, EQ, false, v_mode, NULL_RTX,
-			   NULL, done_label, PROB_EVEN);
-  do_compare_rtx_and_jump (v, v2, EQ, false, v_mode, NULL_RTX,
-			   NULL, done_label, PROB_EVEN);
-  emit_move_insn (target, const0_rtx);
-  emit_label (done_label);
-
-  return target;
-}
-
-
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
    (and in mode MODE if that's convenient).
@@ -7036,9 +6999,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
       break;
 
     case BUILT_IN_ACC_ON_DEVICE:
-      target = expand_builtin_acc_on_device (exp, target);
-      if (target)
-	return target;
+      /* Do library call, if we failed to expand the builtin when
+	 folding.  */
       break;
 
     default:	/* just do library call, if unknown builtin */

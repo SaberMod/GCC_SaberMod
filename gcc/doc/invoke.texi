@@ -430,6 +430,7 @@ Objective-C and Objective-C++ Dialects}.
 -fprofile-use -fprofile-use=@var{path} -fprofile-values @gol
 -fprofile-reorder-functions @gol
 -freciprocal-math -free -frename-registers -freorder-blocks @gol
+-freorder-blocks-algorithm=@var{algorithm} @gol
 -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop -freschedule-modulo-scheduled-loops @gol
 -frounding-math -fsched2-use-superblocks -fsched-pressure @gol
@@ -7247,6 +7248,11 @@ is made by appending @file{.slp} to the source file name.
 Dump each function after Value Range Propagation (VRP).  The file name
 is made by appending @file{.vrp} to the source file name.
 
+@item oaccdevlow
+@opindex fdump-tree-oaccdevlow
+Dump each function after applying device-specific OpenACC transformations.
+The file name is made by appending @file{.oaccdevlow} to the source file name.
+
 @item all
 @opindex fdump-tree-all
 Enable all the available tree dumps with the flags provided in this option.
@@ -7684,6 +7690,7 @@ compilation time.
 -fipa-reference @gol
 -fmerge-constants @gol
 -fmove-loop-invariants @gol
+-freorder-blocks @gol
 -fshrink-wrap @gol
 -fsplit-wide-types @gol
 -ftree-bit-ccp @gol
@@ -7740,7 +7747,8 @@ also turns on the following optimization flags:
 -foptimize-strlen @gol
 -fpartial-inlining @gol
 -fpeephole2 @gol
--freorder-blocks -freorder-blocks-and-partition -freorder-functions @gol
+-freorder-blocks-algorithm=stc @gol
+-freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop  @gol
 -fsched-interblock  -fsched-spec @gol
 -fschedule-insns  -fschedule-insns2 @gol
@@ -7777,8 +7785,8 @@ optimizations designed to reduce code size.
 
 @option{-Os} disables the following optimization flags:
 @gccoptlist{-falign-functions  -falign-jumps  -falign-loops @gol
--falign-labels  -freorder-blocks  -freorder-blocks-and-partition @gol
--fprefetch-loop-arrays}
+-falign-labels  -freorder-blocks  -freorder-blocks-algorithm=stc @gol
+-freorder-blocks-and-partition  -fprefetch-loop-arrays}
 
 @item -Ofast
 @opindex Ofast
@@ -8867,12 +8875,13 @@ profitable to parallelize the loops.
 
 @item -ftree-coalesce-vars
 @opindex ftree-coalesce-vars
-Tell the compiler to attempt to combine small user-defined variables
-too, instead of just compiler temporaries.  This may severely limit the
-ability to debug an optimized program compiled with
+While transforming the program out of the SSA representation, attempt to
+reduce copying by coalescing versions of different user-defined
+variables, instead of just compiler temporaries.  This may severely
+limit the ability to debug an optimized program compiled with
 @option{-fno-var-tracking-assignments}.  In the negated form, this flag
 prevents SSA coalescing of user variables.  This option is enabled by
-default if optimization is enabled.
+default if optimization is enabled, and it does very little otherwise.
 
 @item -ftree-loop-if-convert
 @opindex ftree-loop-if-convert
@@ -9128,7 +9137,19 @@ The default is @option{-fguess-branch-probability} at levels
 Reorder basic blocks in the compiled function in order to reduce number of
 taken branches and improve code locality.
 
-Enabled at levels @option{-O2}, @option{-O3}.
+Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
+
+@item -freorder-blocks-algorithm=@var{algorithm}
+@opindex freorder-blocks-algorithm
+Use the specified algorithm for basic block reordering.  The
+@var{algorithm} argument can be @samp{simple}, which does not increase
+code size (except sometimes due to secondary effects like alignment),
+or @samp{stc}, the ``software trace cache'' algorithm, which tries to
+put all often executed code together, minimizing the number of branches
+executed by making extra copies of code.
+
+The default is @samp{simple} at levels @option{-O}, @option{-Os}, and
+@samp{stc} at levels @option{-O2}, @option{-O3}.
 
 @item -freorder-blocks-and-partition
 @opindex freorder-blocks-and-partition
@@ -21298,8 +21319,8 @@ in a performance loss, especially for floating-point code.
 @opindex muser-mode
 @opindex mno-user-mode
 Do not generate code that can only run in supervisor mode.  This is relevant
-only for the @code{casa} instruction emitted for the LEON3 processor.  The
-default is @option{-mno-user-mode}.
+only for the @code{casa} instruction emitted for the LEON3 processor.  This
+is the default.
 
 @item -mno-faster-structs
 @itemx -mfaster-structs

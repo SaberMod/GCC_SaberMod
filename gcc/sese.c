@@ -615,7 +615,7 @@ copy_bb_and_scalar_dependences (basic_block bb, sese region,
 /* Returns the outermost loop in SCOP that contains BB.  */
 
 struct loop *
-outermost_loop_in_sese (sese region, basic_block bb)
+outermost_loop_in_sese_1 (sese region, basic_block bb)
 {
   struct loop *nest;
 
@@ -624,6 +624,32 @@ outermost_loop_in_sese (sese region, basic_block bb)
 	 && loop_in_sese_p (loop_outer (nest), region))
     nest = loop_outer (nest);
 
+  return nest;
+}
+
+/* Same as outermost_loop_in_sese_1, returns the outermost loop
+   containing BB in REGION, but makes sure that the returned loop
+   belongs to the REGION, and so this returns the first loop in the
+   REGION when the loop containing BB does not belong to REGION.  */
+
+loop_p
+outermost_loop_in_sese (sese region, basic_block bb)
+{
+  loop_p nest = outermost_loop_in_sese_1 (region, bb);
+
+  if (loop_in_sese_p (nest, region))
+    return nest;
+
+  /* When the basic block BB does not belong to a loop in the region,
+     return the first loop in the region.  */
+  nest = nest->inner;
+  while (nest)
+    if (loop_in_sese_p (nest, region))
+      break;
+    else
+      nest = nest->next;
+
+  gcc_assert (nest);
   return nest;
 }
 
@@ -760,9 +786,10 @@ set_ifsese_condition (ifsese if_region, tree condition)
   gsi_insert_after (&gsi, cond_stmt, GSI_NEW_STMT);
 }
 
-/* Return false if T is completely defined outside REGION.  */
+/* Return true when T is defined outside REGION or when no definitions are
+   variant in REGION.  */
 
-static bool
+bool
 invariant_in_sese_p_rec (tree t, sese region)
 {
   ssa_op_iter iter;
@@ -776,9 +803,18 @@ invariant_in_sese_p_rec (tree t, sese region)
       || gimple_code (stmt) == GIMPLE_CALL)
     return false;
 
+  /* VDEF is variant when it is in the region.  */
+  if (gimple_vdef (stmt))
+    return false;
+
+  /* A VUSE may or may not be variant following the VDEFs.  */
+  if (tree vuse = gimple_vuse (stmt))
+    return invariant_in_sese_p_rec (vuse, region);
+
   FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
     {
       tree use = USE_FROM_PTR (use_p);
+
       if (!defined_in_sese_p (use, region))
 	continue;
 
