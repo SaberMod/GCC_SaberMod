@@ -1,6 +1,4 @@
-// 2007-04-27  Paolo Carlini  <pcarlini@suse.de>
-
-// Copyright (C) 2007-2015 Free Software Foundation, Inc.
+// Copyright (C) 2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -17,12 +15,34 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// { dg-do compile }
-// { dg-error "no matching" "" { target *-*-* } 1815 }
+// { dg-options "-std=gnu++11" }
 
-#include <deque>
+// libstdc++/65049
 
-void f()
+#include <string>
+#include <testsuite_hooks.h>
+
+using C = wchar_t;
+
+void
+test01()
 {
-  std::deque<std::deque<int> > d(10, 1);
+  const C* p = 0;
+  C* q = 0;
+  auto c = std::char_traits<C>::compare(p, q, 0);
+  VERIFY( c == 0 );
+  auto r = std::char_traits<C>::find(p, 0, '0');
+  VERIFY( r == nullptr );
+  r = std::char_traits<C>::move(q, p, 0);
+  VERIFY( r == q );
+  r = std::char_traits<C>::copy(q, p, 0);
+  VERIFY( r == q );
+  r = std::char_traits<C>::assign(q, 0, '0');
+  VERIFY( r == q );
+}
+
+int
+main()
+{
+  test01();
 }
