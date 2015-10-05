@@ -1,3 +1,192 @@
+2015-10-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53856
+	* g++.dg/template/defarg19.C: New.
+	* g++.dg/template/defarg20.C: Likewise.
+
+2015-10-05  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+        * gcc.dg/graphite/scop-sor.c: Un-xfail.
+
+2015-10-05  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+        * gcc.dg/graphite/scop-sor.c: Xfail.
+
+2015-10-05  Martin Jambor  <mjambor@suse.cz>
+	    Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/ipa/propalign-4.c: New test.
+	* gcc.dg/ipa/propalign-5.c: Likewise.
+
+2015-10-05  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/67821
+	* gcc.dg/torture/pr67821-2.c: New test.
+	* gcc.dg/torture/pr67821.c: New test.
+
+2015-10-05  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/builtin_target.c: Add check for "skylake-avx512".
+
+2015-10-05  Christian Bruel  <christian.bruel@st.com>
+
+	* gcc.target/arm/attr_thumb-static2.c: Cleanup directives.
+
+2015-10-05  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vcvt_f16.c (TEST_MSG): Fix typo.
+	(exec_vcvt): Add comments.
+
+2015-10-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/67447
+	* gcc.target/i386/pr67447.c: New test.
+
+2015-10-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/vect-pack-trunc-1.c: Require avx512bw
+	effective target.
+	* gcc.target/i386/vect-pack-trunc-2.c: Ditto.
+	* gcc.target/i386/vect-perm-even-1.c: Ditto.
+	* gcc.target/i386/vect-perm-odd-1.c: Ditto.
+	* gcc.target/i386/vect-unpack-1.c: Ditto.
+	* gcc.target/i386/vect-unpack-2.c: Ditto.
+
+2015-10-04  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/67758
+	* gfortran.dg/common_24.f: New.
+
+2015-10-03  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* gcc.target/arm/pr67756.c: Fixed warnings.
+
+2015-10-02  Marek Polacek  <polacek@redhat.com>
+
+	PR c/67730
+	* gcc.dg/pr67730-1.c: New test.
+	* gcc.dg/pr67730-2.c: New test.
+	* gcc.dg/pr67730.h: New test.
+
+2015-10-02  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/Wduplicated-cond-2.c: Skip until PR67819 is resolved.
+
+2015-10-02  Sebastian Pop  <s.pop@samsung.com>
+
+	PR tree-optimization/67754
+	* gfortran.dg/graphite/block-1.f90: Adjust pattern.
+	* gfortran.dg/graphite/block-2.f: Same.
+
+2015-10-02  Sebastian Pop  <s.pop@samsung.com>
+
+	* gcc.dg/graphite/scop-23.c: New.
+
+2015-10-02  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/builtin_target.c: Handle "avx512ifma"
+	and "avx512vbmi".
+
+2015-10-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/67756
+	* gcc.target/arm/pr67756.c: New.
+
+2015-10-02  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/tlsle12_tiny_1.c: New testcase for tiny model.
+	* gcc.target/aarch64/tlsle24_tiny_1.c: Likewise.
+	* gcc.target/aarch64/tlsle_sizeadj_tiny_1.c: TLS size truncation test
+	for tiny model.
+	* gcc.target/aarch64/tlsle_sizeadj_small_1.c: TLS size truncation test
+	for small model.
+
+2015-10-02  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/vect-pack-trunc-1.c: New test.
+	* gcc.target/i386/vect-pack-trunc-2.c: Ditto.
+	* gcc.target/i386/vect-perm-even-1.c: Ditto.
+	* gcc.target/i386/vect-perm-odd-1.c: Ditto.
+	* gcc.target/i386/vect-unpack-1.c: Ditto.
+	* gcc.target/i386/vect-unpack-2.c: Ditto.
+
+2015-10-02  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64249
+	* c-c++-common/Wduplicated-cond-1.c: New test.
+	* c-c++-common/Wduplicated-cond-2.c: New test.
+	* c-c++-common/Wduplicated-cond-3.c: New test.
+	* c-c++-common/Wduplicated-cond-4.c: New test.
+	* c-c++-common/Wmisleading-indentation.c (fn_37): Avoid
+	-Wduplicated-cond warning.
+
+2015-10-02  Renlin Li  <renlin.li@arm.com>
+
+	* gcc.target/aarch64/csneg-1.c: Update.
+
+2015-10-02  Renlin Li  <renlin.li@arm.com>
+
+	PR target/66776
+	* gcc.target/aarch64/pr66776.c: New.
+
+2015-10-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/warn13.adb: New test.
+
+2015-10-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/vect15.ad[sb]: New test.
+	* gnat.dg/vect16.ad[sb]: Likewise.
+	* gnat.dg/vect17.ad[sb]: Likewise.
+	* gnat.dg/vect18.ad[sb]: Likewise.
+
+2015-10-02  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/67786
+	PR rtl-optimization/67787
+	* gcc.dg/pr67786.c: New test.
+	* gcc.dg/pr67787.c: Likewise.
+
+2015-10-02  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/vect_combine_zeroes_1.c: New.
+
+2015-10-02  Kai Tietz  <ktietz70@googlemail.com>
+
+	PR target/51726
+	* g++.dg/ext/selectany2.C: Allow uninitialized variable case.
+
+2015-10-01  Louis Krupp     <louis.krupp@zoho.com>
+
+	PR fortran/62242
+	PR fortran/52332
+	* gfortran.dg/string_array_constructor_1.f90: New.
+	* gfortran.dg/string_array_constructor_2.f90: New.
+	* gfortran.dg/string_array_constructor_3.f90: New.
+
+2015-10-01  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/67788
+	PR target/67789
+	* gcc.target/powerpc/pr67789.c: New testcase.
+
+2015-10-01  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran.67802
+	* gfortran.dg/pr67802.f90: New test.
+
+2015-10-01  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/66979
+	gfortran.dg/pr66979.f90: new test.
+
+2015-10-01  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67616
+	* gfortran.dg/pr67616.f90: New test.
+
 2015-10-01  Ville Voutilainen  <ville.voutilainen@gmail.com>
 
 	PR c++/54430
@@ -36,7 +225,6 @@
 	* gcc.dg/tree-ssa/ssa-fre-7.c: Adjust.
 	* gcc.dg/tree-ssa/ssa-fre-8.c: Likewise.
 
-2015-09-30  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/ssa-dom-branch-1.c: New test.
 

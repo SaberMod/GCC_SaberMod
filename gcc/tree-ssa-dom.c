@@ -1158,7 +1158,7 @@ record_equality (tree x, tree y, class const_and_copies *const_and_copies)
      nonzero.  */
   if (HONOR_SIGNED_ZEROS (x)
       && (TREE_CODE (y) != REAL_CST
-	  || REAL_VALUES_EQUAL (dconst0, TREE_REAL_CST (y))))
+	  || real_equal (&dconst0, &TREE_REAL_CST (y))))
     return;
 
   const_and_copies->record_const_or_copy (x, y, prev_x);
@@ -1842,6 +1842,12 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si,
 	    {
 	      /* Delete threads that start at BB.  */
 	      remove_jump_threads_starting_at (bb);
+
+	      /* If BB is in a loop, then removing an outgoing edge from BB
+		 may cause BB to move outside the loop, changes in the
+		 loop exit edges, etc.  So note that loops need fixing.  */
+	      if (bb_loop_depth (bb) > 0)
+		loops_state_set (LOOPS_NEED_FIXUP);
 
 	      /* Now clean up the control statement at the end of
 		 BB and remove unexecutable edges.  */

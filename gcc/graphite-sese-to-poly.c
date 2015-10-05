@@ -196,214 +196,6 @@ reduction_phi_p (sese region, gphi_iterator *psi)
   return true;
 }
 
-/* Store the GRAPHITE representation of BB.  */
-
-static gimple_bb_p
-new_gimple_bb (basic_block bb, vec<data_reference_p> drs)
-{
-  struct gimple_bb *gbb;
-
-  gbb = XNEW (struct gimple_bb);
-  bb->aux = gbb;
-  GBB_BB (gbb) = bb;
-  GBB_DATA_REFS (gbb) = drs;
-  GBB_CONDITIONS (gbb).create (0);
-  GBB_CONDITION_CASES (gbb).create (0);
-
-  return gbb;
-}
-
-static void
-free_data_refs_aux (vec<data_reference_p> datarefs)
-{
-  unsigned int i;
-  struct data_reference *dr;
-
-  FOR_EACH_VEC_ELT (datarefs, i, dr)
-    if (dr->aux)
-      {
-	base_alias_pair *bap = (base_alias_pair *)(dr->aux);
-
-	free (bap->alias_set);
-
-	free (bap);
-	dr->aux = NULL;
-      }
-}
-/* Frees GBB.  */
-
-static void
-free_gimple_bb (struct gimple_bb *gbb)
-{
-  free_data_refs_aux (GBB_DATA_REFS (gbb));
-  free_data_refs (GBB_DATA_REFS (gbb));
-
-  GBB_CONDITIONS (gbb).release ();
-  GBB_CONDITION_CASES (gbb).release ();
-  GBB_BB (gbb)->aux = 0;
-  XDELETE (gbb);
-}
-
-/* Deletes all gimple bbs in SCOP.  */
-
-static void
-remove_gbbs_in_scop (scop_p scop)
-{
-  int i;
-  poly_bb_p pbb;
-
-  FOR_EACH_VEC_ELT (SCOP_BBS (scop), i, pbb)
-    free_gimple_bb (PBB_BLACK_BOX (pbb));
-}
-
-/* Deletes all scops in SCOPS.  */
-
-void
-free_scops (vec<scop_p> scops)
-{
-  int i;
-  scop_p scop;
-
-  FOR_EACH_VEC_ELT (scops, i, scop)
-    {
-      remove_gbbs_in_scop (scop);
-      free_sese (SCOP_REGION (scop));
-      free_scop (scop);
-    }
-
-  scops.release ();
-}
-
-/* Generates a polyhedral black box only if the bb contains interesting
-   information.  */
-
-static gimple_bb_p
-try_generate_gimple_bb (scop_p scop, basic_block bb)
-{
-  vec<data_reference_p> drs;
-  drs.create (5);
-  sese region = SCOP_REGION (scop);
-  loop_p nest = outermost_loop_in_sese (region, bb);
-  gimple_stmt_iterator gsi;
-
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-    {
-      gimple *stmt = gsi_stmt (gsi);
-      loop_p loop;
-
-      if (is_gimple_debug (stmt))
-	continue;
-
-      loop = loop_containing_stmt (stmt);
-      if (!loop_in_sese_p (loop, region))
-	loop = nest;
-
-      graphite_find_data_references_in_stmt (nest, loop, stmt, &drs);
-    }
-
-  return new_gimple_bb (bb, drs);
-}
-
-/* Returns true if all predecessors of BB, that are not dominated by BB, are
-   marked in MAP.  The predecessors dominated by BB are loop latches and will
-   be handled after BB.  */
-
-static bool
-all_non_dominated_preds_marked_p (basic_block bb, sbitmap map)
-{
-  edge e;
-  edge_iterator ei;
-
-  FOR_EACH_EDGE (e, ei, bb->preds)
-    if (!bitmap_bit_p (map, e->src->index)
-	&& !dominated_by_p (CDI_DOMINATORS, e->src, bb))
-	return false;
-
-  return true;
-}
-
-/* Compare the depth of two basic_block's P1 and P2.  */
-
-static int
-compare_bb_depths (const void *p1, const void *p2)
-{
-  const_basic_block const bb1 = *(const_basic_block const*)p1;
-  const_basic_block const bb2 = *(const_basic_block const*)p2;
-  int d1 = loop_depth (bb1->loop_father);
-  int d2 = loop_depth (bb2->loop_father);
-
-  if (d1 < d2)
-    return 1;
-
-  if (d1 > d2)
-    return -1;
-
-  return 0;
-}
-
-/* Sort the basic blocks from DOM such that the first are the ones at
-   a deepest loop level.  */
-
-static void
-graphite_sort_dominated_info (vec<basic_block> dom)
-{
-  dom.qsort (compare_bb_depths);
-}
-
-/* Recursive helper function for build_scops_bbs.  */
-
-static void
-build_scop_bbs_1 (scop_p scop, sbitmap visited, basic_block bb)
-{
-  sese region = SCOP_REGION (scop);
-  vec<basic_block> dom;
-  poly_bb_p pbb;
-
-  if (bitmap_bit_p (visited, bb->index)
-      || !bb_in_sese_p (bb, region))
-    return;
-
-  pbb = new_poly_bb (scop, try_generate_gimple_bb (scop, bb));
-  SCOP_BBS (scop).safe_push (pbb);
-  bitmap_set_bit (visited, bb->index);
-
-  dom = get_dominated_by (CDI_DOMINATORS, bb);
-
-  if (!dom.exists ())
-    return;
-
-  graphite_sort_dominated_info (dom);
-
-  while (!dom.is_empty ())
-    {
-      int i;
-      basic_block dom_bb;
-
-      FOR_EACH_VEC_ELT (dom, i, dom_bb)
-	if (all_non_dominated_preds_marked_p (dom_bb, visited))
-	  {
-	    build_scop_bbs_1 (scop, visited, dom_bb);
-	    dom.unordered_remove (i);
-	    break;
-	  }
-    }
-
-  dom.release ();
-}
-
-/* Gather the basic blocks belonging to the SCOP.  */
-
-static void
-build_scop_bbs (scop_p scop)
-{
-  sbitmap visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  sese region = SCOP_REGION (scop);
-
-  bitmap_clear (visited);
-  build_scop_bbs_1 (scop, visited, SESE_ENTRY_BB (region));
-  sbitmap_free (visited);
-}
-
 /* Return an ISL identifier for the polyhedral basic block PBB.  */
 
 static isl_id *
@@ -526,7 +318,7 @@ build_scop_scattering (scop_p scop)
 {
   int i;
   poly_bb_p pbb;
-  gimple_bb_p previous_gbb = NULL;
+  gimple_poly_bb_p previous_gbb = NULL;
   isl_space *dc = isl_set_get_space (scop->context);
   isl_aff *static_sched;
 
@@ -541,7 +333,7 @@ build_scop_scattering (scop_p scop)
 
   FOR_EACH_VEC_ELT (SCOP_BBS (scop), i, pbb)
     {
-      gimple_bb_p gbb = PBB_BLACK_BOX (pbb);
+      gimple_poly_bb_p gbb = PBB_BLACK_BOX (pbb);
       int prefix;
 
       if (previous_gbb)
@@ -717,35 +509,6 @@ parameter_index_in_region_1 (tree name, sese region)
   return -1;
 }
 
-/* When the parameter NAME is in REGION, returns its index in
-   SESE_PARAMS.  Otherwise this function inserts NAME in SESE_PARAMS
-   and returns the index of NAME.  */
-
-static int
-parameter_index_in_region (tree name, sese region)
-{
-  int i;
-
-  gcc_assert (TREE_CODE (name) == SSA_NAME);
-
-  /* Cannot constrain on anything else than INTEGER_TYPE parameters.  */
-  if (TREE_CODE (TREE_TYPE (name)) != INTEGER_TYPE)
-    return -1;
-
-  if (!invariant_in_sese_p_rec (name, region))
-    return -1;
-
-  i = parameter_index_in_region_1 (name, region);
-  if (i != -1)
-    return i;
-
-  gcc_assert (SESE_ADD_PARAMS (region));
-
-  i = SESE_PARAMS (region).length ();
-  SESE_PARAMS (region).safe_push (name);
-  return i;
-}
-
 /* Extract an affine expression from the tree E in the scop S.  */
 
 static isl_pw_aff *
@@ -817,133 +580,22 @@ extract_affine (scop_p s, tree e, __isl_take isl_space *space)
   return res;
 }
 
-/* In the context of sese S, scan the expression E and translate it to
-   a linear expression C.  When parsing a symbolic multiplication, K
-   represents the constant multiplier of an expression containing
-   parameters.  */
+/* Assign dimension for each parameter in SCOP.  */
 
 static void
-scan_tree_for_params (sese s, tree e)
+set_scop_parameter_dim (scop_p scop)
 {
-  if (e == chrec_dont_know)
-    return;
-
-  switch (TREE_CODE (e))
-    {
-    case POLYNOMIAL_CHREC:
-      scan_tree_for_params (s, CHREC_LEFT (e));
-      break;
-
-    case MULT_EXPR:
-      if (chrec_contains_symbols (TREE_OPERAND (e, 0)))
-	scan_tree_for_params (s, TREE_OPERAND (e, 0));
-      else
-	scan_tree_for_params (s, TREE_OPERAND (e, 1));
-      break;
-
-    case PLUS_EXPR:
-    case POINTER_PLUS_EXPR:
-    case MINUS_EXPR:
-      scan_tree_for_params (s, TREE_OPERAND (e, 0));
-      scan_tree_for_params (s, TREE_OPERAND (e, 1));
-      break;
-
-    case NEGATE_EXPR:
-    case BIT_NOT_EXPR:
-    CASE_CONVERT:
-    case NON_LVALUE_EXPR:
-      scan_tree_for_params (s, TREE_OPERAND (e, 0));
-      break;
-
-    case SSA_NAME:
-      parameter_index_in_region (e, s);
-      break;
-
-    case INTEGER_CST:
-    case ADDR_EXPR:
-    case REAL_CST:
-    case COMPLEX_CST:
-    case VECTOR_CST:
-      break;
-
-   default:
-      gcc_unreachable ();
-      break;
-    }
-}
-
-/* Find parameters with respect to REGION in BB. We are looking in memory
-   access functions, conditions and loop bounds.  */
-
-static void
-find_params_in_bb (sese region, gimple_bb_p gbb)
-{
-  int i;
-  unsigned j;
-  data_reference_p dr;
-  gimple *stmt;
-  loop_p loop = GBB_BB (gbb)->loop_father;
-
-  /* Find parameters in the access functions of data references.  */
-  FOR_EACH_VEC_ELT (GBB_DATA_REFS (gbb), i, dr)
-    for (j = 0; j < DR_NUM_DIMENSIONS (dr); j++)
-      scan_tree_for_params (region, DR_ACCESS_FN (dr, j));
-
-  /* Find parameters in conditional statements.  */
-  FOR_EACH_VEC_ELT (GBB_CONDITIONS (gbb), i, stmt)
-    {
-      tree lhs = scalar_evolution_in_region (region, loop,
-					     gimple_cond_lhs (stmt));
-      tree rhs = scalar_evolution_in_region (region, loop,
-					     gimple_cond_rhs (stmt));
-
-      scan_tree_for_params (region, lhs);
-      scan_tree_for_params (region, rhs);
-    }
-}
-
-/* Record the parameters used in the SCOP.  A variable is a parameter
-   in a scop if it does not vary during the execution of that scop.  */
-
-static void
-find_scop_parameters (scop_p scop)
-{
-  poly_bb_p pbb;
-  unsigned i;
   sese region = SCOP_REGION (scop);
-  struct loop *loop;
-  int nbp;
+  unsigned nbp = sese_nb_params (region);
+  isl_space *space = isl_space_set_alloc (scop->ctx, nbp, 0);
 
-  /* Find the parameters used in the loop bounds.  */
-  FOR_EACH_VEC_ELT (SESE_LOOP_NEST (region), i, loop)
-    {
-      tree nb_iters = number_of_latch_executions (loop);
+  unsigned i;
+  tree e;
+  FOR_EACH_VEC_ELT (SESE_PARAMS (region), i, e)
+    space = isl_space_set_dim_id (space, isl_dim_param, i,
+                                  isl_id_for_ssa_name (scop, e));
 
-      if (!chrec_contains_symbols (nb_iters))
-	continue;
-
-      nb_iters = scalar_evolution_in_region (region, loop, nb_iters);
-      scan_tree_for_params (region, nb_iters);
-    }
-
-  /* Find the parameters used in data accesses.  */
-  FOR_EACH_VEC_ELT (SCOP_BBS (scop), i, pbb)
-    find_params_in_bb (region, PBB_BLACK_BOX (pbb));
-
-  nbp = sese_nb_params (region);
-  scop_set_nb_params (scop, nbp);
-  SESE_ADD_PARAMS (region) = false;
-
-  {
-    tree e;
-    isl_space *space = isl_space_set_alloc (scop->ctx, nbp, 0);
-
-    FOR_EACH_VEC_ELT (SESE_PARAMS (region), i, e)
-      space = isl_space_set_dim_id (space, isl_dim_param, i,
-				    isl_id_for_ssa_name (scop, e));
-
-    scop->context = isl_set_universe (space);
-  }
+  scop->context = isl_set_universe (space);
 }
 
 /* Builds the constraint polyhedra for LOOP in SCOP.  OUTER_PH gives
@@ -1133,7 +785,7 @@ add_conditions_to_domain (poly_bb_p pbb)
 {
   unsigned int i;
   gimple *stmt;
-  gimple_bb_p gbb = PBB_BLACK_BOX (pbb);
+  gimple_poly_bb_p gbb = PBB_BLACK_BOX (pbb);
 
   if (GBB_CONDITIONS (gbb).is_empty ())
     return;
@@ -1178,100 +830,6 @@ add_conditions_to_constraints (scop_p scop)
 
   FOR_EACH_VEC_ELT (SCOP_BBS (scop), i, pbb)
     add_conditions_to_domain (pbb);
-}
-
-/* Returns a COND_EXPR statement when BB has a single predecessor, the
-   edge between BB and its predecessor is not a loop exit edge, and
-   the last statement of the single predecessor is a COND_EXPR.  */
-
-static gcond *
-single_pred_cond_non_loop_exit (basic_block bb)
-{
-  if (single_pred_p (bb))
-    {
-      edge e = single_pred_edge (bb);
-      basic_block pred = e->src;
-      gimple *stmt;
-
-      if (loop_depth (pred->loop_father) > loop_depth (bb->loop_father))
-	return NULL;
-
-      stmt = last_stmt (pred);
-
-      if (stmt && gimple_code (stmt) == GIMPLE_COND)
-	return as_a <gcond *> (stmt);
-    }
-
-  return NULL;
-}
-
-class sese_dom_walker : public dom_walker
-{
-public:
-  sese_dom_walker (cdi_direction, sese);
-
-  virtual void before_dom_children (basic_block);
-  virtual void after_dom_children (basic_block);
-
-private:
-  auto_vec<gimple *, 3> m_conditions, m_cases;
-  sese m_region;
-};
-
-sese_dom_walker::sese_dom_walker (cdi_direction direction, sese region)
-  : dom_walker (direction), m_region (region)
-{
-}
-
-/* Call-back for dom_walk executed before visiting the dominated
-   blocks.  */
-
-void
-sese_dom_walker::before_dom_children (basic_block bb)
-{
-  gimple_bb_p gbb;
-  gcond *stmt;
-
-  if (!bb_in_sese_p (bb, m_region))
-    return;
-
-  stmt = single_pred_cond_non_loop_exit (bb);
-
-  if (stmt)
-    {
-      edge e = single_pred_edge (bb);
-
-      m_conditions.safe_push (stmt);
-
-      if (e->flags & EDGE_TRUE_VALUE)
-	m_cases.safe_push (stmt);
-      else
-	m_cases.safe_push (NULL);
-    }
-
-  gbb = gbb_from_bb (bb);
-
-  if (gbb)
-    {
-      GBB_CONDITIONS (gbb) = m_conditions.copy ();
-      GBB_CONDITION_CASES (gbb) = m_cases.copy ();
-    }
-}
-
-/* Call-back for dom_walk executed after visiting the dominated
-   blocks.  */
-
-void
-sese_dom_walker::after_dom_children (basic_block bb)
-{
-  if (!bb_in_sese_p (bb, m_region))
-    return;
-
-  if (single_pred_cond_non_loop_exit (bb))
-    {
-      m_conditions.pop ();
-      m_cases.pop ();
-    }
 }
 
 /* Add constraints on the possible values of parameter P from the type
@@ -1861,7 +1419,7 @@ build_scop_drs (scop_p scop)
   for (i = 0; SCOP_BBS (scop).iterate (i, &pbb); i++)
     if (GBB_DATA_REFS (PBB_BLACK_BOX (pbb)).is_empty ())
       {
-	free_gimple_bb (PBB_BLACK_BOX (pbb));
+	free_gimple_poly_bb (PBB_BLACK_BOX (pbb));
 	free_poly_bb (pbb);
 	SCOP_BBS (scop).ordered_remove (i);
 	i--;
@@ -1900,7 +1458,7 @@ static void
 analyze_drs_in_stmts (scop_p scop, basic_block bb, vec<gimple *> stmts)
 {
   loop_p nest;
-  gimple_bb_p gbb;
+  gimple_poly_bb_p gbb;
   gimple *stmt;
   int i;
   sese region = SCOP_REGION (scop);
@@ -1909,18 +1467,17 @@ analyze_drs_in_stmts (scop_p scop, basic_block bb, vec<gimple *> stmts)
     return;
 
   nest = outermost_loop_in_sese (region, bb);
+
+  loop_p loop = bb->loop_father;
+  if (!loop_in_sese_p (loop, region))
+    loop = nest;
+
   gbb = gbb_from_bb (bb);
 
   FOR_EACH_VEC_ELT (stmts, i, stmt)
     {
-      loop_p loop;
-
       if (is_gimple_debug (stmt))
 	continue;
-
-      loop = loop_containing_stmt (stmt);
-      if (!loop_in_sese_p (loop, region))
-	loop = nest;
 
       graphite_find_data_references_in_stmt (nest, loop, stmt,
 					     &GBB_DATA_REFS (gbb));
@@ -1982,8 +1539,8 @@ new_pbb_from_pbb (scop_p scop, poly_bb_p pbb, basic_block bb)
 {
   vec<data_reference_p> drs;
   drs.create (3);
-  gimple_bb_p gbb = PBB_BLACK_BOX (pbb);
-  gimple_bb_p gbb1 = new_gimple_bb (bb, drs);
+  gimple_poly_bb_p gbb = PBB_BLACK_BOX (pbb);
+  gimple_poly_bb_p gbb1 = new_gimple_poly_bb (bb, drs);
   poly_bb_p pbb1 = new_poly_bb (scop, gbb1);
   int index, n = SCOP_BBS (scop).length ();
 
@@ -2457,86 +2014,12 @@ rewrite_cross_bb_scalar_deps_out_of_ssa (scop_p scop)
     }
 }
 
-/* Returns the number of pbbs that are in loops contained in SCOP.  */
-
-static int
-nb_pbbs_in_loops (scop_p scop)
-{
-  int i;
-  poly_bb_p pbb;
-  int res = 0;
-
-  FOR_EACH_VEC_ELT (SCOP_BBS (scop), i, pbb)
-    if (loop_in_sese_p (gbb_loop (PBB_BLACK_BOX (pbb)), SCOP_REGION (scop)))
-      res++;
-
-  return res;
-}
-
-/* Can all ivs be represented by a signed integer?
-   As ISL might generate negative values in its expressions, signed loop ivs
-   are required in the backend. */
-
-static bool
-scop_ivs_can_be_represented (scop_p scop)
-{
-  loop_p loop;
-  gphi_iterator psi;
-  bool result = true;
-
-  FOR_EACH_LOOP (loop, 0)
-    {
-      if (!loop_in_sese_p (loop, SCOP_REGION (scop)))
-	continue;
-
-      for (psi = gsi_start_phis (loop->header);
-	   !gsi_end_p (psi); gsi_next (&psi))
-	{
-	  gphi *phi = psi.phi ();
-	  tree res = PHI_RESULT (phi);
-	  tree type = TREE_TYPE (res);
-
-	  if (TYPE_UNSIGNED (type)
-	      && TYPE_PRECISION (type) >= TYPE_PRECISION (long_long_integer_type_node))
-	    {
-	      result = false;
-	      break;
-	    }
-	}
-      if (!result)
-	break;
-    }
-
-  return result;
-}
-
 /* Builds the polyhedral representation for a SESE region.  */
 
 void
 build_poly_scop (scop_p scop)
 {
-  sese region = SCOP_REGION (scop);
-  graphite_dim_t max_dim;
-
-  build_scop_bbs (scop);
-
-  /* Do not optimize a scop containing only PBBs that do not belong
-     to any loops.  */
-  if (nb_pbbs_in_loops (scop) == 0)
-    return;
-
-  if (!scop_ivs_can_be_represented (scop))
-    return;
-
-  build_sese_loop_nests (region);
-  /* Record all conditions in REGION.  */
-  sese_dom_walker (CDI_DOMINATORS, region).walk (cfun->cfg->x_entry_block_ptr);
-  find_scop_parameters (scop);
-
-  max_dim = PARAM_VALUE (PARAM_GRAPHITE_MAX_NB_SCOP_PARAMS);
-  if (scop_nb_params (scop) > max_dim)
-    return;
-
+  set_scop_parameter_dim (scop);
   build_scop_iteration_domain (scop);
   build_scop_context (scop);
   add_conditions_to_constraints (scop);

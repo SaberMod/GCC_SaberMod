@@ -7592,12 +7592,10 @@ fold_builtin_cabs (location_t loc, tree arg, tree type, tree fndecl)
       if (flag_unsafe_math_optimizations
 	  && operand_equal_p (real, imag, OEP_PURE_SAME))
         {
-	  const REAL_VALUE_TYPE sqrt2_trunc
-	    = real_value_truncate (TYPE_MODE (type), dconst_sqrt2 ());
 	  STRIP_NOPS (real);
 	  return fold_build2_loc (loc, MULT_EXPR, type,
-			      fold_build1_loc (loc, ABS_EXPR, type, real),
-			      build_real (type, sqrt2_trunc));
+				  fold_build1_loc (loc, ABS_EXPR, type, real),
+				  build_real_truncate (type, dconst_sqrt2 ()));
 	}
     }
 
@@ -7756,8 +7754,7 @@ fold_builtin_sqrt (location_t loc, tree arg, tree type)
 
 	  /* Adjust for the outer root.  */
 	  SET_REAL_EXP (&dconstroot, REAL_EXP (&dconstroot) - 1);
-	  dconstroot = real_value_truncate (TYPE_MODE (type), dconstroot);
-	  tree_root = build_real (type, dconstroot);
+	  tree_root = build_real_truncate (type, dconstroot);
 	  return build_call_expr_loc (loc, powfn, 2, arg0, tree_root);
 	}
     }
@@ -7804,11 +7801,9 @@ fold_builtin_cbrt (location_t loc, tree arg, tree type)
       if (BUILTIN_EXPONENT_P (fcode))
 	{
 	  tree expfn = TREE_OPERAND (CALL_EXPR_FN (arg), 0);
-	  const REAL_VALUE_TYPE third_trunc =
-	    real_value_truncate (TYPE_MODE (type), dconst_third ());
 	  arg = fold_build2_loc (loc, MULT_EXPR, type,
-			     CALL_EXPR_ARG (arg, 0),
-			     build_real (type, third_trunc));
+				 CALL_EXPR_ARG (arg, 0),
+				 build_real_truncate (type, dconst_third ()));
 	  return build_call_expr_loc (loc, expfn, 1, arg);
 	}
 
@@ -7824,8 +7819,7 @@ fold_builtin_cbrt (location_t loc, tree arg, tree type)
 	      REAL_VALUE_TYPE dconstroot = dconst_third ();
 
 	      SET_REAL_EXP (&dconstroot, REAL_EXP (&dconstroot) - 1);
-	      dconstroot = real_value_truncate (TYPE_MODE (type), dconstroot);
-	      tree_root = build_real (type, dconstroot);
+	      tree_root = build_real_truncate (type, dconstroot);
 	      return build_call_expr_loc (loc, powfn, 2, arg0, tree_root);
 	    }
 	}
@@ -7845,8 +7839,7 @@ fold_builtin_cbrt (location_t loc, tree arg, tree type)
 
 		  real_arithmetic (&dconstroot, MULT_EXPR,
                                    dconst_third_ptr (), dconst_third_ptr ());
-		  dconstroot = real_value_truncate (TYPE_MODE (type), dconstroot);
-		  tree_root = build_real (type, dconstroot);
+		  tree_root = build_real_truncate (type, dconstroot);
 		  return build_call_expr_loc (loc, powfn, 2, arg0, tree_root);
 		}
 	    }
@@ -7862,10 +7855,8 @@ fold_builtin_cbrt (location_t loc, tree arg, tree type)
 	  if (tree_expr_nonnegative_p (arg00))
 	    {
 	      tree powfn = TREE_OPERAND (CALL_EXPR_FN (arg), 0);
-	      const REAL_VALUE_TYPE dconstroot
-		= real_value_truncate (TYPE_MODE (type), dconst_third ());
-	      tree narg01 = fold_build2_loc (loc, MULT_EXPR, type, arg01,
-					 build_real (type, dconstroot));
+	      tree c = build_real_truncate (type, dconst_third ());
+	      tree narg01 = fold_build2_loc (loc, MULT_EXPR, type, arg01, c);
 	      return build_call_expr_loc (loc, powfn, 2, arg00, narg01);
 	    }
 	}
@@ -8391,13 +8382,9 @@ fold_builtin_hypot (location_t loc, tree fndecl,
   /* hypot(x,x) -> fabs(x)*sqrt(2).  */
   if (flag_unsafe_math_optimizations
       && operand_equal_p (arg0, arg1, OEP_PURE_SAME))
-    {
-      const REAL_VALUE_TYPE sqrt2_trunc
-	= real_value_truncate (TYPE_MODE (type), dconst_sqrt2 ());
-      return fold_build2_loc (loc, MULT_EXPR, type,
-			  fold_build1_loc (loc, ABS_EXPR, type, arg0),
-			  build_real (type, sqrt2_trunc));
-    }
+    return fold_build2_loc (loc, MULT_EXPR, type,
+			    fold_build1_loc (loc, ABS_EXPR, type, arg0),
+			    build_real_truncate (type, dconst_sqrt2 ()));
 
   return NULL_TREE;
 }
@@ -8432,22 +8419,22 @@ fold_builtin_pow (location_t loc, tree fndecl, tree arg0, tree arg1, tree type)
       c = TREE_REAL_CST (arg1);
 
       /* Optimize pow(x,0.0) = 1.0.  */
-      if (REAL_VALUES_EQUAL (c, dconst0))
+      if (real_equal (&c, &dconst0))
 	return omit_one_operand_loc (loc, type, build_real (type, dconst1),
 				 arg0);
 
       /* Optimize pow(x,1.0) = x.  */
-      if (REAL_VALUES_EQUAL (c, dconst1))
+      if (real_equal (&c, &dconst1))
 	return arg0;
 
       /* Optimize pow(x,-1.0) = 1.0/x.  */
-      if (REAL_VALUES_EQUAL (c, dconstm1))
+      if (real_equal (&c, &dconstm1))
 	return fold_build2_loc (loc, RDIV_EXPR, type,
 			    build_real (type, dconst1), arg0);
 
       /* Optimize pow(x,0.5) = sqrt(x).  */
       if (flag_unsafe_math_optimizations
-	  && REAL_VALUES_EQUAL (c, dconsthalf))
+	  && real_equal (&c, &dconsthalf))
 	{
 	  tree sqrtfn = mathfn_built_in (type, BUILT_IN_SQRT);
 
@@ -8461,7 +8448,7 @@ fold_builtin_pow (location_t loc, tree fndecl, tree arg0, tree arg1, tree type)
 	  const REAL_VALUE_TYPE dconstroot
 	    = real_value_truncate (TYPE_MODE (type), dconst_third ());
 
-	  if (REAL_VALUES_EQUAL (c, dconstroot))
+	  if (real_equal (&c, &dconstroot))
 	    {
 	      tree cbrtfn = mathfn_built_in (type, BUILT_IN_CBRT);
 	      if (cbrtfn != NULL_TREE)
@@ -8480,7 +8467,7 @@ fold_builtin_pow (location_t loc, tree fndecl, tree arg0, tree arg1, tree type)
 	      && !TREE_OVERFLOW (arg0)
 	      && (n > 0
 		  || (!flag_trapping_math && !flag_errno_math)
-		  || !REAL_VALUES_EQUAL (TREE_REAL_CST (arg0), dconst0)))
+		  || !real_equal (&TREE_REAL_CST (arg0), &dconst0)))
 	    {
 	      REAL_VALUE_TYPE x;
 	      bool inexact;
@@ -8529,10 +8516,8 @@ fold_builtin_pow (location_t loc, tree fndecl, tree arg0, tree arg1, tree type)
 	  tree arg = CALL_EXPR_ARG (arg0, 0);
 	  if (tree_expr_nonnegative_p (arg))
 	    {
-	      const REAL_VALUE_TYPE dconstroot
-		= real_value_truncate (TYPE_MODE (type), dconst_third ());
-	      tree narg1 = fold_build2_loc (loc, MULT_EXPR, type, arg1,
-					build_real (type, dconstroot));
+	      tree c = build_real_truncate (type, dconst_third ());
+	      tree narg1 = fold_build2_loc (loc, MULT_EXPR, type, arg1, c);
 	      return build_call_expr_loc (loc, fndecl, 2, arg, narg1);
 	    }
 	}
@@ -9373,7 +9358,7 @@ fold_builtin_load_exponent (location_t loc, tree arg0, tree arg1,
 
 		  /* Only proceed if the target mode can hold the
 		     resulting value.  */
-		  if (REAL_VALUES_EQUAL (initial_result, trunc_result))
+		  if (real_equal (&initial_result, &trunc_result))
 		    return build_real (type, trunc_result);
 		}
 	    }

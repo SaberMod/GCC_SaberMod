@@ -91,6 +91,11 @@ check_intel_cpu_model (unsigned int family, unsigned int model,
 	      assert (__builtin_cpu_is ("corei7"));
 	      assert (__builtin_cpu_is ("skylake"));
 	      break;
+	    case 0x55:
+	      /* Skylake with AVX-512 support.  */
+	      assert (__builtin_cpu_is ("corei7"));
+	      assert (__builtin_cpu_is ("skylake-avx512"));
+	      break;
 	    case 0x17:
 	    case 0x1d:
 	      /* Penryn.  */
@@ -200,6 +205,10 @@ check_features (unsigned int ecx, unsigned int edx,
 	assert (__builtin_cpu_supports ("avx512bw"));
       if (ebx & bit_AVX512DQ)
 	assert (__builtin_cpu_supports ("avx512dq"));
+      if (ebx & bit_AVX512IFMA)
+	assert (__builtin_cpu_supports ("avx512ifma"));
+      if (ebx & bit_AVX512VBMI)
+	assert (__builtin_cpu_supports ("avx512vbmi"));
     }
 }
 

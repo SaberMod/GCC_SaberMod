@@ -280,7 +280,7 @@ struct poly_bb
   bool is_reduction;
 };
 
-#define PBB_BLACK_BOX(PBB) ((gimple_bb_p) PBB->black_box)
+#define PBB_BLACK_BOX(PBB) ((gimple_poly_bb_p) PBB->black_box)
 #define PBB_SCOP(PBB) (PBB->scop)
 #define PBB_DRS(PBB) (PBB->drs)
 #define PBB_IS_REDUCTION(PBB) (PBB->is_reduction)
@@ -322,10 +322,10 @@ extern void debug_gmp_value (mpz_t);
 
 /* Returns a gimple_bb from BB.  */
 
-static inline gimple_bb_p
+static inline gimple_poly_bb_p
 gbb_from_bb (basic_block bb)
 {
-  return (gimple_bb_p) bb->aux;
+  return (gimple_poly_bb_p) bb->aux;
 }
 
 /* The poly_bb of the BB.  */
@@ -425,9 +425,16 @@ struct scop
 #define SCOP_CONTEXT(S) (NULL)
 #define POLY_SCOP_P(S) (S->poly_scop_p)
 
-extern scop_p new_scop (sese);
+typedef struct base_alias_pair
+{
+  int base_obj_set;
+  int *alias_set;
+} *base_alias_pair_p;
+
+extern scop_p new_scop (edge, edge);
 extern void free_scop (scop_p);
-extern void free_scops (vec<scop_p> );
+extern gimple_poly_bb_p new_gimple_poly_bb (basic_block, vec<data_reference_p>);
+extern void free_gimple_poly_bb (gimple_poly_bb_p);
 extern void print_generated_program (FILE *, scop_p);
 extern void debug_generated_program (scop_p);
 extern int unify_scattering_dimensions (scop_p);

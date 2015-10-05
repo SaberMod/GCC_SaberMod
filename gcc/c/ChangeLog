@@ -1,3 +1,30 @@
+2015-10-05  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* c-typeck.c (c_tree_equal): Use real_equal instead of
+	REAL_VALUES_EQUAL.
+
+2015-10-04  Jason Merrill  <jason@redhat.com>
+
+	* c-parser.c (c_lex_one_token): Handle @synchronized.
+	* c-decl.c (match_builtin_function_types): A declaration of a built-in
+	can change whether the function is transaction_safe.
+
+2015-10-02  Marek Polacek  <polacek@redhat.com>
+
+	PR c/67730
+	* c-typeck.c (convert_for_assignment): Use the expansion point
+	location throughout.
+
+2015-10-02  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64249
+	* c-parser.c (c_parser_statement_after_labels): Add CHAIN parameter
+	and pass it down to c_parser_if_statement.
+	(c_parser_else_body): Add CHAIN parameter and pass it down to
+	c_parser_statement_after_labels.
+	(c_parser_if_statement): Add CHAIN parameter.  Add code to warn about
+	duplicated if-else-if conditions.
+
 2015-10-01  Marek Polacek  <polacek@redhat.com>
 
 	* c-typeck.c (convert_for_assignment): Improve commentary.

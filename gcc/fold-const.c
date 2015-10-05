@@ -1176,7 +1176,7 @@ const_binop (enum tree_code code, tree arg1, tree arg2)
       /* Don't perform operation if it would raise a division
 	 by zero exception.  */
       if (code == RDIV_EXPR
-	  && REAL_VALUES_EQUAL (d2, dconst0)
+	  && real_equal (&d2, &dconst0)
 	  && (flag_trapping_math || ! MODE_HAS_INFINITIES (mode)))
 	return NULL_TREE;
 
@@ -1877,7 +1877,7 @@ fold_convert_const_int_from_real (enum tree_code code, tree type, const_tree arg
     {
       tree lt = TYPE_MIN_VALUE (type);
       REAL_VALUE_TYPE l = real_value_from_int_cst (NULL_TREE, lt);
-      if (REAL_VALUES_LESS (r, l))
+      if (real_less (&r, &l))
 	{
 	  overflow = true;
 	  val = lt;
@@ -1890,7 +1890,7 @@ fold_convert_const_int_from_real (enum tree_code code, tree type, const_tree arg
       if (ut)
 	{
 	  REAL_VALUE_TYPE u = real_value_from_int_cst (NULL_TREE, ut);
-	  if (REAL_VALUES_LESS (u, r))
+	  if (real_less (&u, &r))
 	    {
 	      overflow = true;
 	      val = ut;
@@ -2815,8 +2815,7 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 				       TREE_FIXED_CST (arg1));
 
       case REAL_CST:
-	if (REAL_VALUES_IDENTICAL (TREE_REAL_CST (arg0),
-				   TREE_REAL_CST (arg1)))
+	if (real_identical (&TREE_REAL_CST (arg0), &TREE_REAL_CST (arg1)))
 	  return 1;
 
 
