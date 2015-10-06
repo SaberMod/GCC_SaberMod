@@ -1,3 +1,44 @@
+2015-10-06  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2015-09-15  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67563
+	* gcc.dg/pr67563.c: New testcase.
+
+	2015-09-24  Richard Biener  <rguenther@suse.de>
+
+	PR lto/67699
+	* g++.dg/pr67699.C: New testcase.
+
+2015-10-06  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/vect-pack-trunc-1.c: New test.
+	* gcc.target/i386/vect-pack-trunc-2.c: Ditto.
+	* gcc.target/i386/vect-perm-even-1.c: Ditto.
+	* gcc.target/i386/vect-perm-odd-1.c: Ditto.
+	* gcc.target/i386/vect-unpack-1.c: Ditto.
+	* gcc.target/i386/vect-unpack-2.c: Ditto.
+
+2015-10-05  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2015-10-05  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/67821
+	* gcc.dg/torture/pr67821-2.c: New test.
+	* gcc.dg/torture/pr67821.c: New test.
+
+2015-10-05  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2015-10-02  Marek Polacek  <polacek@redhat.com>
+
+	PR c/67730
+	* gcc.dg/pr67730-1.c: New test.
+	* gcc.dg/pr67730-2.c: New test.
+	* gcc.dg/pr67730.h: New test.
+
 2015-10-02  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/67802
