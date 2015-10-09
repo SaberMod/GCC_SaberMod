@@ -113,7 +113,7 @@ init_expmed_one_conv (struct init_expmed_rtl *all, enum machine_mode to_mode,
 	     - (GET_MODE_CLASS (to_mode) == MODE_PARTIAL_INT));
   from_size = (GET_MODE_BITSIZE (from_mode)
 	       - (GET_MODE_CLASS (from_mode) == MODE_PARTIAL_INT));
-  
+
   /* Assume cost of zero-extend and sign-extend is the same.  */
   which = (to_size < from_size ? &all->trunc : &all->zext);
 
@@ -679,13 +679,28 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	  || (bitsize % BITS_PER_WORD == 0 && bitnum % BITS_PER_WORD == 0)))
     {
       /* Use the subreg machinery either to narrow OP0 to the required
-	 words or to cope with mode punning between equal-sized modes.  */
-      rtx sub = simplify_gen_subreg (fieldmode, op0, GET_MODE (op0),
-				     bitnum / BITS_PER_UNIT);
-      if (sub)
+	 words or to cope with mode punning between equal-sized modes.
+	 In the latter case, use subreg on the rhs side, not lhs.  */
+      rtx sub;
+
+      if (bitsize == GET_MODE_BITSIZE (GET_MODE (op0)))
 	{
-	  emit_move_insn (sub, value);
-	  return true;
+	  sub = simplify_gen_subreg (GET_MODE (op0), value, fieldmode, 0);
+	  if (sub)
+	    {
+	      emit_move_insn (op0, sub);
+	      return true;
+	    }
+	}
+      else
+	{
+	  sub = simplify_gen_subreg (fieldmode, op0, GET_MODE (op0),
+				     bitnum / BITS_PER_UNIT);
+	  if (sub)
+	    {
+	      emit_move_insn (sub, value);
+	      return true;
+	    }
 	}
     }
 
@@ -1755,7 +1770,7 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
       return convert_extracted_bit_field (result, mode, tmode, unsignedp);
     }
-  
+
   return extract_bit_field_1 (str_rtx, bitsize, bitnum, unsignedp,
 			      target, mode, tmode, true);
 }
@@ -1899,7 +1914,7 @@ lshift_value (enum machine_mode mode, unsigned HOST_WIDE_INT value,
 	      int bitpos)
 {
   double_int val;
-  
+
   val = double_int::from_uhwi (value);
   val = val.llshift (bitpos, HOST_BITS_PER_DOUBLE_INT);
 
@@ -3372,7 +3387,7 @@ choose_multiplier (unsigned HOST_WIDE_INT d, int n, int precision,
 
   /* mlow = 2^(N + lgup)/d */
   double_int val = double_int_zero.set_bit (pow);
-  mlow = val.div (double_int::from_uhwi (d), true, TRUNC_DIV_EXPR); 
+  mlow = val.div (double_int::from_uhwi (d), true, TRUNC_DIV_EXPR);
 
   /* mhigh = (2^(N + lgup) + 2^(N + lgup - precision))/d */
   val |= double_int_zero.set_bit (pow2);
@@ -4033,7 +4048,7 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
   /* Only deduct something for a REM if the last divide done was
      for a different constant.   Then set the constant of the last
      divide.  */
-  max_cost = (unsignedp 
+  max_cost = (unsignedp
 	      ? udiv_cost (speed, compute_mode)
 	      : sdiv_cost (speed, compute_mode));
   if (rem_flag && ! (last_div_const != 0 && op1_is_constant
