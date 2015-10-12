@@ -21,8 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 
 #ifdef HAVE_isl
-#include <isl/set.h>
-#include <isl/map.h>
 #include <isl/union_map.h>
 #include <isl/constraint.h>
 #include <isl/aff.h>
