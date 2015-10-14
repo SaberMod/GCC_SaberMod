@@ -1,3 +1,50 @@
+2015-10-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2015-10-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66697
+	* gcc.target/i386/20060512-1.c: Remove ia32 requirement.
+	(PUSH, POP): New defines.
+	(sse2_test): Use PUSH and POP to misalign runtime stack.
+	* gcc.target/i386/20060512-2.c: Remove ia32 requirement.
+
+2015-10-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	Backport from mainline
+	2015-06-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51048
+	* g++.dg/cpp0x/local-type1.C: New.
+
+2015-10-12  Alexander Fomin  <alexander.fomin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/67849
+	* gcc.target/i386/pr67480.c: New test.
+
+2015-10-06  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2015-09-15  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67563
+	* gcc.dg/pr67563.c: New testcase.
+
+	2015-09-24  Richard Biener  <rguenther@suse.de>
+
+	PR lto/67699
+	* g++.dg/pr67699.C: New testcase.
+
+2015-10-06  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/vect-pack-trunc-1.c: New test.
+	* gcc.target/i386/vect-pack-trunc-2.c: Ditto.
+	* gcc.target/i386/vect-perm-even-1.c: Ditto.
+	* gcc.target/i386/vect-perm-odd-1.c: Ditto.
+	* gcc.target/i386/vect-unpack-1.c: Ditto.
+	* gcc.target/i386/vect-unpack-2.c: Ditto.
+
 2015-10-05  Marek Polacek  <polacek@redhat.com>
 
 	Backport from mainline
