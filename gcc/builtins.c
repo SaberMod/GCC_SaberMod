@@ -158,8 +158,6 @@ static bool integer_valued_real_p (tree);
 static tree fold_trunc_transparent_mathfn (location_t, tree, tree);
 static rtx expand_builtin_fabs (tree, rtx, rtx);
 static rtx expand_builtin_signbit (tree, rtx);
-static tree fold_builtin_sqrt (location_t, tree, tree);
-static tree fold_builtin_cbrt (location_t, tree, tree);
 static tree fold_builtin_pow (location_t, tree, tree, tree, tree);
 static tree fold_builtin_powi (location_t, tree, tree, tree, tree);
 static tree fold_builtin_cos (location_t, tree, tree, tree);
@@ -763,39 +761,31 @@ static rtx
 expand_builtin_return_addr (enum built_in_function fndecl_code, int count)
 {
   int i;
-
-#ifdef INITIAL_FRAME_ADDRESS_RTX
   rtx tem = INITIAL_FRAME_ADDRESS_RTX;
-#else
-  rtx tem;
-
-  /* For a zero count with __builtin_return_address, we don't care what
-     frame address we return, because target-specific definitions will
-     override us.  Therefore frame pointer elimination is OK, and using
-     the soft frame pointer is OK.
-
-     For a nonzero count, or a zero count with __builtin_frame_address,
-     we require a stable offset from the current frame pointer to the
-     previous one, so we must use the hard frame pointer, and
-     we must disable frame pointer elimination.  */
-  if (count == 0 && fndecl_code == BUILT_IN_RETURN_ADDRESS)
-    tem = frame_pointer_rtx;
-  else
+  if (tem == NULL_RTX)
     {
-      tem = hard_frame_pointer_rtx;
+      /* For a zero count with __builtin_return_address, we don't care what
+	 frame address we return, because target-specific definitions will
+	 override us.  Therefore frame pointer elimination is OK, and using
+	 the soft frame pointer is OK.
 
-      /* Tell reload not to eliminate the frame pointer.  */
-      crtl->accesses_prior_frames = 1;
+	 For a nonzero count, or a zero count with __builtin_frame_address,
+	 we require a stable offset from the current frame pointer to the
+	 previous one, so we must use the hard frame pointer, and
+	 we must disable frame pointer elimination.  */
+      if (count == 0 && fndecl_code == BUILT_IN_RETURN_ADDRESS)
+	tem = frame_pointer_rtx;
+      else
+	{
+	  tem = hard_frame_pointer_rtx;
+
+	  /* Tell reload not to eliminate the frame pointer.  */
+	  crtl->accesses_prior_frames = 1;
+	}
     }
-#endif
 
-  /* Some machines need special handling before we can access
-     arbitrary frames.  For example, on the SPARC, we must first flush
-     all register windows to the stack.  */
-#ifdef SETUP_FRAME_ADDRESSES
   if (count > 0)
     SETUP_FRAME_ADDRESSES ();
-#endif
 
   /* On the SPARC, the return address is not in the frame, it is in a
      register.  There is no way to access it off of the current frame
@@ -809,9 +799,7 @@ expand_builtin_return_addr (enum built_in_function fndecl_code, int count)
     {
       /* Assume the dynamic chain pointer is in the word that the
 	 frame address points to, unless otherwise specified.  */
-#ifdef DYNAMIC_CHAIN_ADDRESS
       tem = DYNAMIC_CHAIN_ADDRESS (tem);
-#endif
       tem = memory_address (Pmode, tem);
       tem = gen_frame_mem (Pmode, tem);
       tem = copy_to_reg (tem);
@@ -820,11 +808,7 @@ expand_builtin_return_addr (enum built_in_function fndecl_code, int count)
   /* For __builtin_frame_address, return what we've got.  But, on
      the SPARC for example, we may have to add a bias.  */
   if (fndecl_code == BUILT_IN_FRAME_ADDRESS)
-#ifdef FRAME_ADDR_RTX
     return FRAME_ADDR_RTX (tem);
-#else
-    return tem;
-#endif
 
   /* For __builtin_return_address, get the return address from that frame.  */
 #ifdef RETURN_ADDR_RTX
@@ -931,8 +915,7 @@ expand_builtin_setjmp_receiver (rtx receiver_label)
       emit_clobber (hard_frame_pointer_rtx);
     }
 
-#if !HARD_FRAME_POINTER_IS_ARG_POINTER
-  if (fixed_regs[ARG_POINTER_REGNUM])
+  if (!HARD_FRAME_POINTER_IS_ARG_POINTER && fixed_regs[ARG_POINTER_REGNUM])
     {
 #ifdef ELIMINABLE_REGS
       /* If the argument pointer can be eliminated in favor of the
@@ -957,7 +940,6 @@ expand_builtin_setjmp_receiver (rtx receiver_label)
 			  copy_to_reg (get_arg_pointer_save_area ()));
 	}
     }
-#endif
 
   if (receiver_label != NULL && targetm.have_builtin_setjmp_receiver ())
     emit_insn (targetm.gen_builtin_setjmp_receiver (receiver_label));
@@ -7706,164 +7688,6 @@ fold_builtin_cproj (location_t loc, tree arg, tree type)
   return NULL_TREE;
 }
 
-/* Fold a builtin function call to sqrt, sqrtf, or sqrtl with argument ARG.
-   Return NULL_TREE if no simplification can be made.  */
-
-static tree
-fold_builtin_sqrt (location_t loc, tree arg, tree type)
-{
-
-  enum built_in_function fcode;
-  tree res;
-
-  if (!validate_arg (arg, REAL_TYPE))
-    return NULL_TREE;
-
-  /* Calculate the result when the argument is a constant.  */
-  if ((res = do_mpfr_arg1 (arg, type, mpfr_sqrt, &dconst0, NULL, true)))
-    return res;
-
-  /* Optimize sqrt(expN(x)) = expN(x*0.5).  */
-  fcode = builtin_mathfn_code (arg);
-  if (flag_unsafe_math_optimizations && BUILTIN_EXPONENT_P (fcode))
-    {
-      tree expfn = TREE_OPERAND (CALL_EXPR_FN (arg), 0);
-      arg = fold_build2_loc (loc, MULT_EXPR, type,
-			 CALL_EXPR_ARG (arg, 0),
-			 build_real (type, dconsthalf));
-      return build_call_expr_loc (loc, expfn, 1, arg);
-    }
-
-  /* Optimize sqrt(Nroot(x)) -> pow(x,1/(2*N)).  */
-  if (flag_unsafe_math_optimizations && BUILTIN_ROOT_P (fcode))
-    {
-      tree powfn = mathfn_built_in (type, BUILT_IN_POW);
-
-      if (powfn)
-	{
-	  tree arg0 = CALL_EXPR_ARG (arg, 0);
-	  tree tree_root;
-	  /* The inner root was either sqrt or cbrt.  */
-	  /* This was a conditional expression but it triggered a bug
-	     in Sun C 5.5.  */
-	  REAL_VALUE_TYPE dconstroot;
-	  if (BUILTIN_SQRT_P (fcode))
-	    dconstroot = dconsthalf;
-	  else
-	    dconstroot = dconst_third ();
-
-	  /* Adjust for the outer root.  */
-	  SET_REAL_EXP (&dconstroot, REAL_EXP (&dconstroot) - 1);
-	  tree_root = build_real_truncate (type, dconstroot);
-	  return build_call_expr_loc (loc, powfn, 2, arg0, tree_root);
-	}
-    }
-
-  /* Optimize sqrt(pow(x,y)) = pow(|x|,y*0.5).  */
-  if (flag_unsafe_math_optimizations
-      && (fcode == BUILT_IN_POW
-	  || fcode == BUILT_IN_POWF
-	  || fcode == BUILT_IN_POWL))
-    {
-      tree powfn = TREE_OPERAND (CALL_EXPR_FN (arg), 0);
-      tree arg0 = CALL_EXPR_ARG (arg, 0);
-      tree arg1 = CALL_EXPR_ARG (arg, 1);
-      tree narg1;
-      if (!tree_expr_nonnegative_p (arg0))
-	arg0 = build1 (ABS_EXPR, type, arg0);
-      narg1 = fold_build2_loc (loc, MULT_EXPR, type, arg1,
-			   build_real (type, dconsthalf));
-      return build_call_expr_loc (loc, powfn, 2, arg0, narg1);
-    }
-
-  return NULL_TREE;
-}
-
-/* Fold a builtin function call to cbrt, cbrtf, or cbrtl with argument ARG.
-   Return NULL_TREE if no simplification can be made.  */
-
-static tree
-fold_builtin_cbrt (location_t loc, tree arg, tree type)
-{
-  const enum built_in_function fcode = builtin_mathfn_code (arg);
-  tree res;
-
-  if (!validate_arg (arg, REAL_TYPE))
-    return NULL_TREE;
-
-  /* Calculate the result when the argument is a constant.  */
-  if ((res = do_mpfr_arg1 (arg, type, mpfr_cbrt, NULL, NULL, 0)))
-    return res;
-
-  if (flag_unsafe_math_optimizations)
-    {
-      /* Optimize cbrt(expN(x)) -> expN(x/3).  */
-      if (BUILTIN_EXPONENT_P (fcode))
-	{
-	  tree expfn = TREE_OPERAND (CALL_EXPR_FN (arg), 0);
-	  arg = fold_build2_loc (loc, MULT_EXPR, type,
-				 CALL_EXPR_ARG (arg, 0),
-				 build_real_truncate (type, dconst_third ()));
-	  return build_call_expr_loc (loc, expfn, 1, arg);
-	}
-
-      /* Optimize cbrt(sqrt(x)) -> pow(x,1/6).  */
-      if (BUILTIN_SQRT_P (fcode))
-	{
-	  tree powfn = mathfn_built_in (type, BUILT_IN_POW);
-
-	  if (powfn)
-	    {
-	      tree arg0 = CALL_EXPR_ARG (arg, 0);
-	      tree tree_root;
-	      REAL_VALUE_TYPE dconstroot = dconst_third ();
-
-	      SET_REAL_EXP (&dconstroot, REAL_EXP (&dconstroot) - 1);
-	      tree_root = build_real_truncate (type, dconstroot);
-	      return build_call_expr_loc (loc, powfn, 2, arg0, tree_root);
-	    }
-	}
-
-      /* Optimize cbrt(cbrt(x)) -> pow(x,1/9) iff x is nonnegative.  */
-      if (BUILTIN_CBRT_P (fcode))
-	{
-	  tree arg0 = CALL_EXPR_ARG (arg, 0);
-	  if (tree_expr_nonnegative_p (arg0))
-	    {
-	      tree powfn = mathfn_built_in (type, BUILT_IN_POW);
-
-	      if (powfn)
-		{
-		  tree tree_root;
-		  REAL_VALUE_TYPE dconstroot;
-
-		  real_arithmetic (&dconstroot, MULT_EXPR,
-                                   dconst_third_ptr (), dconst_third_ptr ());
-		  tree_root = build_real_truncate (type, dconstroot);
-		  return build_call_expr_loc (loc, powfn, 2, arg0, tree_root);
-		}
-	    }
-	}
-
-      /* Optimize cbrt(pow(x,y)) -> pow(x,y/3) iff x is nonnegative.  */
-      if (fcode == BUILT_IN_POW
-          || fcode == BUILT_IN_POWF
-	  || fcode == BUILT_IN_POWL)
-	{
-	  tree arg00 = CALL_EXPR_ARG (arg, 0);
-	  tree arg01 = CALL_EXPR_ARG (arg, 1);
-	  if (tree_expr_nonnegative_p (arg00))
-	    {
-	      tree powfn = TREE_OPERAND (CALL_EXPR_FN (arg), 0);
-	      tree c = build_real_truncate (type, dconst_third ());
-	      tree narg01 = fold_build2_loc (loc, MULT_EXPR, type, arg01, c);
-	      return build_call_expr_loc (loc, powfn, 2, arg00, narg01);
-	    }
-	}
-    }
-  return NULL_TREE;
-}
-
 /* Fold function call to builtin cos, cosf, or cosl with argument ARG.
    TYPE is the type of the return value.  Return NULL_TREE if no
    simplification can be made.  */
@@ -9959,10 +9783,14 @@ fold_builtin_1 (location_t loc, tree fndecl, tree arg0)
       return fold_builtin_carg (loc, arg0, type);
 
     CASE_FLT_FN (BUILT_IN_SQRT):
-      return fold_builtin_sqrt (loc, arg0, type);
+      if (validate_arg (arg0, REAL_TYPE))
+	return do_mpfr_arg1 (arg0, type, mpfr_sqrt, &dconst0, NULL, true);
+      break;
 
     CASE_FLT_FN (BUILT_IN_CBRT):
-      return fold_builtin_cbrt (loc, arg0, type);
+      if (validate_arg (arg0, REAL_TYPE))
+	return do_mpfr_arg1 (arg0, type, mpfr_cbrt, NULL, NULL, 0);
+      break;
 
     CASE_FLT_FN (BUILT_IN_ASIN):
       if (validate_arg (arg0, REAL_TYPE))

@@ -1,3 +1,1527 @@
+2015-10-14  Tom de Vries  <tom@codesourcery.com>
+
+	* cfganal.c (verify_no_unreachable_blocks): New function.
+	(inverted_post_order_compute) [ENABLE_CHECKING]: Call
+	verify_no_unreachable_blocks.
+	cfganal.h (verify_no_unreachable_blocks): Declare.
+
+2015-10-13  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* common.opt: Add flag_checking.
+	* system.h (CHECKING_P): Define.
+
+2015-10-13  Jakub Jelinek  <jakub@redhat.com>
+	    Aldy Hernandez  <aldyh@redhat.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+
+	* builtin-types.def (BT_FN_BOOL_UINT_LONGPTR_LONGPTR_LONGPTR,
+	BT_FN_BOOL_UINT_ULLPTR_ULLPTR_ULLPTR,
+	BT_FN_BOOL_UINT_LONGPTR_LONG_LONGPTR_LONGPTR,
+	BT_FN_BOOL_UINT_ULLPTR_ULL_ULLPTR_ULLPTR,
+	BT_FN_VOID_INT_SIZE_PTR_PTR_PTR_UINT_PTR,
+	BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_UINT_PTR,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT_PTR_INT,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_INT_LONG_LONG_LONG,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_INT_ULL_ULL_ULL,
+	BT_FN_VOID_LONG_VAR, BT_FN_VOID_ULL_VAR): New.
+	(BT_FN_VOID_INT_PTR_SIZE_PTR_PTR_PTR,
+	BT_FN_VOID_INT_OMPFN_PTR_SIZE_PTR_PTR_PTR,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT_PTR): Remove.
+	* cgraph.h (enum cgraph_simd_clone_arg_type): Add
+	SIMD_CLONE_ARG_TYPE_LINEAR_REF_CONSTANT_STEP,
+	SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_CONSTANT_STEP and
+	SIMD_CLONE_ARG_TYPE_LINEAR_VAL_CONSTANT_STEP.
+	(struct cgraph_simd_clone_arg): Adjust comment.
+	* coretypes.h (struct gomp_ordered): New forward decl.
+	* gimple.c (gimple_build_omp_critical): Add CLAUSES argument,
+	set critical clauses to it.
+	(gimple_build_omp_ordered): Return gomp_ordered * instead of
+	gimple *.  Add CLAUSES argument, set ordered clauses to it.
+	(gimple_copy): Unshare clauses on GIMPLE_OMP_CRITICAL and
+	GIMPLE_OMP_ORDERED.
+	* gimple.def (GIMPLE_OMP_ORDERED): Change from GSS_OMP to
+	GSS_OMP_SINGLE_LAYOUT, move it after GIMPLE_OMP_TEAMS.
+	* gimple.h (enum gf_mask): Add GF_OMP_TASK_TASKLOOP.  Add another bit
+	to GF_OMP_FOR_KIND_MASK mask. Add GF_OMP_FOR_KIND_TASKLOOP, renumber
+	GF_OMP_FOR_KIND_CILKFOR and GF_OMP_FOR_KIND_OACC_LOOP.  Adjust
+	GF_OMP_FOR_SIMD, GF_OMP_FOR_COMBINED and GF_OMP_FOR_COMBINED_INTO.
+	Add another bit to GF_OMP_TARGET_KIND_MASK mask.  Add
+	GF_OMP_TARGET_KIND_ENTER_DATA and GF_OMP_TARGET_KIND_EXIT_DATA,
+	renumber
+	GF_OMP_TARGET_KIND_OACC_{PARALLEL,KERNELS,DATA,UPDATE,ENTER_EXIT_DATA}.
+	(gomp_critical): Add clauses field.
+	(gomp_ordered): New struct.
+	(is_a_helper <gomp_ordered *>::test): New inline.
+	(gimple_build_omp_critical): Add CLAUSES argument.
+	(gimple_build_omp_ordered): Likewise.  Return gomp_ordered *
+	instead of gimple *.
+	(gimple_omp_critical_clauses, gimple_omp_critical_clauses_ptr,
+	gimple_omp_critical_set_clauses, gimple_omp_ordered_clauses,
+	gimple_omp_ordered_clauses_ptr, gimple_omp_ordered_set_clauses,
+	gimple_omp_task_taskloop_p, gimple_omp_task_set_taskloop_p): New
+	inline functions.
+	* gimple-pretty-print.c (dump_gimple_omp_for): Handle taskloop.
+	(dump_gimple_omp_target): Handle enter data and exit data.
+	(dump_gimple_omp_block): Don't handle GIMPLE_OMP_ORDERED here.
+	(dump_gimple_omp_critical): Print clauses.
+	(dump_gimple_omp_ordered): New function.
+	(dump_gimple_omp_task): Handle taskloop.
+	(pp_gimple_stmt_1): Use dump_gimple_omp_ordered for
+	GIMPLE_OMP_ORDERED.
+	* gimple-walk.c (walk_gimple_op): Walk clauses on
+	GIMPLE_OMP_CRITICAL and GIMPLE_OMP_ORDERED.
+	* gimplify.c (enum gimplify_omp_var_data): Add GOVD_MAP_0LEN_ARRAY.
+	(enum omp_region_type): Add ORT_COMBINED_TARGET and ORT_NONE.
+	(struct gimplify_omp_ctx): Add loop_iter_var,
+	target_map_scalars_firstprivate, target_map_pointers_as_0len_arrays
+	and target_firstprivatize_array_bases fields.
+	(delete_omp_context): Release loop_iter_var.
+	(gimplify_bind_expr): Handle ORT_NONE.
+	(maybe_fold_stmt): Adjust check for ORT_TARGET for the addition of
+	ORT_COMBINED_TARGET.
+	(is_gimple_stmt): Return true for OMP_TASKLOOP, OMP_TEAMS and
+	OMP_TARGET{,_DATA,_UPDATE,_ENTER_DATA,_EXIT_DATA}.
+	(omp_firstprivatize_variable): Handle ORT_NONE.  Adjust check for
+	ORT_TARGET for the addition of ORT_COMBINED_TARGET.  Handle
+	ctx->target_map_scalars_firstprivate.
+	(omp_add_variable): Handle ORT_NONE.  Allow map clause together with
+	data sharing clauses.  For data sharing clause with VLA decl
+	on omp target/target data don't add firstprivate for the pointer.
+	Call omp_notice_variable on TYPE_SIZE_UNIT only if it is a DECL_P.
+	(omp_notice_threadprivate_variable): Adjust check for ORT_TARGET for
+	the addition of ORT_COMBINED_TARGET.
+	(omp_notice_variable): Handle ORT_NONE.  Adjust check for ORT_TARGET
+	for the addition of ORT_COMBINED_TARGET.  Handle implicit mapping of
+	pointers as zero length array sections and
+	ctx->target_map_scalars_firstprivate mapping of scalars as firstprivate
+	data sharing.
+	(omp_check_private): Handle omp_member_access_dummy_var vars.
+	(find_decl_expr): New function.
+	(gimplify_scan_omp_clauses): Add CODE argument.  For OMP_CLAUSE_IF
+	complain if OMP_CLAUSE_IF_MODIFIER is present and does not match code.
+	Handle OMP_CLAUSE_GANG separately.  Handle
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD,SIMDLEN}
+	clauses.  Diagnose linear clause on combined
+	distribute {, parallel for} simd construct, unless it is the loop
+	iterator.  Handle struct element GOMP_MAP_FIRSTPRIVATE_POINTER.
+	Handle map clauses with COMPONENT_REF.  Initialize
+	ctx->target_map_scalars_firstprivate,
+	ctx->target_firstprivatize_array_bases and
+	ctx->target_map_pointers_as_0len_arrays.  Add firstprivate for
+	linear clause even to target region if combined.  Remove
+	map clauses with GOMP_MAP_FIRSTPRIVATE_POINTER kind from
+	OMP_TARGET_{,ENTER_,EXIT_}DATA.  For GOMP_MAP_FIRSTPRIVATE_POINTER
+	map kind with non-INTEGER_CST OMP_CLAUSE_SIZE firstprivatize the bias.
+	Handle OMP_CLAUSE_DEPEND_{SINK,SOURCE}.  Handle
+	OMP_CLAUSE_{{USE,IS}_DEVICE_PTR,DEFAULTMAP,HINT}.
+	For linear clause on worksharing loop combined with parallel add
+	shared clause on the parallel.  Handle OMP_CLAUSE_REDUCTION
+	with MEM_REF OMP_CLAUSE_DECL.  Set DECL_NAME on
+	omp_member_access_dummy_var vars.  Add lastprivate clause to outer
+	taskloop if needed.
+	(gimplify_adjust_omp_clauses_1): Handle GOVD_MAP_0LEN_ARRAY.
+	If gimplify_omp_ctxp->target_firstprivatize_array_bases, use
+	GOMP_MAP_FIRSTPRIVATE_POINTER map kind instead of
+	GOMP_MAP_POINTER.
+	(gimplify_adjust_omp_clauses): Add CODE argument.  Handle removal
+	of GOMP_MAP_FIRSTPRIVATE_POINTER struct elements for struct not seen
+	in target body.  Handle removal of struct mapping if struct is not
+	seen in target body.  Remove GOMP_MAP_STRUCT map clause on
+	OMP_TARGET_EXIT_DATA.  Adjust check for ORT_TARGET for the
+	addition of ORT_COMBINED_TARGET.  Use GOMP_MAP_FIRSTPRIVATE_POINTER
+	instead of GOMP_MAP_POINTER if ctx->target_firstprivatize_array_bases
+	for VLAs.  Set OMP_CLAUSE_MAP_PRIVATE if both data sharing and map
+	clause appear together.  Handle
+	OMP_CLAUSE_{{USE,IS}_DEVICE_PTR,DEFAULTMAP,HINT}.  Don't remove map
+	clause if it has map-type-modifier always.  Handle
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD,SIMDLEN}
+	clauses.
+	(gimplify_oacc_cache, gimplify_omp_parallel, gimplify_omp_task):
+	Adjust gimplify_scan_omp_clauses and gimplify_adjust_omp_clauses
+	callers.
+	(gimplify_omp_for): Likewise.  Handle OMP_TASKLOOP.  Initialize
+	loop_iter_var.  Use OMP_FOR_ORIG_DECLS.  Fix handling of lastprivate
+	iterators in doacross loops.
+	(gimplify_omp_workshare): Adjust gimplify_scan_omp_clauses and
+	gimplify_adjust_omp_clauses callers.  Use ORT_COMBINED_TARGET
+	for OMP_TARGET_COMBINED.  Adjust check for ORT_TARGET
+	for the addition of ORT_COMBINED_TARGET.
+	(gimplify_omp_target_update): Adjust gimplify_scan_omp_clauses and
+	gimplify_adjust_omp_clauses callers.  Handle OMP_TARGET_ENTER_DATA
+	and OMP_TARGET_EXIT_DATA.
+	(gimplify_omp_ordered): New function.
+	(gimplify_expr): Handle OMP_TASKLOOP, OMP_TARGET_ENTER_DATA and
+	OMP_TARGET_EXIT_DATA.  Use gimplify_omp_ordered for OMP_ORDERED.
+	Gimplify clauses on OMP_CRITICAL.
+	* internal-fn.c (expand_GOMP_SIMD_ORDERED_START,
+	expand_GOMP_SIMD_ORDERED_END): New functions.
+	* internal-fn.def (GOMP_SIMD_ORDERED_START,
+	GOMP_SIMD_ORDERED_END): New internal functions.
+	* omp-builtins.def (BUILT_IN_GOMP_LOOP_DOACROSS_STATIC_START,
+	BUILT_IN_GOMP_LOOP_DOACROSS_DYNAMIC_START,
+	BUILT_IN_GOMP_LOOP_DOACROSS_GUIDED_START,
+	BUILT_IN_GOMP_LOOP_DOACROSS_RUNTIME_START,
+	BUILT_IN_GOMP_LOOP_ULL_DOACROSS_STATIC_START,
+	BUILT_IN_GOMP_LOOP_ULL_DOACROSS_DYNAMIC_START,
+	BUILT_IN_GOMP_LOOP_ULL_DOACROSS_GUIDED_START,
+	BUILT_IN_GOMP_LOOP_ULL_DOACROSS_RUNTIME_START,
+	BUILT_IN_GOMP_DOACROSS_POST, BUILT_IN_GOMP_DOACROSS_WAIT,
+	BUILT_IN_GOMP_DOACROSS_ULL_POST, BUILT_IN_GOMP_DOACROSS_ULL_WAIT,
+	BUILT_IN_GOMP_TARGET_ENTER_EXIT_DATA, BUILT_IN_GOMP_TASKLOOP,
+	BUILT_IN_GOMP_TASKLOOP_ULL): New built-ins.
+	(BUILT_IN_GOMP_TASK): Add INT argument to the end.
+	(BUILT_IN_GOMP_TARGET): Rename from GOMP_target to GOMP_target_41,
+	adjust type.
+	(BUILT_IN_GOMP_TARGET_DATA): Rename from GOMP_target_data to
+	GOMP_target_data_41, adjust type.
+	(BUILT_IN_GOMP_TARGET_UPDATE): Rename from GOMP_target_update to
+	GOMP_target_update_41, adjust type.
+	* omp-low.c (struct omp_region): Adjust comments, add ord_stmt
+	field.
+	(struct omp_for_data): Add ordered and simd_schedule fields.
+	(omp_member_access_dummy_var, unshare_and_remap_1,
+	unshare_and_remap, is_taskloop_ctx): New functions.
+	(is_taskreg_ctx): Use is_parallel_ctx and is_task_ctx.
+	(extract_omp_for_data): Handle taskloops and doacross loops
+	and simd schedule modifier.
+	(omp_adjust_chunk_size): New function.
+	(get_ws_args_for): Use it.
+	(lookup_sfield): Change first argument to splay_tree_key,
+	add overload with first argument tree.
+	(maybe_lookup_field): Likewise.
+	(use_pointer_for_field): Handle omp_member_access_dummy_var.
+	(omp_copy_decl_2): If var is TREE_ADDRESSABLE listed in
+	task_shared_vars, clear TREE_ADDRESSABLE on the copy.
+	(build_outer_var_ref): Add LASTPRIVATE argument, handle
+	taskloops and omp_member_access_dummy_var vars.
+	(build_sender_ref): Change first argument to splay_tree_key,
+	add overload with first argument tree.
+	(install_var_field): For mask & 8 use &DECL_UID as key instead
+	of the tree itself.
+	(fixup_child_record_type): Const qualify *.omp_data_i.
+	(scan_sharing_clauses): Handle OMP_CLAUSE_SHARED_FIRSTPRIVATE,
+	C/C++ array reductions, OMP_CLAUSE_{IS,USE}_DEVICE_PTR clauses,
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,SIMDLEN,THREADS,SIMD} and
+	OMP_CLAUSE_{NOGROUP,DEFAULTMAP} clauses, OMP_CLAUSE__LOOPTEMP_ clause
+	on taskloop, GOMP_MAP_FIRSTPRIVATE_POINTER, OMP_CLAUSE_MAP_PRIVATE.
+	(create_omp_child_function): Set TREE_READONLY on .omp_data_i.
+	(find_combined_for): Allow searching for different GIMPLE_OMP_FOR
+	kinds.
+	(add_taskreg_looptemp_clauses): New function.
+	(scan_omp_parallel): Use it.
+	(scan_omp_task): Likewise.
+	(finish_taskreg_scan): Handle OMP_CLAUSE_SHARED_FIRSTPRIVATE.
+	For taskloop, move fields for the first two _LOOPTEMP_ clauses first.
+	(check_omp_nesting_restrictions): Handle GF_OMP_TARGET_KIND_ENTER_DATA
+	and GF_OMP_TARGET_KIND_EXIT_DATA.  Formatting fixes.  Allow the
+	sandwiched taskloop constructs.  Type check
+	OMP_CLAUSE_DEPEND_{KIND,SOURCE}.  Allow ordered simd inside of simd
+	region.  Diagnose depend(source) or depend(sink:...) on
+	target constructs or task/taskloop.
+	(handle_simd_reference): Use get_name.
+	(lower_rec_input_clauses): Likewise.  Ignore all
+	OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE clauses on taskloop construct.
+	Allow _LOOPTEMP_ clause on GOMP_TASK.  Unshare new_var
+	before passing it to omp_clause_{default,copy}_ctor.  Handle
+	OMP_CLAUSE_REDUCTION with MEM_REF OMP_CLAUSE_DECL.  Set
+	lastprivate_firstprivate flag for linear that needs copyin and
+	copyout.  Use BUILT_IN_ALLOCA_WITH_ALIGN instead of BUILT_IN_ALLOCA.
+	(lower_lastprivate_clauses): For OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE
+	on taskloop lookup decl in outer context.  Pass true to
+	build_outer_var_ref lastprivate argument.  Handle
+	OMP_CLAUSE_LASTPRIVATE_TASKLOOP_IV lastprivate if the decl is global
+	outside of outer taskloop for.
+	(lower_reduction_clauses): Handle OMP_CLAUSE_REDUCTION with MEM_REF
+	OMP_CLAUSE_DECL.
+	(lower_send_clauses): Ignore first two _LOOPTEMP_ clauses in taskloop
+	GOMP_TASK.  Handle OMP_CLAUSE_SHARED_FIRSTPRIVATE.  Handle
+	omp_member_access_dummy_var vars.  Handle OMP_CLAUSE_REDUCTION
+	with MEM_REF OMP_CLAUSE_DECL.  Use new lookup_sfield overload.
+	(lower_send_shared_vars): Ignore fields with NULL or FIELD_DECL
+	abstract origin.  Handle omp_member_access_dummy_var vars.
+	(expand_parallel_call): Use expand_omp_build_assign.
+	(expand_task_call): Handle taskloop construct expansion.  Add
+	REGION argument.  Use GOMP_TASK_* defines instead of hardcoded
+	integers.  Add priority argument to GOMP_task* calls.  Or in
+	GOMP_TASK_FLAG_PRIORITY into flags if priority is present for
+	GOMP_task call.
+	(expand_omp_build_assign): Add prototype.  Add AFTER
+	argument, if true emit statements after *GSI_P and continue linking.
+	(expand_omp_taskreg): Adjust expand_task_call caller.
+	(expand_omp_for_init_counts): Rename zero_iter_bb argument to
+	zero_iter1_bb and first_zero_iter to first_zero_iter1, add
+	zero_iter2_bb and first_zero_iter2 arguments, handle computation
+	of counts even for ordered loops.
+	(expand_omp_for_init_vars): Handle GOMP_TASK inner_stmt.
+	(expand_omp_ordered_source, expand_omp_ordered_sink,
+	expand_omp_ordered_source_sink, expand_omp_for_ordered_loops): New
+	functions.
+	(expand_omp_for_generic): Use omp_adjust_chunk_size.  Handle linear
+	clauses on worksharing loop.  Handle DOACROSS loop expansion.
+	(expand_omp_for_static_nochunk): Handle linear clauses on
+	worksharing loop.  Adjust expand_omp_for_init_counts
+	callers.
+	(expand_omp_for_static_chunk): Likewise.  Use omp_adjust_chunk_size.
+	(expand_omp_simd): Handle addressable fd->loop.v.  Adjust
+	expand_omp_for_init_counts callers.
+	(expand_omp_taskloop_for_outer, expand_omp_taskloop_for_inner): New
+	functions.
+	(expand_omp_for): Call expand_omp_taskloop_for_* for taskloop.
+	Handle doacross loops.
+	(expand_omp_target): Handle GF_OMP_TARGET_KIND_ENTER_DATA and
+	GF_OMP_TARGET_KIND_EXIT_DATA.  Pass flags and depend arguments to
+	GOMP_target_{41,update_41,enter_exit_data} libcalls.
+	(expand_omp): Don't expand ordered depend constructs here, record
+	ord_stmt instead for later expand_omp_for_generic.
+	(build_omp_regions_1): Handle GF_OMP_TARGET_KIND_ENTER_DATA and
+	GF_OMP_TARGET_KIND_EXIT_DATA.  Treat GIMPLE_OMP_ORDERED with depend
+	clause as stand-alone directive.
+	(lower_omp_ordered_clauses): New function.
+	(lower_omp_ordered): Handle OMP_CLAUSE_SIMD, for OMP_CLAUSE_DEPEND
+	don't lower anything.
+	(lower_omp_for_lastprivate): Use last _looptemp_ clause
+	on taskloop for comparison.
+	(lower_omp_for): Handle taskloop constructs.  Adjust OMP_CLAUSE_DECL
+	and OMP_CLAUSE_LINEAR_STEP so that expand_omp_for_* can use it during
+	expansion for linear adjustments.
+	(create_task_copyfn): Handle OMP_CLAUSE_SHARED_FIRSTPRIVATE.
+	(lower_depend_clauses): Assert not seeing sink/source depend kinds.
+	Set TREE_ADDRESSABLE on array.  Change first argument from gimple *
+	to tree * pointing to the stmt's clauses.
+	(lower_omp_taskreg): Adjust lower_depend_clauses caller.
+	(lower_omp_target): Handle GF_OMP_TARGET_KIND_ENTER_DATA
+	and GF_OMP_TARGET_KIND_EXIT_DATA, depend clauses,
+	GOMP_MAP_{RELEASE,ALWAYS_{TO,FROM,TOFROM},FIRSTPRIVATE_POINTER,STRUCT}
+	map kinds, OMP_CLAUSE_{FIRSTPRIVATE,PRIVATE,{IS,USE}_DEVICE_PTR
+	clauses.  Always use short kind and 8-bit align shift.
+	(lower_omp_regimplify_p): Use IS_TYPE_OR_DECL_P macro.
+	(struct lower_omp_regimplify_operands_data): New type.
+	(lower_omp_regimplify_operands_p, lower_omp_regimplify_operands):
+	New functions.
+	(lower_omp_1): Use lower_omp_regimplify_operands instead of
+	gimple_regimplify_operands.
+	(make_gimple_omp_edges): Handle GF_OMP_TARGET_KIND_ENTER_DATA and
+	GF_OMP_TARGET_KIND_EXIT_DATA.  Treat GIMPLE_OMP_ORDERED with depend
+	clause as stand-alone directive.
+	(simd_clone_clauses_extract): Honor OMP_CLAUSE_LINEAR_KIND.
+	(simd_clone_mangle): Mangle the various linear kinds
+	per the new ABI.
+	(simd_clone_adjust_argument_types): Handle
+	SIMD_CLONE_ARG_TYPE_LINEAR_*_CONSTANT_STEP.
+	(simd_clone_init_simd_arrays): Don't do anything for uval.
+	(simd_clone_adjust): Handle
+	SIMD_CLONE_ARG_TYPE_LINEAR_REF_CONSTANT_STEP like
+	SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP.
+	Handle SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_CONSTANT_STEP.
+	* omp-low.h (omp_member_access_dummy_var): New prototype.
+	* passes.def (pass_simduid_cleanup): Schedule another copy of the
+	pass after all optimizations.
+	* tree.c (omp_clause_code_name): Add entries for
+	OMP_CLAUSE_{TO_DECLARE,LINK,{USE,IS}_DEVICE_PTR,DEFAULTMAP,HINT}
+	and OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}.
+	(omp_clause_num_ops): Likewise.  Bump number of OMP_CLAUSE_REDUCTION
+	arguments to 5 and for OMP_CLAUSE_ORDERED to 1.
+	(walk_tree_1): Adjust for OMP_CLAUSE_ORDERED having 1 argument and
+	OMP_CLAUSE_REDUCTION 5 arguments.  Handle
+	OMP_CLAUSE_{TO_DECLARE,LINK,{USE,IS}_DEVICE_PTR,DEFAULTMAP,HINT}
+	and OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}
+	clauses.
+	* tree-core.h (enum omp_clause_linear_kind): New.
+	(struct tree_omp_clause): Change type of map_kind
+	from unsigned char to unsigned int.  Add subcode.if_modifier
+	and subcode.linear_kind fields.
+	(enum omp_clause_code): Add
+	OMP_CLAUSE_{TO_DECLARE,LINK,{USE,IS}_DEVICE_PTR,DEFAULTMAP,HINT}
+	and OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}.
+	(OMP_CLAUSE_REDUCTION): Document
+	OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER.
+	(enum omp_clause_depend_kind): Add OMP_CLAUSE_DEPEND_{SOURCE,SINK}.
+	* tree.def (OMP_FOR): Add OMP_FOR_ORIG_DECLS operand.
+	(OMP_CRITICAL): Move before OMP_SINGLE.  Add OMP_CRITICAL_CLAUSES
+	operand.
+	(OMP_ORDERED): Move before OMP_SINGLE.  Add OMP_ORDERED_CLAUSES
+	operand.
+	(OMP_TASKLOOP, OMP_TARGET_ENTER_DATA, OMP_TARGET_EXIT_DATA): New tree
+	codes.
+	* tree.h (OMP_BODY): Replace OMP_CRITICAL with OMP_TASKGROUP.
+	(OMP_CLAUSE_SET_MAP_KIND): Cast to unsigned int rather than unsigned
+	char.
+	(OMP_CRITICAL_NAME): Adjust to be 3rd operand instead of 2nd.
+	(OMP_CLAUSE_NUM_TASKS_EXPR): Formatting fix.
+	(OMP_STANDALONE_CLAUSES): Adjust to cover OMP_TARGET_{ENTER,EXIT}_DATA.
+	(OMP_CLAUSE_DEPEND_SINK_NEGATIVE, OMP_TARGET_COMBINED,
+	OMP_CLAUSE_MAP_PRIVATE, OMP_FOR_ORIG_DECLS, OMP_CLAUSE_IF_MODIFIER,
+	OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION, OMP_CRITICAL_CLAUSES,
+	OMP_CLAUSE_PRIVATE_TASKLOOP_IV, OMP_CLAUSE_LASTPRIVATE_TASKLOOP_IV,
+	OMP_CLAUSE_HINT_EXPR, OMP_CLAUSE_SCHEDULE_SIMD,
+	OMP_CLAUSE_LINEAR_KIND, OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER,
+	OMP_CLAUSE_SHARED_FIRSTPRIVATE, OMP_ORDERED_CLAUSES,
+	OMP_TARGET_ENTER_DATA_CLAUSES, OMP_TARGET_EXIT_DATA_CLAUSES,
+	OMP_CLAUSE_NUM_TASKS_EXPR, OMP_CLAUSE_GRAINSIZE_EXPR,
+	OMP_CLAUSE_PRIORITY_EXPR, OMP_CLAUSE_ORDERED_EXPR): Define.
+	* tree-inline.c (remap_gimple_stmt): Handle clauses on
+	GIMPLE_OMP_ORDERED and GIMPLE_OMP_CRITICAL.  For
+	IFN_GOMP_SIMD_ORDERED_{START,END} set has_simduid_loops.
+	* tree-nested.c (convert_nonlocal_omp_clauses): Handle
+	OMP_CLAUSE_{TO_DECLARE,LINK,{USE,IS}_DEVICE_PTR,SIMDLEN,PRIORITY,SIMD}
+	and OMP_CLAUSE_{GRAINSIZE,NUM_TASKS,HINT,NOGROUP,THREADS,DEFAULTMAP}
+	clauses.  Handle OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER.
+	(convert_local_omp_clauses): Likewise.
+	* tree-pretty-print.c (dump_omp_clause): Handle
+	OMP_CLAUSE_{TO_DECLARE,LINK,{USE,IS}_DEVICE_PTR,SIMDLEN,PRIORITY,SIMD}
+	and OMP_CLAUSE_{GRAINSIZE,NUM_TASKS,HINT,NOGROUP,THREADS,DEFAULTMAP}
+	clauses.  Handle OMP_CLAUSE_IF_MODIFIER, OMP_CLAUSE_ORDERED_EXPR,
+	OMP_CLAUSE_SCHEDULE_SIMD, OMP_CLAUSE_LINEAR_KIND,
+	OMP_CLAUSE_DEPEND_{SOURCE,SINK}.  Use "delete" for
+	GOMP_MAP_FORCE_DEALLOC.  Handle
+	GOMP_MAP_{ALWAYS_{TO,FROM,TOFROM},RELEASE,FIRSTPRIVATE_POINTER,STRUCT}.
+	(dump_generic_node): Handle OMP_TASKLOOP, OMP_TARGET_{ENTER,EXIT}_DATA
+	and clauses on OMP_ORDERED and OMP_CRITICAL.
+	* tree-vectorizer.c (adjust_simduid_builtins): Adjust comment.
+	Remove IFN_GOMP_SIMD_ORDERED_{START,END}.
+	(vectorize_loops): Adjust comments.
+	(pass_simduid_cleanup::execute): Likewise.
+	* tree-vect-stmts.c (vectorizable_simd_clone_call): Handle
+	SIMD_CLONE_ARG_TYPE_LINEAR_{REF,VAL,UVAL}_CONSTANT_STEP.
+	* wide-int.h (wi::gcd): New.
+
+2015-10-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (classify_argument): Use CEIL where applicable.
+	(ix86_function_arg_advance): Ditto.
+	(ix86_function_arg): Ditto.
+	(ix86_gimplify_va_arg): Ditto.
+	(ix86_class_max_nregs): Ditto.
+	(inline_memory_move_cost): Ditto.
+	(ix86_set_reg_reg_cost): Ditto.
+	* config/i386/i386.h (HARD_REGNO_NREGS): Ditto.
+
+2015-10-13  Alexandre Oliva <aoliva@redhat.com>
+
+	PR middle-end/67912
+	* expmed.c (store_bit_field_1): Adjust mode of BLKmode inputs.
+
+2015-10-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/sparc/sparc.h (SPARC_STACK_ALIGN): Implement using
+	ROUND_UP macro and UNITS_PER_WORD * 2.
+	* config/sparc/sparc.c (sparc_compute_frame_size):
+	Use ROUND_UP and ROUND_DOWN macros where applicable.
+	(function_arg_record_value, function_arg_record_value_1)
+	(function_arg_record_value_1): Ditto.
+	(emit_save_or_restore_regs): Use ROUND_DOWN to preserve offset
+	alignment to double-word.
+	(sparc_gimplify_va_arg): Use ROUND_UP to calculate rsize.
+	(sparc_emit_probe_stack_range): Use ROUND_DOWN to calculate
+	rounded_size.
+
+2015-10-13  Nikolai Bozhenov  <n.bozhenov@samsung.com>
+
+	* gcc/rtl.h (print_insn): Fix prototype.
+
+2015-10-13  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (reduction_phi): Handle cases that gimple_uid is 0 or
+	-1.  Add assert that returned entry matches phi argument.
+	(parallelize_loops): Move calls to init_stmt_vec_info_vec and
+	free_stmt_vec_info_vec ...
+	(gather_scalar_reductions): ... here.  Initialize gimple_uids of phis
+	with -1.
+
+2014-10-13  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/67909, 67947
+	* tree-ssa-loop-unswitch.c (find_loop_guard): Add check that GUARD_EDGE
+	really skip the inner loop.
+
+2015-10-13  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-threadbackward.c (fsm_find_control_statement_thread_paths):
+	Allow single block jump threading paths.
+
+2015-10-13  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/67476
+	* doc/invoke.texi (@item parloops-schedule): New item.
+	* params.def (PARAM_PARLOOPS_SCHEDULE): New DEFPARAMENUM5.
+	* tree-parloops.c: Include params-enum.h.
+	(create_parallel_loop): Handle PARAM_PARLOOPS_SCHEDULE.
+
+2015-10-13  Tom de Vries  <tom@codesourcery.com>
+
+	* Makefile.in (PARAMS_H, PLUGIN_HEADERS): Add params-enum.h.
+	* params-enum.h: New file.
+	* opts.c (handle_param): Handle case that param arg is a string.
+	* params-list.h: Handle DEFPARAMENUM5 in params.def.
+	* params.c (find_param): New function, factored out of ...
+	(set_param_value): ... here.
+	(param_string_value_p): New function.
+	* params.h (struct param_info): Add value_names field.
+	(find_param, param_string_value_p): Declare.
+
+2015-10-13  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/67476
+	* omp-low.c (expand_omp_for_generic): Handle original loop tree.
+
+2015-10-13  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-data-refs.c (vect_analyze_data_ref_dependences): Allocate
+	the data dependence vector.
+	(vect_peeling_hash_insert): Get the peeling hash table as argument.
+	(vect_peeling_hash_get_lowest_cost): Likewise.
+	(vect_enhance_data_refs_alignment): Adjust.
+	(struct _vect_peel_info, struct _vect_peel_extended_info,
+	struct peel_info_hasher): Move from ...
+	* tree-vectorizer.h: ... here.
+	(LOOP_VINFO_COST_MODEL_MIN_ITERS): Remove.
+	(LOOP_VINFO_PEELING_HTAB): Likewise.
+	(struct _loop_vec_info): Remove min_profitable_iters and
+	peeling_htab members.
+	* tree-vect-loop.c (new_loop_vec_info): Do not allocate vectors
+	here.
+	(destroy_loop_vec_info): Adjust.
+	(vect_analyze_loop_2): Do not set LOOP_VINFO_COST_MODEL_MIN_ITERS.
+	(vect_estimate_min_profitable_iters): Use LOOP_VINFO_COMP_ALIAS_DDRS
+	to estimate alias versioning cost.
+	* tree-vect-slp.c (vect_analyze_slp_cost): Dump header.
+
+2015-10-13  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* real.h (real_isinteger): Declare.
+	* real.c (real_isinteger): New function.
+	* match.pd: Simplify pow(|x|,y) and pow(-x,y) to pow(x,y)
+	if y is an even integer.
+
+2015-10-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	revert:
+	2015-10-11  Jan Hubicka  <hubicka@ucw.cz>
+	* cgraphbuild.c (compute_call_stmt_bb_frequency): Use
+	counts when these are more informative.
+
+2015-10-12  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-threadbackward.c (get_gimple_control_stmt): New function.
+	(fsm_find_control_stmt_paths): Change name of first argument to
+	more accurately relfect what it really is.  Handle simplification
+	of GIMPLE_COND after finding a thread path for NAME.
+	* tree-ssa-threadedge.c (simplify_control_stmt_condition): Allow
+	nontrivial conditions to be handled by FSM threader.
+	(thread_through_normal_block): Extract the name to looup via
+	FSM threader from COND_EXPR.
+
+	* tree-ssa-threadbackward.c (fsm_find_thread_path): Remove
+	restriction that traced SSA_NAME is a user variable.
+
+2015-10-12  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/67476
+	* omp-low.c (expand_omp_for_generic): Add missing phis.
+
+2015-10-12  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/67476
+	* omp-low.c (expand_omp_for_generic): Handle simple latch.
+
+2015-10-12  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* config/aarch64/aarch64-simd-builtins.def: Update builtins
+	tables: add tbl3 and tbx4.
+	* config/aarch64/aarch64-simd.md (aarch64_tbl3v8qi): New.
+	(aarch64_tbx4v8qi): New.
+	* config/aarch64/arm_neon.h (vtbl3_s8, vtbl3_u8, vtbl3_p8)
+	(vtbl4_s8, vtbl4_u8, vtbl4_p8, vtbx4_s8, vtbx4_u8, vtbx4_p8):
+	Rewrite using builtin functions.
+	* config/aarch64/iterators.md (UNSPEC_TBX): New.
+
+2015-10-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/rs6000/rs6000.h (RS6000_ALIGN): Implement using
+	ROUND_UP macro.
+	* config/rs6000/rs6000.c (rs6000_darwin64_record_arg_advance_flush):
+	Use ROUND_UP and ROUND_DOWN macros where applicable.
+	(rs6000_darwin64_record_arg_flush): Ditto.
+	(rs6000_function_arg): Use ROUND_UP to calculate align_words.
+	(rs6000_emit_probe_stack_range): Use ROUND_DOWN to calculate
+	rounded_size.
+
+2015-10-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/aarch/aarch64.h (AARCH64_ROUND_UP): Remove.
+	(AARCH64_ROUND_DOWN): Ditto.
+	* config/aarch64/aarch64.c: Use ROUND_UP instead of AARCH64_ROUND_UP.
+
+2015-10-12  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/67783
+	* ipa-inline-analysis.c (estimate_function_body_sizes): Re-add
+	code that analyzes IVs on each stmt but in a cheaper way avoiding
+	quadratic behavior.
+
+2015-10-12  Nick Clifton  <nickc@redhat.com>
+
+	* config/msp430/msp430.c (msp430_mcu_names): Rename to
+	msp430_mcu_data, add fields for ISA and hardware multiply
+	support.  Import latest data from the devices.csv file.
+	(msp430_override_option): Use the data from the new array.
+	(msp430_use_f5_series_hwmult): Likewise.
+	(use_32bit_hwmult): Likewise.
+	(msp430_no_hwmult): Likewise.
+	* config/msp430/t-msp430 (MULTILIB_MATCHES): Add matches for new
+	MCU names.
+	* doc/invoke.texi (MSP430 Options): Note that if the MCU name is
+	not recognised then no hardware multiply support is assumed and
+	that only the MSP430 ISA is allowed.
+
+2015-10-12  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-loop.c (vect_analyze_loop_operations): Move cost
+	related code ...
+	(vect_analyze_loop_2): ... here.
+
+2015-10-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67557
+	* expr.c (store_field): Call store_constructor directly when
+	storing a CONSTRUCTOR into a target smaller than its type.
+	Guard against unsafe bitwise copy.
+
+2015-10-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	* cgraphbuild.c (compute_call_stmt_bb_frequency): Use
+	counts when these are more informative.
+
+2015-10-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-profile.c (tree_profiling): Do not clear
+	pure/const when not instrumenting.
+	(pass tree_profile): Add dump of symtab.
+
+2015-10-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	* fold-const.c (fold_comparsion): Pass OEP_ADDRESS_OF when comparing
+	addresses.
+	(fold_addr_of_array_ref_difference): Likewise.
+
+2015-10-11  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-threadedge.c (fsm_find_thread_path): Moved from here into
+	tree-ssa-threadbackward.c.
+	(fsm_find_control_statement_thread_paths): Likewise.
+	(thread_through_normal_block): Break out FSM bits and move them
+	into a new function in tree-ssa-threadbackward.c.  Call new function
+	instead.
+	Minimize header file usage.
+	* tree-ssa-threadbackward.h: New file.
+	* tree-ssa-threadbackward.c: Likewise.
+	* Makefile.in (OBJS): Add tree-ssa-threadbackward.o
+
+2015-10-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.h (ALPHA_ROUND): Implement using ROUND_UP macro.
+
+2015-10-11  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/67864
+	* gcc/bb-reorder (reorder_basic_blocks_simple): Prefer existing
+	fallthrough edges for conditional jumps.  Don't sort candidate
+	edges if not optimizing for speed.
+
+2015-10-10  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* defaults.h (REVERSE_CONDITION): New default definition.
+	* jump.c (reversed_comparison_code_parts): Adjust.
+
+2015-10-10  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* builtins.c (expand_builtin_setjmp_receiver): Don't use #if to
+	check HARD_FRAME_POINTER_IS_ARG_POINTER.
+
+2015-10-10  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* defaults.h (FRAME_ADDR_RTX): New default definition.
+	* builtins.c (expand_builtin_return_addr): Adjust.
+
+2015-10-10  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* defaults.h (DYNAMIC_CHAIN_ADDRESS): New default definition.
+	* builtins.c (expand_builtin_return_addr): Adjust.
+
+2015-10-10  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* defaults.h (SETUP_FRAME_ADDRESSES): New default definition.
+	* builtins.c (expand_builtin_return_addr): Adjust.
+	* doc/tm.texi: Likewise.
+	* doc/tm.texi.in: Likewise.
+	* except.c (expand_builtin_unwind_init): Likewise.
+
+2015-10-10  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* builtins.c (expand_builtin_return_addr): Adjust.
+	* defaults.h (INITIAL_FRAME_ADDRESS_RTX): New default definition.
+
+2015-10-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree.c (type_with_interoperable_signedness): New.
+	(gimple_canonical_types_compatible_p): Use it.
+	* tree.h (type_with_interoperable_signedness): Declare
+
+2015-10-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	* fold-const.c (operand_equal_p): Document OEP_ADDRESS_OF
+	and OEP_CONSTANT_ADDRESS_OF; skip type compatibility checks
+	when OEP_ADDRESS_OF is se.
+
+2015-10-10  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-dependences.c (scop_get_dependences): Add dump of the
+	data dependence graph.
+	* graphite-poly.c (print_isl_union_map): New.
+	(debug_isl_union_map): New.
+	* graphite-poly.h (print_isl_union_map): Declare.
+	(debug_isl_union_map): Declare.
+
+2015-10-10  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-poly.c (print_iteration_domain): Remove verbosity.
+	Remove OpenScop formatting.
+	(print_iteration_domains): Same.
+	(debug_iteration_domain): Same.
+	(debug_iteration_domains): Same.
+	(print_pdr): Same.
+	(debug_pdr): Same.
+	(dump_gbb_cases): Same.
+	(dump_gbb_conditions): Same.
+	(print_pdrs): Same.
+	(debug_pdrs): Same.
+	(print_pbb_body): Same.
+	(print_pbb): Same.
+	(print_scop_params): Same.
+	(print_scop_context): Same.
+	(print_scop): Same.
+	(debug_pbb_domain): Same.
+	(debug_pbb): Same.
+	(debug_scop_context): Same.
+	(debug_scop): Same.
+	(debug_scop_params): Same.
+	* graphite-poly.h: Same.
+	* graphite.c (graphite_transform_loops): Same.
+
+2015-10-10  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* function.c (stack_protect_epilogue): Remove as_a<rtx_insn *> ()
+	call that isn't needed.
+
+2015-10-09  Jeff Law  <law@redhat.com>
+
+	* tree-ssanames.c (flush_ssaname_freelist): Use splice and truncate
+	rather than moving each name to the freelist individually.
+
+2015-10-09  Steve Ellcey  <sellcey@imgtec.com>
+
+	* config.gcc (mips*-*-*): Add frame-header-opt.o to extra_objs.
+	* frame-header-opt.c: New file.
+	* config/mips/mips-proto.h (mips_register_frame_header_opt):
+	Add prototype.
+	* config/mips/mips.c (mips_compute_frame_info): Check
+	optimize_call_stack flag.
+	(mips_option_override): Register new frame_header_opt pass.
+	(mips_frame_info, mips_int_mask, mips_shadow_set,
+	machine_function): Move these types to...
+	* config/mips/mips.h: here.
+	(machine_function): Add does_not_use_frame_header and
+	optimize_call_stack fields.
+	* config/mips/t-mips (frame-header-opt.o): Add new make rule.
+	* doc/invoke.texi (-mframe-header-opt, -mno-frame-header-opt):
+	Document new flags.
+	* config/mips/mips.opt (mframe-header-opt): Add new option.
+
+2015-10-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c
+	(expand_set_or_movmem_prologue_epilogue_by_misaligned_moves): Use
+	ROUND_DOWN where applicable.
+
+2015-10-09  Jeff Law  <law@redhat.com>
+
+	* tree-vect-stmts.c (free_stmt_vec_info): Free the LHS of the
+	correct statement.
+
+2015-10-09  Renlin Li  <renlin.li@arm.com>
+
+	* config/arm/neon.md (neon_vuzp<mode>_insn): Add & modifier for
+	operands[0] and operands[2].
+	(neon_vtrn<mode>_insn): Likewise.
+	(neon_vzip<mode>_insn): Likewise.
+
+2015-10-09  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* match.pd: ((X inner_op C0) outer_op C1) New pattern.
+	((X & C2) << C1): Expand to...
+	(X {&,^,|} C2 << C1): ...This.
+	((X & C2) >> C1): Expand to...
+	(X {&,^,|} C2 >> C1): ...This.
+
+2015-10-09  Alexander Fomin  <alexander.fomin@intel.com>
+
+	PR target/67895
+	* config/i386/sse.md (define_insn "sse_cvtsi2ss<round_name>"):
+	Adjust embedded rounding/SAE specifier position.
+	(define_insn "sse_cvtsi2ssq<round_name>"): Likewise.
+	(define_insn "cvtusi2<ssescalarmodesuffix>32<round_name>"): Likewise.
+	(define_insn "cvtusi2<ssescalarmodesuffix>64<round_name>"): Likewise.
+	(define_insn "sse2_cvtsi2sdq<round_name>"): Likewise.
+	(define_insn "avx512dq_rangep<mode><mask_name><round_saeonly_name>"):
+	Likewise.
+	(define_insn "avx512dq_ranges<mode><round_saeonly_name>"): Likewise.
+
+2015-10-09  Martin Jambor  <mjambor@suse.cz>
+
+	tree-optimization/67794
+	* tree-sra.c (replace_removed_params_ssa_names): Do not distinguish
+	between types of state,ents but accept original definitions as a
+	parameter.
+	(ipa_sra_modify_function_body): Use FOR_EACH_SSA_DEF_OPERAND to
+	iterate over definitions.
+
+2015-10-09  James Norris  <jnorris@codesourcery.com>
+
+	* config/rs6000/rs6000.c (rs6000_offload_options): New.
+	(TARGET_OFFLOAD_OPTIONS): New.
+
+2015-10-09  Alexandre Oliva <aoliva@redhat.com>
+
+	PR middle-end/67891
+	* cfgexpand.c (set_parm_rtl): Drop is_gimple_reg test.
+
+	PR middle-end/67766
+	* function.c (expand_function_end): Move return value
+	promotion past the handling of PARALLELs and CONCATs.
+
+	PR rtl-optimization/67828
+	* tree-ssa-loop-unswitch.c: Include tree-ssa.h.
+	(tree_may_unswitch_on): Don't unswitch on expressions
+	involving undefined values.
+
+2015-10-09  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (print_operand): Fix formatting.
+	(dt_node::append_simplify): Warn for multiple simplifiers
+	that match the same pattern.
+	* match.pd (log (exp @0)): Remove duplicates.
+
+2015-10-09  Richard Biener  <rguenth@suse.de>
+
+	PR target/67366
+	* gimple-fold.c (optabs-query.h): Include
+	(gimple_fold_builtin_memory_op): Allow unaligned stores
+	when movmisalign_optabs are available.
+
+2015-10-09  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/67366
+	* config/arm/arm.md (movmisalign<mode>): New.
+	* config/arm/iterators.md (HSI): New.
+
+2015-10-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67891
+	* gimple-match.h (gimple_simplified_result_is_gimple_val):
+	New helper.
+	(gimple_resimplify1): Declare.
+	(gimple_resimplify2): Likewise.
+	(gimple_resimplify3): Likewise.
+	* gimple-match-head.c (gimple_resimplify1): Export.
+	(gimple_resimplify2): Likewise.
+	(gimple_resimplify3): Likewise.
+	(maybe_push_res_to_seq): Use gimple_simplified_result_is_gimple_val.
+	* gimple-fold.c (gimple_fold_stmt_to_constant_1): Likewise.
+	* tree-ssa-sccvn.c (visit_reference_op_load): Use gimple_resimplify1
+	to avoid creating stmts without VN info.
+
+2015-10-08  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-icf.c (sem_item::compare_symbol_references): Fix use
+	of availability.
+
+2015-10-08  Jeff Law  <law@redhat.com>
+
+	* value-prof.c (gimple_ic): Add missing calls to unlink_stmt_vdef
+	and release_ssa_name in two places.
+	(gimple_stringop_fixed_value): Similarly.
+
+	* tree-ssa-loop-im.c (rewrite_bittest): Add missing call to
+	release_defs.
+
+	* tree-stdarg.c (expand_ifn_va_arg_1): Add missing call to
+	unlink_stmt_vdef and release_ssa_name_fn.
+
+	* tree-ssa-dse.c (dse_optimize_stmt): Add missing call to
+	release_defs.
+
+2015-10-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_compute_frame_layout): Round up the
+	SSE register save area to 16 bytes only if the incoming stack
+	boundary is no less than 16 bytes.
+
+2015-10-08  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-phiopt.c (factor_out_conversion): Add missing calls to
+	release_ssa_name.  Fix typo in comment.
+
+2015-10-08  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx.h (struct machine_function): Add comment.
+	* config/nvptx/nvptx.c (nvptx_declare_function_name): Functions
+	may return pointer as well as in memory.
+	(nvptx_output_return): Likewise.
+
+2015-10-08  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* builtins.c (fold_builtin_sqrt, fold_builtin_cbrt): Delete.
+	(fold_builtin_1): Update accordingly.  Handle constant arguments here.
+	* match.pd: Add rules previously handled by fold_builtin_sqrt
+	and fold_builtin_cbrt.
+
+2015-10-08  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* params.def (PARAM_MAX_SSA_NAME_QUERY_DEPTH): New param.
+	* doc/invoke.texi (--param max-ssa-name-query-depth): Document.
+	* fold-const.h (tree_unary_nonnegative_warnv_p)
+	(tree_single_nonnegative_warnv_p, tree_call_nonnegative_warnv_p)
+	(tree_expr_nonnegative_warnv_p): Add depth parameters.
+	* fold-const.c: Include gimple-fold.h and params.h.
+	(tree_ssa_name_nonnegative_warnv_p): New function.
+	(tree_unary_nonnegative_warnv_p, tree_binary_nonnegative_warnv_p)
+	(tree_single_nonnegative_warnv_p, tree_call_nonnegative_warnv_p)
+	(tree_invalid_nonnegative_warnv_p, tree_expr_nonnegative_warnv_p):
+	Add a depth parameter and increment it for recursive calls to
+	tree_expr_nonnegative_warnv_p.  Use tree_ssa_name_nonnegative_warnv_p
+	to handle SSA names.
+	* gimple-fold.h (gimple_val_nonnegative_real_p): Delete.
+	(gimple_stmt_nonnegative_warnv_p): Declare.
+	* tree-vrp.c (remove_range_assertions): Remove assert that condition
+	cannot be proven false.
+	(gimple_assign_nonnegative_warnv_p, gimple_call_nonnegative_warnv_p)
+	(gimple_stmt_nonnegative_warnv_p): Move to...
+	* gimple-fold.c: ...here.  Add depth parameters and pass them
+	down to the tree routines.  Accept statements that aren't
+	assignments or calls but just return false for them.
+	(gimple_val_nonnegative_real_p): Delete.
+	* tree-ssa-math-opts.c (gimple_expand_builtin_pow): Use
+	tree_expr_nonnegative_p instead of gimple_val_nonnegative_real_p.
+	Check HONOR_NANs first.
+
+2015-10-08  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-cp.c (meet_with_1): Make the argument of abs signed.  Remove
+	unnecessary MIN.
+
+2015-10-08  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	* tree-vect-loop.c (vect_analyze_loop_operations): Skip virtual phi
+	in the tail of outer-loop.
+
+2015-10-08  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_xcoff_debug_unwind_info): Always
+	return UI_NONE.
+
+2015-10-08  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	* tree-ssa-loop-unswitch.c: Include "gimple-iterator.h" and
+	"cfghooks.h", add prototypes for introduced new functions.
+	(tree_ssa_unswitch_loops): Use from innermost loop iterator, move all
+	checks on ability of loop unswitching to tree_unswitch_single_loop;
+	invoke tree_unswitch_single_loop or tree_unswitch_outer_loop depending
+	on innermost loop check.
+	(tree_unswitch_single_loop): Add all required checks on ability of
+	loop unswitching under zero recursive level guard.
+	(tree_unswitch_outer_loop): New function.
+	(find_loop_guard): Likewise.
+	(empty_bb_without_guard_p): Likewise.
+	(used_outside_loop_p): Likewise.
+	(get_vop_from_header): Likewise.
+	(hoist_guard): Likewise.
+	(check_exit_phi): Likewise.
+
+2015-10-08  Marek Polacek  <polacek@redhat.com>
+
+	* tree-ssa-reassoc.c (dump_ops_vector): Print newline after each
+	ops element.
+
+2015-10-08  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	PR c/65345
+	* config/s390/s390.c (s390_atomic_assign_expand_fenv): Use
+	create_tmp_var_raw instead of create_tmp_var.
+
+2015-10-07  Jan Hubicka  <hubicka@ucw.cz>
+
+	* expr.c (store_expr_with_bounds): Handle aggregate moves from
+	BLKmode.
+	* gimple-expr.c (useless_type_conversion_p): Do not use TYPE_CANONICAL
+	to define gimple type system; compare aggregates only by size.
+
+2015-10-07  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (optimize_stmt): Don't set LOOPS_NEED_FIXUP here.
+	* tree-ssa-threadupdate.c (remove_ctrl_stmt_and_useless_edges): Do it
+	here instead.  Tighten test to avoid setting LOOPS_NEED_FIXUP
+	unnecessarily.
+
+2015-10-07  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-dependences.c (scop_get_dependences): Do not use SCOP_BBS.
+	* graphite-isl-ast-to-gimple.c (get_max_schedule_dimensions): Same.
+	(generate_isl_schedule): Same.
+	* graphite-optimize-isl.c (scop_get_domains): Same.
+	(apply_schedule_map_to_scop): Same.
+	* graphite-poly.c (print_iteration_domains): Same.
+	(remove_gbbs_in_scop): Same.
+	(new_scop): Same.
+	(free_scop): Same.
+	(print_scop): Same.
+	* graphite-poly.h (struct scop): Rename bbs to pbbs.
+	(SCOP_BBS): Remove.
+	* graphite-scop-detection.c (compare_bb_depths): Remove.
+	(graphite_sort_dominated_info): Remove.
+	(try_generate_gimple_bb): Move out of scop_detection.
+	(all_non_dominated_preds_marked_p): Remove.
+	(build_scop_bbs_1): Remove.
+	(build_scop_bbs): Remove.
+	(nb_pbbs_in_loops): Do not use SCOP_BBS.
+	(find_scop_parameters): Same.
+	(sese_dom_walker): Rename gather_bbs.
+	(before_dom_children): Call try_generate_gimple_bb and collect gbb
+	and pbb.
+	(build_scops): Call gather_bbs.
+	* graphite-sese-to-poly.c (build_scop_scattering): Do not use SCOP_BBS.
+	(add_conditions_to_constraints): Same.
+	(build_scop_iteration_domain): Same.
+	(build_scop_drs): Same.
+	(new_pbb_from_pbb): Same.
+	* sese.c (new_sese_info): Create bbs.
+	* sese.h (struct sese_info_t): Add bbs.
+
+2015-10-07  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/xcoff.h (ASM_PREFERRED_EH_DATA_FORMAT): Use 64-bit
+	encoding in 64-bit mode.
+
+2015-10-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66697
+	* config/i386/i386.c (ix86_option_override_internal): Always use
+	8-byte minimum stack boundary in 64-bit mode.
+	(ix86_compute_frame_layout): Remove assert on INCOMING_STACK_BOUNDARY.
+	(ix86_emit_save_reg_using_mov): Support unaligned SSE store.
+	Add a REG_CFA_EXPRESSION note if needed.
+	(ix86_emit_restore_sse_regs_using_mov): Support unaligned SSE load.
+	(ix86_handle_force_align_arg_pointer_attribute): New.
+	(ix86_minimum_incoming_stack_boundary): Remove TARGET_64BIT check.
+	(ix86_attribute_table): Set ix86_force_align_arg_pointer_string
+	with ix86_handle_force_align_arg_pointer_attribute.
+	* config/i386/i386.h (MIN_STACK_BOUNDARY): Set to BITS_PER_WORD.
+
+2015-10-07  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-scop-detection.c (parameter_index_in_region): Remove
+	use of SESE_ADD_PARAMS.
+	(find_scop_parameters): Same.
+	* sese.c (new_sese_info): Same.
+	* sese.h (struct sese_info_t): Remove add_params.
+	(SESE_ADD_PARAMS): Remove.
+
+2015-10-07  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-isl-ast-to-gimple.c (translate_isl_ast_to_gimple): Use
+	an sese_info_p.
+	(copy_def): Same.
+	(copy_internal_parameters): Same.
+	(translate_isl_ast_to_gimple): Use an sese_l.
+	(build_iv_mapping): Same.
+	* graphite-poly.c (new_sese): Rename new_sese_info.
+	(free_sese): Rename free_sese_info.
+	* graphite-poly.h (struct scop): Use an sese_info_p.
+	(scop_set_region): Same.
+	* graphite-scop-detection.c (struct sese_l): Moved...
+	(get_entry_bb): Moved...
+	(get_exit_bb): Moved...
+	(parameter_index_in_region_1): Use an sese_info_p.
+	(parameter_index_in_region): Same.
+	(scan_tree_for_params): Same.
+	(find_params_in_bb): Same.
+	(sese_dom_walker): Use an sese_l.
+	* graphite-sese-to-poly.c (remove_invariant_phi): Same.
+	(reduction_phi_p): Same.
+	(parameter_index_in_region_1): Use an sese_info_p.
+	(propagate_expr_outside_region): Use an sese_l.
+	* graphite.c: Replace uses of SCOP_REGION.
+	* sese.c (sese_record_loop): Use an sese_info_p.
+	(build_sese_loop_nests): Same.
+	(sese_build_liveouts_use): Same.
+	(sese_build_liveouts_bb): Same.
+	(sese_build_liveouts_bb): Same.
+	(sese_bad_liveouts_use): Same.
+	(sese_reset_debug_liveouts_bb): Same.
+	(sese_build_liveouts): Same.
+	(new_sese): Renamed new_sese_info.
+	(free_sese): Renamed free_sese_info.
+	(set_rename): Use an sese_info_p.
+	(graphite_copy_stmts_from_block): Same.
+	(copy_bb_and_scalar_dependences): Same.
+	(outermost_loop_in_sese_1): Use an sese_l.
+	(outermost_loop_in_sese): Same.
+	(if_region_set_false_region): Use an sese_info_p.
+	(move_sese_in_condition): Same.
+	(scalar_evolution_in_region): Use an sese_l.
+	* sese.h (struct sese_l): ... here.
+	(SESE_ENTRY): Remove.
+	(SESE_ENTRY_BB): Remove.
+	(SESE_EXIT): Remove.
+	(SESE_EXIT_BB): Remove.
+	(sese_contains_loop): Use an sese_info_p.
+	(sese_nb_params): Same.
+	(bb_in_sese_p): Use an sese_l.
+	(stmt_in_sese_p): Same.
+	(defined_in_sese_p): Same.
+	(loop_in_sese_p): Same.
+	(sese_loop_depth): Same.
+	(struct ifsese_s): Use an sese_info_p.
+	(gbb_loop_at_index): Use an sese_l.
+	(nb_common_loops): Same.
+	(scev_analyzable_p): Same.
+
+2015-10-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_conditional_register_usage): Use
+	CALL_USED_REGISTERS_MASK.
+	* config/i386/i386.h (CALL_USED_REGISTERS_MASK): New macro.
+
+2015-10-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/67385
+	* configure.ac (gcc_cv_readelf): Check $READELF_FOR_TARGET.
+	* configure: Regenerated.
+
+2015-10-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/67850
+	* config/i386/i386.c (ix86_maybe_switch_abi): Merged with ...
+	(ix86_set_current_function): This.
+	(TARGET_EXPAND_TO_RTL_HOOK): Removed.
+
+2015-10-07  Richard Biener  <rguenther@suse.de>
+
+	* tree-vectorizer.h (stmt_vec_info_vec): Use vec<stmt_vec_info>.
+	(vinfo_for_stmt): Adjust.
+	(set_vinfo_for_stmt): Likewise.
+	* tree-vectorizer.c (stmt_vec_info_vec): Likewise.
+	* tree-vect-stmts.c (free_stmt_vec_info_vec): Likewise.
+	* tree-vect-loop.c (new_loop_vec_info): Remove special-casing
+	of inner loop.
+	(vect_analyze_loop_1): Remove.
+	(vect_analyze_loop_form_1): Avoid building a loop_vec_info for
+	inner loop when vectorizing an outer loop by splitting out from ...
+	(vect_analyze_loop_form): ... here.
+
+2015-10-07  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR c/65345
+	* config/arm/arm-builtins.c (arm_atomic_assign_expand_fenv):
+	Use create_tmp_var_raw instead of create_tmp_var.
+
+2015-10-07  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* real.h (dconst_quarter, dconst_sixth, dconst_ninth): New macros.
+	(dconst_quarter_ptr, dconst_sixth_ptr, dconst_ninth_ptr): Declare.
+	* real.c (CACHED_FRACTION): New helper macro.
+	(dconst_third_ptr): Use it.
+	(dconst_quarter_ptr, dconst_sixth_ptr, dconst_ninth_ptr): New.
+	* builtins.c (fold_builtin_sqrt): Use dconst_quarter and
+	dconst_sixth.
+	(fold_builtin_cbrt): Use dconst_sixth and dconst_ninth.
+
+2015-10-06  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/67816
+	* tree-ssa-threadupdate.h (remove_jump_threads_including): Renamed
+	from remove_jump_threads_starting_at.  Accept an edge rather than
+	a basic block.
+	* tree-ssa-threadupdate.c (removed_edges): New hash table.
+	(remove_jump_threads_including): Note edges that get removed from
+	the CFG for later pruning of jump threading paths including them.
+	(thread_through_all_blocks): Remove paths which include edges that
+	have been removed.
+	* tree-ssa-dom.c (optimize_stmt): Call remove_jump_threads_including
+	on each outgoing edges when optimizing away a control statement.
+
+2015-10-06  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* reorg.c (emit_delay_sequence): Store list of delay slot insns
+	in a vector instead of rtx_insn_list.
+	(add_to_delay_list): Likewise.
+	(delete_from_delay_slot): Likewise.
+	(optimize_skip): Likewise.
+	(redirect_with_delay_list_safe_p): Likewise.
+	(check_annul_list_true_false): Likewise.
+	(steal_delay_list_from_target): Likewise.
+	(steal_delay_list_from_fallthrough): Likewise.
+	(redundant_insn): Likewise.
+	(fill_simple_delay_slots): Likewise.
+	(fill_slots_from_thread): Likewise.
+	(fill_eager_delay_slots): Likewise.
+	(relax_delay_slots): Likewise.
+
+2015-10-06  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* config/nios2/nios2.c (nios2_symbol_ref_in_small_data_p):
+	For -mgpopt=local, also exclude unintialized common symbols.
+	* doc/invoke.texi (Nios II Options): Document the change.
+
+2015-10-07  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* config/aarch64/iterators.md (vwcore): Add missing cases for
+	 V4HF/V8HF modes.
+
+2015-10-06  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-poly.c (new_scop): Initialize drs.
+	* graphite-poly.h (struct dr_info): New.
+	(struct scop): Add drs.
+	* graphite-sese-to-poly.c (pdr_add_alias_set): Use dr_info.
+	(pdr_add_memory_accesses): Same.
+	(build_poly_dr): Same.
+	(build_alias_set): Same.
+	(build_scop_drs): Same.
+	(build_pbb_drs): Remove.
+	* tree-data-ref.c (create_data_ref): Do not initialize alias_set.
+	* tree-data-ref.h (data_reference): Remove alias_set.
+
+2015-10-06  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-poly.c (free_data_refs_aux): Remove.
+	(free_gimple_poly_bb): Do not call free_data_refs_aux.
+	* graphite-poly.h (struct base_alias_pair): Remove.
+	* graphite-sese-to-poly.c (pdr_add_alias_set): Remove all uses of
+	base_alias_pair and dr->aux.
+	(build_alias_set): Same.
+	* tree-data-ref.c (create_data_ref): Initialize alias_set.
+	* tree-data-ref.h (data_reference): Add alias_set.
+
+2015-10-06  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-poly.c (new_poly_dr): Remove dr_base_object_set.
+	Do not set PDR_BASE_OBJECT_SET.
+	* graphite-poly.h (poly_dr): Same.
+	(PDR_BASE_OBJECT_SET): Remove.
+	(new_poly_dr): Update decl.
+	* graphite-sese-to-poly.c (build_poly_dr): Update call to
+	new_poly_dr.
+	(write_alias_graph_to_ascii_dimacs): Remove.
+	(write_alias_graph_to_ascii_dot): Remove.
+	(write_alias_graph_to_ascii_ecc): Remove.
+	(dr_same_base_object_p): Remove.
+	(build_alias_set_optimal_p): Rename build_alias_set.  Remove dead
+	code.
+	(build_base_obj_set_for_drs): Remove.
+	(dump_alias_graphs): Remove.
+	(build_scop_drs): Remove dead code.
+
+2015-10-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/67808
+	* config/rs6000/rs6000.md (extenddftf2): In the expander, only
+	allow registers, but provide insns for the combiner to create for
+	loads from memory. Separate VSX code from non-VSX code. For
+	non-VSX code, combine extenddftf2_fprs into extenddftf2 and rename
+	externaldftf2_internal to externaldftf2_fprs. Reorder constraints
+	so that registers come before memory operations. Drop support from
+	converting DFmode to TFmode, if the DFmode value is in a GPR
+	register.
+	(extenddftf2_fprs): Likewise.
+	(extenddftf2_internal): Likewise.
+	(extenddftf2_vsx): Likewise.
+	(extendsftf2): In the expander, only allow registers, but provide
+	insns for the combiner to create for stores and loads.
+
+2015-10-06  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* varasm.c (default_elf_asm_named_section): Remove ATTRIBUTE_UNUSED
+	from the decl parameter.
+
+2015-10-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR 67861
+	* gimple-fold.c (gimple_fold_builtin): Add break after
+	BUILT_IN_PRINTF_CHK, BUILT_IN_VPRINTF_CHK folding.
+
+2015-10-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* graphite-optimize-isl.c (optimize_isl): Rename scop->ctx
+	to scop->isl_context.
+
+2015-10-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/arm/arm.c (arm_emit_probe_stack_range): Adjust comment.
+	(output_probe_stack_range): Rotate the loop and simplify.
+	(thumb1_expand_prologue): Tweak sorry message.
+	* config/arm/arm.md (probe_stack): Use bare string.
+
+2015-10-06  Nick Clifton  <nickc@redhat.com>
+
+	* config.gcc (lm32-elf): Add newlib-stdint.h to tm_file.
+
+2015-10-06  Nick Clifton  <nickc@redhat.com>
+
+	* config/msp430/msp430.c (ATTR_NOINIT): New constant.
+	(ATTR_PERSIST): New constant.
+	(msp430_data_attr): New function - verifies an attribute that only
+	applies to variables.
+	(msp430_attributes): Add noinit and persistent attributes.
+	(noinit_section): New variable.
+	(presis_section): New variable.
+	(TARGET_ASM_INIT_SECTIONS): Define.
+	(msp430_init_sections): New function - initialises the noinit and
+	persist section variables.
+	(msp430_select_section): Add support for noinit and persist
+	attributes.
+	(msp430_section_type_flags): Likewise.
+	* doc/extend.texi:  Document the reent, critical, wakeup, noinit
+	and persistent attributes.
+
+2015-10-05  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-dependences.c (scop_get_transformed_schedule): Remove.
+	(no_violations): Remove.
+	(subtract_commutative_associative_deps): Remove.
+	(compute_deps): Do not call subtract_commutative_associative_deps.
+	(transform_is_safe): Remove.
+	(graphite_legal_transform): Remove.
+	* graphite-poly.h (graphite_legal_transform): Remove.
+
+2015-10-05  Aditya Kumar  <hiraditya@msn.com>
+
+	* graphite-sese-to-poly.c (build_loop_iteration_domains): Only loops
+	which are in this region are passed so gcc_assert and remove redundant
+	computation.
+	* sese.c (sese_build_liveouts): Pass only those bbs which are not
+	in region.
+	(sese_bad_liveouts_use): Only BBs which are not in region are passed so
+	gcc_assert on that and remove unnecessary computation.
+	(sese_build_liveouts_use): Same.
+
+2015-10-05  Aditya Kumar  <aditya.k7@samsung.com>
+
+	* graphite-dependences.c (scop_get_reads): Renamed scop->context
+	to scop->param_context.
+	(scop_get_must_writes): Same.
+	(scop_get_may_writes): Same.
+	(scop_get_original_schedule): Same.
+	(scop_get_transformed_schedule): Same.
+	(subtract_commutative_associative_deps): Same.
+	* graphite-isl-ast-to-gimple.c (add_parameters_to_ivs_params): Same.
+	(generate_isl_context): Same.
+	(generate_isl_schedule): Same.
+	(scop_to_isl_ast): Same.
+	(graphite_regenerate_ast_isl): Same.
+	* graphite-optimize-isl.c (scop_get_domains): Same.
+	(optimize_isl): Renamed scop->context to scop->param_context.
+	* graphite-poly.c (new_poly_bb): Change the type of argument to
+	gimple_poly_bb_p.
+	(new_scop): Renamed scop->context to scop->param_context.
+	(free_scop): Same.
+	(print_scop_context): Same.
+	* graphite-poly.h (new_poly_dr): Change the type of argument from
+	void* to data_reference_p.
+	(struct poly_bb): Change the type of black_box to gimple_poly_bb_p.
+	(new_poly_bb): Change the type of argument from void* to
+	gimple_poly_bb_p.
+	(pbb_set_black_box): Same.
+	(struct scop): Rename context to param_context, ctx to isl_context.
+	* graphite-scop-detection.c (scop_detection::build_scop_bbs_1):
+	Move declarations closer to assignment.
+	(find_params_in_bb): Same.
+	(find_scop_parameters): Same.
+	* graphite-sese-to-poly.c (unsigned ssa_name_version_typesize):
+	Global to be used for statement IDs.
+	(isl_id_for_pbb): Use ssa_name_version_typesize.
+	(simple_copy_phi_p): Move declarations closer to assignment.
+	(build_pbb_scattering_polyhedrons): Same.
+	(build_scop_scattering): Same.
+	(isl_id_for_ssa_name): Same.
+	(extract_affine_name): Same.
+	(extract_affine_int): Same.
+	(extract_affine): Same.
+	(set_scop_parameter_dim): Use renamed member.
+	(build_loop_iteration_domains): Same.
+	(add_param_constraints): Same.
+	(build_scop_iteration_domain): Same.
+	(pdr_add_data_dimensions): Same.
+	(build_poly_dr): Same.
+	(build_scop_drs): Move declarations closer to assignment.
+	(analyze_drs_in_stmts): Same.
+	(insert_out_of_ssa_copy): Same.
+	(insert_out_of_ssa_copy_on_edge): Same.
+	(propagate_expr_outside_region): Same.
+	(rewrite_phi_out_of_ssa): Same.
+	(rewrite_degenerate_phi): Same.
+	(rewrite_reductions_out_of_ssa): Same.
+	(rewrite_cross_bb_scalar_dependence): Same.
+	(handle_scalar_deps_crossing_scop_limits): Same.
+	(rewrite_cross_bb_scalar_deps): Same.
+	* graphite.c (graphite_transform_loops): Use renamed member.
+
+2015-10-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR c/65345
+	* config/alpha/alpha.c (alpha_atomic_assign_expand_fenv): Use
+	create_tmp_var_raw instead of create_tmp_var.
+
+2015-10-06  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR c/65345
+	* config/aarch64/aarch64-builtins.c (aarch64_atomic_assign_expand_fenv):
+	Use create_tmp_var_raw instead of create_tmp_var.
+
+2015-10-06  Alexander Fomin  <alexander.fomin@intel.com>
+
+	PR target/67849
+	* config/i386/sse.md (define_split vec_select/V8FI): Restrict
+	split for upper-bank registers when target does not support
+	AVX512VL.
+	(define_insn "vec_extract_lo_<mode><mask_name>"): Restrict
+	split when target does not support AVX512VL.
+
+2015-10-06  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR c/65345
+	* config/rs6000/rs6000.c (rs6000_atomic_assign_expand_fenv):
+	Adjust to use create_tmp_var_raw instead of create_tmp_var.
+
+2015-10-06  Nick Clifton  <nickc@redhat.com>
+
+	* config/rl78/rl78.c (rl78_rtx_costs): Improve cost estimates for
+	multiplication.
+
+2015-10-06  Venkataramanan Kumar  <Venkataramanan.kumar@amd.com>
+
+	* config.gcc (i[34567]86-*-linux* | ...): Add znver1.
+	(case ${target}): Add znver1.
+	* config/i386/cpuid.h(bit_CLZERO):  Define.
+	* config/i386/driver-i386.c: (host_detect_local_cpu): Let
+	-march=native recognize znver1 processors.
+	* config/i386/i386-c.c (ix86_target_macros_internal): Add
+	znver1, clzero def_and_undef.
+	* config/i386/i386.c (struct processor_costs znver1_cost): New.
+	(m_znver1): New definition.
+	(m_AMD_MULTIPLE): Includes m_znver1.
+	(processor_target_table): Add znver1 entry.
+	(ix86_target_string) : Add clzero entry.
+	(static const char *const cpu_names): Add znver1 entry.
+	(ix86_option_override_internal): Add znver1 instruction sets.
+	(PTA_CLZERO) :  New definition.
+	(ix86_option_override_internal): Handle new clzerooption.
+	(ix86_issue_rate): Add znver1.
+	(ix86_adjust_cost): Add znver1.
+	(ia32_multipass_dfa_lookahead): Add znver1.
+	(has_dispatch): Add znver1.
+	* config/i386/i386.h (TARGET_znver1): New definition.
+	(TARGET_CLZERO): Define.
+	(TARGET_CLZERO_P): Define.
+	(struct ix86_size_cost): Add TARGET_ZNVER1.
+	(enum processor_type): Add PROCESSOR_znver1.
+	* config/i386/i386.md (define_attr "cpu"): Add znver1.
+	(set_attr znver1_decode): New definitions for znver1.
+	* config/i386/i386.opt (flag_dispatch_scheduler): Add znver1.
+	(mclzero): New.
+	* config/i386/mmx.md (set_attr znver1_decode): New definitions
+	for znver1.
+	* config/i386/sse.md (set_attr znver1_decode): Likewise.
+	* config/i386/x86-tune.def:  Add znver1 tunings.
+	* config/i386/znver1.md: Introduce znver1 cpu and include new md file.
+	* gcc/doc/invoke.texi: Add details about znver1
+
+2015-10-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67859
+	* tree-ssa-pre.c (create_expression_by_pieces): Properly
+	discard not inserted stmts.
+
+2015-10-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/extend.texi (Template Instantiation): Reorder options and
+	de-emphasize -frepo.
+	* doc/invoke.texi (C++ Dialect Options): Use -fstrict-enums in
+	example instead of -frepo.
+
+2015-10-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR c/65345
+	* config/sparc/sparc.c (sparc_atomic_assign_expand_fenv): Adjust to
+	use create_tmp_var_raw rather than create_tmp_var.
+
+2015-10-06  Richard Biener  <rguenther@suse.de>
+
+	* tree-vectorizer.h (vec_info): New base class for...
+	(_loop_vec_info): ... this and ...
+	(_bb_vec_info): ... this.
+	(vect_is_simple_use, vect_is_simple_use_1, new_stmt_vec_info,
+	vect_analyze_data_refs_alignment, vect_verify_datarefs_alignment,
+	vect_analyze_data_ref_accesses, vect_analyze_data_refs,
+	vect_schedule_slp, vect_analyze_slp, vect_pattern_recog,
+	vect_destroy_datarefs): Adjust interface to take a vec_info *
+	rather than both a loop_vec_info and a bb_vec_info argument.
+	* tree-vect-data-refs.c (vect_compute_data_refs_alignment,
+	vect_verify_datarefs_alignment, vect_enhance_data_refs_alignment,
+	vect_analyze_data_refs_alignment, vect_analyze_data_ref_accesses,
+	vect_analyze_data_refs, vect_create_data_ref_ptr): Adjust
+	accordingly.
+	* tree-vect-loop.c (new_loop_vec_info): Initialize base class.
+	(destroy_loop_vec_info, vect_analyze_loop_2,
+	vect_is_simple_reduction_1, get_initial_def_for_induction,
+	vect_create_epilog_for_reduction, vectorizable_reduction,
+	vectorizable_live_operation, vect_transform_loop): Adjust.
+	* tree-vect-patterns.c (type_conversion_p,
+	vect_recog_widen_mult_pattern, vect_recog_widen_shift_pattern,
+	vect_recog_rotate_pattern, vect_recog_vector_vector_shift_pattern,
+	vect_recog_divmod_pattern, vect_recog_mixed_size_cond_pattern,
+	check_bool_pattern, vect_recog_bool_pattern,
+	vect_mark_pattern_stmts, vect_pattern_recog): Likewise.
+	* tree-vect-slp.c (vect_get_and_check_slp_defs,
+	vect_build_slp_tree_1, vect_build_slp_tree, vect_analyze_slp_cost_1,
+	vect_analyze_slp_instance, vect_analyze_slp, destroy_bb_vec_info,
+	vect_slp_analyze_bb_1, vect_schedule_slp): Likewise.
+	(new_bb_vec_info): Initialize base classs.
+	* tree-vect-stmts.c (record_stmt_cost, process_use,
+	vect_get_vec_def_for_operand, vect_finish_stmt_generation,
+	vectorizable_mask_load_store, vectorizable_call,
+	vectorizable_simd_clone_call, vectorizable_conversion,
+	vectorizable_assignment, vectorizable_shift,
+	vectorizable_operation, vectorizable_store,
+	vectorizable_load, vect_is_simple_cond, vectorizable_condition,
+	new_stmt_vec_info, vect_is_simple_use, vect_is_simple_use_1): Likewise.
+	* tree-vectorizer.c (vect_destroy_datarefs): Likewise.
+
+2015-10-05  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR c/65345
+	* config/sh/sh.c (sh_atomic_assign_expand_fenv): Adjust to use
+	create_tmp_var_raw rather than create_tmp_var.
+
 2015-10-05  Marek Polacek  <polacek@redhat.com>
 
 	* tree-ssa-loop-im.c
@@ -8,7 +1532,7 @@
 2015-10-05  Aditya Kumar  <aditya.k7@samsung.com>
 	    Sebastian Pop  <s.pop@samsung.com>
 
-        * params.def (PARAM_GRAPHITE_MAX_NB_SCOP_PARAMS): Increase to 7.
+	* params.def (PARAM_GRAPHITE_MAX_NB_SCOP_PARAMS): Increase to 7.
 
 2015-10-05  Aditya Kumar  <aditya.k7@samsung.com>
 	    Sebastian Pop  <s.pop@samsung.com>
@@ -480,6 +2004,7 @@
 	readability.
 
 2015-10-02  Kirill Yukhin  <kirill.yukhin@intel.com>
+
 	* config/i386/i386.c (processor_features): Add F_AVX512VBMI,
 	F_AVX512IFMA.
 	(isa_names_table): Handle F_AVX512VBMI and F_AVX512IFMA.
@@ -618,7 +2143,8 @@
 	* graphite-poly.c (new_poly_bb): Same.
 	* graphite-poly.h (gbb_from_bb): Same.
 	* sese.h: Same.
-	* graphite-sese-to-poly.c (new_gimple_bb): gimple_bb_p -> gimple_poly_bb_p
+	* graphite-sese-to-poly.c (new_gimple_bb):
+	gimple_bb_p -> gimple_poly_bb_p
 	(build_scop_scattering): Same.
 	(find_params_in_bb): Same.
 	(add_conditions_to_domain): Same.

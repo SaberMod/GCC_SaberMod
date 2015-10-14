@@ -57,42 +57,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "graphite-scop-detection.h"
 #include "gimple-pretty-print.h"
 
-/* Lightweight representation of sese for scop detection.
-   TODO: Make all this as a constant_edge.  */
-struct sese_l
-{
-  sese_l (edge e, edge x) : entry (e), exit (x) {}
-
-  /* This is to push objects of sese_l in a vec.  */
-  sese_l (int i) : entry (NULL), exit (NULL) { gcc_assert (i == 0); }
-
-  operator bool () const { return entry && exit; }
-
-  const sese_l &
-  operator= (const sese_l &s)
-  {
-    entry = s.entry;
-    exit = s.exit;
-    return *this;
-  }
-
-  edge entry;
-  edge exit;
-};
-
-/* APIs for getting entry/exit of an sese.  */
-static basic_block
-get_entry_bb (edge e)
-{
-  return e->dest;
-}
-
-static basic_block
-get_exit_bb (edge e)
-{
-  return e->src;
-}
-
 class debug_printer
 {
 private:
@@ -148,34 +112,6 @@ same_close_phi_node (gphi *p1, gphi *p2)
 {
   return operand_equal_p (gimple_phi_arg_def (p1, 0),
 			  gimple_phi_arg_def (p2, 0), 0);
-}
-
-/* Compare the depth of two basic_block's P1 and P2.  */
-
-static int
-compare_bb_depths (const void *p1, const void *p2)
-{
-  const_basic_block const bb1 = *(const_basic_block const *)p1;
-  const_basic_block const bb2 = *(const_basic_block const *)p2;
-  int d1 = loop_depth (bb1->loop_father);
-  int d2 = loop_depth (bb2->loop_father);
-
-  if (d1 < d2)
-    return 1;
-
-  if (d1 > d2)
-    return -1;
-
-  return 0;
-}
-
-/* Sort the basic blocks from DOM such that the first are the ones at
-   a deepest loop level.  */
-
-static void
-graphite_sort_dominated_info (vec<basic_block> dom)
-{
-  dom.qsort (compare_bb_depths);
 }
 
 static void make_close_phi_nodes_unique (basic_block bb);
@@ -546,25 +482,6 @@ public:
 
   static bool can_represent_loop (loop_p loop, sese_l scop);
 
-  /* Generates a polyhedral black box only if the bb contains interesting
-     information.  */
-
-  static gimple_poly_bb_p try_generate_gimple_bb (scop_p scop, basic_block bb);
-
-  /* Returns true if all predecessors of BB, that are not dominated by BB, are
-     marked in MAP.  The predecessors dominated by BB are loop latches and will
-     be handled after BB.  */
-
-  static bool all_non_dominated_preds_marked_p (basic_block bb, sbitmap map);
-
-  /* Recursive helper function for build_scops_bbs.  */
-
-  static void build_scop_bbs_1 (scop_p scop, sbitmap visited, basic_block bb);
-
-  /* Gather the basic blocks belonging to the SCOP.  */
-
-  static void build_scop_bbs (scop_p scop);
-
   /* Returns the number of pbbs that are in loops contained in SCOP.  */
 
   static int nb_pbbs_in_loops (scop_p scop);
@@ -685,16 +602,16 @@ scop_detection::merge_sese (sese_l first, sese_l second) const
   /* Find the common dominators for entry,
      and common post-dominators for the exit.  */
   basic_block dom = nearest_common_dominator (CDI_DOMINATORS,
-					      get_entry_bb (first.entry),
-					      get_entry_bb (second.entry));
+					      get_entry_bb (first),
+					      get_entry_bb (second));
 
   edge entry = get_nearest_dom_with_single_entry (dom);
   if (!entry)
     return invalid_sese;
 
   basic_block pdom = nearest_common_dominator (CDI_POST_DOMINATORS,
-					       get_exit_bb (first.exit),
-					       get_exit_bb (second.exit));
+					       get_exit_bb (first),
+					       get_exit_bb (second));
   pdom = nearest_common_dominator (CDI_POST_DOMINATORS, dom, pdom);
 
   edge exit = get_nearest_pdom_with_single_exit (pdom);
@@ -714,10 +631,10 @@ scop_detection::merge_sese (sese_l first, sese_l second) const
   /* For now we just want to bail out when exit does not post-dominate entry.
      TODO: We might just add a basic_block at the exit to make exit
      post-dominate entry (the entire region).  */
-  if (!dominated_by_p (CDI_POST_DOMINATORS, get_entry_bb (entry),
-		       get_exit_bb (exit))
-      || !dominated_by_p (CDI_DOMINATORS, get_exit_bb (exit),
-			  get_entry_bb (entry)))
+  if (!dominated_by_p (CDI_POST_DOMINATORS, get_entry_bb (combined),
+		       get_exit_bb (combined))
+      || !dominated_by_p (CDI_DOMINATORS, get_exit_bb (combined),
+			  get_entry_bb (combined)))
     {
       DEBUG_PRINT (dp << "[scop-detection-fail] cannot merge seses.\n");
       return invalid_sese;
@@ -726,7 +643,7 @@ scop_detection::merge_sese (sese_l first, sese_l second) const
   /* FIXME: We should remove this piece of code once
      canonicalize_loop_closed_ssa has been removed, because that function
      adds a BB with single exit.  */
-  if (!trivially_empty_bb_p (get_exit_bb (combined.exit)))
+  if (!trivially_empty_bb_p (get_exit_bb (combined)))
     {
       /* Find the first empty succ (with single exit) of combined.exit.  */
       basic_block imm_succ = combined.exit->dest;
@@ -898,7 +815,7 @@ scop_detection::add_scop (sese_l s)
       return;
     }
 
-  if (get_exit_bb (s.exit) == EXIT_BLOCK_PTR_FOR_FN (cfun))
+  if (get_exit_bb (s) == EXIT_BLOCK_PTR_FOR_FN (cfun))
     {
       DEBUG_PRINT (dp << "\n[scop-detection-fail] "
 		      << "Discarding SCoP exiting to return";
@@ -924,8 +841,8 @@ scop_detection::add_scop (sese_l s)
 bool
 scop_detection::harmful_stmt_in_region (sese_l scop) const
 {
-  basic_block exit_bb = get_exit_bb (scop.exit);
-  basic_block entry_bb = get_entry_bb (scop.entry);
+  basic_block exit_bb = get_exit_bb (scop);
+  basic_block entry_bb = get_entry_bb (scop);
 
   DEBUG_PRINT (dp << "\n[checking-harmful-bbs] ";
 	       print_sese (dump_file, scop));
@@ -959,10 +876,10 @@ scop_detection::harmful_stmt_in_region (sese_l scop) const
 bool
 scop_detection::subsumes (sese_l s1, sese_l s2)
 {
-  if (dominated_by_p (CDI_DOMINATORS, get_entry_bb (s2.entry),
-		      get_entry_bb (s1.entry))
-      && dominated_by_p (CDI_POST_DOMINATORS, get_entry_bb (s2.exit),
-			 get_entry_bb (s1.exit)))
+  if (dominated_by_p (CDI_DOMINATORS, get_entry_bb (s2),
+		      get_entry_bb (s1))
+      && dominated_by_p (CDI_POST_DOMINATORS, s2.exit->dest,
+			 s1.exit->dest))
     return true;
   return false;
 }
@@ -990,10 +907,10 @@ scop_detection::remove_subscops (sese_l s1)
 bool
 scop_detection::intersects (sese_l s1, sese_l s2)
 {
-  if (dominated_by_p (CDI_DOMINATORS, get_entry_bb (s2.entry),
-		      get_entry_bb (s1.entry))
-      && !dominated_by_p (CDI_DOMINATORS, get_entry_bb (s2.entry),
-			  get_exit_bb (s1.exit)))
+  if (dominated_by_p (CDI_DOMINATORS, get_entry_bb (s2),
+		      get_entry_bb (s1))
+      && !dominated_by_p (CDI_DOMINATORS, get_entry_bb (s2),
+			  get_exit_bb (s1)))
     return true;
   if ((s1.exit == s2.entry) || (s2.exit == s1.entry))
     return true;
@@ -1138,9 +1055,7 @@ bool
 scop_detection::graphite_can_represent_expr (sese_l scop, loop_p loop,
 					     tree expr)
 {
-  sese region = new_sese (scop.entry, scop.exit);
-  tree scev = scalar_evolution_in_region (region, loop, expr);
-  free_sese (region);
+  tree scev = scalar_evolution_in_region (scop, loop, expr);
   return graphite_can_represent_scev (scev);
 }
 
@@ -1150,8 +1065,7 @@ scop_detection::graphite_can_represent_expr (sese_l scop, loop_p loop,
 bool
 scop_detection::stmt_has_simple_data_refs_p (sese_l scop, gimple *stmt)
 {
-  sese region = new_sese (scop.entry, scop.exit);
-  loop_p nest = outermost_loop_in_sese (region, gimple_bb (stmt));
+  loop_p nest = outermost_loop_in_sese (scop, gimple_bb (stmt));
   loop_p loop = loop_containing_stmt (stmt);
   vec<data_reference_p> drs = vNULL;
 
@@ -1360,9 +1274,9 @@ dot_all_scops_1 (FILE *file, vec<scop_p> scops)
       /* Select color for SCoP.  */
       FOR_EACH_VEC_ELT (scops, i, scop)
 	{
-	  sese region = SCOP_REGION (scop);
-	  if (bb_in_sese_p (bb, region) || (SESE_EXIT_BB (region) == bb)
-	      || (SESE_ENTRY_BB (region) == bb))
+	  sese_l region = scop->region->region;
+	  if (bb_in_sese_p (bb, region) || (region.exit->dest == bb)
+	      || (region.entry->dest == bb))
 	    {
 	      switch (i % 17)
 		{
@@ -1427,11 +1341,11 @@ dot_all_scops_1 (FILE *file, vec<scop_p> scops)
 	      if (!bb_in_sese_p (bb, region))
 		fprintf (file, " (");
 
-	      if (bb == SESE_ENTRY_BB (region) && bb == SESE_EXIT_BB (region))
+	      if (bb == region.entry->dest && bb == region.exit->dest)
 		fprintf (file, " %d*# ", bb->index);
-	      else if (bb == SESE_ENTRY_BB (region))
+	      else if (bb == region.entry->dest)
 		fprintf (file, " %d* ", bb->index);
-	      else if (bb == SESE_EXIT_BB (region))
+	      else if (bb == region.exit->dest)
 		fprintf (file, " %d# ", bb->index);
 	      else
 		fprintf (file, " %d ", bb->index);
@@ -1559,105 +1473,6 @@ scop_detection::loop_body_is_valid_scop (loop_p loop, sese_l scop) const
   return true;
 }
 
-/* Generates a polyhedral black box only if the bb contains interesting
-   information.  */
-
-gimple_poly_bb_p
-scop_detection::try_generate_gimple_bb (scop_p scop, basic_block bb)
-{
-  vec<data_reference_p> drs;
-  drs.create (5);
-  sese region = SCOP_REGION (scop);
-  loop_p nest = outermost_loop_in_sese (region, bb);
-
-  loop_p loop = bb->loop_father;
-  if (!loop_in_sese_p (loop, region))
-    loop = nest;
-
-  gimple_stmt_iterator gsi;
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-    {
-      gimple *stmt = gsi_stmt (gsi);
-      if (is_gimple_debug (stmt))
-	continue;
-
-      graphite_find_data_references_in_stmt (nest, loop, stmt, &drs);
-    }
-
-  return new_gimple_poly_bb (bb, drs);
-}
-
-/* Returns true if all predecessors of BB, that are not dominated by BB, are
-   marked in MAP.  The predecessors dominated by BB are loop latches and will
-   be handled after BB.  */
-
-bool
-scop_detection::all_non_dominated_preds_marked_p (basic_block bb, sbitmap map)
-{
-  edge e;
-  edge_iterator ei;
-
-  FOR_EACH_EDGE (e, ei, bb->preds)
-    if (!bitmap_bit_p (map, e->src->index)
-	&& !dominated_by_p (CDI_DOMINATORS, e->src, bb))
-      return false;
-
-  return true;
-}
-
-/* Recursive helper function for build_scops_bbs.  */
-
-void
-scop_detection::build_scop_bbs_1 (scop_p scop, sbitmap visited, basic_block bb)
-{
-  sese region = SCOP_REGION (scop);
-  vec<basic_block> dom;
-  poly_bb_p pbb;
-
-  if (bitmap_bit_p (visited, bb->index) || !bb_in_sese_p (bb, region))
-    return;
-
-  pbb = new_poly_bb (scop, try_generate_gimple_bb (scop, bb));
-  SCOP_BBS (scop).safe_push (pbb);
-  bitmap_set_bit (visited, bb->index);
-
-  dom = get_dominated_by (CDI_DOMINATORS, bb);
-
-  if (!dom.exists ())
-    return;
-
-  graphite_sort_dominated_info (dom);
-
-  while (!dom.is_empty ())
-    {
-      int i;
-      basic_block dom_bb;
-
-      FOR_EACH_VEC_ELT (dom, i, dom_bb)
-	if (all_non_dominated_preds_marked_p (dom_bb, visited))
-	  {
-	    build_scop_bbs_1 (scop, visited, dom_bb);
-	    dom.unordered_remove (i);
-	    break;
-	  }
-    }
-
-  dom.release ();
-}
-
-/* Gather the basic blocks belonging to the SCOP.  */
-
-void
-scop_detection::build_scop_bbs (scop_p scop)
-{
-  sbitmap visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
-  sese region = SCOP_REGION (scop);
-
-  bitmap_clear (visited);
-  build_scop_bbs_1 (scop, visited, SESE_ENTRY_BB (region));
-  sbitmap_free (visited);
-}
-
 /* Returns the number of pbbs that are in loops contained in SCOP.  */
 
 int
@@ -1667,8 +1482,8 @@ scop_detection::nb_pbbs_in_loops (scop_p scop)
   poly_bb_p pbb;
   int res = 0;
 
-  FOR_EACH_VEC_ELT (SCOP_BBS (scop), i, pbb)
-    if (loop_in_sese_p (gbb_loop (PBB_BLACK_BOX (pbb)), SCOP_REGION (scop)))
+  FOR_EACH_VEC_ELT (scop->pbbs, i, pbb)
+    if (loop_in_sese_p (gbb_loop (PBB_BLACK_BOX (pbb)), scop->region->region))
       res++;
 
   return res;
@@ -1678,7 +1493,7 @@ scop_detection::nb_pbbs_in_loops (scop_p scop)
    Otherwise returns -1.  */
 
 static inline int
-parameter_index_in_region_1 (tree name, sese region)
+parameter_index_in_region_1 (tree name, sese_info_p region)
 {
   int i;
   tree p;
@@ -1697,7 +1512,7 @@ parameter_index_in_region_1 (tree name, sese region)
    and returns the index of NAME.  */
 
 static int
-parameter_index_in_region (tree name, sese region)
+parameter_index_in_region (tree name, sese_info_p region)
 {
   int i;
 
@@ -1707,14 +1522,12 @@ parameter_index_in_region (tree name, sese region)
   if (TREE_CODE (TREE_TYPE (name)) != INTEGER_TYPE)
     return -1;
 
-  if (!invariant_in_sese_p_rec (name, region))
+  if (!invariant_in_sese_p_rec (name, region->region))
     return -1;
 
   i = parameter_index_in_region_1 (name, region);
   if (i != -1)
     return i;
-
-  gcc_assert (SESE_ADD_PARAMS (region));
 
   i = SESE_PARAMS (region).length ();
   SESE_PARAMS (region).safe_push (name);
@@ -1727,7 +1540,7 @@ parameter_index_in_region (tree name, sese region)
    parameters.  */
 
 static void
-scan_tree_for_params (sese s, tree e)
+scan_tree_for_params (sese_info_p s, tree e)
 {
   if (e == chrec_dont_know)
     return;
@@ -1780,25 +1593,23 @@ scan_tree_for_params (sese s, tree e)
    access functions, conditions and loop bounds.  */
 
 static void
-find_params_in_bb (sese region, gimple_poly_bb_p gbb)
+find_params_in_bb (sese_info_p region, gimple_poly_bb_p gbb)
 {
-  int i;
-  unsigned j;
-  data_reference_p dr;
-  gimple *stmt;
-  loop_p loop = GBB_BB (gbb)->loop_father;
-
   /* Find parameters in the access functions of data references.  */
+  int i;
+  data_reference_p dr;
   FOR_EACH_VEC_ELT (GBB_DATA_REFS (gbb), i, dr)
-    for (j = 0; j < DR_NUM_DIMENSIONS (dr); j++)
+    for (unsigned j = 0; j < DR_NUM_DIMENSIONS (dr); j++)
       scan_tree_for_params (region, DR_ACCESS_FN (dr, j));
 
   /* Find parameters in conditional statements.  */
+  gimple *stmt;
+  loop_p loop = GBB_BB (gbb)->loop_father;
   FOR_EACH_VEC_ELT (GBB_CONDITIONS (gbb), i, stmt)
     {
-      tree lhs = scalar_evolution_in_region (region, loop,
+      tree lhs = scalar_evolution_in_region (region->region, loop,
 					     gimple_cond_lhs (stmt));
-      tree rhs = scalar_evolution_in_region (region, loop,
+      tree rhs = scalar_evolution_in_region (region->region, loop,
 					     gimple_cond_rhs (stmt));
 
       scan_tree_for_params (region, lhs);
@@ -1812,11 +1623,9 @@ find_params_in_bb (sese region, gimple_poly_bb_p gbb)
 static void
 find_scop_parameters (scop_p scop)
 {
-  poly_bb_p pbb;
   unsigned i;
-  sese region = SCOP_REGION (scop);
+  sese_info_p region = scop->region;
   struct loop *loop;
-  int nbp;
 
   /* Find the parameters used in the loop bounds.  */
   FOR_EACH_VEC_ELT (SESE_LOOP_NEST (region), i, loop)
@@ -1826,34 +1635,63 @@ find_scop_parameters (scop_p scop)
       if (!chrec_contains_symbols (nb_iters))
 	continue;
 
-      nb_iters = scalar_evolution_in_region (region, loop, nb_iters);
+      nb_iters = scalar_evolution_in_region (region->region, loop, nb_iters);
       scan_tree_for_params (region, nb_iters);
     }
 
   /* Find the parameters used in data accesses.  */
-  FOR_EACH_VEC_ELT (SCOP_BBS (scop), i, pbb)
+  poly_bb_p pbb;
+  FOR_EACH_VEC_ELT (scop->pbbs, i, pbb)
     find_params_in_bb (region, PBB_BLACK_BOX (pbb));
 
-  nbp = sese_nb_params (region);
+  int nbp = sese_nb_params (region);
   scop_set_nb_params (scop, nbp);
-  SESE_ADD_PARAMS (region) = false;
 }
 
-class sese_dom_walker : public dom_walker
+/* Generates a polyhedral black box only if the bb contains interesting
+   information.  */
+
+static gimple_poly_bb_p
+try_generate_gimple_bb (scop_p scop, basic_block bb)
+{
+  vec<data_reference_p> drs;
+  drs.create (5);
+  sese_l region = scop->region->region;
+  loop_p nest = outermost_loop_in_sese (region, bb);
+
+  loop_p loop = bb->loop_father;
+  if (!loop_in_sese_p (loop, region))
+    loop = nest;
+
+  gimple_stmt_iterator gsi;
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      gimple *stmt = gsi_stmt (gsi);
+      if (is_gimple_debug (stmt))
+	continue;
+
+      graphite_find_data_references_in_stmt (nest, loop, stmt, &drs);
+    }
+
+  return new_gimple_poly_bb (bb, drs);
+}
+
+/* Gather BBs and conditions for a SCOP.  */
+class gather_bbs : public dom_walker
 {
 public:
-  sese_dom_walker (cdi_direction, sese);
+  gather_bbs (cdi_direction, scop_p);
 
   virtual void before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
 
 private:
-  auto_vec<gimple *, 3> m_conditions, m_cases;
-  sese m_region;
+  auto_vec<gimple *, 3> conditions, cases;
+  scop_p scop;
 };
 }
-sese_dom_walker::sese_dom_walker (cdi_direction direction, sese region)
-  : dom_walker (direction), m_region (region)
+gather_bbs::gather_bbs (cdi_direction direction, scop_p scop)
+  : dom_walker (direction), scop (scop)
 {
 }
 
@@ -1861,50 +1699,48 @@ sese_dom_walker::sese_dom_walker (cdi_direction direction, sese region)
    blocks.  */
 
 void
-sese_dom_walker::before_dom_children (basic_block bb)
+gather_bbs::before_dom_children (basic_block bb)
 {
-  gimple_poly_bb_p gbb;
-  gcond *stmt;
-
-  if (!bb_in_sese_p (bb, m_region))
+  if (!bb_in_sese_p (bb, scop->region->region))
     return;
 
-  stmt = single_pred_cond_non_loop_exit (bb);
+  gcond *stmt = single_pred_cond_non_loop_exit (bb);
 
   if (stmt)
     {
       edge e = single_pred_edge (bb);
 
-      m_conditions.safe_push (stmt);
+      conditions.safe_push (stmt);
 
       if (e->flags & EDGE_TRUE_VALUE)
-	m_cases.safe_push (stmt);
+	cases.safe_push (stmt);
       else
-	m_cases.safe_push (NULL);
+	cases.safe_push (NULL);
     }
 
-  gbb = gbb_from_bb (bb);
+  scop->region->bbs.safe_push (bb);
 
-  if (gbb)
-    {
-      GBB_CONDITIONS (gbb) = m_conditions.copy ();
-      GBB_CONDITION_CASES (gbb) = m_cases.copy ();
-    }
+  gimple_poly_bb_p gbb = try_generate_gimple_bb (scop, bb);
+  GBB_CONDITIONS (gbb) = conditions.copy ();
+  GBB_CONDITION_CASES (gbb) = cases.copy ();
+
+  poly_bb_p pbb = new_poly_bb (scop, gbb);
+  scop->pbbs.safe_push (pbb);
 }
 
 /* Call-back for dom_walk executed after visiting the dominated
    blocks.  */
 
 void
-sese_dom_walker::after_dom_children (basic_block bb)
+gather_bbs::after_dom_children (basic_block bb)
 {
-  if (!bb_in_sese_p (bb, m_region))
+  if (!bb_in_sese_p (bb, scop->region->region))
     return;
 
   if (single_pred_cond_non_loop_exit (bb))
     {
-      m_conditions.pop ();
-      m_cases.pop ();
+      conditions.pop ();
+      cases.pop ();
     }
 }
 
@@ -1930,7 +1766,9 @@ build_scops (vec<scop_p> *scops)
     {
       scop_p scop = new_scop (s.entry, s.exit);
 
-      sb.build_scop_bbs (scop);
+      /* Record all basic blocks and their conditions in REGION.  */
+      gather_bbs (CDI_DOMINATORS, scop).walk (cfun->cfg->x_entry_block_ptr);
+
       /* Do not optimize a scop containing only PBBs that do not belong
 	 to any loops.  */
       if (sb.nb_pbbs_in_loops (scop) == 0)
@@ -1941,9 +1779,6 @@ build_scops (vec<scop_p> *scops)
 	}
 
       build_sese_loop_nests (scop->region);
-      /* Record all conditions in REGION.  */
-      sese_dom_walker (CDI_DOMINATORS, scop->region).walk
-	(cfun->cfg->x_entry_block_ptr);
 
       find_scop_parameters (scop);
       graphite_dim_t max_dim = PARAM_VALUE (PARAM_GRAPHITE_MAX_NB_SCOP_PARAMS);

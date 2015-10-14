@@ -4986,7 +4986,7 @@ stack_protect_epilogue (void)
 {
   tree guard_decl = targetm.stack_protect_guard ();
   rtx_code_label *label = gen_label_rtx ();
-  rtx x, y, tmp;
+  rtx x, y;
   rtx_insn *seq;
 
   x = expand_normal (crtl->stack_protect_guard);
@@ -5005,9 +5005,9 @@ stack_protect_epilogue (void)
      things moved out of line.  Since this is the only extant case of adding
      a noreturn function at the rtl level, it doesn't seem worth doing ought
      except adding the prediction by hand.  */
-  tmp = get_last_insn ();
+  rtx_insn *tmp = get_last_insn ();
   if (JUMP_P (tmp))
-    predict_insn_def (as_a <rtx_insn *> (tmp), PRED_NORETURN, TAKEN);
+    predict_insn_def (tmp, PRED_NORETURN, TAKEN);
 
   expand_call (targetm.stack_protect_fail (), NULL_RTX, /*ignore=*/true);
   free_temp_slots ();
@@ -5446,18 +5446,6 @@ expand_function_end (void)
 			      decl_rtl);
 	      shift_return_value (GET_MODE (decl_rtl), true, real_decl_rtl);
 	    }
-	  /* If a named return value dumped decl_return to memory, then
-	     we may need to re-do the PROMOTE_MODE signed/unsigned
-	     extension.  */
-	  else if (GET_MODE (real_decl_rtl) != GET_MODE (decl_rtl))
-	    {
-	      int unsignedp = TYPE_UNSIGNED (TREE_TYPE (decl_result));
-	      promote_function_mode (TREE_TYPE (decl_result),
-				     GET_MODE (decl_rtl), &unsignedp,
-				     TREE_TYPE (current_function_decl), 1);
-
-	      convert_move (real_decl_rtl, decl_rtl, unsignedp);
-	    }
 	  else if (GET_CODE (real_decl_rtl) == PARALLEL)
 	    {
 	      /* If expand_function_start has created a PARALLEL for decl_rtl,
@@ -5487,6 +5475,18 @@ expand_function_end (void)
 
 	      emit_move_insn (tmp, decl_rtl);
 	      emit_move_insn (real_decl_rtl, tmp);
+	    }
+	  /* If a named return value dumped decl_return to memory, then
+	     we may need to re-do the PROMOTE_MODE signed/unsigned
+	     extension.  */
+	  else if (GET_MODE (real_decl_rtl) != GET_MODE (decl_rtl))
+	    {
+	      int unsignedp = TYPE_UNSIGNED (TREE_TYPE (decl_result));
+	      promote_function_mode (TREE_TYPE (decl_result),
+				     GET_MODE (decl_rtl), &unsignedp,
+				     TREE_TYPE (current_function_decl), 1);
+
+	      convert_move (real_decl_rtl, decl_rtl, unsignedp);
 	    }
 	  else
 	    emit_move_insn (real_decl_rtl, decl_rtl);
