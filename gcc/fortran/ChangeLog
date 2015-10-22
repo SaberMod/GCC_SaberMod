@@ -1,3 +1,17 @@
+2013-10-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/56852
+	* primary.c (gfc_variable_attr): Avoid ICE on AR_UNKNOWN if any
+	of the index variables are untyped and errors are present.
+
+2015-10-18  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/66385
+	* frontend-passes.c (combine_array_constructor): Return early if
+	inside a FORALL loop.
+
 2015-08-07  Mikael Morin  <mikael@gcc.gnu.org>
 
 	PR fortran/66929

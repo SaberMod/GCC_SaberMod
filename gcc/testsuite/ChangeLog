@@ -1,3 +1,20 @@
+2015-10-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/58754
+	* gfortran.dg/pr58754.f90: New test
+
+2013-10-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/56852
+	* gfortran.dg/pr56852.f90 : New test
+
+2015-10-18  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/66385
+	* gfortran.dg/forall_17.f90:  New test.
+
 2015-10-01  Uros Bizjak  <ubizjak@gmail.com>
 
 	* gcc.dg/lto/pr55113_0.c: Skip on all x86 targets.
