@@ -536,8 +536,6 @@ package body Exp_Aggr is
 
    --   10. No controlled actions need to be generated for components
 
-   --   11. For a VM back end, the array should have no aliased components
-
    function Backend_Processing_Possible (N : Node_Id) return Boolean is
       Typ : constant Entity_Id := Etype (N);
       --  Typ is the correct constrained array subtype of the aggregate
@@ -650,7 +648,8 @@ package body Exp_Aggr is
       --  component associations that actually need tag adjustment, similar
       --  to the test in Component_Not_OK_For_Backend for record aggregates
       --  with tagged components, but not clear whether it's worthwhile ???;
-      --  in the case of the JVM, object tags are handled implicitly)
+      --  in the case of virtual machines (no Tagged_Type_Expansion), object
+      --  tags are handled implicitly).
 
       if Is_Tagged_Type (Component_Type (Typ))
         and then Tagged_Type_Expansion
@@ -661,16 +660,6 @@ package body Exp_Aggr is
       --  Checks 6 (component type must not have bit aligned components)
 
       if Type_May_Have_Bit_Aligned_Components (Component_Type (Typ)) then
-         return False;
-      end if;
-
-      --  Checks 11: Array aggregates with aliased components are currently
-      --  not well supported by the VM backend; disable temporarily this
-      --  backend processing until it is definitely supported.
-
-      if VM_Target /= No_VM
-        and then Has_Aliased_Components (Base_Type (Typ))
-      then
          return False;
       end if;
 
@@ -2534,8 +2523,8 @@ package body Exp_Aggr is
                Set_No_Ctrl_Actions (First (Assign));
 
                --  Assign the tag now to make sure that the dispatching call in
-               --  the subsequent deep_adjust works properly (unless VM_Target,
-               --  where tags are implicit).
+               --  the subsequent deep_adjust works properly (unless
+               --  Tagged_Type_Expansion where tags are implicit).
 
                if Tagged_Type_Expansion then
                   Instr :=
@@ -3665,12 +3654,6 @@ package body Exp_Aggr is
          --  If the low bound is not known at compile time and others is not
          --  present we can proceed since the bounds can be obtained from the
          --  aggregate.
-
-         --  Note: This case is required in VM platforms since their backends
-         --  normalize array indexes in the range 0 .. N-1. Hence, if we do
-         --  not flat an array whose bounds cannot be obtained from the type
-         --  of the index the backend has no way to properly generate the code.
-         --  See ACATS c460010 for an example.
 
          if Hiv < Lov
            or else (not Compile_Time_Known_Value (Blo) and then Others_Present)
@@ -5475,7 +5458,6 @@ package body Exp_Aggr is
          --  then we could go into an infinite recursion.
 
          if (In_Place_Assign_OK_For_Declaration or else Maybe_In_Place_OK)
-           and then VM_Target = No_VM
            and then not AAMP_On_Target
            and then not Generate_SCIL
            and then not Possible_Bit_Aligned_Component (Target)
@@ -5851,7 +5833,8 @@ package body Exp_Aggr is
             --  These are cases where the source expression may have a tag that
             --  could differ from the component tag (e.g., can occur for type
             --  conversions and formal parameters). (Tag adjustment not needed
-            --  if VM_Target because object tags are implicit in the machine.)
+            --  if Tagged_Type_Expansion because object tags are implicit in
+            --  the machine.)
 
             if Is_Tagged_Type (Etype (Expr_Q))
               and then (Nkind (Expr_Q) = N_Type_Conversion

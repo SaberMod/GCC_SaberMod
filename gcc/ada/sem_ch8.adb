@@ -68,7 +68,6 @@ with Sinfo.CN; use Sinfo.CN;
 with Snames;   use Snames;
 with Style;    use Style;
 with Table;
-with Targparm; use Targparm;
 with Tbuild;   use Tbuild;
 with Uintp;    use Uintp;
 
@@ -550,17 +549,10 @@ package body Sem_Ch8 is
    --  there is more than one element in the list.
 
    procedure Analyze_Exception_Renaming (N : Node_Id) is
-      GM  : constant Ghost_Mode_Type := Ghost_Mode;
-      Id  : constant Entity_Id       := Defining_Entity (N);
-      Nam : constant Node_Id         := Name (N);
+      Id  : constant Entity_Id := Defining_Entity (N);
+      Nam : constant Node_Id   := Name (N);
 
    begin
-      --  The exception renaming declaration may be subject to pragma Ghost
-      --  with policy Ignore. Set the mode now to ensure that any nodes
-      --  generated during analysis and expansion are properly flagged as
-      --  ignored Ghost.
-
-      Set_Ghost_Mode (N);
       Check_SPARK_05_Restriction ("exception renaming is not allowed", N);
 
       Enter_Name (Id);
@@ -595,11 +587,6 @@ package body Sem_Ch8 is
       if Has_Aspects (N) then
          Analyze_Aspect_Specifications (N, Id);
       end if;
-
-      --  Restore the original Ghost mode once analysis and expansion have
-      --  taken place.
-
-      Ghost_Mode := GM;
    end Analyze_Exception_Renaming;
 
    ---------------------------
@@ -669,8 +656,7 @@ package body Sem_Ch8 is
      (N : Node_Id;
       K : Entity_Kind)
    is
-      GM    : constant Ghost_Mode_Type := Ghost_Mode;
-      New_P : constant Entity_Id       := Defining_Entity (N);
+      New_P : constant Entity_Id := Defining_Entity (N);
       Old_P : Entity_Id;
 
       Inst  : Boolean := False;
@@ -681,11 +667,6 @@ package body Sem_Ch8 is
          return;
       end if;
 
-      --  The generic renaming declaration may be subject to pragma Ghost with
-      --  policy Ignore. Set the mode now to ensure that any nodes generated
-      --  during analysis and expansion are properly flagged as ignored Ghost.
-
-      Set_Ghost_Mode (N);
       Check_SPARK_05_Restriction ("generic renaming is not allowed", N);
 
       Generate_Definition (New_P);
@@ -756,11 +737,6 @@ package body Sem_Ch8 is
       if Has_Aspects (N) then
          Analyze_Aspect_Specifications (N, New_P);
       end if;
-
-      --  Restore the original Ghost mode once analysis and expansion have
-      --  taken place.
-
-      Ghost_Mode := GM;
    end Analyze_Generic_Renaming;
 
    -----------------------------
@@ -867,10 +843,6 @@ package body Sem_Ch8 is
          return False;
       end In_Generic_Scope;
 
-      --  Local variables
-
-      GM : constant Ghost_Mode_Type := Ghost_Mode;
-
    --  Start of processing for Analyze_Object_Renaming
 
    begin
@@ -878,11 +850,6 @@ package body Sem_Ch8 is
          return;
       end if;
 
-      --  The object renaming declaration may be subject to pragma Ghost with
-      --  policy Ignore. Set the mode now to ensure that any nodes generated
-      --  during analysis and expansion are properly flagged as ignored Ghost.
-
-      Set_Ghost_Mode (N);
       Check_SPARK_05_Restriction ("object renaming is not allowed", N);
 
       Set_Is_Pure (Id, Is_Pure (Current_Scope));
@@ -1394,11 +1361,6 @@ package body Sem_Ch8 is
       --  Deal with dimensions
 
       Analyze_Dimension (N);
-
-      --  Restore the original Ghost mode once analysis and expansion have
-      --  taken place.
-
-      Ghost_Mode := GM;
    end Analyze_Object_Renaming;
 
    ------------------------------
@@ -1406,38 +1368,14 @@ package body Sem_Ch8 is
    ------------------------------
 
    procedure Analyze_Package_Renaming (N : Node_Id) is
-      GM : constant Ghost_Mode_Type := Ghost_Mode;
-
-      procedure Restore_Globals;
-      --  Restore the values of all saved global variables
-
-      ---------------------
-      -- Restore_Globals --
-      ---------------------
-
-      procedure Restore_Globals is
-      begin
-         Ghost_Mode := GM;
-      end Restore_Globals;
-
-      --  Local variables
-
       New_P : constant Entity_Id := Defining_Entity (N);
       Old_P : Entity_Id;
       Spec  : Node_Id;
-
-   --  Start of processing for Analyze_Package_Renaming
 
    begin
       if Name (N) = Error then
          return;
       end if;
-
-      --  The package renaming declaration may be subject to pragma Ghost with
-      --  policy Ignore. Set the mode now to ensure that any nodes generated
-      --  during analysis and expansion are properly flagged as ignored Ghost.
-
-      Set_Ghost_Mode (N);
 
       --  Check for Text_IO special unit (we may be renaming a Text_IO child)
 
@@ -1538,7 +1476,6 @@ package body Sem_Ch8 is
          --  subtypes again, so they are compatible with types in their class.
 
          if not Is_Generic_Instance (Old_P) then
-            Restore_Globals;
             return;
          else
             Spec := Specification (Unit_Declaration_Node (Old_P));
@@ -1580,8 +1517,6 @@ package body Sem_Ch8 is
       if Has_Aspects (N) then
          Analyze_Aspect_Specifications (N, New_P);
       end if;
-
-      Restore_Globals;
    end Analyze_Package_Renaming;
 
    -------------------------------
@@ -2628,20 +2563,12 @@ package body Sem_Ch8 is
       --  defaulted formal subprogram when the actual for a related formal
       --  type is class-wide.
 
-      GM        : constant Ghost_Mode_Type := Ghost_Mode;
-      Inst_Node : Node_Id                  := Empty;
+      Inst_Node : Node_Id := Empty;
       New_S     : Entity_Id;
 
    --  Start of processing for Analyze_Subprogram_Renaming
 
    begin
-      --  The subprogram renaming declaration may be subject to pragma Ghost
-      --  with policy Ignore. Set the mode now to ensure that any nodes
-      --  generated during analysis and expansion are properly flagged as
-      --  ignored Ghost.
-
-      Set_Ghost_Mode (N);
-
       --  We must test for the attribute renaming case before the Analyze
       --  call because otherwise Sem_Attr will complain that the attribute
       --  is missing an argument when it is analyzed.
@@ -2849,7 +2776,7 @@ package body Sem_Ch8 is
       --  Set SPARK mode from current context
 
       Set_SPARK_Pragma (New_S, SPARK_Mode_Pragma);
-      Set_SPARK_Pragma_Inherited (New_S, True);
+      Set_SPARK_Pragma_Inherited (New_S);
 
       Rename_Spec := Find_Corresponding_Spec (N);
 
@@ -3294,7 +3221,13 @@ package body Sem_Ch8 is
                                       Find_Dispatching_Type (Old_S);
 
                begin
-                  if Old_S_Ctrl_Type /= New_S_Ctrl_Type then
+
+                  --  The actual must match the (instance of the) formal,
+                  --  and must be a controlling type.
+
+                  if Old_S_Ctrl_Type /= New_S_Ctrl_Type
+                    or else No (New_S_Ctrl_Type)
+                  then
                      Error_Msg_NE
                        ("actual must be dispatching subprogram for type&",
                         Nam, New_S_Ctrl_Type);
@@ -3559,11 +3492,6 @@ package body Sem_Ch8 is
             Analyze (N);
          end if;
       end if;
-
-      --  Restore the original Ghost mode once analysis and expansion have
-      --  taken place.
-
-      Ghost_Mode := GM;
    end Analyze_Subprogram_Renaming;
 
    -------------------------
@@ -3986,15 +3914,14 @@ package body Sem_Ch8 is
       --  type is still not frozen). We exclude from this processing generic
       --  formal subprograms found in instantiations.
 
-      --  We must exclude VM targets and restricted run-time libraries because
+      --  We must exclude restricted run-time libraries because
       --  entity AST_Handler is defined in package System.Aux_Dec which is not
       --  available in those platforms. Note that we cannot use the function
       --  Restricted_Profile (instead of Configurable_Run_Time_Mode) because
       --  the ZFP run-time library is not defined as a profile, and we do not
       --  want to deal with AST_Handler in ZFP mode.
 
-      if VM_Target = No_VM
-        and then not Configurable_Run_Time_Mode
+      if not Configurable_Run_Time_Mode
         and then not Present (Corresponding_Formal_Spec (N))
         and then Etype (Nam) /= RTE (RE_AST_Handler)
       then
@@ -5683,8 +5610,6 @@ package body Sem_Ch8 is
                      end case;
                   end if;
                end if;
-
-               Check_Nested_Access (E);
             end if;
 
             Set_Entity_Or_Discriminal (N, E);
@@ -6679,13 +6604,9 @@ package body Sem_Ch8 is
 
                   --  Do not build the subtype when referencing components of
                   --  dispatch table wrappers. Required to avoid generating
-                  --  elaboration code with HI runtimes. JVM and .NET use a
-                  --  modified version of Ada.Tags which does not contain RE_
-                  --  Dispatch_Table_Wrapper and RE_No_Dispatch_Table_Wrapper.
-                  --  Avoid raising RE_Not_Available exception in those cases.
+                  --  elaboration code with HI runtimes.
 
-                  elsif VM_Target = No_VM
-                    and then RTU_Loaded (Ada_Tags)
+                  elsif RTU_Loaded (Ada_Tags)
                     and then
                       ((RTE_Available (RE_Dispatch_Table_Wrapper)
                          and then Scope (Selector) =
@@ -9093,7 +9014,7 @@ package body Sem_Ch8 is
 
                   function Entity_Of_Unit (U : Node_Id) return Entity_Id is
                   begin
-                     if Nkind (U) =  N_Package_Instantiation
+                     if Nkind (U) = N_Package_Instantiation
                        and then Analyzed (U)
                      then
                         return Defining_Entity (Instance_Spec (U));
@@ -9293,7 +9214,7 @@ package body Sem_Ch8 is
       S : Entity_Id;
    begin
       for J in reverse 1 .. Scope_Stack.Last loop
-         S :=  Scope_Stack.Table (J).Entity;
+         S := Scope_Stack.Table (J).Entity;
          Write_Int (Int (S));
          Write_Str (" === ");
          Write_Name (Chars (S));

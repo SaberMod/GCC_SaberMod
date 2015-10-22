@@ -537,6 +537,9 @@ ENDIAN_SELECT(" -mbig", " -mlittle", DEFAULT_ASM_ENDIAN)
 #ifndef CC1_SECURE_PLT_DEFAULT_SPEC
 #define CC1_SECURE_PLT_DEFAULT_SPEC ""
 #endif
+#ifndef LINK_SECURE_PLT_DEFAULT_SPEC
+#define LINK_SECURE_PLT_DEFAULT_SPEC ""
+#endif
 
 /* Pass -G xxx to the compiler.  */
 #undef CC1_SPEC
@@ -567,6 +570,7 @@ ENDIAN_SELECT(" -mbig", " -mlittle", DEFAULT_ASM_ENDIAN)
                : %(link_start_default)     }"
 
 #define LINK_START_DEFAULT_SPEC ""
+#define LINK_SECURE_PLT_SPEC LINK_SECURE_PLT_DEFAULT_SPEC
 
 #undef	LINK_SPEC
 #define	LINK_SPEC "\
@@ -574,6 +578,7 @@ ENDIAN_SELECT(" -mbig", " -mlittle", DEFAULT_ASM_ENDIAN)
 %{R*} \
 %(link_shlib) \
 %{!T*: %(link_start) } \
+%{!static: %{!mbss-plt: %(link_secure_plt)}} \
 %(link_os)"
 
 /* Shared libraries are not default.  */
@@ -893,6 +898,7 @@ ncrtn.o%s"
   { "link_os_openbsd",		LINK_OS_OPENBSD_SPEC },			\
   { "link_os_default",		LINK_OS_DEFAULT_SPEC },			\
   { "cc1_secure_plt_default",	CC1_SECURE_PLT_DEFAULT_SPEC },		\
+  { "link_secure_plt",		LINK_SECURE_PLT_SPEC },			\
   { "cpp_os_ads",		CPP_OS_ADS_SPEC },			\
   { "cpp_os_yellowknife",	CPP_OS_YELLOWKNIFE_SPEC },		\
   { "cpp_os_mvme",		CPP_OS_MVME_SPEC },			\
@@ -943,14 +949,6 @@ ncrtn.o%s"
 
 #undef TARGET_ASAN_SHADOW_OFFSET
 #define TARGET_ASAN_SHADOW_OFFSET rs6000_asan_shadow_offset
-
-/* On ppc64 and ppc64le, split stack is only support for
-   64 bit. */
-#undef TARGET_CAN_SPLIT_STACK_64BIT
-#if TARGET_GLIBC_MAJOR > 2 \
-  || (TARGET_GLIBC_MAJOR == 2 && TARGET_GLIBC_MINOR >= 18)
-#define TARGET_CAN_SPLIT_STACK_64BIT
-#endif
 
 /* This target uses the sysv4.opt file.  */
 #define TARGET_USES_SYSV4_OPT 1

@@ -73,20 +73,7 @@ struct stmt_info_for_cost {
   int misalign;
 };
 
-
 typedef vec<stmt_info_for_cost> stmt_vector_for_cost;
-
-static inline void
-add_stmt_info_to_vec (stmt_vector_for_cost *stmt_cost_vec, int count,
-		      enum vect_cost_for_stmt kind, gimple *stmt, int misalign)
-{
-  stmt_info_for_cost si;
-  si.count = count;
-  si.kind = kind;
-  si.stmt = stmt;
-  si.misalign = misalign;
-  stmt_cost_vec->safe_push (si);
-}
 
 /************************************************************************
   SLP
@@ -144,22 +131,6 @@ typedef struct _slp_instance {
 #define SLP_TREE_NUMBER_OF_VEC_STMTS(S)          (S)->vec_stmts_size
 #define SLP_TREE_LOAD_PERMUTATION(S)             (S)->load_permutation
 #define SLP_TREE_TWO_OPERATORS(S)		 (S)->two_operators
-
-/* This structure is used in creation of an SLP tree.  Each instance
-   corresponds to the same operand in a group of scalar stmts in an SLP
-   node.  */
-typedef struct _slp_oprnd_info
-{
-  /* Def-stmts for the operands.  */
-  vec<gimple *> def_stmts;
-  /* Information about the first statement, its vector def-type, type, the
-     operand itself in case it's constant, and an indication if it's a pattern
-     stmt.  */
-  enum vect_def_type first_dt;
-  tree first_op_type;
-  bool first_pattern;
-  bool second_pattern;
-} *slp_oprnd_info;
 
 
 
@@ -961,10 +932,10 @@ extern bool vect_can_advance_ivs_p (loop_vec_info);
 extern unsigned int current_vector_size;
 extern tree get_vectype_for_scalar_type (tree);
 extern tree get_same_sized_vectype (tree, tree);
-extern bool vect_is_simple_use (tree, gimple *, vec_info *, gimple **,
-                                tree *,  enum vect_def_type *);
-extern bool vect_is_simple_use_1 (tree, gimple *, vec_info *, gimple **,
-				  tree *,  enum vect_def_type *, tree *);
+extern bool vect_is_simple_use (tree, vec_info *, gimple **,
+                                enum vect_def_type *);
+extern bool vect_is_simple_use (tree, vec_info *, gimple **,
+				enum vect_def_type *, tree *);
 extern bool supportable_widening_operation (enum tree_code, gimple *, tree,
 					    tree, enum tree_code *,
 					    enum tree_code *, int *,
@@ -991,7 +962,7 @@ extern unsigned record_stmt_cost (stmt_vector_for_cost *, int,
 extern void vect_finish_stmt_generation (gimple *, gimple *,
                                          gimple_stmt_iterator *);
 extern bool vect_mark_stmts_to_be_vectorized (loop_vec_info);
-extern tree vect_get_vec_def_for_operand (tree, gimple *, tree *);
+extern tree vect_get_vec_def_for_operand (tree, gimple *);
 extern tree vect_init_vector (gimple *, tree, tree,
                               gimple_stmt_iterator *);
 extern tree vect_get_vec_def_for_stmt_copy (enum vect_def_type, tree);
@@ -1049,6 +1020,8 @@ extern void vect_transform_grouped_load (gimple *, vec<tree> , int,
                                          gimple_stmt_iterator *);
 extern void vect_record_grouped_load_vectors (gimple *, vec<tree> );
 extern tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
+extern tree vect_get_new_ssa_name (tree, enum vect_var_kind,
+				   const char * = NULL);
 extern tree vect_create_addr_base_for_vector_ref (gimple *, gimple_seq *,
 						  tree, struct loop *,
 						  tree = NULL_TREE);

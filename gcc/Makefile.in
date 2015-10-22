@@ -1266,6 +1266,7 @@ OBJS = \
 	gimple-laddress.o \
 	gimple-low.o \
 	gimple-pretty-print.o \
+	gimple-ssa-backprop.o \
 	gimple-ssa-isolate-paths.o \
 	gimple-ssa-strength-reduction.o \
 	gimple-streamer-in.o \
@@ -1385,7 +1386,6 @@ OBJS = \
 	sched-deps.o \
 	sched-ebb.o \
 	sched-rgn.o \
-	sched-vis.o \
 	sdbout.o \
 	sel-sched-ir.o \
 	sel-sched-dump.o \

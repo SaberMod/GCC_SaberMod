@@ -14977,8 +14977,12 @@ cp_parser_template_argument (cp_parser* parser)
 	warn_deprecated_use (argument, NULL_TREE);
       return argument;
     }
-  /* It must be a non-type argument.  There permitted cases are given
-     in [temp.arg.nontype]:
+  /* It must be a non-type argument.  In C++17 any constant-expression is
+     allowed.  */
+  if (cxx_dialect > cxx14)
+    goto general_expr;
+
+  /* Otherwise, the permitted cases are given in [temp.arg.nontype]:
 
      -- an integral constant-expression of integral or enumeration
 	type; or
@@ -15090,6 +15094,7 @@ cp_parser_template_argument (cp_parser* parser)
       return error_mark_node;
     }
 
+ general_expr:
   /* If the argument wasn't successfully parsed as a type-id followed
      by '>>', the argument can only be a constant expression now.
      Otherwise, we try parsing the constant-expression tentatively,
@@ -16650,8 +16655,12 @@ cp_parser_enum_specifier (cp_parser* parser)
       else if (nested_name_specifier == error_mark_node)
 	/* We already issued an error.  */;
       else
-	error_at (type_start_token->location,
-		  "%qD is not an enumerator-name", identifier);
+	{
+	  error_at (type_start_token->location,
+		    "%qD does not name an enumeration in %qT",
+		    identifier, nested_name_specifier);
+	  nested_name_specifier = error_mark_node;
+	}
     }
   else
     {
@@ -16776,6 +16785,14 @@ cp_parser_enum_specifier (cp_parser* parser)
 			"%<%T::%E%> has not been declared",
 			TYPE_CONTEXT (nested_name_specifier),
 			nested_name_specifier);
+	      type = error_mark_node;
+	    }
+	  else if (TREE_CODE (nested_name_specifier) != NAMESPACE_DECL
+		   && !CLASS_TYPE_P (nested_name_specifier))
+	    {
+	      error_at (type_start_token->location, "nested name specifier "
+			"%qT for enum declaration does not name a class "
+			"or namespace", nested_name_specifier);
 	      type = error_mark_node;
 	    }
 	  /* If that scope does not contain the scope in which the
@@ -23218,17 +23235,6 @@ cp_parser_gnu_attributes_opt (cp_parser* parser)
     }
 
   return attributes;
-}
-
-/* Returns true of NAME is an IDENTIFIER_NODE with identiifer "vector,"
-   "__vector" or "__vector__."  */
-
-static inline bool
-is_cilkplus_vector_p (tree name)
-{ 
-  if (flag_cilkplus && is_attribute_p ("vector", name)) 
-    return true;
-  return false;
 }
 
 /* Parse a GNU attribute-list.

@@ -3152,11 +3152,12 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
 
   gimple_cond_get_ops_from_tree (COND_EXPR_COND (expr), &pred_code, &arm1,
 				 &arm2);
-
   cond_stmt = gimple_build_cond (pred_code, arm1, arm2, label_true,
-                                   label_false);
-
+				 label_false);
   gimplify_seq_add_stmt (&seq, cond_stmt);
+  gimple_stmt_iterator gsi = gsi_last (seq);
+  maybe_fold_stmt (&gsi);
+
   label_cont = NULL_TREE;
   if (!have_then_clause_p)
     {
@@ -4983,6 +4984,12 @@ gimplify_addr_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 							TREE_OPERAND (op0, 0)));
       ret = GS_OK;
       break;
+
+    case MEM_REF:
+      if (integer_zerop (TREE_OPERAND (op0, 1)))
+	goto do_indirect_ref;
+
+      /* ... fall through ... */
 
     default:
       /* If we see a call to a declared builtin or see its address

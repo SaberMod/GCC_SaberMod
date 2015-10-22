@@ -22,51 +22,35 @@
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "cfghooks.h"
+#include "cfgloop.h"
 #include "df.h"
-#include "insn-codes.h"
+#include "tm_p.h"
+#include "stringpool.h"
+#include "optabs.h"
+#include "regs.h"
+#include "emit-rtl.h"
+#include "recog.h"
+#include "diagnostic.h"
 #include "insn-attr.h"
 #include "alias.h"
 #include "fold-const.h"
-#include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "varasm.h"
-#include "regs.h"
-#include "cfgrtl.h"
-#include "cfganal.h"
-#include "lcm.h"
-#include "cfgbuild.h"
-#include "cfgcleanup.h"
 #include "output.h"
 #include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
 #include "explow.h"
-#include "emit-rtl.h"
-#include "stmt.h"
 #include "expr.h"
 #include "reload.h"
-#include "toplev.h"
-#include "target.h"
-#include "targhooks.h"
-#include "tm_p.h"
-#include "recog.h"
 #include "langhooks.h"
 #include "opts.h"
-#include "diagnostic.h"
-#include "diagnostic-core.h"
-#include "internal-fn.h"
-#include "gimple-fold.h"
-#include "tree-eh.h"
 #include "gimplify.h"
-#include "optabs.h"
 #include "dwarf2.h"
-#include "cfgloop.h"
 #include "tree-vectorizer.h"
 #include "aarch64-cost-tables.h"
 #include "dumpfile.h"
@@ -162,6 +146,9 @@ enum aarch64_processor aarch64_tune = cortexa53;
 
 /* Mask to specify which instruction scheduling options should be used.  */
 unsigned long aarch64_tune_flags = 0;
+
+/* Global flag for PC relative loads.  */
+bool aarch64_nopcrelative_literal_loads;
 
 /* Support for command line parsing of boolean flags in the tuning
    structures.  */
@@ -1551,7 +1538,7 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
 	     we need to expand the literal pool access carefully.
 	     This is something that needs to be done in a number
 	     of places, so could well live as a separate function.  */
-	  if (nopcrelative_literal_loads)
+	  if (aarch64_nopcrelative_literal_loads)
 	    {
 	      gcc_assert (can_create_pseudo_p ());
 	      base = gen_reg_rtx (ptr_mode);
@@ -3484,6 +3471,18 @@ offset_12bit_unsigned_scaled_p (machine_mode mode, HOST_WIDE_INT offset)
 	  && offset % GET_MODE_SIZE (mode) == 0);
 }
 
+/* Return true if MODE is one of the modes for which we
+   support LDP/STP operations.  */
+
+static bool
+aarch64_mode_valid_for_sched_fusion_p (machine_mode mode)
+{
+  return mode == SImode || mode == DImode
+	 || mode == SFmode || mode == DFmode
+	 || (aarch64_vector_mode_supported_p (mode)
+	     && GET_MODE_SIZE (mode) == 8);
+}
+
 /* Return true if X is a valid address for machine mode MODE.  If it is,
    fill in INFO appropriately.  STRICT_P is true if REG_OK_STRICT is in
    effect.  OUTER_CODE is PARALLEL for a load/store pair.  */
@@ -3665,7 +3664,7 @@ aarch64_classify_address (struct aarch64_address_info *info,
 	  return ((GET_CODE (sym) == LABEL_REF
 		   || (GET_CODE (sym) == SYMBOL_REF
 		       && CONSTANT_POOL_ADDRESS_P (sym)
-		       && !nopcrelative_literal_loads)));
+		       && !aarch64_nopcrelative_literal_loads)));
 	}
       return false;
 
@@ -4899,7 +4898,7 @@ aarch64_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x,
   if (MEM_P (x) && GET_CODE (x) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (x)
       && (SCALAR_FLOAT_MODE_P (GET_MODE (x))
 	  || targetm.vector_mode_supported_p (GET_MODE (x)))
-      && nopcrelative_literal_loads)
+      && aarch64_nopcrelative_literal_loads)
     {
       sri->icode = aarch64_constant_pool_reload_icode (mode);
       return NO_REGS;
@@ -6802,6 +6801,19 @@ cost_plus:
 	  else
 	    *cost += extra_cost->fp[GET_MODE (x) == DFmode].toint;
 	}
+
+      /* We can combine fmul by a power of 2 followed by a fcvt into a single
+	 fixed-point fcvt.  */
+      if (GET_CODE (x) == MULT
+	  && ((VECTOR_MODE_P (mode)
+	       && aarch64_vec_fpconst_pow_of_2 (XEXP (x, 1)) > 0)
+	      || aarch64_fpconst_pow_of_2 (XEXP (x, 1)) > 0))
+	{
+	  *cost += rtx_cost (XEXP (x, 0), VOIDmode, (rtx_code) code,
+			     0, speed);
+	  return true;
+	}
+
       *cost += rtx_cost (x, VOIDmode, (enum rtx_code) code, 0, speed);
       return true;
 
@@ -7541,7 +7553,7 @@ aarch64_override_options_after_change_1 (struct gcc_options *opts)
   else if (opts->x_flag_omit_leaf_frame_pointer)
     opts->x_flag_omit_frame_pointer = true;
 
-  /* If not opzimizing for size, set the default
+  /* If not optimizing for size, set the default
      alignment to what the target wants.  */
   if (!opts->x_optimize_size)
     {
@@ -7555,21 +7567,21 @@ aarch64_override_options_after_change_1 (struct gcc_options *opts)
 
   /* If nopcrelative_literal_loads is set on the command line, this
      implies that the user asked for PC relative literal loads.  */
-  if (nopcrelative_literal_loads == 1)
-    nopcrelative_literal_loads = 0;
+  if (opts->x_nopcrelative_literal_loads == 1)
+    aarch64_nopcrelative_literal_loads = false;
 
   /* If it is not set on the command line, we default to no
      pc relative literal loads.  */
-  if (nopcrelative_literal_loads == 2)
-    nopcrelative_literal_loads = 1;
+  if (opts->x_nopcrelative_literal_loads == 2)
+    aarch64_nopcrelative_literal_loads = true;
 
   /* In the tiny memory model it makes no sense
      to disallow non PC relative literal pool loads
      as many other things will break anyway.  */
-  if (nopcrelative_literal_loads
+  if (opts->x_nopcrelative_literal_loads
       && (aarch64_cmodel == AARCH64_CMODEL_TINY
 	  || aarch64_cmodel == AARCH64_CMODEL_TINY_PIC))
-    nopcrelative_literal_loads = 0;
+    aarch64_nopcrelative_literal_loads = false;
 }
 
 /* 'Unpack' up the internal tuning structs and update the options
@@ -12827,8 +12839,9 @@ fusion_load_store (rtx_insn *insn, rtx *base, rtx *offset)
   src = SET_SRC (x);
   dest = SET_DEST (x);
 
-  if (GET_MODE (dest) != SImode && GET_MODE (dest) != DImode
-      && GET_MODE (dest) != SFmode && GET_MODE (dest) != DFmode)
+  machine_mode dest_mode = GET_MODE (dest);
+
+  if (!aarch64_mode_valid_for_sched_fusion_p (dest_mode))
     return SCHED_FUSION_NONE;
 
   if (GET_CODE (src) == SIGN_EXTEND)
@@ -13275,6 +13288,52 @@ aarch64_unspec_may_trap_p (const_rtx x, unsigned flags)
     }
 
   return default_unspec_may_trap_p (x, flags);
+}
+
+
+/* If X is a positive CONST_DOUBLE with a value that is a power of 2
+   return the log2 of that value.  Otherwise return -1.  */
+
+int
+aarch64_fpconst_pow_of_2 (rtx x)
+{
+  const REAL_VALUE_TYPE *r;
+
+  if (!CONST_DOUBLE_P (x))
+    return -1;
+
+  r = CONST_DOUBLE_REAL_VALUE (x);
+
+  if (REAL_VALUE_NEGATIVE (*r)
+      || REAL_VALUE_ISNAN (*r)
+      || REAL_VALUE_ISINF (*r)
+      || !real_isinteger (r, DFmode))
+    return -1;
+
+  return exact_log2 (real_to_integer (r));
+}
+
+/* If X is a vector of equal CONST_DOUBLE values and that value is
+   Y, return the aarch64_fpconst_pow_of_2 of Y.  Otherwise return -1.  */
+
+int
+aarch64_vec_fpconst_pow_of_2 (rtx x)
+{
+  if (GET_CODE (x) != CONST_VECTOR)
+    return -1;
+
+  if (GET_MODE_CLASS (GET_MODE (x)) != MODE_VECTOR_FLOAT)
+    return -1;
+
+  int firstval = aarch64_fpconst_pow_of_2 (CONST_VECTOR_ELT (x, 0));
+  if (firstval <= 0)
+    return -1;
+
+  for (int i = 1; i < CONST_VECTOR_NUNITS (x); i++)
+    if (aarch64_fpconst_pow_of_2 (CONST_VECTOR_ELT (x, i)) != firstval)
+      return -1;
+
+  return firstval;
 }
 
 /* Implement TARGET_PROMOTED_TYPE to promote __fp16 to float.  */

@@ -3178,6 +3178,43 @@ check_omp_nesting_restrictions (gimple *stmt, omp_context *ctx)
       /* We split taskloop into task and nested taskloop in it.  */
       if (gimple_omp_for_kind (stmt) == GF_OMP_FOR_KIND_TASKLOOP)
 	return true;
+      if (gimple_omp_for_kind (stmt) == GF_OMP_FOR_KIND_OACC_LOOP)
+	{
+	  bool ok = false;
+	  
+	  if (ctx)
+	    switch (gimple_code (ctx->stmt))
+	      {
+	      case GIMPLE_OMP_FOR:
+		ok = (gimple_omp_for_kind (ctx->stmt)
+		      == GF_OMP_FOR_KIND_OACC_LOOP);
+		break;
+
+	      case GIMPLE_OMP_TARGET:
+		switch (gimple_omp_target_kind (ctx->stmt))
+		  {
+		  case GF_OMP_TARGET_KIND_OACC_PARALLEL:
+		  case GF_OMP_TARGET_KIND_OACC_KERNELS:
+		    ok = true;
+		    break;
+
+		  default:
+		    break;
+		  }
+
+	      default:
+		break;
+	      }
+	  else if (get_oacc_fn_attrib (current_function_decl))
+	    ok = true;
+	  if (!ok)
+	    {
+	      error_at (gimple_location (stmt),
+			"OpenACC loop directive must be associated with"
+			" an OpenACC compute region");
+	      return false;
+	    }
+	}
       /* FALLTHRU */
     case GIMPLE_CALL:
       if (is_gimple_call (stmt)
@@ -16318,6 +16355,8 @@ simd_clone_create (struct cgraph_node *old_node)
       DECL_STATIC_CONSTRUCTOR (new_decl) = 0;
       DECL_STATIC_DESTRUCTOR (new_decl) = 0;
       new_node = old_node->create_version_clone (new_decl, vNULL, NULL);
+      if (old_node->in_other_partition)
+	new_node->in_other_partition = 1;
       symtab->call_cgraph_insertion_hooks (new_node);
     }
   if (new_node == NULL)

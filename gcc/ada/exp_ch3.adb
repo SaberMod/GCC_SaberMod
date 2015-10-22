@@ -671,14 +671,9 @@ package body Exp_Ch3 is
       --  Nothing to generate in the following cases:
 
       --    1. Initialization is suppressed for the type
-      --    2. The type is a value type, in the CIL sense.
-      --    3. The type has CIL/JVM convention.
-      --    4. An initialization already exists for the base type
+      --    2. An initialization already exists for the base type
 
       if Initialization_Suppressed (A_Type)
-        or else Is_Value_Type (Comp_Type)
-        or else Convention (A_Type) = Convention_CIL
-        or else Convention (A_Type) = Convention_Java
         or else Present (Base_Init_Proc (A_Type))
       then
          return;
@@ -1480,13 +1475,8 @@ package body Exp_Ch3 is
       --  Nothing to do if the Init_Proc is null, unless Initialize_Scalars
       --  is active (in which case we make the call anyway, since in the
       --  actual compiled client it may be non null).
-      --  Also nothing to do for value types.
 
-      if (Is_Null_Init_Proc (Proc) and then not Init_Or_Norm_Scalars)
-        or else Is_Value_Type (Typ)
-        or else
-          (Is_Array_Type (Typ) and then Is_Value_Type (Component_Type (Typ)))
-      then
+      if Is_Null_Init_Proc (Proc) and then not Init_Or_Norm_Scalars then
          return Empty_List;
       end if;
 
@@ -1861,8 +1851,8 @@ package body Exp_Ch3 is
          Set_No_Ctrl_Actions (First (Res));
 
          --  Adjust the tag if tagged (because of possible view conversions).
-         --  Suppress the tag adjustment when VM_Target because VM tags are
-         --  represented implicitly in objects.
+         --  Suppress the tag adjustment when not Tagged_Type_Expansion because
+         --  tags are represented implicitly in objects.
 
          if Is_Tagged_Type (Typ) and then Tagged_Type_Expansion then
             Append_To (Res,
@@ -2174,8 +2164,8 @@ package body Exp_Ch3 is
       begin
          --  Offset_To_Top_Functions are built only for derivations of types
          --  with discriminants that cover interface types.
-         --  Nothing is needed either in case of virtual machines, since
-         --  interfaces are handled directly by the VM.
+         --  Nothing is needed either in case of virtual targets, since
+         --  interfaces are handled directly by the target.
 
          if not Is_Tagged_Type (Rec_Type)
            or else Etype (Rec_Type) = Rec_Type
@@ -2439,10 +2429,10 @@ package body Exp_Ch3 is
 
          --     _Init._Tag := Typ'Tag;
 
-         --  Suppress the tag assignment when VM_Target because VM tags are
-         --  represented implicitly in objects. It is also suppressed in case
-         --  of CPP_Class types because in this case the tag is initialized in
-         --  the C++ side.
+         --  Suppress the tag assignment when not Tagged_Type_Expansion because
+         --  tags are represented implicitly in objects. It is also suppressed
+         --  in case of CPP_Class types because in this case the tag is
+         --  initialized in the C++ side.
 
          if Is_Tagged_Type (Rec_Type)
            and then Tagged_Type_Expansion
@@ -2694,11 +2684,7 @@ package body Exp_Ch3 is
            --  list by Insert_Actions.
 
            and then Nkind (First_Non_SCIL_Node (Body_Stmts)) = N_Null_Statement
-           and then VM_Target = No_VM
          then
-            --  Even though the init proc may be null at this time it might get
-            --  some stuff added to it later by the VM backend.
-
             Set_Is_Null_Init_Proc (Proc_Id);
          end if;
       end Build_Init_Procedure;
@@ -3525,13 +3511,7 @@ package body Exp_Ch3 is
    --  Start of processing for Build_Record_Init_Proc
 
    begin
-      --  Check for value type, which means no initialization required
-
       Rec_Type := Defining_Identifier (N);
-
-      if Is_Value_Type (Rec_Type) then
-         return;
-      end if;
 
       --  This may be full declaration of a private type, in which case
       --  the visible entity is a record, and the private entity has been
@@ -4761,24 +4741,6 @@ package body Exp_Ch3 is
 
          elsif Is_Limited_Class_Wide_Type (Desig_Typ)
            and then Tasking_Allowed
-
-           --  Do not create a class-wide master for types whose convention is
-           --  Java since these types cannot embed Ada tasks anyway. Note that
-           --  the following test cannot catch the following case:
-
-           --      package java.lang.Object is
-           --         type Typ is tagged limited private;
-           --         type Ref is access all Typ'Class;
-           --      private
-           --         type Typ is tagged limited ...;
-           --         pragma Convention (Typ, Java)
-           --      end;
-
-           --  Because the convention appears after we have done the
-           --  processing for type Ref.
-
-           and then Convention (Desig_Typ) /= Convention_Java
-           and then Convention (Desig_Typ) /= Convention_CIL
          then
             Build_Class_Wide_Master (Ptr_Typ);
          end if;
@@ -4786,21 +4748,14 @@ package body Exp_Ch3 is
 
       --  Local declarations
 
-      Def_Id : constant Entity_Id       := Defining_Identifier (N);
-      B_Id   : constant Entity_Id       := Base_Type (Def_Id);
-      GM     : constant Ghost_Mode_Type := Ghost_Mode;
+      Def_Id : constant Entity_Id := Defining_Identifier (N);
+      B_Id   : constant Entity_Id := Base_Type (Def_Id);
       FN     : Node_Id;
       Par_Id : Entity_Id;
 
    --  Start of processing for Expand_N_Full_Type_Declaration
 
    begin
-      --  The type declaration may be subject to pragma Ghost with policy
-      --  Ignore. Set the mode now to ensure that any nodes generated during
-      --  expansion are properly flagged as ignored Ghost.
-
-      Set_Ghost_Mode (N);
-
       if Is_Access_Type (Def_Id) then
          Build_Master (Def_Id);
 
@@ -4924,11 +4879,6 @@ package body Exp_Ch3 is
             end if;
          end;
       end if;
-
-      --  Restore the original Ghost mode once analysis and expansion have
-      --  taken place.
-
-      Ghost_Mode := GM;
    end Expand_N_Full_Type_Declaration;
 
    ---------------------------------
@@ -4936,13 +4886,12 @@ package body Exp_Ch3 is
    ---------------------------------
 
    procedure Expand_N_Object_Declaration (N : Node_Id) is
-      Loc      : constant Source_Ptr      := Sloc (N);
-      Def_Id   : constant Entity_Id       := Defining_Identifier (N);
-      Expr     : constant Node_Id         := Expression (N);
-      GM       : constant Ghost_Mode_Type := Ghost_Mode;
-      Obj_Def  : constant Node_Id         := Object_Definition (N);
-      Typ      : constant Entity_Id       := Etype (Def_Id);
-      Base_Typ : constant Entity_Id       := Base_Type (Typ);
+      Loc      : constant Source_Ptr := Sloc (N);
+      Def_Id   : constant Entity_Id  := Defining_Identifier (N);
+      Expr     : constant Node_Id    := Expression (N);
+      Obj_Def  : constant Node_Id    := Object_Definition (N);
+      Typ      : constant Entity_Id  := Etype (Def_Id);
+      Base_Typ : constant Entity_Id  := Base_Type (Typ);
       Expr_Q   : Node_Id;
 
       function Build_Equivalent_Aggregate return Boolean;
@@ -4953,9 +4902,6 @@ package body Exp_Ch3 is
       procedure Default_Initialize_Object (After : Node_Id);
       --  Generate all default initialization actions for object Def_Id. Any
       --  new code is inserted after node After.
-
-      procedure Restore_Globals;
-      --  Restore the values of all saved global variables
 
       function Rewrite_As_Renaming return Boolean;
       --  Indicate whether to rewrite a declaration with initialization into an
@@ -5163,12 +5109,11 @@ package body Exp_Ch3 is
          --  Step 2: Initialize the components of the object
 
          --  Do not initialize the components if their initialization is
-         --  prohibited or the type represents a value type in a .NET VM.
+         --  prohibited.
 
          if Has_Non_Null_Base_Init_Proc (Typ)
            and then not No_Initialization (N)
            and then not Initialization_Suppressed (Typ)
-           and then not Is_Value_Type (Typ)
          then
             --  Do not initialize the components if No_Default_Initialization
             --  applies as the actual restriction check will occur later
@@ -5209,7 +5154,7 @@ package body Exp_Ch3 is
 
          --  Provide a default value if the object needs simple initialization
          --  and does not already have an initial value. A generated temporary
-         --  do not require initialization because it will be assigned later.
+         --  does not require initialization because it will be assigned later.
 
          elsif Needs_Simple_Initialization
                  (Typ, Initialize_Scalars
@@ -5387,15 +5332,6 @@ package body Exp_Ch3 is
          end if;
       end Default_Initialize_Object;
 
-      ---------------------
-      -- Restore_Globals --
-      ---------------------
-
-      procedure Restore_Globals is
-      begin
-         Ghost_Mode := GM;
-      end Restore_Globals;
-
       -------------------------
       -- Rewrite_As_Renaming --
       -------------------------
@@ -5438,12 +5374,6 @@ package body Exp_Ch3 is
       if Is_Abstract_Type (Typ) then
          return;
       end if;
-
-      --  The object declaration may be subject to pragma Ghost with policy
-      --  Ignore. Set the mode now to ensure that any nodes generated during
-      --  expansion are properly flagged as ignored Ghost.
-
-      Set_Ghost_Mode (N);
 
       --  First we do special processing for objects of a tagged type where
       --  this is the point at which the type is frozen. The creation of the
@@ -5613,7 +5543,6 @@ package body Exp_Ch3 is
            and then Is_Build_In_Place_Function_Call (Expr_Q)
          then
             Make_Build_In_Place_Call_In_Object_Declaration (N, Expr_Q);
-            Restore_Globals;
 
             --  The previous call expands the expression initializing the
             --  built-in-place object into further code that will be analyzed
@@ -5858,7 +5787,6 @@ package body Exp_Ch3 is
                end;
             end if;
 
-            Restore_Globals;
             return;
 
          --  Common case of explicit object initialization
@@ -5931,10 +5859,10 @@ package body Exp_Ch3 is
             --  be re-initialized separately in order to avoid the propagation
             --  of a wrong tag coming from a view conversion unless the type
             --  is class wide (in this case the tag comes from the init value).
-            --  Suppress the tag assignment when VM_Target because VM tags are
-            --  represented implicitly in objects. Ditto for types that are
-            --  CPP_CLASS, and for initializations that are aggregates, because
-            --  they have to have the right tag.
+            --  Suppress the tag assignment when not Tagged_Type_Expansion
+            --  because tags are represented implicitly in objects. Ditto for
+            --  types that are CPP_CLASS, and for initializations that are
+            --  aggregates, because they have to have the right tag.
 
             --  The re-assignment of the tag has to be done even if the object
             --  is a constant. The assignment must be analyzed after the
@@ -5974,7 +5902,6 @@ package body Exp_Ch3 is
                --  to avoid its management in the backend
 
                Set_Expression (N, Empty);
-               Restore_Globals;
                return;
 
             --  Handle initialization of limited tagged types
@@ -6196,13 +6123,10 @@ package body Exp_Ch3 is
          end;
       end if;
 
-      Restore_Globals;
-
    --  Exception on library entity not available
 
    exception
       when RE_Not_Available =>
-         Restore_Globals;
          return;
    end Expand_N_Object_Declaration;
 
@@ -6537,16 +6461,8 @@ package body Exp_Ch3 is
 
       elsif Is_Concurrent_Type (Root)
         or else Is_C_Derivation (Root)
-        or else Convention (Typ) = Convention_CIL
         or else Convention (Typ) = Convention_CPP
-        or else Convention (Typ) = Convention_Java
       then
-         return;
-
-      --  Do not create TSS routine Finalize_Address for .NET/JVM because these
-      --  targets do not support address arithmetic and unchecked conversions.
-
-      elsif VM_Target /= No_VM then
          return;
 
       --  Do not create TSS routine Finalize_Address when compiling in CodePeer
@@ -7071,14 +6987,6 @@ package body Exp_Ch3 is
             then
                null;
 
-            --  Do not add the spec of predefined primitives in case of
-            --  CIL and Java tagged types
-
-            elsif Convention (Def_Id) = Convention_CIL
-              or else Convention (Def_Id) = Convention_Java
-            then
-               null;
-
             --  Do not add the spec of the predefined primitives if we are
             --  compiling under restriction No_Dispatching_Calls.
 
@@ -7135,8 +7043,8 @@ package body Exp_Ch3 is
             end if;
 
             --  Create and decorate the tags. Suppress their creation when
-            --  VM_Target because the dispatching mechanism is handled
-            --  internally by the VMs.
+            --  not Tagged_Type_Expansion because the dispatching mechanism is
+            --  handled internally by the virtual target.
 
             if Tagged_Type_Expansion then
                Append_Freeze_Actions (Def_Id, Make_Tags (Def_Id));
@@ -7148,9 +7056,6 @@ package body Exp_Ch3 is
                if not Building_Static_DT (Def_Id) then
                   Append_Freeze_Actions (Def_Id, Make_DT (Def_Id));
                end if;
-
-            elsif VM_Target /= No_VM then
-               Append_Freeze_Actions (Def_Id, Make_VM_TSD (Def_Id));
             end if;
 
             --  If the type has unknown discriminants, propagate dispatching
@@ -7277,8 +7182,8 @@ package body Exp_Ch3 is
 
       if Tagged_Type_Expansion or else not Is_Interface (Def_Id) then
 
-         --  Do not need init for interfaces on e.g. CIL since they're
-         --  abstract. Helps operation of peverify (the PE Verify tool).
+         --  Do not need init for interfaces on virtual targets since they're
+         --  abstract.
 
          Build_Record_Init_Proc (Type_Decl, Def_Id);
       end if;
@@ -7296,14 +7201,6 @@ package body Exp_Ch3 is
 
          if Is_CPP_Class (Root_Type (Def_Id))
            and then Convention (Def_Id) = Convention_CPP
-         then
-            null;
-
-         --  Do not add the body of predefined primitives in case of CIL and
-         --  Java tagged types.
-
-         elsif Convention (Def_Id) = Convention_CIL
-           or else Convention (Def_Id) = Convention_Java
          then
             null;
 
@@ -7382,75 +7279,62 @@ package body Exp_Ch3 is
                  and then Needs_Finalization (Designated_Type (Comp_Typ))
                  and then Designated_Type (Comp_Typ) /= Def_Id
                then
-                  if VM_Target = No_VM then
+                  --  Build a homogeneous master for the first anonymous
+                  --  access-to-controlled component. This master may be
+                  --  converted into a heterogeneous collection if more
+                  --  components are to follow.
 
-                     --  Build a homogeneous master for the first anonymous
-                     --  access-to-controlled component. This master may be
-                     --  converted into a heterogeneous collection if more
-                     --  components are to follow.
+                  if not Master_Built then
+                     Master_Built := True;
 
-                     if not Master_Built then
-                        Master_Built := True;
+                     --  All anonymous access-to-controlled types allocate
+                     --  on the global pool. Note that the finalization
+                     --  master and the associated storage pool must be set
+                     --  on the root type (both are "root type only").
 
-                        --  All anonymous access-to-controlled types allocate
-                        --  on the global pool. Note that the finalization
-                        --  master and the associated storage pool must be set
-                        --  on the root type (both are "root type only").
+                     Set_Associated_Storage_Pool
+                       (Root_Type (Comp_Typ), RTE (RE_Global_Pool_Object));
 
-                        Set_Associated_Storage_Pool
-                          (Root_Type (Comp_Typ), RTE (RE_Global_Pool_Object));
-
-                        Build_Finalization_Master
-                          (Typ            => Root_Type (Comp_Typ),
-                           For_Anonymous  => True,
-                           Context_Scope  => Encl_Scope,
-                           Insertion_Node => Ins_Node);
-
-                        Fin_Mas_Id := Finalization_Master (Comp_Typ);
-
-                     --  Subsequent anonymous access-to-controlled components
-                     --  reuse the available master.
-
-                     else
-                        --  All anonymous access-to-controlled types allocate
-                        --  on the global pool. Note that both the finalization
-                        --  master and the associated storage pool must be set
-                        --  on the root type (both are "root type only").
-
-                        Set_Associated_Storage_Pool
-                          (Root_Type (Comp_Typ), RTE (RE_Global_Pool_Object));
-
-                        --  Shared the master among multiple components
-
-                        Set_Finalization_Master
-                          (Root_Type (Comp_Typ), Fin_Mas_Id);
-
-                        --  Convert the master into a heterogeneous collection.
-                        --  Generate:
-                        --    Set_Is_Heterogeneous (<Fin_Mas_Id>);
-
-                        if not Attributes_Set then
-                           Attributes_Set := True;
-
-                           Insert_Action (Ins_Node,
-                             Make_Procedure_Call_Statement (Loc,
-                               Name                   =>
-                                 New_Occurrence_Of
-                                   (RTE (RE_Set_Is_Heterogeneous), Loc),
-                               Parameter_Associations => New_List (
-                                 New_Occurrence_Of (Fin_Mas_Id, Loc))));
-                        end if;
-                     end if;
-
-                  --  Since .NET/JVM targets do not support heterogeneous
-                  --  masters, each component must have its own master.
-
-                  else
                      Build_Finalization_Master
-                       (Typ            => Comp_Typ,
+                       (Typ            => Root_Type (Comp_Typ),
                         For_Anonymous  => True,
                         Context_Scope  => Encl_Scope,
                         Insertion_Node => Ins_Node);
+
+                     Fin_Mas_Id := Finalization_Master (Comp_Typ);
+
+                  --  Subsequent anonymous access-to-controlled components
+                  --  reuse the available master.
+
+                  else
+                     --  All anonymous access-to-controlled types allocate
+                     --  on the global pool. Note that both the finalization
+                     --  master and the associated storage pool must be set
+                     --  on the root type (both are "root type only").
+
+                     Set_Associated_Storage_Pool
+                       (Root_Type (Comp_Typ), RTE (RE_Global_Pool_Object));
+
+                     --  Shared the master among multiple components
+
+                     Set_Finalization_Master
+                       (Root_Type (Comp_Typ), Fin_Mas_Id);
+
+                     --  Convert the master into a heterogeneous collection.
+                     --  Generate:
+                     --    Set_Is_Heterogeneous (<Fin_Mas_Id>);
+
+                     if not Attributes_Set then
+                        Attributes_Set := True;
+
+                        Insert_Action (Ins_Node,
+                          Make_Procedure_Call_Statement (Loc,
+                            Name                   =>
+                              New_Occurrence_Of
+                                (RTE (RE_Set_Is_Heterogeneous), Loc),
+                            Parameter_Associations => New_List (
+                              New_Occurrence_Of (Fin_Mas_Id, Loc))));
+                     end if;
                   end if;
                end if;
 
@@ -7523,10 +7407,6 @@ package body Exp_Ch3 is
    --  node using Append_Freeze_Actions.
 
    function Freeze_Type (N : Node_Id) return Boolean is
-      GM : constant Ghost_Mode_Type := Ghost_Mode;
-      --  Save the current Ghost mode in effect in case the type being frozen
-      --  sets a different mode.
-
       procedure Process_RACW_Types (Typ : Entity_Id);
       --  Validate and generate stubs for all RACW types associated with type
       --  Typ.
@@ -7534,9 +7414,6 @@ package body Exp_Ch3 is
       procedure Process_Pending_Access_Types (Typ : Entity_Id);
       --  Associate type Typ's Finalize_Address primitive with the finalization
       --  masters of pending access-to-Typ types.
-
-      procedure Restore_Globals;
-      --  Restore the values of all saved global variables
 
       ------------------------
       -- Process_RACW_Types --
@@ -7618,26 +7495,19 @@ package body Exp_Ch3 is
          end if;
       end Process_Pending_Access_Types;
 
-      ---------------------
-      -- Restore_Globals --
-      ---------------------
-
-      procedure Restore_Globals is
-      begin
-         Ghost_Mode := GM;
-      end Restore_Globals;
-
       --  Local variables
 
       Def_Id : constant Entity_Id := Entity (N);
       Result : Boolean := False;
 
+      Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
+
    --  Start of processing for Freeze_Type
 
    begin
-      --  The type being frozen may be subject to pragma Ghost with policy
-      --  Ignore. Set the mode now to ensure that any nodes generated during
-      --  freezing are properly flagged as ignored Ghost.
+      --  The type being frozen may be subject to pragma Ghost. Set the mode
+      --  now to ensure that any nodes generated during freezing are properly
+      --  marked as Ghost.
 
       Set_Ghost_Mode (N, Def_Id);
 
@@ -7798,10 +7668,6 @@ package body Exp_Ch3 is
             elsif Ada_Version >= Ada_2012
               and then Present (Associated_Storage_Pool (Def_Id))
 
-              --  Omit this check on .NET/JVM where pools are not supported
-
-              and then VM_Target = No_VM
-
               --  Omit this check for the case of a configurable run-time that
               --  does not provide package System.Storage_Pools.Subpools.
 
@@ -7954,12 +7820,12 @@ package body Exp_Ch3 is
       Process_Pending_Access_Types (Def_Id);
       Freeze_Stream_Operations (N, Def_Id);
 
-      Restore_Globals;
+      Ghost_Mode := Save_Ghost_Mode;
       return Result;
 
    exception
       when RE_Not_Available =>
-         Restore_Globals;
+         Ghost_Mode := Save_Ghost_Mode;
          return False;
    end Freeze_Type;
 
@@ -9910,11 +9776,6 @@ package body Exp_Ch3 is
       if Restriction_Active (No_Finalization) then
          null;
 
-      --  Finalization is not available for CIL value types
-
-      elsif Is_Value_Type (Tag_Typ) then
-         null;
-
       else
          if not Is_Limited_Type (Tag_Typ) then
             Append_To (Res, Predef_Deep_Spec (Loc, Tag_Typ, TSS_Deep_Adjust));
@@ -10559,10 +10420,7 @@ package body Exp_Ch3 is
       --  we don't want an abstract version created because types derived from
       --  the abstract type may not even have Input available (for example if
       --  derived from a private view of the abstract type that doesn't have
-      --  a visible Input), but a VM such as .NET or the Java VM can treat the
-      --  operation as inherited anyway, and we don't want an abstract function
-      --  to be (implicitly) inherited in that case because it can lead to a VM
-      --  exception.
+      --  a visible Input).
 
       --  Do not generate stream routines for type Finalization_Master because
       --  a master may never appear in types and therefore cannot be read or

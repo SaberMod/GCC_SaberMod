@@ -1905,7 +1905,7 @@ package Sinfo is
    --    body, and no entities of the with'ed unit are referenced by the spec
    --    (an entity may still be referenced in the body, so this flag is used
    --    to generate the proper message (see Sem_Util.Check_Unused_Withs for
-   --    full details)
+   --    full details).
 
    --  No_Initialization (Flag13-Sem)
    --    Present in N_Object_Declaration and N_Allocator to indicate that the
@@ -3634,7 +3634,7 @@ package Sinfo is
       --  INDEXED_COMPONENT ::= PREFIX (EXPRESSION {, EXPRESSION})
 
       --  Note: the parser may generate this node in some situations where it
-      --  should be a function call. The semantic  pass must correct this
+      --  should be a function call. The semantic pass must correct this
       --  misidentification (which is inevitable at the parser level).
 
       --  N_Indexed_Component
@@ -4571,7 +4571,7 @@ package Sinfo is
       --    {LABEL} SIMPLE_STATEMENT | {LABEL} COMPOUND_STATEMENT
 
       --  There is no explicit node in the tree for a statement. Instead, the
-      --  individual statement appears directly. Labels are treated  as a
+      --  individual statement appears directly. Labels are treated as a
       --  kind of statement, i.e. they are linked into a statement list at
       --  the point they appear, so the labeled statement appears following
       --  the label or labels in the statement list.
@@ -6539,7 +6539,7 @@ package Sinfo is
       --  For some back ends, such as gcc with ZCX, "at end" is implemented
       --  entirely in the back end. In this case, a handled sequence of
       --  statements with an "at end" cannot also have exception handlers.
-      --  For other back ends, such as gcc with SJLJ and .NET, the
+      --  For other back ends, such as gcc with front-end SJLJ, the
       --  implementation is split between the front end and back end; the front
       --  end implements 3, and the back end implements 1 and 2. In this case,
       --  if there is an "at end", the front end inserts the appropriate
@@ -8021,8 +8021,8 @@ package Sinfo is
       --  SCIL_Controlling_Tag (Node5-Sem)
       --
       --  An N_Scil_Dispatching call node may be associated (via Get_SCIL_Node)
-      --  with the N_Procedure_Call or N_Function_Call node (or a rewriting
-      --  thereof) corresponding to a dispatching call.
+      --  with the N_Procedure_Call_Statement or N_Function_Call node (or a
+      --  rewriting thereof) corresponding to a dispatching call.
 
       --  N_SCIL_Membership_Test
       --  Sloc references the node of a membership test
@@ -8098,10 +8098,10 @@ package Sinfo is
       --  For the case of the standard gigi backend, this means that all
       --  checks are done in the front end.
 
-      --  However, in the case of specialized back-ends, notably the JVM
-      --  backend for JGNAT, additional requirements and restrictions apply
-      --  to unchecked conversion, and these are most conveniently performed
-      --  in the specialized back-end.
+      --  However, in the case of specialized back-ends, in particular the JVM
+      --  backend in the past, additional requirements and restrictions may
+      --  apply to unchecked conversion, and these are most conveniently
+      --  performed in the specialized back-end.
 
       --  To accommodate this requirement, for such back ends, the following
       --  special node is generated recording an unchecked conversion that

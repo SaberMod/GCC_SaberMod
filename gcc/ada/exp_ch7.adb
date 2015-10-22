@@ -61,7 +61,6 @@ with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
 with Snames;   use Snames;
 with Stand;    use Stand;
-with Targparm; use Targparm;
 with Tbuild;   use Tbuild;
 with Ttypes;   use Ttypes;
 with Uintp;    use Uintp;
@@ -458,16 +457,13 @@ package body Exp_Ch7 is
               Typ   => Typ,
               Stmts => Make_Deep_Array_Body (Finalize_Case, Typ)));
 
-         --  Create TSS primitive Finalize_Address for non-VM targets. JVM and
-         --  .NET do not support address arithmetic and unchecked conversions.
+         --  Create TSS primitive Finalize_Address.
 
-         if VM_Target = No_VM then
-            Set_TSS (Typ,
-              Make_Deep_Proc
-                (Prim  => Address_Case,
-                 Typ   => Typ,
-                 Stmts => Make_Deep_Array_Body (Address_Case, Typ)));
-         end if;
+         Set_TSS (Typ,
+           Make_Deep_Proc
+             (Prim  => Address_Case,
+              Typ   => Typ,
+              Stmts => Make_Deep_Array_Body (Address_Case, Typ)));
       end if;
    end Build_Array_Deep_Procs;
 
@@ -767,6 +763,7 @@ package body Exp_Ch7 is
    procedure Build_Finalization_Master
      (Typ            : Entity_Id;
       For_Anonymous  : Boolean   := False;
+      For_Lib_Level  : Boolean   := False;
       For_Private    : Boolean   := False;
       Context_Scope  : Entity_Id := Empty;
       Insertion_Node : Node_Id   := Empty)
@@ -845,13 +842,11 @@ package body Exp_Ch7 is
       if Restriction_Active (No_Finalization) then
          return;
 
-      --  Do not process C, C++, CIL and Java types since it is assumend that
-      --  the non-Ada side will handle their clean up.
+      --  Do not process C, C++ types since it is assumed that the non-Ada side
+      --  will handle their clean up.
 
       elsif Convention (Desig_Typ) = Convention_C
-        or else Convention (Desig_Typ) = Convention_CIL
         or else Convention (Desig_Typ) = Convention_CPP
-        or else Convention (Desig_Typ) = Convention_Java
       then
          return;
 
@@ -894,13 +889,6 @@ package body Exp_Ch7 is
       elsif Restriction_Active (No_Nested_Finalization)
         and then not Is_Library_Level_Entity (Ptr_Typ)
       then
-         return;
-
-      --  For .NET/JVM targets, allow the processing of access-to-controlled
-      --  types where the designated type is explicitly derived from [Limited_]
-      --  Controlled.
-
-      elsif VM_Target /= No_VM and then not Is_Controlled (Desig_Typ) then
          return;
 
       --  Do not create finalization masters in GNATprove mode because this
@@ -948,85 +936,81 @@ package body Exp_Ch7 is
                New_Occurrence_Of (RTE (RE_Finalization_Master), Loc)));
 
          --  Set the associated pool and primitive Finalize_Address of the new
-         --  finalization master. This step is skipped on .NET/JVM because the
-         --  target does not support storage pools or address arithmetic.
+         --  finalization master.
 
-         if VM_Target = No_VM then
+         --  The access type has a user-defined storage pool, use it
 
-            --  The access type has a user-defined storage pool, use it
+         if Present (Associated_Storage_Pool (Ptr_Typ)) then
+            Pool_Id := Associated_Storage_Pool (Ptr_Typ);
 
-            if Present (Associated_Storage_Pool (Ptr_Typ)) then
-               Pool_Id := Associated_Storage_Pool (Ptr_Typ);
+         --  Otherwise the default choice is the global storage pool
 
-            --  Otherwise the default choice is the global storage pool
+         else
+            Pool_Id := RTE (RE_Global_Pool_Object);
+            Set_Associated_Storage_Pool (Ptr_Typ, Pool_Id);
+         end if;
 
-            else
-               Pool_Id := RTE (RE_Global_Pool_Object);
-               Set_Associated_Storage_Pool (Ptr_Typ, Pool_Id);
-            end if;
+         --  Generate:
+         --    Set_Base_Pool (<Ptr_Typ>FM, Pool_Id'Unchecked_Access);
 
+         Append_To (Actions,
+           Make_Procedure_Call_Statement (Loc,
+             Name                   =>
+               New_Occurrence_Of (RTE (RE_Set_Base_Pool), Loc),
+             Parameter_Associations => New_List (
+               New_Occurrence_Of (Fin_Mas_Id, Loc),
+               Make_Attribute_Reference (Loc,
+                 Prefix         => New_Occurrence_Of (Pool_Id, Loc),
+                 Attribute_Name => Name_Unrestricted_Access))));
+
+         --  Finalize_Address is not generated in CodePeer mode because the
+         --  body contains address arithmetic. Skip this step.
+
+         if CodePeer_Mode then
+            null;
+
+         --  Associate the Finalize_Address primitive of the designated type
+         --  with the finalization master of the access type. The designated
+         --  type must be forzen as Finalize_Address is generated when the
+         --  freeze node is expanded.
+
+         elsif Is_Frozen (Desig_Typ)
+           and then Present (Finalize_Address (Desig_Typ))
+
+           --  The finalization master of an anonymous access type may need
+           --  to be inserted in a specific place in the tree. For instance:
+
+           --    type Comp_Typ;
+
+           --    <finalization master of "access Comp_Typ">
+
+           --    type Rec_Typ is record
+           --       Comp : access Comp_Typ;
+           --    end record;
+
+           --    <freeze node for Comp_Typ>
+           --    <freeze node for Rec_Typ>
+
+           --  Due to this oddity, the anonymous access type is stored for
+           --  later processing (see below).
+
+           and then Ekind (Ptr_Typ) /= E_Anonymous_Access_Type
+         then
             --  Generate:
-            --    Set_Base_Pool (<Ptr_Typ>FM, Pool_Id'Unchecked_Access);
+            --    Set_Finalize_Address
+            --      (<Ptr_Typ>FM, <Desig_Typ>FD'Unrestricted_Access);
 
             Append_To (Actions,
-              Make_Procedure_Call_Statement (Loc,
-                Name                   =>
-                  New_Occurrence_Of (RTE (RE_Set_Base_Pool), Loc),
-                Parameter_Associations => New_List (
-                  New_Occurrence_Of (Fin_Mas_Id, Loc),
-                  Make_Attribute_Reference (Loc,
-                    Prefix         => New_Occurrence_Of (Pool_Id, Loc),
-                    Attribute_Name => Name_Unrestricted_Access))));
+              Make_Set_Finalize_Address_Call
+                (Loc     => Loc,
+                 Ptr_Typ => Ptr_Typ));
 
-            --  Finalize_Address is not generated in CodePeer mode because the
-            --  body contains address arithmetic. Skip this step.
+         --  Otherwise the designated type is either anonymous access or a
+         --  Taft-amendment type and has not been frozen. Store the access
+         --  type for later processing (see Freeze_Type).
 
-            if CodePeer_Mode then
-               null;
-
-            --  Associate the Finalize_Address primitive of the designated type
-            --  with the finalization master of the access type. The designated
-            --  type must be forzen as Finalize_Address is generated when the
-            --  freeze node is expanded.
-
-            elsif Is_Frozen (Desig_Typ)
-              and then Present (Finalize_Address (Desig_Typ))
-
-              --  The finalization master of an anonymous access type may need
-              --  to be inserted in a specific place in the tree. For instance:
-
-              --    type Comp_Typ;
-
-              --    <finalization master of "access Comp_Typ">
-
-              --    type Rec_Typ is record
-              --       Comp : access Comp_Typ;
-              --    end record;
-
-              --    <freeze node for Comp_Typ>
-              --    <freeze node for Rec_Typ>
-
-              --  Due to this oddity, the anonymous access type is stored for
-              --  later processing (see below).
-
-              and then Ekind (Ptr_Typ) /= E_Anonymous_Access_Type
-            then
-               --  Generate:
-               --    Set_Finalize_Address
-               --      (<Ptr_Typ>FM, <Desig_Typ>FD'Unrestricted_Access);
-
-               Append_To (Actions,
-                 Make_Set_Finalize_Address_Call
-                   (Loc     => Loc,
-                    Ptr_Typ => Ptr_Typ));
-
-            --  Otherwise the designated type is either anonymous access or a
-            --  Taft-amendment type and has not been frozen. Store the access
-            --  type for later processing (see Freeze_Type).
-
-            else
-               Add_Pending_Access_Type (Desig_Typ, Ptr_Typ);
-            end if;
+         else
+            Add_Pending_Access_Type (Desig_Typ, Ptr_Typ);
          end if;
 
          --  A finalization master created for an anonymous access type or an
@@ -1055,6 +1039,15 @@ package body Exp_Ch7 is
             end if;
 
             Pop_Scope;
+
+         --  The finalization master belongs to an access result type related
+         --  to a build-in-place function call used to initialize a library
+         --  level object. The master must be inserted in front of the access
+         --  result type declaration denoted by Insertion_Node.
+
+         elsif For_Lib_Level then
+            pragma Assert (Present (Insertion_Node));
+            Insert_Actions (Insertion_Node, Actions);
 
          --  Otherwise the finalization master and its initialization become a
          --  part of the freeze node.
@@ -1116,7 +1109,7 @@ package body Exp_Ch7 is
       Finalizer_Decls : List_Id := No_List;
       --  Local variable declarations. This list holds the label declarations
       --  of all jump block alternatives as well as the declaration of the
-      --  local exception occurence and the raised flag:
+      --  local exception occurrence and the raised flag:
       --     E : Exception_Occurrence;
       --     Raised : Boolean := False;
       --     L<counter value> : label;
@@ -1842,6 +1835,15 @@ package body Exp_Ch7 is
                --  because they will not appear in the final tree.
 
                elsif Is_Ignored_Ghost_Entity (Obj_Id) then
+                  null;
+
+               --  The expansion of iterator loops generates an object
+               --  declaration where the Ekind is explicitly set to loop
+               --  parameter. This is to ensure that the loop parameter behaves
+               --  as a constant from user code point of view. Such object are
+               --  never controlled and do not require finalization.
+
+               elsif Ekind (Obj_Id) = E_Loop_Parameter then
                   null;
 
                --  The object is of the form:
@@ -2869,10 +2871,9 @@ package body Exp_Ch7 is
             --    end if;
 
             --  The generated code effectively detaches the temporary from the
-            --  caller finalization master and deallocates the object. This is
-            --  disabled on .NET/JVM because pools are not supported.
+            --  caller finalization master and deallocates the object.
 
-            if VM_Target = No_VM and then Is_Return_Object (Obj_Id) then
+            if Is_Return_Object (Obj_Id) then
                declare
                   Func_Id : constant Entity_Id := Enclosing_Function (Obj_Id);
                begin
@@ -3261,14 +3262,10 @@ package body Exp_Ch7 is
       --  order to detect this scenario, save the state of entry into the
       --  finalization code.
 
-      --  No need to do this for VM case, since VM version of Ada.Exceptions
-      --  does not include routine Raise_From_Controlled_Operation which is the
-      --  the sole user of flag Abort.
-
       --  This is not needed for library-level finalizers as they are called by
       --  the environment task and cannot be aborted.
 
-      if VM_Target = No_VM and then not For_Package then
+      if not For_Package then
          if Abort_Allowed then
             Data.Abort_Id := Make_Temporary (Loc, 'A');
 
@@ -3294,7 +3291,7 @@ package body Exp_Ch7 is
             Data.Abort_Id := Empty;
          end if;
 
-      --  .NET/JVM or library-level finalizers
+      --  Library-level finalizers
 
       else
          Data.Abort_Id := Empty;
@@ -3340,7 +3337,7 @@ package body Exp_Ch7 is
       Expr : Node_Id;
 
    begin
-      --  Standard run-time and .NET/JVM targets use the specialized routine
+      --  Standard run-time use the specialized routine
       --  Raise_From_Controlled_Operation.
 
       if Exception_Extra_Info
@@ -3424,16 +3421,13 @@ package body Exp_Ch7 is
               Typ   => Typ,
               Stmts => Make_Deep_Record_Body (Finalize_Case, Typ)));
 
-         --  Create TSS primitive Finalize_Address for non-VM targets. JVM and
-         --  .NET do not support address arithmetic and unchecked conversions.
+         --  Create TSS primitive Finalize_Address
 
-         if VM_Target = No_VM then
-            Set_TSS (Typ,
-              Make_Deep_Proc
-                (Prim  => Address_Case,
-                 Typ   => Typ,
-                 Stmts => Make_Deep_Record_Body (Address_Case, Typ)));
-         end if;
+         Set_TSS (Typ,
+           Make_Deep_Proc
+             (Prim  => Address_Case,
+              Typ   => Typ,
+              Stmts => Make_Deep_Record_Body (Address_Case, Typ)));
       end if;
    end Build_Record_Deep_Procs;
 
@@ -3930,8 +3924,7 @@ package body Exp_Ch7 is
       Needs_Sec_Stack_Mark : constant Boolean :=
                                Uses_Sec_Stack (Scop)
                                  and then
-                                   not Sec_Stack_Needed_For_Return (Scop)
-                                 and then VM_Target = No_VM;
+                                   not Sec_Stack_Needed_For_Return (Scop);
       Needs_Custom_Cleanup : constant Boolean :=
                                Nkind (N) = N_Block_Statement
                                  and then Present (Cleanup_Actions (N));
@@ -4064,9 +4057,6 @@ package body Exp_Ch7 is
          --
          --    Mnn : constant Mark_Id := SS_Mark;
 
-         --  Suppress calls to SS_Mark and SS_Release if VM_Target, since the
-         --  secondary stack is never used on a VM.
-
          if Needs_Sec_Stack_Mark then
             Mark := Make_Temporary (Loc, 'M');
 
@@ -4177,26 +4167,27 @@ package body Exp_Ch7 is
    --  Encode entity names in package body
 
    procedure Expand_N_Package_Body (N : Node_Id) is
-      GM       : constant Ghost_Mode_Type := Ghost_Mode;
-      Spec_Ent : constant Entity_Id := Corresponding_Spec (N);
-      Fin_Id   : Entity_Id;
+      Spec_Id : constant Entity_Id := Corresponding_Spec (N);
+      Fin_Id  : Entity_Id;
+
+      Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
 
    begin
-      --  The package body may be subject to pragma Ghost with policy Ignore.
-      --  Set the mode now to ensure that any nodes generated during expansion
-      --  are properly flagged as ignored Ghost.
+      --  The package body is Ghost when the corresponding spec is Ghost. Set
+      --  the mode now to ensure that any nodes generated during expansion are
+      --  properly marked as Ghost.
 
-      Set_Ghost_Mode (N);
+      Set_Ghost_Mode (N, Spec_Id);
 
       --  This is done only for non-generic packages
 
-      if Ekind (Spec_Ent) = E_Package then
+      if Ekind (Spec_Id) = E_Package then
          Push_Scope (Corresponding_Spec (N));
 
          --  Build dispatch tables of library level tagged types
 
          if Tagged_Type_Expansion
-           and then Is_Library_Level_Entity (Spec_Ent)
+           and then Is_Library_Level_Entity (Spec_Id)
          then
             Build_Static_Dispatch_Tables (N);
          end if;
@@ -4207,7 +4198,7 @@ package body Exp_Ch7 is
          --  assertion expression must be verified at the end of the body
          --  statements.
 
-         if Present (Get_Pragma (Spec_Ent, Pragma_Initial_Condition)) then
+         if Present (Get_Pragma (Spec_Id, Pragma_Initial_Condition)) then
             Expand_Pragma_Initial_Condition (N);
          end if;
 
@@ -4215,13 +4206,13 @@ package body Exp_Ch7 is
       end if;
 
       Set_Elaboration_Flag (N, Corresponding_Spec (N));
-      Set_In_Package_Body (Spec_Ent, False);
+      Set_In_Package_Body (Spec_Id, False);
 
       --  Set to encode entity names in package body before gigi is called
 
       Qualify_Entity_Names (N);
 
-      if Ekind (Spec_Ent) /= E_Generic_Package then
+      if Ekind (Spec_Id) /= E_Generic_Package then
          Build_Finalizer
            (N           => N,
             Clean_Stmts => No_List,
@@ -4244,10 +4235,7 @@ package body Exp_Ch7 is
          end if;
       end if;
 
-      --  Restore the original Ghost mode once analysis and expansion have
-      --  taken place.
-
-      Ghost_Mode := GM;
+      Ghost_Mode := Save_Ghost_Mode;
    end Expand_N_Package_Body;
 
    ----------------------------------
@@ -4260,7 +4248,6 @@ package body Exp_Ch7 is
    --  appear.
 
    procedure Expand_N_Package_Declaration (N : Node_Id) is
-      GM     : constant Ghost_Mode_Type := Ghost_Mode;
       Id     : constant Entity_Id := Defining_Entity (N);
       Spec   : constant Node_Id   := Specification (N);
       Decls  : List_Id;
@@ -4303,12 +4290,6 @@ package body Exp_Ch7 is
       then
          return;
       end if;
-
-      --  The package declaration may be subject to pragma Ghost with policy
-      --  Ignore. Set the mode now to ensure that any nodes generated during
-      --  expansion are properly flagged as ignored Ghost.
-
-      Set_Ghost_Mode (N);
 
       --  For a package declaration that implies no associated body, generate
       --  task activation call and RACW supporting bodies now (since we won't
@@ -4383,11 +4364,6 @@ package body Exp_Ch7 is
 
          Set_Finalizer (Id, Fin_Id);
       end if;
-
-      --  Restore the original Ghost mode once analysis and expansion have
-      --  taken place.
-
-      Ghost_Mode := GM;
    end Expand_N_Package_Declaration;
 
    -----------------------------
@@ -5207,27 +5183,6 @@ package body Exp_Ch7 is
    end Make_Adjust_Call;
 
    ----------------------
-   -- Make_Attach_Call --
-   ----------------------
-
-   function Make_Attach_Call
-     (Obj_Ref : Node_Id;
-      Ptr_Typ : Entity_Id) return Node_Id
-   is
-      pragma Assert (VM_Target /= No_VM);
-
-      Loc : constant Source_Ptr := Sloc (Obj_Ref);
-   begin
-      return
-        Make_Procedure_Call_Statement (Loc,
-          Name                   =>
-            New_Occurrence_Of (RTE (RE_Attach), Loc),
-          Parameter_Associations => New_List (
-            New_Occurrence_Of (Finalization_Master (Ptr_Typ), Loc),
-            Unchecked_Convert_To (RTE (RE_Root_Controlled_Ptr), Obj_Ref)));
-   end Make_Attach_Call;
-
-   ----------------------
    -- Make_Detach_Call --
    ----------------------
 
@@ -5337,7 +5292,7 @@ package body Exp_Ch7 is
       --                      Abort  : constant Boolean := Triggered_By_Abort;
       --                        <or>
       --                      Abort  : constant Boolean := False; --  no abort
-      --                      E      : Exception_Occurence;
+      --                      E      : Exception_Occurrence;
       --                      Raised : Boolean := False;
 
       --                   begin
@@ -6101,7 +6056,7 @@ package body Exp_Ch7 is
       --             when others =>
       --                if not Raised then
       --                   Raised := True;
-      --                   Save_Occurence (E, Get_Current_Excep.all.all);
+      --                   Save_Occurrence (E, Get_Current_Excep.all.all);
       --                end if;
       --          end;
       --       end if;
@@ -6119,7 +6074,7 @@ package body Exp_Ch7 is
       --       Abort  : constant Boolean := Triggered_By_Abort;
       --         <or>
       --       Abort  : constant Boolean := False;  --  no abort
-      --       E      : Exception_Occurence;
+      --       E      : Exception_Occurrence;
       --       Raised : Boolean := False;
       --
       --    begin
@@ -6130,7 +6085,7 @@ package body Exp_Ch7 is
       --             when others =>
       --                if not Raised then
       --                   Raised := True;
-      --                   Save_Occurence (E, Get_Current_Excep.all.all);
+      --                   Save_Occurrence (E, Get_Current_Excep.all.all);
       --                end if;
       --          end;
       --       end if;
@@ -6154,7 +6109,7 @@ package body Exp_Ch7 is
       --                when others =>
       --                   if not Raised then
       --                      Raised := True;
-      --                      Save_Occurence (E, Get_Current_Excep.all.all);
+      --                      Save_Occurrence (E, Get_Current_Excep.all.all);
       --                   end if;
       --             end;
       --             .  .  .
@@ -6165,7 +6120,7 @@ package body Exp_Ch7 is
       --                when others =>
       --                   if not Raised then
       --                      Raised := True;
-      --                      Save_Occurence (E, Get_Current_Excep.all.all);
+      --                      Save_Occurrence (E, Get_Current_Excep.all.all);
       --                   end if;
       --             end;
       --             <<L0>>
@@ -6587,7 +6542,7 @@ package body Exp_Ch7 is
          --         <or>
          --       Abort  : constant Boolean := False;  --  no abort
 
-         --       E      : Exception_Occurence;
+         --       E      : Exception_Occurrence;
          --       Raised : Boolean := False;
 
          --    begin
@@ -7159,7 +7114,7 @@ package body Exp_Ch7 is
          --         <or>
          --       Abort  : constant Boolean := False;  --  no abort
 
-         --       E      : Exception_Occurence;
+         --       E      : Exception_Occurrence;
          --       Raised : Boolean := False;
 
          --    begin
@@ -7720,8 +7675,8 @@ package body Exp_Ch7 is
       --  Procedure call or raise statement
 
    begin
-      --  Standard run-time, .NET/JVM targets: add choice parameter E and pass
-      --  it to Raise_From_Controlled_Operation so that the original exception
+      --  Standard run-time: add choice parameter E and pass it to
+      --  Raise_From_Controlled_Operation so that the original exception
       --  name and message can be recorded in the exception message for
       --  Program_Error.
 
@@ -7942,8 +7897,7 @@ package body Exp_Ch7 is
    begin
       --  Case where only secondary stack use is involved
 
-      if VM_Target = No_VM
-        and then Uses_Sec_Stack (Current_Scope)
+      if Uses_Sec_Stack (Current_Scope)
         and then Nkind (Action) /= N_Simple_Return_Statement
         and then Nkind (Par) /= N_Exception_Handler
       then
@@ -8148,18 +8102,16 @@ package body Exp_Ch7 is
       Curr_S := Current_Scope;
       Encl_S := Scope (Curr_S);
 
-      --  Insert all actions inluding cleanup generated while analyzing or
+      --  Insert all actions including cleanup generated while analyzing or
       --  expanding the transient context back into the tree. Manage the
       --  secondary stack when the object declaration appears in a library
-      --  level package [body]. This is not needed for .NET/JVM as those do
-      --  not support the secondary stack.
+      --  level package [body].
 
       Insert_Actions_In_Scope_Around
         (N         => N,
          Clean     => True,
          Manage_SS =>
-           VM_Target = No_VM
-             and then Uses_Sec_Stack (Curr_S)
+           Uses_Sec_Stack (Curr_S)
              and then Nkind (N) = N_Object_Declaration
              and then Ekind_In (Encl_S, E_Package, E_Package_Body)
              and then Is_Library_Level_Entity (Encl_S));
@@ -8171,10 +8123,9 @@ package body Exp_Ch7 is
       Transfer_Entities (Curr_S, Encl_S);
 
       --  Mark the enclosing dynamic scope to ensure that the secondary stack
-      --  is properly released upon exiting the said scope. This is not needed
-      --  for .NET/JVM as those do not support the secondary stack.
+      --  is properly released upon exiting the said scope.
 
-      if VM_Target = No_VM and then Uses_Sec_Stack (Curr_S) then
+      if Uses_Sec_Stack (Curr_S) then
          Curr_S := Enclosing_Dynamic_Scope (Curr_S);
 
          --  Do not mark a function that returns on the secondary stack as the

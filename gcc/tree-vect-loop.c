@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "tree-vectorizer.h"
 #include "target.h"
+#include "gimple-fold.h"
 
 /* Loop Vectorization Pass.
 
@@ -1043,7 +1044,7 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo, bool clean_stmts)
 
 /* Calculate the cost of one scalar iteration of the loop.  */
 static void
-vect_get_single_scalar_iteration_cost (loop_vec_info loop_vinfo)
+vect_compute_single_scalar_iteration_cost (loop_vec_info loop_vinfo)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
@@ -1739,7 +1740,7 @@ vect_analyze_loop_2 (loop_vec_info loop_vinfo)
     }
 
   /* Compute the scalar iteration cost.  */
-  vect_get_single_scalar_iteration_cost (loop_vinfo);
+  vect_compute_single_scalar_iteration_cost (loop_vinfo);
 
   /* This pass will decide on using loop versioning and/or loop peeling in
      order to enhance the alignment of data references in the loop.  */
@@ -3341,9 +3342,8 @@ get_initial_def_for_induction (gimple *iv_phi)
   struct loop *iv_loop;
   basic_block new_bb;
   tree new_vec, vec_init, vec_step, t;
-  tree new_var;
   tree new_name;
-  gimple *init_stmt, *new_stmt;
+  gimple *new_stmt;
   gphi *induction_phi;
   tree induc_def, vec_def, vec_dest;
   tree init_expr, step_expr;
@@ -3353,7 +3353,7 @@ get_initial_def_for_induction (gimple *iv_phi)
   tree expr;
   stmt_vec_info phi_info = vinfo_for_stmt (iv_phi);
   bool nested_in_vect_loop = false;
-  gimple_seq stmts = NULL;
+  gimple_seq stmts;
   imm_use_iterator imm_iter;
   use_operand_p use_p;
   gimple *exit_phi;
@@ -3394,9 +3394,8 @@ get_initial_def_for_induction (gimple *iv_phi)
   gcc_assert (ncopies >= 1);
 
   /* Convert the step to the desired type.  */
-  step_expr = force_gimple_operand (fold_convert (TREE_TYPE (vectype),
-						  step_expr),
-				    &stmts, true, NULL_TREE);
+  stmts = NULL;
+  step_expr = gimple_convert (&stmts, TREE_TYPE (vectype), step_expr);
   if (stmts)
     {
       new_bb = gsi_insert_seq_on_edge_immediate (pe, stmts);
@@ -3412,19 +3411,18 @@ get_initial_def_for_induction (gimple *iv_phi)
       /* iv_loop is nested in the loop to be vectorized.  init_expr had already
 	 been created during vectorization of previous stmts.  We obtain it
 	 from the STMT_VINFO_VEC_STMT of the defining stmt.  */
-      vec_init = vect_get_vec_def_for_operand (init_expr, iv_phi, NULL);
+      vec_init = vect_get_vec_def_for_operand (init_expr, iv_phi);
       /* If the initial value is not of proper type, convert it.  */
       if (!useless_type_conversion_p (vectype, TREE_TYPE (vec_init)))
 	{
 	  new_stmt
-	    = gimple_build_assign (vect_get_new_vect_var (vectype,
+	    = gimple_build_assign (vect_get_new_ssa_name (vectype,
 							  vect_simple_var,
 							  "vec_iv_"),
 				   VIEW_CONVERT_EXPR,
 				   build1 (VIEW_CONVERT_EXPR, vectype,
 					   vec_init));
-	  vec_init = make_ssa_name (gimple_assign_lhs (new_stmt), new_stmt);
-	  gimple_assign_set_lhs (new_stmt, vec_init);
+	  vec_init = gimple_assign_lhs (new_stmt);
 	  new_bb = gsi_insert_on_edge_immediate (loop_preheader_edge (iv_loop),
 						 new_stmt);
 	  gcc_assert (!new_bb);
@@ -3438,16 +3436,8 @@ get_initial_def_for_induction (gimple *iv_phi)
 
       /* iv_loop is the loop to be vectorized. Create:
 	 vec_init = [X, X+S, X+2*S, X+3*S] (S = step_expr, X = init_expr)  */
-      new_var = vect_get_new_vect_var (TREE_TYPE (vectype),
-				       vect_scalar_var, "var_");
-      new_name = force_gimple_operand (fold_convert (TREE_TYPE (vectype),
-						     init_expr),
-				       &stmts, false, new_var);
-      if (stmts)
-	{
-	  new_bb = gsi_insert_seq_on_edge_immediate (pe, stmts);
-	  gcc_assert (!new_bb);
-	}
+      stmts = NULL;
+      new_name = gimple_convert (&stmts, TREE_TYPE (vectype), init_expr);
 
       vec_alloc (v, nunits);
       bool constant_p = is_gimple_min_invariant (new_name);
@@ -3455,26 +3445,18 @@ get_initial_def_for_induction (gimple *iv_phi)
       for (i = 1; i < nunits; i++)
 	{
 	  /* Create: new_name_i = new_name + step_expr  */
-	  new_name = fold_build2 (PLUS_EXPR, TREE_TYPE (new_name),
-				  new_name, step_expr);
+	  new_name = gimple_build (&stmts, PLUS_EXPR, TREE_TYPE (new_name),
+				   new_name, step_expr);
 	  if (!is_gimple_min_invariant (new_name))
-	    {
-	      init_stmt = gimple_build_assign (new_var, new_name);
-	      new_name = make_ssa_name (new_var, init_stmt);
-	      gimple_assign_set_lhs (init_stmt, new_name);
-	      new_bb = gsi_insert_on_edge_immediate (pe, init_stmt);
-	      gcc_assert (!new_bb);
-	      if (dump_enabled_p ())
-		{
-		  dump_printf_loc (MSG_NOTE, vect_location,
-				   "created new init_stmt: ");
-		  dump_gimple_stmt (MSG_NOTE, TDF_SLIM, init_stmt, 0);
-                  dump_printf (MSG_NOTE, "\n");
-		}
-	      constant_p = false;
-	    }
+	    constant_p = false;
 	  CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, new_name);
 	}
+      if (stmts)
+	{
+	  new_bb = gsi_insert_seq_on_edge_immediate (pe, stmts);
+	  gcc_assert (!new_bb);
+	}
+
       /* Create a vector from [new_name_0, new_name_1, ..., new_name_nunits-1]  */
       if (constant_p)
 	new_vec = build_vector_from_ctor (vectype, v);
@@ -3798,8 +3780,7 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
         if (adjustment_def)
           {
             if (nested_in_vect_loop)
-              *adjustment_def = vect_get_vec_def_for_operand (init_val, stmt,
-                                                              NULL);
+              *adjustment_def = vect_get_vec_def_for_operand (init_val, stmt);
             else
               *adjustment_def = init_val;
           }
@@ -3853,7 +3834,7 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
         if (adjustment_def)
           {
             *adjustment_def = NULL_TREE;
-            init_def = vect_get_vec_def_for_operand (init_val, stmt, NULL);
+            init_def = vect_get_vec_def_for_operand (init_val, stmt);
             break;
           }
 
@@ -4012,12 +3993,13 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
                        NULL, slp_node, reduc_index);
   else
     {
+      /* Get at the scalar def before the loop, that defines the initial value
+	 of the reduction variable.  */
+      gimple *def_stmt = SSA_NAME_DEF_STMT (reduction_op);
+      tree op = PHI_ARG_DEF_FROM_EDGE (def_stmt, loop_preheader_edge (loop));
       vec_initial_defs.create (1);
-     /* For the case of reduction, vect_get_vec_def_for_operand returns
-        the scalar def before the loop, that defines the initial value
-        of the reduction variable.  */
-      vec_initial_def = vect_get_vec_def_for_operand (reduction_op, stmt,
-                                                      &adjustment_def);
+      vec_initial_def = get_initial_def_for_reduction (stmt, op,
+						       &adjustment_def);
       vec_initial_defs.quick_push (vec_initial_def);
     }
 
@@ -4800,7 +4782,6 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
   int op_type;
   optab optab, reduc_optab;
   tree new_temp = NULL_TREE;
-  tree def;
   gimple *def_stmt;
   enum vect_def_type dt;
   gphi *new_phi = NULL;
@@ -4956,8 +4937,8 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
       if (i == 0 && code == COND_EXPR)
         continue;
 
-      is_simple_use = vect_is_simple_use_1 (ops[i], stmt, loop_vinfo,
-					    &def_stmt, &def, &dt, &tem);
+      is_simple_use = vect_is_simple_use (ops[i], loop_vinfo,
+					  &def_stmt, &dt, &tem);
       if (!vectype_in)
 	vectype_in = tem;
       gcc_assert (is_simple_use);
@@ -4977,8 +4958,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
         }
     }
 
-  is_simple_use = vect_is_simple_use_1 (ops[i], stmt, loop_vinfo,
-					&def_stmt, &def, &dt, &tem);
+  is_simple_use = vect_is_simple_use (ops[i], loop_vinfo, &def_stmt, &dt, &tem);
   if (!vectype_in)
     vectype_in = tem;
   gcc_assert (is_simple_use);
@@ -5340,12 +5320,11 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
           else
             {
               loop_vec_def0 = vect_get_vec_def_for_operand (ops[!reduc_index],
-                                                            stmt, NULL);
+                                                            stmt);
               vec_oprnds0.quick_push (loop_vec_def0);
               if (op_type == ternary_op)
                {
-                 loop_vec_def1 = vect_get_vec_def_for_operand (op1, stmt,
-                                                               NULL);
+                 loop_vec_def1 = vect_get_vec_def_for_operand (op1, stmt);
                  vec_oprnds1.quick_push (loop_vec_def1);
                }
             }
@@ -5356,17 +5335,15 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
             {
               enum vect_def_type dt;
 	      gimple *dummy_stmt;
-              tree dummy;
 
-              vect_is_simple_use (ops[!reduc_index], stmt, loop_vinfo,
-                                  &dummy_stmt, &dummy, &dt);
+              vect_is_simple_use (ops[!reduc_index], loop_vinfo,
+                                  &dummy_stmt, &dt);
               loop_vec_def0 = vect_get_vec_def_for_stmt_copy (dt,
                                                               loop_vec_def0);
               vec_oprnds0[0] = loop_vec_def0;
               if (op_type == ternary_op)
                 {
-                  vect_is_simple_use (op1, stmt, loop_vinfo, &dummy_stmt,
-                                      &dummy, &dt);
+                  vect_is_simple_use (op1, loop_vinfo, &dummy_stmt, &dt);
                   loop_vec_def1 = vect_get_vec_def_for_stmt_copy (dt,
                                                                 loop_vec_def1);
                   vec_oprnds1[0] = loop_vec_def1;
@@ -5595,7 +5572,6 @@ vectorizable_live_operation (gimple *stmt,
   int i;
   int op_type;
   tree op;
-  tree def;
   gimple *def_stmt;
   enum vect_def_type dt;
   enum tree_code code;
@@ -5667,7 +5643,7 @@ vectorizable_live_operation (gimple *stmt,
       else
 	op = gimple_op (stmt, i + 1);
       if (op
-          && !vect_is_simple_use (op, stmt, loop_vinfo, &def_stmt, &def, &dt))
+          && !vect_is_simple_use (op, loop_vinfo, &def_stmt, &dt))
         {
           if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,

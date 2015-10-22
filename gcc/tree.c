@@ -1986,6 +1986,21 @@ build_complex (tree type, tree real, tree imag)
   return t;
 }
 
+/* Build a complex (inf +- 0i), such as for the result of cproj.
+   TYPE is the complex tree type of the result.  If NEG is true, the
+   imaginary zero is negative.  */
+
+tree
+build_complex_inf (tree type, bool neg)
+{
+  REAL_VALUE_TYPE rinf, rzero = dconst0;
+
+  real_inf (&rinf);
+  rzero.sign = neg;
+  return build_complex (type, build_real (TREE_TYPE (type), rinf),
+			build_real (TREE_TYPE (type), rzero));
+}
+
 /* Return the constant 1 in type TYPE.  If TYPE has several elements, each
    element is set to 1.  In particular, this is 1 + i for complex types.  */
 
@@ -4247,6 +4262,8 @@ recompute_tree_invariant_for_addr_expr (tree t)
 {
   tree node;
   bool tc = true, se = false;
+
+  gcc_assert (TREE_CODE (t) == ADDR_EXPR);
 
   /* We started out assuming this address is both invariant and constant, but
      does not have side effects.  Now go down any handled components and see if
@@ -8039,6 +8056,34 @@ build_nonstandard_integer_type (unsigned HOST_WIDE_INT precision,
   return ret;
 }
 
+#define MAX_BOOL_CACHED_PREC \
+  (HOST_BITS_PER_WIDE_INT > 64 ? HOST_BITS_PER_WIDE_INT : 64)
+static GTY(()) tree nonstandard_boolean_type_cache[MAX_BOOL_CACHED_PREC + 1];
+
+/* Builds a boolean type of precision PRECISION.
+   Used for boolean vectors to choose proper vector element size.  */
+tree
+build_nonstandard_boolean_type (unsigned HOST_WIDE_INT precision)
+{
+  tree type;
+
+  if (precision <= MAX_BOOL_CACHED_PREC)
+    {
+      type = nonstandard_boolean_type_cache[precision];
+      if (type)
+	return type;
+    }
+
+  type = make_node (BOOLEAN_TYPE);
+  TYPE_PRECISION (type) = precision;
+  fixup_unsigned_type (type);
+
+  if (precision <= MAX_INT_CACHED_PREC)
+    nonstandard_boolean_type_cache[precision] = type;
+
+  return type;
+}
+
 /* Create a range of some discrete type TYPE (an INTEGER_TYPE, ENUMERAL_TYPE
    or BOOLEAN_TYPE) with low bound LOWVAL and high bound HIGHVAL.  If SHARED
    is true, reuse such a type that has already been constructed.  */
@@ -9789,8 +9834,9 @@ make_vector_type (tree innertype, int nunits, machine_mode mode)
 
   if (TYPE_STRUCTURAL_EQUALITY_P (innertype))
     SET_TYPE_STRUCTURAL_EQUALITY (t);
-  else if (TYPE_CANONICAL (innertype) != innertype
-	   || mode != VOIDmode)
+  else if ((TYPE_CANONICAL (innertype) != innertype
+	    || mode != VOIDmode)
+	   && !VECTOR_BOOLEAN_TYPE_P (t))
     TYPE_CANONICAL (t)
       = make_vector_type (TYPE_CANONICAL (innertype), nunits, VOIDmode);
 
@@ -10615,6 +10661,40 @@ build_vector_type (tree innertype, int nunits)
   return make_vector_type (innertype, nunits, VOIDmode);
 }
 
+/* Build truth vector with specified length and number of units.  */
+
+tree
+build_truth_vector_type (unsigned nunits, unsigned vector_size)
+{
+  machine_mode mask_mode = targetm.vectorize.get_mask_mode (nunits,
+							    vector_size);
+
+  gcc_assert (mask_mode != VOIDmode);
+
+  unsigned HOST_WIDE_INT esize = GET_MODE_BITSIZE (mask_mode) / nunits;
+  gcc_assert (esize * nunits == GET_MODE_BITSIZE (mask_mode));
+
+  tree bool_type = build_nonstandard_boolean_type (esize);
+
+  return make_vector_type (bool_type, nunits, mask_mode);
+}
+
+/* Returns a vector type corresponding to a comparison of VECTYPE.  */
+
+tree
+build_same_sized_truth_vector_type (tree vectype)
+{
+  if (VECTOR_BOOLEAN_TYPE_P (vectype))
+    return vectype;
+
+  unsigned HOST_WIDE_INT size = GET_MODE_SIZE (TYPE_MODE (vectype));
+
+  if (!size)
+    size = tree_to_uhwi (TYPE_SIZE_UNIT (vectype));
+
+  return build_truth_vector_type (TYPE_VECTOR_SUBPARTS (vectype), size);
+}
+
 /* Similarly, but builds a variant type with TYPE_VECTOR_OPAQUE set.  */
 
 tree
@@ -11101,9 +11181,10 @@ truth_type_for (tree type)
 {
   if (TREE_CODE (type) == VECTOR_TYPE)
     {
-      tree elem = lang_hooks.types.type_for_size
-        (GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (type))), 0);
-      return build_opaque_vector_type (elem, TYPE_VECTOR_SUBPARTS (type));
+      if (VECTOR_BOOLEAN_TYPE_P (type))
+	return type;
+      return build_truth_vector_type (TYPE_VECTOR_SUBPARTS (type),
+				      GET_MODE_SIZE (TYPE_MODE (type)));
     }
   else
     return boolean_type_node;
@@ -13338,6 +13419,14 @@ verify_type (const_tree t)
 	   && !gimple_canonical_types_compatible_p (t, ct, false))
     {
       error ("TYPE_CANONICAL is not compatible");
+      debug_tree (ct);
+      error_found = true;
+    }
+
+  if (COMPLETE_TYPE_P (t) && TYPE_CANONICAL (t)
+      && TYPE_MODE (t) != TYPE_MODE (TYPE_CANONICAL (t)))
+    {
+      error ("TYPE_MODE of TYPE_CANONICAL is not compatible");
       debug_tree (ct);
       error_found = true;
     }

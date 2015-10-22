@@ -1660,6 +1660,8 @@ force_paren_expr (tree expr)
     REF_PARENTHESIZED_P (expr) = true;
   else if (type_dependent_expression_p (expr))
     expr = build1 (PAREN_EXPR, TREE_TYPE (expr), expr);
+  else if (VAR_P (expr) && DECL_HARD_REGISTER (expr))
+    /* We can't bind a hard register variable to a reference.  */;
   else
     {
       cp_lvalue_kind kind = lvalue_kind (expr);
@@ -5630,8 +5632,9 @@ cp_finish_omp_clause_depend_sink (tree sink_clause)
 				     neg ? MINUS_EXPR : PLUS_EXPR,
 				     decl, offset);
 	  t2 = fold_build2_loc (OMP_CLAUSE_LOCATION (sink_clause),
-				MINUS_EXPR, sizetype, t2,
-				decl);
+				MINUS_EXPR, sizetype,
+				fold_convert (sizetype, t2),
+				fold_convert (sizetype, decl));
 	  if (t2 == error_mark_node)
 	    return true;
 	  TREE_PURPOSE (t) = t2;
@@ -5781,7 +5784,9 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 		      t = pointer_int_sum (OMP_CLAUSE_LOCATION (c), PLUS_EXPR,
 					   d, t);
 		      t = fold_build2_loc (OMP_CLAUSE_LOCATION (c),
-					   MINUS_EXPR, sizetype, t, d);
+					   MINUS_EXPR, sizetype,
+					   fold_convert (sizetype, t),
+					   fold_convert (sizetype, d));
 		      if (t == error_mark_node)
 			{
 			  remove = true;
@@ -5802,7 +5807,9 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 		      t = pointer_int_sum (OMP_CLAUSE_LOCATION (c), PLUS_EXPR,
 					   d, t);
 		      t = fold_build2_loc (OMP_CLAUSE_LOCATION (c),
-					   MINUS_EXPR, sizetype, t, d);
+					   MINUS_EXPR, sizetype,
+					   fold_convert (sizetype, t),
+					   fold_convert (sizetype, d));
 		      if (t == error_mark_node)
 			{
 			  remove = true;

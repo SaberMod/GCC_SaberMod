@@ -46,6 +46,7 @@
    that the __vxworks header appear before any other include.  */
 #ifdef __vxworks
 #include "vxWorks.h"
+#include "version.h" /* for _WRS_VXWORKS_MAJOR */
 #endif
 
 #ifdef __ANDROID__
@@ -93,7 +94,9 @@ extern void Raise_From_Signal_Handler (struct Exception_Data *, const char *);
 extern void Raise_From_Signal_Handler (struct Exception_Data *, const char *);
 #endif
 
-/* Global values computed by the binder.  */
+/* Global values computed by the binder.  Note that these variables are
+   declared here, not in the binder file, to avoid having unresolved
+   references in the shared libgnat.  */
 int   __gl_main_priority                 = -1;
 int   __gl_main_cpu                      = -1;
 int   __gl_time_slice_val                = -1;
@@ -111,6 +114,7 @@ int   __gl_detect_blocking               = 0;
 int   __gl_default_stack_size            = -1;
 int   __gl_leap_seconds_support          = 0;
 int   __gl_canonical_streams             = 0;
+char *__gl_bind_env_addr                 = NULL;
 
 /* This value is not used anymore, but kept for bootstrapping purpose.  */
 int   __gl_zero_cost_exceptions          = 0;
@@ -1711,7 +1715,7 @@ __gnat_install_handler (void)
 #include <iv.h>
 #endif
 
-#if defined (ARMEL) && (_WRS_VXWORKS_MAJOR == 6)
+#if defined (ARMEL) && (_WRS_VXWORKS_MAJOR == 6) && !defined(__RTP__)
 #include <vmLib.h>
 #endif
 
@@ -1858,7 +1862,7 @@ __gnat_map_signal (int sig, siginfo_t *si ATTRIBUTE_UNUSED,
      page if there's a match.  Additionally we're are assured this is a
      genuine stack overflow condition and and set the message and exception
      to that effect.  */
-#if defined (ARMEL) && (_WRS_VXWORKS_MAJOR == 6)
+#if defined (ARMEL) && (_WRS_VXWORKS_MAJOR == 6) && !defined(__RTP__)
 
   /* We re-arm the guard page by marking it invalid */
 
@@ -1892,13 +1896,14 @@ __gnat_map_signal (int sig, siginfo_t *si ATTRIBUTE_UNUSED,
 	  }
        }
     }
-#endif /* defined (ARMEL) && (_WRS_VXWORKS_MAJOR == 6) */
+#endif /* defined (ARMEL) && (_WRS_VXWORKS_MAJOR == 6) && !defined(__RTP__) */
 
   __gnat_clear_exception_count ();
   Raise_From_Signal_Handler (exception, msg);
 }
 
-#if defined (__i386__) && !defined (VTHREADS)
+#if defined (__i386__) && !defined (VTHREADS) && _WRS_VXWORKS_MAJOR < 7
+
 extern void
 __gnat_vxsim_error_handler (int sig, siginfo_t *si, void *sc);
 
@@ -1913,6 +1918,20 @@ __gnat_error_handler (int sig, siginfo_t *si, void *sc)
 {
   sigset_t mask;
 
+  /* VxWorks 7 on e500v2 clears the SPE bit of the MSR when entering CPU
+     exception state. To allow the handler and exception to work properly
+     when they contain SPE instructions, we need to set it back before doing
+     anything else. */
+#if (CPU == PPCE500V2) && (_WRS_VXWORKS_MAJOR == 7)
+  register unsigned msr;
+  /* Read the MSR value */
+  asm volatile ("mfmsr %0" : "=r" (msr));
+  /* Force the SPE bit */
+  msr |= 0x02000000;
+  /* Store to MSR */
+  asm volatile ("mtmsr %0" : : "r" (msr));
+#endif
+
   /* VxWorks will always mask out the signal during the signal handler and
      will reenable it on a longjmp.  GNAT does not generate a longjmp to
      return from a signal handler so the signal will still be masked unless
@@ -1921,7 +1940,7 @@ __gnat_error_handler (int sig, siginfo_t *si, void *sc)
   sigdelset (&mask, sig);
   sigprocmask (SIG_SETMASK, &mask, NULL);
 
-#if defined (__ARMEL__) || defined (__PPC__) || defined (__i386__)
+#if defined (__ARMEL__) || defined (__PPC__) || (defined (__i386__) && _WRS_VXWORKS_MAJOR < 7)
   /* On certain targets, kernel mode, we process signals through a Call Frame
      Info trampoline, voiding the need for myriads of fallback_frame_state
      variants in the ZCX runtime.  We have no simple way to distinguish ZCX
@@ -2021,7 +2040,7 @@ __gnat_install_handler (void)
   trap_0_entry->inst_fourth = 0xa1480000;
 #endif
 
-#if defined (__i386__) && !defined (VTHREADS)
+#if defined (__i386__) && !defined (VTHREADS) && _WRS_VXWORKS_MAJOR != 7
   /*  By experiment, found that sysModel () returns the following string
       prefix for vxsim when running on Linux and Windows.  */
   model = sysModel ();
@@ -2231,7 +2250,7 @@ char __gnat_alternate_stack[32 * 1024]; /* 1 * MINSIGSTKSZ */
    Tell the kernel to re-use alt stack when delivering a signal.  */
 #define	UC_RESET_ALT_STACK	0x80000000
 
-#ifndef __arm__
+#if !(defined (__arm__) || defined (__arm64__))
 #include <mach/mach_vm.h>
 #include <mach/mach_init.h>
 #include <mach/vm_statistics.h>
@@ -2241,7 +2260,7 @@ char __gnat_alternate_stack[32 * 1024]; /* 1 * MINSIGSTKSZ */
 static int
 __gnat_is_stack_guard (mach_vm_address_t addr)
 {
-#ifndef __arm__
+#if !(defined (__arm__) || defined (__arm64__))
   kern_return_t kret;
   vm_region_submap_info_data_64_t info;
   mach_vm_address_t start;
