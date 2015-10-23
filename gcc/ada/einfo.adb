@@ -597,8 +597,8 @@ package body Einfo is
    --    Is_Unimplemented                Flag284
    --    Is_Volatile_Full_Access         Flag285
    --    Needs_Typedef                   Flag286
+   --    Rewritten_For_C                 Flag287
 
-   --    (unused)                        Flag287
    --    (unused)                        Flag288
    --    (unused)                        Flag289
    --    (unused)                        Flag300
@@ -3042,6 +3042,12 @@ package body Einfo is
       return Flag93 (Base_Type (Id));
    end Reverse_Storage_Order;
 
+   function Rewritten_For_C (Id : E) return B is
+   begin
+      pragma Assert (Ekind (Id) = E_Function);
+      return Flag287 (Id);
+   end Rewritten_For_C;
+
    function RM_Size (Id : E) return U is
    begin
       pragma Assert (Is_Type (Id));
@@ -3399,8 +3405,7 @@ package body Einfo is
 
    function Is_Concurrent_Body                  (Id : E) return B is
    begin
-      return Ekind (Id) in
-        Concurrent_Body_Kind;
+      return Ekind (Id) in Concurrent_Body_Kind;
    end Is_Concurrent_Body;
 
    function Is_Concurrent_Record_Type           (Id : E) return B is
@@ -3415,8 +3420,7 @@ package body Einfo is
 
    function Is_Decimal_Fixed_Point_Type         (Id : E) return B is
    begin
-      return Ekind (Id) in
-        Decimal_Fixed_Point_Kind;
+      return Ekind (Id) in Decimal_Fixed_Point_Kind;
    end Is_Decimal_Fixed_Point_Type;
 
    function Is_Digits_Type                      (Id : E) return B is
@@ -3446,14 +3450,12 @@ package body Einfo is
 
    function Is_Enumeration_Type                 (Id : E) return B is
    begin
-      return Ekind (Id) in
-        Enumeration_Kind;
+      return Ekind (Id) in Enumeration_Kind;
    end Is_Enumeration_Type;
 
    function Is_Fixed_Point_Type                 (Id : E) return B is
    begin
-      return Ekind (Id) in
-        Fixed_Point_Kind;
+      return Ekind (Id) in Fixed_Point_Kind;
    end Is_Fixed_Point_Type;
 
    function Is_Floating_Point_Type              (Id : E) return B is
@@ -3481,16 +3483,19 @@ package body Einfo is
       return Ekind (Id) in Generic_Unit_Kind;
    end Is_Generic_Unit;
 
+   function Is_Ghost_Entity (Id : Entity_Id) return Boolean is
+   begin
+      return Is_Checked_Ghost_Entity (Id) or else Is_Ignored_Ghost_Entity (Id);
+   end Is_Ghost_Entity;
+
    function Is_Incomplete_Or_Private_Type       (Id : E) return B is
    begin
-      return Ekind (Id) in
-        Incomplete_Or_Private_Kind;
+      return Ekind (Id) in Incomplete_Or_Private_Kind;
    end Is_Incomplete_Or_Private_Type;
 
    function Is_Incomplete_Type                  (Id : E) return B is
    begin
-      return Ekind (Id) in
-        Incomplete_Kind;
+      return Ekind (Id) in Incomplete_Kind;
    end Is_Incomplete_Type;
 
    function Is_Integer_Type                     (Id : E) return B is
@@ -3500,8 +3505,7 @@ package body Einfo is
 
    function Is_Modular_Integer_Type             (Id : E) return B is
    begin
-      return Ekind (Id) in
-        Modular_Integer_Kind;
+      return Ekind (Id) in Modular_Integer_Kind;
    end Is_Modular_Integer_Type;
 
    function Is_Named_Number                     (Id : E) return B is
@@ -3521,8 +3525,7 @@ package body Einfo is
 
    function Is_Ordinary_Fixed_Point_Type        (Id : E) return B is
    begin
-      return Ekind (Id) in
-        Ordinary_Fixed_Point_Kind;
+      return Ekind (Id) in Ordinary_Fixed_Point_Kind;
    end Is_Ordinary_Fixed_Point_Type;
 
    function Is_Overloadable                     (Id : E) return B is
@@ -6048,6 +6051,12 @@ package body Einfo is
            and then (Is_Record_Type (Id) or else Is_Array_Type (Id)));
       Set_Flag93 (Id, V);
    end Set_Reverse_Storage_Order;
+
+   procedure Set_Rewritten_For_C (Id : E; V : B := True) is
+   begin
+      pragma Assert (Ekind (Id) = E_Function);
+      Set_Flag287 (Id, V);
+   end Set_Rewritten_For_C;
 
    procedure Set_RM_Size (Id : E; V : U) is
    begin
@@ -8967,6 +8976,7 @@ package body Einfo is
       W ("Returns_Limited_View",            Flag134 (Id));
       W ("Reverse_Bit_Order",               Flag164 (Id));
       W ("Reverse_Storage_Order",           Flag93  (Id));
+      W ("Rewritten_For_C",                 Flag287 (Id));
       W ("Sec_Stack_Needed_For_Return",     Flag167 (Id));
       W ("Size_Depends_On_Discriminant",    Flag177 (Id));
       W ("Size_Known_At_Compile_Time",      Flag92  (Id));
@@ -10249,6 +10259,9 @@ package body Einfo is
    procedure Write_Field38_Name (Id : Entity_Id) is
    begin
       case Ekind (Id) is
+         when E_Function | E_Procedure                     =>
+            Write_Str ("Class-wide preconditions");
+
          when others                                       =>
             Write_Str ("Field38??");
       end case;
@@ -10261,6 +10274,9 @@ package body Einfo is
    procedure Write_Field39_Name (Id : Entity_Id) is
    begin
       case Ekind (Id) is
+         when E_Function | E_Procedure                     =>
+            Write_Str ("Class-wide postcondition");
+
          when others                                       =>
             Write_Str ("Field39??");
       end case;

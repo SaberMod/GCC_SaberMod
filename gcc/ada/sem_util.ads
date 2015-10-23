@@ -49,32 +49,6 @@ package Sem_Util is
    --  it the identifier of the block. Id denotes the generated entity. If the
    --  block already has an identifier, Id returns the entity of its label.
 
-   procedure Add_Contract_Item (Prag : Node_Id; Id : Entity_Id);
-   --  Add pragma Prag to the contract of a constant, entry, package [body],
-   --  subprogram [body] or variable denoted by Id. The following are valid
-   --  pragmas:
-   --    Abstract_State
-   --    Async_Readers
-   --    Async_Writers
-   --    Constant_After_Elaboration
-   --    Contract_Cases
-   --    Depends
-   --    Effective_Reads
-   --    Effective_Writes
-   --    Extensions_Visible
-   --    Global
-   --    Initial_Condition
-   --    Initializes
-   --    Part_Of
-   --    Postcondition
-   --    Precondition
-   --    Refined_Depends
-   --    Refined_Global
-   --    Refined_Post
-   --    Refined_States
-   --    Test_Case
-   --    Volatile_Function
-
    procedure Add_Global_Declaration (N : Node_Id);
    --  These procedures adds a declaration N at the library level, to be
    --  elaborated before any other code in the unit. It is used for example
@@ -276,6 +250,14 @@ package Sem_Util is
    --  error message on node N. Used in object declarations, type conversions
    --  and qualified expressions.
 
+   procedure Check_Function_With_Address_Parameter (Subp_Id : Entity_Id);
+   --  A subprogram that has an Address parameter and is declared in a Pure
+   --  package is not considered Pure, because the parameter may be used as a
+   --  pointer and the referenced data may change even if the address value
+   --  itself does not.
+   --  If the programmer gave an explicit Pure_Function pragma, then we respect
+   --  the pragma and leave the subprogram Pure.
+
    procedure Check_Function_Writable_Actuals (N : Node_Id);
    --  (Ada 2012): If the construct N has two or more direct constituents that
    --  are names or expressions whose evaluation may occur in an arbitrary
@@ -326,6 +308,15 @@ package Sem_Util is
    --  Determine whether the contract of subprogram Subp_Id mentions attribute
    --  'Result and it contains an expression that evaluates differently in pre-
    --  and post-state.
+
+   procedure Check_Unused_Body_States (Body_Id : Entity_Id);
+   --  Verify that all abstract states and object declared in the state space
+   --  of a package body denoted by entity Body_Id are used as constituents.
+   --  Emit an error if this is not the case.
+
+   function Collect_Body_States (Body_Id : Entity_Id) return Elist_Id;
+   --  Gather the entities of all abstract states and objects declared in the
+   --  body state space of package body Body_Id.
 
    procedure Check_Unprotected_Access
      (Context : Node_Id;
@@ -425,11 +416,6 @@ package Sem_Util is
    function Corresponding_Spec_Of (Decl : Node_Id) return Entity_Id;
    --  Return the corresponding spec of Decl when it denotes a package or a
    --  subprogram [stub], or the defining entity of Decl.
-
-   procedure Create_Generic_Contract (Unit : Node_Id);
-   --  Create a contract node for a generic package, generic subprogram or a
-   --  generic body denoted by Unit by collecting all source contract-related
-   --  pragmas in the contract of the unit.
 
    function Current_Entity (N : Node_Id) return Entity_Id;
    pragma Inline (Current_Entity);
@@ -998,6 +984,11 @@ package Sem_Util is
    --  Returns True if and only if Comp has a constrained subtype that depends
    --  on a discriminant.
 
+   function Has_Effectively_Volatile_Profile
+     (Subp_Id : Entity_Id) return Boolean;
+   --  Determine whether subprogram Subp_Id has an effectively volatile formal
+   --  parameter or returns an effectively volatile value.
+
    function Has_Infinities (E : Entity_Id) return Boolean;
    --  Determines if the range of the floating-point type E includes
    --  infinities. Returns False if E is not a floating-point type.
@@ -1145,14 +1136,6 @@ package Sem_Util is
    procedure Inherit_Rep_Item_Chain (Typ : Entity_Id; From_Typ : Entity_Id);
    --  Inherit the rep item chain of type From_Typ without clobbering any
    --  existing rep items on Typ's chain. Typ is the destination type.
-
-   procedure Inherit_Subprogram_Contract
-     (Subp      : Entity_Id;
-      From_Subp : Entity_Id);
-   --  Inherit relevant contract items from source subprogram From_Subp. Subp
-   --  denotes the destination subprogram. The inherited items are:
-   --    Extensions_Visible
-   --  ??? it would be nice if this routine handles Pre'Class and Post'Class
 
    procedure Insert_Explicit_Dereference (N : Node_Id);
    --  In a context that requires a composite or subprogram type and where a
@@ -1864,6 +1847,13 @@ package Sem_Util is
    --  more there is at least one case in the generated code (the code for
    --  array assignment in a loop) that depends on this suppression.
 
+   procedure Report_Unused_Body_States
+     (Body_Id : Entity_Id;
+      States  : Elist_Id);
+   --  Emit errors for each abstract state or object found in list States that
+   --  is declared in package body Body_Id, but is not used as constituent in a
+   --  state refinement.
+
    procedure Require_Entity (N : Node_Id);
    --  N is a node which should have an entity value if it is an entity name.
    --  If not, then check if there were previous errors. If so, just fill
@@ -2105,6 +2095,8 @@ package Sem_Util is
    --  views of the same entity have the same unique defining entity:
    --  * package spec and body;
    --  * subprogram declaration, subprogram stub and subprogram body;
+   --  * entry declaration and entry body;
+   --  * task declaration, task body stub and task body;
    --  * private view and full view of a type;
    --  * private view and full view of a deferred constant.
    --  In other cases, return the defining entity for N.
@@ -2141,7 +2133,7 @@ package Sem_Util is
    --  Determines if Current_Scope is within an init proc
 
    function Within_Scope (E : Entity_Id; S : Entity_Id) return Boolean;
-   --  Returns True if entity Id is declared within scope S
+   --  Returns True if entity E is declared within scope S
 
    procedure Wrong_Type (Expr : Node_Id; Expected_Type : Entity_Id);
    --  Output error message for incorrectly typed expression. Expr is the node

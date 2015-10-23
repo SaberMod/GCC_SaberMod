@@ -34,8 +34,6 @@ with System; use type System.Address;
 
 package body Ada.Containers.Vectors is
 
-   pragma Annotate (CodePeer, Skip_Analysis);
-
    pragma Warnings (Off, "variable ""Busy*"" is not referenced");
    pragma Warnings (Off, "variable ""Lock*"" is not referenced");
    --  See comment in Ada.Containers.Helpers
@@ -346,15 +344,16 @@ package body Ada.Containers.Vectors is
       C : Count_Type;
 
    begin
-      if Capacity = 0 then
-         C := Source.Length;
-
-      elsif Capacity >= Source.Length then
+      if Capacity >= Source.Length then
          C := Capacity;
 
-      elsif Checks then
-         raise Capacity_Error with
-           "Requested capacity is less than Source length";
+      else
+         C := Source.Length;
+
+         if Checks and then Capacity /= 0 then
+            raise Capacity_Error with
+              "Requested capacity is less than Source length";
+         end if;
       end if;
 
       return Target : Vector do

@@ -1,3 +1,545 @@
+2015-10-23  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat_rm.texi, gnat_ugn.texi: Regenerate.
+	* doc/share/ada_pygments.py, doc/gnat_ugn/gnat_project_manager.rst,
+	doc/gnat_ugn/building_executable_programs_with_gnat.rst,
+	doc/gnat_ugn/gnat_and_program_execution.rst,
+	doc/gnat_rm/implementation_defined_attributes.rst,
+	doc/gnat_rm/standard_and_implementation_defined_restrictions.rst,
+	doc/gnat_rm/representation_clauses_and_pragmas.rst,
+	doc/gnat_rm/implementation_defined_pragmas.rst,
+	doc/gnat_rm/about_this_guide.rst,
+	doc/gnat_rm/implementation_of_ada_2012_features.rst,
+	doc/gnat_rm/implementation_of_specific_ada_features.rst,
+	doc/gnat_rm/implementation_defined_aspects.rst,
+	doc/gnat_rm/implementation_advice.rst: Update documentation.
+
+2015-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* contracts.ads, contracts.adb: New unit.
+	* exp_ch6.adb Add with and use clauses for Contracts.
+	(Expand_Subprogram_Contract): Moved to Contracts.
+	* exp_ch6.ads (Expand_Subprogram_Contract): Moved to Contracts.
+	* sem_ch3.adb Add with and use clauses for Contracts.
+	(Analyze_Object_Contract): Moved to Contracts.
+	(Analyze_Declarations): Remove local variable Pack_Decl. Do not
+	capture global references in contracts. Check the hidden states
+	of a package body.
+	* sem_ch6.adb Add with and use clauses in Contracts.
+	(Analyze_Generic_Subprogram_Body): Do not capture global
+	references in contracts.
+	(Analyze_Subprogram_Body_Contract):
+	Moved to Contracts.
+	(Analyze_Subprogram_Body_Helper): Freeze the
+	contract of the nearest enclosing package body. Always analyze
+	the subprogram body contract. Do not expand the subprogram
+	body contract.
+	(Analyze_Subprogram_Contract): Moved to Contracts.
+	* sem_ch6.ads (Analyze_Subprogram_Body_Contract): Moved to Contracts.
+	(Analyze_Subprogram_Contract): Moved to Contracts.
+	* sem_ch7.adb Add with and use clauses for Contracts.
+	(Analyze_Package_Body_Contract): Moved to Contracts.
+	(Analyze_Package_Body_Helper): Freeze the contract of the
+	nearest enclosing package body.
+	(Analyze_Package_Contract): Moved to Contracts.
+	* sem_ch7.ads (Analyze_Package_Body_Contract): Moved to Contracts.
+	(Analyze_Package_Contract): Moved to Contracts.
+	* sem_ch10.adb Add with and use clauses for Contracts.
+	(Analyze_Compilation_Unit): Do not capture global references
+	in contracts.
+	(Analyze_Subprogram_Body_Stub_Contract): Moved to Contracts.
+	* sem_ch10.ads (Analyze_Subprogram_Body_Stub_Contract): Moved
+	to Contracts.
+	* sem_ch12.adb Add with and use clauses for Contracts.
+	(Analyze_Subprogram_Instantiation): Update the call to
+	Instantiate_Subprogram_Contract.
+	(Instantiate_Package_Body):
+	Do not copy the entity of the spec when creating an entity
+	for the body. Construct a brand new defining identifier for
+	the body and inherit the Comes_From_Source flag from the spec.
+	(Instantiate_Subprogram_Body): Remove Anon_Id to Act_Decl_Id
+	and update all occurrences. Construct a brand new defining
+	identifier for the body and inherit the Comes_From_Source
+	flag from the spec.
+	(Instantiate_Subprogram_Contract): Moved
+	to Contracts.
+	(Save_Global_References_In_Aspects): Moved to
+	the spec of Sem_Ch12.
+	(Save_Global_References_In_Contract):
+	Moved to Contracts.
+	* sem_ch12.ads (Save_Global_References_In_Aspects): Moved from
+	the body of Sem_Ch12.
+	(Save_Global_References_In_Contract):
+	Moved to Contracts.
+	* sem_prag.adb Add with and use clauses for Contracts.
+	(Add_Item): Removed. All references to this routine have been
+	replaced with calls to Append_New_Elmt.
+	(Analyze_Constituent):
+	Add special diagnostics for errors caused by freezing of
+	contracts.
+	(Analyze_Refined_State_In_Decl_Part): Add formal
+	parameter Freeze_Id. Add new global variable Freeze_Posted.
+	(Collect_Body_States): Removed.
+	(Report_Unused_States): Removed.
+	* sem_prag.ads (Analyze_Defined_State_In_Decl_Part): Add formal
+	parameter Freeze_Id and update comment on usage.
+	* sem_util.adb Remove with and use clauses for
+	Sem_Ch12.
+	(Add_Contract_Item): Moved to Contracts.
+	(Check_Unused_Body_States): New routine.
+	(Collect_Body_States):
+	New routine.
+	(Create_Generic_Contract): Moved to Contracts.
+	(Inherit_Subprogram_Contract): Moved to Contracts.
+	(Report_Unused_Body_States): New routine.
+	* sem_util.ads (Add_Contract_Item): Moved to Contracts.
+	(Check_Unused_Body_States): New routine.
+	(Collect_Body_States): New routine.
+	(Create_Generic_Contract): Moved to Contracts.
+	(Inherit_Subprogram_Contract): Moved to Contracts.
+	(Report_Unused_Body_States): New routine.
+	* sinfo.adb (Is_Expanded_Contract): New routine.
+	(Set_Is_Expanded_Contract): New routine.
+	* sinfo.ads New attribute Is_Expanded_Contract along with
+	placement in nodes.
+	(Is_Expanded_Contract): New routine along
+	with pragma Inline.
+	(Set_Is_Expanded_Contract): New routine
+	along with pragma Inline.
+	* gcc-interface/Make-lang.in: Add entry for contracts.o
+
+2015-10-23  Bob Duff  <duff@adacore.com>
+
+	* bindgen.adb, init.c, opt.ads, switch-b.adb: Implement new -Ea and
+	-Es switches.
+	* switch-b.ads: Minor comment fix.
+	* bindusg.adb: Document new -Ea and -Es switches.
+	* s-exctra.ads: Use -Es instead of -E.
+
+2015-10-23  Tristan Gingold  <gingold@adacore.com>
+
+	* gcc-interface/utils2.c (build_call_alloc_dealloc): Check no implicit
+	task and protected object restrictions.
+
+2015-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch12.adb, exp_ch6.adb: Minor reformatting.
+
+2015-10-23  Gary Dismukes  <dismukes@adacore.com>
+
+	* exp_ch6.adb: Minor reformatting.
+
+2015-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch12.adb (Check_Formal_Packages): A formal package whose
+	actual part is (others => <>) os identical to a formal package
+	with an actual part written as (<>).
+
+2015-10-23  Arnaud Charlet  <charlet@adacore.com>
+
+	* a-reatim.adb ("/"): For Time_Span division convert the operands
+	to integers and then use integer division, which conforms to
+	the rounding required by Ada RM.
+
+2015-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch6.adb (Check_Missing_Return): Do not report a missing
+	return statement on a function body constructed to complete a
+	package body for a premature instantiation.
+
+2015-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch6.adb (Build_Procedure_Body_Form): Replace body of
+	original function with that of generated procedure, to simplify
+	processing and avoid scoping problems with local declarations.
+	(Rewrite_Function_Call_For_C): Handle properly the case of a
+	parameterless function.
+
+2015-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* a-exextr.adb, sem_ch6.adb, sem_ch13.adb: Minor reformatting.
+
+2015-10-23  Arnaud Charlet  <charlet@adacore.com>
+
+	* s-taskin.ads: Minor code clean up.
+	(Ada_Task_Control_Block): Move fixed size field before variable sized
+	ones.
+	* einfo.ads: Minor editing.
+
+2015-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch6.adb (Check_Aggregate_Accessibility): Apply rule in RM
+	6.5 (8.3) to verify that access discriminants in an aggregate
+	in a return statement have the proper accessibility, i.e. do
+	not lead to dangling references.
+
+2015-10-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* sem_ch13.adb (Analyze_Attribute_Definition_Clause): Add missing
+	test on Address_Clause_Overlay_Warnings to the "constant overlays
+	variable" warning. For the reverse case, also issue a warning if
+	the modification is potentially made through the initialization
+	of the variable.
+
+2015-10-23  Jose Ruiz  <ruiz@adacore.com>
+
+	* a-exetim-posix.adb (Clock): Use the pthread_getcpuclockid
+	function to have access to CPU clocks for tasks other than the
+	calling task.
+
+2015-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* debug.adb: Switch -gnatd.5 is no longer in use, remove the
+	associated documentation.
+	* exp_dbug.adb (Get_External_Name): Do not add a special prefix
+	for ignored Ghost entities or when switch -gnatd.5 is enabled.
+	* exp_dbug.ads Remove the documentation concerning the encoding
+	of ignored Ghost entities.
+
+2015-10-23  Bob Duff  <duff@adacore.com>
+
+	* a-exextr.adb (Notify_Exception): For Unhandled_Raise_In_Main,
+	mimic the output from Ada.Exceptions.Last_Chance_Handler; don't
+	print "Exception raised".
+	* s-stalib.ads, s-exctra.ads, s-exctra.adb: Add
+	Unhandled_Raise_In_Main to types Exception_Trace_Kind/Trace_Kind.
+
+2015-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_attr.adb, freeze.adb, sem_attr.adb, exp_aggr.adb,
+	gnatname.adb: Minor reformatting.
+
+2015-10-23  Steve Baird  <baird@adacore.com>
+
+	* a-cbdlli.ads, a-cbhama.ads, a-cbhase.ads, a-cbmutr.ads,
+	a-cborma.ads, a-cborse.ads, a-cbprqu.ads, a-cbsyqu.ads,
+	a-cdlili.ads, a-cfdlli.ads, a-cfhama.ads, a-cfhase.ads,
+	a-cfinve.ads, a-cforma.ads, a-cforse.ads, a-cidlli.ads,
+	a-cihama.ads, a-cihase.ads, a-cimutr.ads, a-ciorma.ads,
+	a-ciormu.ads, a-ciorse.ads, a-coboho.ads, a-cobove.ads,
+	a-cofove.ads, a-cohama.ads, a-cohase.ads, a-coinho.ads,
+	a-coinho-shared.ads, a-coinve.ads, a-comutr.ads, a-conhel.ads,
+	a-convec.ads, a-coorma.ads, a-coormu.ads, a-coorse.ads,
+	a-cuprqu.ads, a-cusyqu.ads, a-rbtgbo.ads: Add spec Annotate
+	pragmas.
+	* a-cbdlli.adb, a-cbhama.adb, a-cbhase.adb, a-cbmutr.adb,
+	a-cborma.adb, a-cborse.adb, a-cbprqu.adb, a-cbsyqu.adb,
+	a-cdlili.adb, a-cfdlli.adb, a-cfhama.adb, a-cfhase.adb,
+	a-cfinve.adb, a-cforma.adb, a-cforse.adb, a-cidlli.adb,
+	a-cihama.adb, a-cihase.adb, a-cimutr.adb, a-ciorma.adb,
+	a-ciormu.adb, a-ciorse.adb, a-coboho.adb, a-cobove.adb,
+	a-cofove.adb, a-cohama.adb, a-cohase.adb, a-coinho.adb,
+	a-coinho-shared.adb, a-coinve.adb, a-comutr.adb, a-conhel.adb,
+	a-convec.adb, a-coorma.adb, a-coormu.adb, a-coorse.adb,
+	a-cuprqu.adb, a-cusyqu.adb, a-rbtgbo.adb: Remove body Annotate
+	pragmas.
+
+2015-10-23  Vincent Celier  <celier@adacore.com>
+
+	* gnatname.adb: When gnatname is invoked with a project file,
+	specified with switch -P, if gprname is available, gnatname will
+	invoke gprname, with the target if it is a cross gnatname.
+
+2015-10-23  Arnaud Charlet  <charlet@adacore.com>
+
+	* exp_ch4.adb: Fix typo.
+	* exp_ch6.adb: Update comment.
+	* exp_attr.adb (Expand_Min_Max_Attribute): Simplify expansion.
+	* exp_aggr.adb (Convert_To_Positional): Only convert to
+	positional when generating C in case of an object declaration.
+	(In_Object_Declaration): New.
+	(Late_Expansion): Adapt to trees generated by Modify_Tree_For_C.
+	* sinfo.ads: Update documentation.
+
+2015-10-23  Joel Brobecker  <brobecker@adacore.com brobecker>
+
+	* sigtramp.h (struct sigcontext, struct ucontext): Remove declarations,
+	and replace them by include of corresponding header file.
+
+2015-10-23  Bob Duff  <duff@adacore.com>
+
+	* a-convec.adb (Copy): Make sure C is initialized
+	on all paths, including when Checks is False.
+
+2015-10-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* sem_ch13.adb (Analyze_Attribute_Definition_Clause): Remove
+	error as unreachable.
+
+2015-10-23  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat1drv.adb (Adjust_Global_Switches): Adjust.
+
+2015-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_dbug.ads, exp_dbug.adb (Get_External_Name): The special prefix for
+	ignored Ghost entities is now ___ghost_.
+
+2015-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* ghost.adb (Is_Subject_To_Ghost): Check the
+	original node when searching for pragma Ghost to catch cases
+	where a source construct has been rewritten into something else.
+
+2015-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* einfo.ads, einfo.adb (Rewritten_For_C): New flag on functions
+	that return a constrained array type.  When generating C these
+	functions are rewritten as procedures with an out parameter,
+	and calls to such functions are rewritten accordingly.
+	* exp_ch6.adb (Expand_N_Subprogram_Declaration): When
+	Modify_Tree_For_C is set and the function returns a constrained
+	array type, generate a procedure declaration with an additional
+	out parameter. Mark original function as Rewritten_For_C.
+	The new declaration is inserted in tree immediately after
+	current declaration.
+	(Expand_Subprogram_Body): If entity is marked Rewritten_For_C,
+	generate body of corresponding procedure using declarations
+	and statements for function body. Replace return statements
+	with assignments to the out parameter, followed by a simple
+	return statement.
+	(Rewrite_Function_Call_For_C): New procedure to replace a function
+	call that returns an array by a procedure call.
+
+2015-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_util.adb (Denotes_Iterator): New routine.
+	(Is_Iterator): Code cleanup. Factor out the detection of a
+	predefined iterator.  As a result this fixes a missing case
+	where a tagged type implements interface Reversible_Iterator.
+
+2015-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_attr.adb (Eval_Attribute): Constant-fold 'Enabled if
+	not within a generic unit, even if expander is not active, so
+	that instances of container packages remain preelaborable in
+	-gnatc mode.
+
+2015-10-23  Tristan Gingold  <gingold@adacore.com>
+
+	* init.c (__gnat_sigtramp): New assembly function for arm64-darwin.
+	(__gnat_error_handler): Use trampoline for arm64.
+
+2015-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch3.adb (Expand_N_Object_Declaration): if the type of the
+	object is a class-wide limited interface type, the expression
+	is not restricted to the forms specified for limited types.
+
+2015-10-23  Vincent Celier  <celier@adacore.com>
+
+	* gnatname.adb: Code clean up.
+	* s-taasde.ads: Fix comment.
+
+2015-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_util.adb (Is_Iterator, Is_Reversible_iterator): Use
+	root type to determine whether the type is a descendant of the
+	corresponding interface type, so take into account multiple
+	levels of subtypes and derivations.
+
+2015-10-23  Olivier Hainque  <hainque@adacore.com>
+
+	* tracebak.c: Refine selection of GCC/GENERIC_UNWINDER for
+	tracebacks on x86 & x86_64.
+	(x86 & x86_64): If !SJLJ, always pick the
+	GCC_UNWINDER for x86_64 (not only on linux).
+	* sem_util.ads: Minor fix in comment.
+
+2015-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_prag.adb (Analyze_Pragma): Pragma Volatile_Function should
+	not apply to a function instantiation.
+	* sem_util.adb (Has_Effectively_Volatile_Profile): New routine.
+	(Is_Volatile_Function): An instance of Ada.Unchecked_Conversion
+	is a volatile function when its profile contains an effectively
+	volatile type.
+	* sem_util.ads (Has_Effectively_Volatile_Profile): New routine.
+
+2015-10-23  Arnaud Charlet  <charlet@adacore.com>
+
+	* exp_unst.adb (Unnest_Subprogram): Complete previous
+	change and update comments.
+
+2015-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_util.ads, sem_util.adb (Check_Function_With_Address_Parameter):
+	A subprogram that has an Address parameter and is declared in a Pure
+	package is not considered Pure, because the parameter may be used as a
+	pointer and the referenced data may change even if the address value
+	itself does not.
+	* freeze.adb (Freeze_Subprogram): use it.
+	* exp_ch6.adb (Expand_N_Subprogram_Body): Use it.
+
+2015-10-23  Olivier Hainque  <hainque@adacore.com>
+
+	* tracebak.c: Fallback to generic unwinder for gcc-sjlj on x86 &
+	x86_64 linux
+	* tracebak.c: Rework x86 & x86_64 sections to resort to the
+	generic unwinder if __USING_SJLJ_EXCEPTIONS__.
+
+2015-10-23  Javier Miranda  <miranda@adacore.com>
+
+	* sem_util.adb (Check_Function_Writable_Actuals): For function
+	calls restrict the check to elementary types, as requested by
+	RM 6.4.1(6.15/3)
+
+2015-10-23  Arnaud Charlet  <charlet@adacore.com>
+
+	* exp_unst.adb (Unnest_Subprogram): Suppress initialization on
+	Decl_ARECnT since we are taking care of all initializations in
+	the generated code.
+
+2015-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_dim.adb (Analyze_Dimension_Extension_Or_Record_Aggregate):
+	Handle properly a box-initialized aggregate component.
+
+2015-10-23  Yannick Moy  <moy@adacore.com>
+
+	* sem_prag.adb (Analyze_Pragma): Reject Volatile_Function not placed
+	on a function.
+
+2015-10-23  Yannick Moy  <moy@adacore.com>
+
+	* a-extiin.ads, a-reatim.ads, a-interr.ads, a-exetim-mingw.ads,
+	a-exetim-default.ads, a-exetim.ads, a-taside.ads: Add "Global => null"
+	contract on subprograms.
+	* lib-xref-spark_specific.adb: collect scopes for stubs of
+	protected objects
+
+2015-10-23  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat1drv.adb (Adjust_Global_Switches): Enable
+	Back_Annotate_Rep_Info to get size information from gigi.
+	(Gnat1drv): Code clean ups.
+	* frontend.adb (Frontend): Ditto.
+
+2015-10-23  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat1drv.adb (Adjust_Global_Switches): Adjust settings.
+	* sem.adb (Semantics): Remove special case.
+
+2015-10-23  Gary Dismukes  <dismukes@adacore.com>
+
+	* bindgen.adb, restrict.adb: Minor spelling/grammar fixes.
+
+2015-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_res.adb (Resolve_Entity_Name): Code cleanup. Check for possible
+	elaboration issues in SPARK when the name denotes a source variable.
+
+2015-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_ch7.adb (Process_Transient_Objects): Reimplement to properly
+	handle restriction No_Exception_Propagation.
+	* exp_ch11.adb (Expand_At_End_Handler): Update the parameter
+	profile and all references to Block.
+	* exp_ch11.ads (Expand_At_End_Handler): Update the parameter
+	profile and comment on usage.
+	* exp_intr.adb (Expand_Unc_Deallocation): Reimplement to properly
+	handle restriction No_Exception_Propagation.
+	* gnat1drv.adb, restrict.adb: Update comment.
+
+2015-10-23  Bob Duff  <duff@adacore.com>
+
+	* exp_ch6.adb (Expand_N_Extended_Return_Statement): Do not call
+	SS_Release for a block statement enclosing the return statement in the
+	case where a build-in-place function return is returning
+	the result on the secondary stack. This is accomplished by
+	setting the Sec_Stack_Needed_For_Return flag on such blocks.
+	It was already being set for the function itself, and it was
+	already set correctly for blocks in the non-build-in-place case
+	(in Expand_Simple_Function_Return).
+	(Set_Enclosing_Sec_Stack_Return): New procedure to perform
+	the Set_Sec_Stack_Needed_For_Return calls. Called in the
+	build-in-place and non-build-in-place cases.
+	(Expand_Simple_Function_Return): Call
+	Set_Enclosing_Sec_Stack_Return instead of performing the loop
+	in line.
+
+2015-10-23  Bob Duff  <duff@adacore.com>
+
+	* scng.adb (Char_Literal_Case): If an apostrophe
+	follows a reserved word, treat it as a lone apostrophe, rather
+	than the start of a character literal. This was already done for
+	"all", but it needs to be done also for (e.g.) "Delta".
+
+2015-10-23  Bob Duff  <duff@adacore.com>
+
+	* exp_strm.adb (Build_Record_Or_Elementary_Input_Function): Use
+	Underlying_Type for B_Typ, in case the Typ is a subtype of a type with
+	unknown discriminants.
+	* g-awk.ads: Minor style fix in comment
+
+2015-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* debug.adb: Document the use of debug switch -gnatd.5.
+	* einfo.adb: Code reformatting.	(Is_Ghost_Entity): Moved from ghost.adb.
+	* einfo.ads New synthesized attribute Is_Ghost_Enity along
+	with usage in nodes and pragma Inline.
+	(Is_Ghost_Entity: Moved from ghost.ads.
+	* exp_ch3.adb Code reformatting.
+	(Expand_Freeze_Array_Type): Capture, set and restore the Ghost mode.
+	(Expand_Freeze_Class_Wide_Type): Capture, set and restore the
+	Ghost mode.
+	(Expand_Freeze_Enumeration_Type): Capture, set and
+	restore the Ghost mode.
+	(Expand_Freeze_Record_Type): Capture, set and restore the Ghost mode.
+	* exp_ch6.adb (Expand_Subprogram_Contract): Do not expand the
+	contract of an ignored Ghost subprogram.
+	* exp_ch13.adb Add with and use clauses for Ghost.
+	(Expand_N_Freeze_Entity): Capture, set and restore the Ghost mode.
+	* exp_dbug.adb (Get_External_Name): Code reformatting. Add a
+	special prefix for ignored Ghost entities or when requested by
+	-gnatd.5 for any Ghost entity.
+	* exp_dbug.ads Document the use of prefix "_ghost_" for ignored
+	Ghost entities.
+	* exp_prag.adb (Expand_Pragma_Check): Capture, set and restore the
+	Ghost mode.
+	(Expand_Pragma_Loop_Variant): Use In_Assertion_Expr
+	to signal the original context.
+	* ghost.adb (Check_Ghost_Overriding): Code cleanup.
+	(Is_Ghost_Entity): Moved to einfo.adb.	(Is_OK_Declaration):
+	Move the assertion expression check to the outer level.
+	(Is_OK_Ghost_Context): An assertion expression is a valid Ghost
+	context.
+	* ghost.ads (Is_Ghost_Entity): Moved to einfo.ads.
+	* sem_ch3.adb (Analyze_Object_Contract): A source Ghost object
+	cannot be imported or exported. Mark internally generated objects
+	as Ghost when applicable.
+	(Make_Class_Wide_Type): Inherit the ghostness of the root tagged type.
+	* sem_ch6.adb (Analyze_Subprogram_Body_Helper): Mark
+	a stand alone subprogram body as Ghost when applicable.
+	(Analyze_Subprogram_Declaration): Mark internally generated
+	subprograms as Ghost when applicable.
+	* sem_ch7.adb: Code cleanup.
+	* sem_ch13.adb (Add_Invariants): Add various formal
+	parameters to break dependency on global variables.
+	(Build_Invariant_Procedure): Code cleanup. Capture, set and
+	restore the Ghost mode.
+	* sem_res.adb (Resolve_Actuals): The actual parameter of a source
+	Ghost subprogram whose formal is of mode IN OUT or OUT must be
+	a Ghost variable.
+
+2015-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch8.adb Code cleanup.
+	(Find_Expanded_Name): Replace
+	the call to In_Pragmas_Depends_Or_Global with a call to
+	In_Abstract_View_Pragma.
+	(In_Abstract_View_Pragma): New routine.
+	(In_Pragmas_Depends_Or_Global): Removed.
+	* sem_prag.adb (Analyze_Part_Of): Catch a case where indicator
+	Part_Of denotes the abstract view of a variable.
+
+2015-10-23  Arnaud Charlet  <charlet@adacore.com>
+
+	* sem_util.ads (Unique_Defining_Entity): Document the result
+	for tasks and entries.
+	* sem_util.adb (Unique_Entity): Return declaration entity for task and
+	entry bodies
+
 2015-10-22  Mikhail Maltsev  <maltsevm@gmail.com>
 
 	* gcc-interface/decl.c (gnat_to_gnu_entity): Use gcc_checking_assert.

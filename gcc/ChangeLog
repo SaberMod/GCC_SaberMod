@@ -1,3 +1,143 @@
+2015-10-23  Gregor Richards  <gregor.richards@uwaterloo.ca>
+	    Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* config.gcc (enable_secureplt): Add *-linux*-musl*.
+
+2015-10-23  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/67830
+	* match.pd ((bit_and (plus/minus (convert @0) (convert @1)) mask)):
+	Explicitly verify the mask has no bits outside the type of
+	the innermost operands.
+
+2015-10-23  Gregor Richards  <gregor.richards@uwaterloo.ca>
+	    Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* config/rs6000/linux64.h (MUSL_DYNAMIC_LINKER32): Define.
+	(MUSL_DYNAMIC_LINKER64): Define.
+	(GNU_USER_DYNAMIC_LINKER32): Update.
+	(GNU_USER_DYNAMIC_LINKER64): Update.
+	(CHOOSE_DYNAMIC_LINKER): Update.
+
+	* config/rs6000/sysv4.h (GNU_USER_DYNAMIC_LINKER): Update.
+	(MUSL_DYNAMIC_LINKER, MUSL_DYNAMIC_LINKER_E,)
+	(INCLUDE_DEFAULTS_MUSL_GPP, INCLUDE_DEFAULTS_MUSL_LOCAL,)
+	(INCLUDE_DEFAULTS_MUSL_PREFIX, INCLUDE_DEFAULTS_MUSL_CROSS,)
+	(INCLUDE_DEFAULTS_MUSL_TOOL, INCLUDE_DEFAULTS_MUSL_NATIVE): Define.
+	(CHOOSE_DYNAMIC_LINKER): Update.
+	(INCLUDE_DEFAULTS): Redefine.
+
+	* config/rs6000/sysv4le.h (MUSL_DYNAMIC_LINKER_E): Define.
+
+2015-10-23  Jan Hubicka  <hubicka@ucw.cz>
+
+	* fold-const.c (operand_equal_p): Do not compare TYPE_MODE when
+	comparing addresses.
+
+2015-10-23  Jan Hubicka  <hubicka@ucw.cz>
+
+	* fold-const.c (operand_equal_p): Handle matching of vector
+	constructors.
+
+2015-10-23  David Edelsohn  <dje.gcc@gmail.com>
+
+	* doc/install.texi (*-ibm-aix*): Additional information for AIX 7.1.
+
+2015-10-23  Steve Ellcey  <sellcey@imgtec.com>
+	    Andrew Pinski  <apinski@cavium.com>
+
+	PR rtl-optimization/67736
+	* combine.c (simplify_comparison): Use gen_lowpart_or_truncate instead
+	of gen_lowpart.
+
+2015-10-23  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR middle-end/68066
+	* tree.c (build_truth_vector_type): Support BLK mode
+	returned for boolean vector.
+
+2015-10-23  Alan Hayward <alan.hayward@arm.com>
+
+	PR tree-optimization/65947
+	* tree-vect-loop.c
+	(vect_is_simple_reduction_1): Find condition reductions.
+	(vect_model_reduction_cost): Add condition reduction costs.
+	(get_initial_def_for_reduction): Add condition reduction initial var.
+	(vect_create_epilog_for_reduction): Add condition reduction epilog.
+	(vectorizable_reduction): Condition reduction support.
+	* tree-vect-stmts.c (vectorizable_condition): Add vect reduction arg
+	* doc/sourcebuild.texi (Vector-specific attributes): Document
+	vect_max_reduc
+
+2015-10-23  Richard Biener  <rguenther@suse.de>
+
+	* Makefile.in (build/genmatch.o): Properly depend on is-a.h, tree.def
+	and builtins.def.
+
+2015-10-23  Richard Biener  <rguenther@suse.de>
+	    Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* fold-const.c (fold_binary_loc) : Move Fold (A & ~B) - (A & B)
+	into (A ^ B) - B to match.pd
+	Move (X & ~Y) | (~X & Y) is X ^ Y to match.pd.
+
+	* match.pd (minus (bit_and:cs @0 (bit_not @1)) (bit_and:s @0 @1)):
+	New simplifier.
+	(minus (bit_and:s @0 INTEGER_CST@2) (bit_and:s @0 INTEGER_CST@1)):
+	New simplifier.
+	(minus (bit_and:s @0 @1) (bit_and:cs @0 (bit_not @1))):
+	New simplifier.
+	(bit_ior:c (bit_and:c @0 (bit_not @1)) (bit_and:c (bit_not @0) @1)):
+	New simplifier.
+	(bit_ior:c (bit_and @0 INTEGER_CST@2) (bit_and (bit_not @0)
+	INTEGER_CST@1)): New simplifier.
+
+2015-10-23  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* builtins.c (integer_valued_real_p): Move to fold-const.c.
+	(fold_trunc_transparent_mathfn, fold_builtin_trunc, fold_builtin_floor)
+	(fold_builtin_ceil, fold_builtin_round): Delete.
+	(fold_builtin_1): Handle constant trunc, floor, ceil and round
+	arguments here.
+	* convert.c (convert_to_real): Remove narrowing of rounding
+	functions.
+	* fold-const.h (integer_valued_real_unary_p)
+	(integer_valued_real_binary_p, integer_valued_real_call_p)
+	(integer_valued_real_single_p, integer_valued_real_p): Declare.
+	* fold-const.c (tree_single_nonnegative_warnv_p): Move
+	name_registered_for_update_p check to SSA_NAME case statement.
+	Don't call tree_simple_nonnegative_warnv_p for SSA names.
+	(integer_valued_real_unary_p, integer_valued_real_binary_p)
+	(integer_valued_real_call_p, integer_valued_real_single_p)
+	(integer_valued_real_invalid_p): New functions.
+	(integer_valued_real_p): Move from fold-const.c and rework
+	to call the functions above.  Handle SSA names.
+	* gimple-fold.h (gimple_stmt_integer_valued_real_p): Declare.
+	* gimple-fold.c (gimple_assign_integer_valued_real_p)
+	(gimple_call_integer_valued_real_p, gimple_phi_integer_valued_real_p)
+	(gimple_stmt_integer_valued_real_p): New functions.
+	* match.pd: Fold f(f(x))->f(x) for fp->fp rounding functions f.
+	Fold f(x)->x for the same f if x is known to be integer-valued.
+	Fold f(extend(x))->extend(f'(x)) if doing so doesn't affect
+	the result.  Canonicalize floor(x) as trunc(x) if x is
+	nonnegative.
+
+2015-10-23  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-structalias.c (intra_create_variable_infos): Use
+	make_constraint_from.
+
+2015-10-23  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-structalias.c (create_variable_info_for_1): Add missing
+	setting of is_full_var in case of a single field.
+
+2015-10-22  Martin Sebor  <msebor@redhat.com>
+
+	PR driver/68043
+	* config/i386/i386.opt: Add missing periods to the ends of sentences.
+	* config/msp430/msp430.opt: Same.
+
 2015-10-21  David Wohlferd  <dw@LimeGreenSocks.com>
 
 	* doc/extend.exp (Global Register Variables): Rewrite.

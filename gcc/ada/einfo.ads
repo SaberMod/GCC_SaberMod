@@ -2502,6 +2502,13 @@ package Einfo is
 --       package, generic function, generic procedure), and False for all
 --       other entities.
 
+--    Is_Ghost_Entity (synthesized)
+--       Applies to all entities. Yields True for abstract states, [generic]
+--       packages, [generic] subprograms, components, discriminants, formal
+--       parameters, objects, package bodies, subprogram bodies, and [sub]types
+--       subject to pragma Ghost or those that inherit the Ghost propery from
+--       an enclosing construct.
+
 --    Is_Hidden (Flag57)
 --       Defined in all entities. Set for all entities declared in the
 --       private part or body of a package. Also marks generic formals of a
@@ -3935,6 +3942,12 @@ package Einfo is
 --       from the default value. When this flag is set for a record type,
 --       the Bit_Order aspect must be set to the same value (either explicitly
 --       or as the target default value).
+
+--    Rewritten_For_C (Flag287)
+--       Defined on functions that return a constrained array type, when
+--       Modify_Tree_For_C is set. Indicates that a procedure with an extra
+--       out parameter has been created for it, and calls must be rewritten as
+--       calls to the new procedure.
 
 --    RM_Size (Uint13)
 --       Defined in all type and subtype entities. Contains the value of
@@ -5384,6 +5397,7 @@ package Einfo is
    --    Declaration_Node                    (synth)
    --    Has_Foreign_Convention              (synth)
    --    Is_Dynamic_Scope                    (synth)
+   --    Is_Ghost_Entity                     (synth)
    --    Is_Standard_Character_Type          (synth)
    --    Is_Standard_String_Type             (synth)
    --    Underlying_Type                     (synth)
@@ -5900,6 +5914,7 @@ package Einfo is
    --    Return_Present                      (Flag54)
    --    Returns_By_Ref                      (Flag90)
    --    Returns_Limited_View                (Flag134)  (non-generic case only)
+   --    Rewritten_For_C                     (Flag287)
    --    Sec_Stack_Needed_For_Return         (Flag167)
    --    SPARK_Pragma_Inherited              (Flag265)
    --    Uses_Sec_Stack                      (Flag95)
@@ -7070,6 +7085,7 @@ package Einfo is
    function Returns_Limited_View                (Id : E) return B;
    function Reverse_Bit_Order                   (Id : E) return B;
    function Reverse_Storage_Order               (Id : E) return B;
+   function Rewritten_For_C                     (Id : E) return B;
    function RM_Size                             (Id : E) return U;
    function Scalar_Range                        (Id : E) return N;
    function Scale_Value                         (Id : E) return U;
@@ -7158,9 +7174,10 @@ package Einfo is
    function Is_Formal_Subprogram                (Id : E) return B;
    function Is_Generic_Actual_Subprogram        (Id : E) return B;
    function Is_Generic_Actual_Type              (Id : E) return B;
-   function Is_Generic_Unit                     (Id : E) return B;
-   function Is_Generic_Type                     (Id : E) return B;
    function Is_Generic_Subprogram               (Id : E) return B;
+   function Is_Generic_Type                     (Id : E) return B;
+   function Is_Generic_Unit                     (Id : E) return B;
+   function Is_Ghost_Entity                     (Id : E) return B;
    function Is_Incomplete_Or_Private_Type       (Id : E) return B;
    function Is_Incomplete_Type                  (Id : E) return B;
    function Is_Integer_Type                     (Id : E) return B;
@@ -7734,6 +7751,7 @@ package Einfo is
    procedure Set_Returns_Limited_View            (Id : E; V : B := True);
    procedure Set_Reverse_Bit_Order               (Id : E; V : B := True);
    procedure Set_Reverse_Storage_Order           (Id : E; V : B := True);
+   procedure Set_Rewritten_For_C                 (Id : E; V : B := True);
    procedure Set_RM_Size                         (Id : E; V : U);
    procedure Set_Scalar_Range                    (Id : E; V : N);
    procedure Set_Scale_Value                     (Id : E; V : U);
@@ -8380,6 +8398,7 @@ package Einfo is
    pragma Inline (Is_Generic_Subprogram);
    pragma Inline (Is_Generic_Type);
    pragma Inline (Is_Generic_Unit);
+   pragma Inline (Is_Ghost_Entity);
    pragma Inline (Is_Hidden);
    pragma Inline (Is_Hidden_Non_Overridden_Subpgm);
    pragma Inline (Is_Hidden_Open_Scope);
@@ -8554,6 +8573,7 @@ package Einfo is
    pragma Inline (Returns_Limited_View);
    pragma Inline (Reverse_Bit_Order);
    pragma Inline (Reverse_Storage_Order);
+   pragma Inline (Rewritten_For_C);
    pragma Inline (RM_Size);
    pragma Inline (Scalar_Range);
    pragma Inline (Scale_Value);
@@ -9014,6 +9034,7 @@ package Einfo is
    pragma Inline (Set_Returns_Limited_View);
    pragma Inline (Set_Reverse_Bit_Order);
    pragma Inline (Set_Reverse_Storage_Order);
+   pragma Inline (Set_Rewritten_For_C);
    pragma Inline (Set_RM_Size);
    pragma Inline (Set_Scalar_Range);
    pragma Inline (Set_Scale_Value);

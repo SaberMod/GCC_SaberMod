@@ -4312,10 +4312,10 @@ package body Sem_Attr is
             Stmt := Parent (Stmt);
          end loop;
 
-            --  Loop_Entry must appear within a Loop_Assertion pragma (Assert,
-            --  Assert_And_Cut, Assume count as loop assertion pragmas for this
-            --  purpose if they appear in an appropriate location in a loop,
-            --  which was already checked by the top level pragma circuit).
+         --  Loop_Entry must appear within a Loop_Assertion pragma (Assert,
+         --  Assert_And_Cut, Assume count as loop assertion pragmas for this
+         --  purpose if they appear in an appropriate location in a loop,
+         --  which was already checked by the top level pragma circuit).
 
          if No (Enclosing_Pragma) then
             Error_Attr ("attribute% must appear within appropriate pragma", N);
@@ -7209,10 +7209,11 @@ package body Sem_Attr is
          --  We skip evaluation if the expander is not active. This is not just
          --  an optimization. It is of key importance that we not rewrite the
          --  attribute in a generic template, since we want to pick up the
-         --  setting of the check in the instance, and testing expander active
-         --  is as easy way of doing this as any.
+         --  setting of the check in the instance, Testing Expander_Active
+         --  might seem an easy way of doing this, but we need to account for
+         --  ASIS needs, so check explicitly for a generic context.
 
-         if Expander_Active then
+         if not Inside_A_Generic then
             declare
                C : constant Check_Id := Get_Check_Id (Chars (P));
                R : Boolean;
