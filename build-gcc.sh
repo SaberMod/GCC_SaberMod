@@ -300,9 +300,6 @@ if [ "$TOOLCHAIN" != mips* -a "$MINGW" != "yes" ]; then
     EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --enable-threads"
 fi
 
-# Enable Graphite
-EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --enable-graphite=yes --with-cloog-version=$CLOOG_VERSION --with-isl-version=$ISL_VERSION"
-
 # Enable linker option -eh-frame-hdr also for static executable
 EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --enable-eh-frame-hdr-for-static"
 
@@ -325,7 +322,19 @@ case "$TOOLCHAIN" in
   *4.8l)
     CONFIGURE_GCC_VERSION=4.8l
     ;;
+  *)
+    ;;
 esac
+
+GCC_MAJOR_VERSION=`echo $GCC_VERSION | cut -f1 -d.`
+
+# Enable Graphite
+EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --enable-graphite=yes --with-isl-version=$ISL_VERSION"
+
+# Graphite requires cloog for gcc 4.x, but only isl for post-4.x
+if [ $GCC_MAJOR_VERSION -le 4 ]; then
+  EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --with-cloog-version=$CLOOG_VERSION"
+fi
 
 # Build GNU sed so the configure script works for MIPS/MIPS64 on Darwin.
 # http://b/22099482
@@ -517,7 +526,7 @@ do_relink_bin gcc-$GCC_VERSION gcc
 case "$TOOLCHAIN" in
     aarch64*)
     # Don't make ld.gold as default for now because it's new
-    do_relink_bin ld ld.bfd ld.gold 
+    do_relink_bin ld ld.bfd ld.gold
     ;;
     *)
     do_relink_bin ld ld.gold ld.bfd
