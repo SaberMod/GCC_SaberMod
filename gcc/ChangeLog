@@ -1,3 +1,398 @@
+2015-10-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2015-07-20  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* wide-int.h (struct binary_traits): Fix partial specialization syntax.
+	(struct int_traits): Likewise.
+
+2015-10-16  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR middle-end/66311
+	* wide-int.cc (wi::from_mpz): Make sure that absolute mpz value
+	is zero- rather than sign-extended.
+
+2015-10-15  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2015-10-14  Peter Bergner  <bergner@vnet.ibm.com>
+		    Torvald Riegel  <triegel@redhat.com>
+
+	PR target/67281
+	* config/rs6000/htm.md (UNSPEC_HTM_FENCE): New.
+	(tabort, tabort<wd>c, tabort<wd>ci, tbegin, tcheck, tend,
+	trechkpt, treclaim, tsr, ttest): Rename define_insns from this...
+	(*tabort, *tabort<wd>c, *tabort<wd>ci, *tbegin, *tcheck, *tend,
+	*trechkpt, *treclaim, *tsr, *ttest): ...to this.  Add memory barrier.
+	(tabort, tabort<wd>c, tabort<wd>ci, tbegin, tcheck, tend,
+	trechkpt, treclaim, tsr, ttest): New define_expands.
+	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros): Define
+	__TM_FENCE__ for htm.
+	* doc/extend.texi: Update documentation for htm builtins.
+
+2015-10-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/67967
+	* config/i386/i386.c (ix86_emit_save_reg_using_mov): Do not add
+	REG_CFA_EXPRESSION to aligned SSE stores.
+
+2015-10-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/67940
+	* config/i386/i386.c (ix86_compute_frame_layout): Correct
+	stack alignment adjustment.
+	(ix86_expand_prologue): Likewise.
+
+2015-10-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2015-10-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_compute_frame_layout): Round up the
+	SSE register save area to 16 bytes only if the incoming stack
+	boundary is no less than 16 bytes.
+
+	Backport from mainline
+	2015-10-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66697
+	* config/i386/i386.c (ix86_option_override_internal): Always use
+	8-byte minimum stack boundary in 64-bit mode.
+	(ix86_compute_frame_layout): Remove assert on INCOMING_STACK_BOUNDARY.
+	(ix86_emit_save_reg_using_mov): Support unaligned SSE store.
+	Add a REG_CFA_EXPRESSION note if needed.
+	(ix86_emit_restore_sse_regs_using_mov): Support unaligned SSE load.
+	(ix86_handle_force_align_arg_pointer_attribute): New.
+	(ix86_minimum_incoming_stack_boundary): Remove TARGET_64BIT check.
+	(ix86_attribute_table): Set ix86_force_align_arg_pointer_string
+	with ix86_handle_force_align_arg_pointer_attribute.
+	* config/i386/i386.h (MIN_STACK_BOUNDARY): Set to BITS_PER_WORD.
+
+2015-10-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2015-10-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/67850
+	* config/i386/i386.c (ix86_maybe_switch_abi): Merged with ...
+	(ix86_set_current_function): This.
+	(TARGET_EXPAND_TO_RTL_HOOK): Removed.
+
+2015-10-12  Alexander Fomin  <alexander.fomin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/67849
+	* config/i386/sse.md (define_split vec_select/V8FI): Restrict
+	split for upper-bank registers when target does not support
+	AVX512VL.
+	(define_insn "vec_extract_lo_<mode><mask_name>"): Restrict
+	split when target does not support AVX512VL.
+
+2015-10-12  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2015-07-21  Mike Frysinger  <vapier@gentoo.org>
+		    Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	* configure.ac: Add check for new options in isl-0.15.
+	* config.in, configure: Rebuilt.
+	* graphite-blocking.c: Include <isl/constraint.h>
+	* graphite-interchange.c,  graphite-poly.c: Likewise.
+	* graphhite-scop-detection.c, graphite-sese-to-poly.c: Likewise.
+	* graphite.c: Likewise.
+	* graphite-isl-ast-to-gimple.c: Include <isl/constraint.h> and
+	<isl/union_set.h>.
+	* graphite-dependences.c: Include <isl/constraint.h>.
+	(max_number_of_out_dimensions): Returns isl_stat.
+	(extend_schedule_1): Likewise
+	(extend_schedule): Corresponding changes.
+	* graphite-optimize-isl.c: Include <isl/constraint.h> and
+	<isl/union_set.h>.
+	(getSingleMap): Change return type of isl_stat.
+	(optimize_isl): Conditionally use
+	isl_options_set_schedule_serialize_sccs.
+	* graphite-poly.h (isl_stat, isl_stat_ok): Define fallbacks
+	if not HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS.
+
+2015-10-10  Alexandre Oliva <aoliva@redhat.com>
+
+	PR debug/58315
+	* tree-inline.c (reset_debug_binding): New.
+	(reset_debug_bindings): Likewise.
+	(expand_call_inline): Call it.
+
+2015-10-08  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backport from mainline
+	2015-09-17  Richard Henderson  <rth@redhat.com>
+
+	PR libstdc++/65913
+	* builtins.c (fold_builtin_atomic_always_lock_free): Handle fake
+	pointers that encode the alignment of the object.
+
+2015-10-06  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2015-09-15  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67563
+	* gimple-fold.c (gimplify_and_update_call_from_tree): Do not
+	transfer EH info from old to new stmt.
+	(replace_call_with_value): Likewise.
+	(replace_call_with_call_and_fold): Likewise.
+	(gimple_fold_builtin_memory_op): Likewise.
+	(gimple_fold_builtin_memset): Likewise.
+	(gimple_fold_builtin_stpcpy): Likewise.
+	(gimple_fold_call): Likewise.
+
+	2015-09-24  Richard Biener  <rguenther@suse.de>
+
+	PR lto/67699
+	* lto-cgraph.c (compute_ltrans_boundary): Do not stream
+	abstract origins.
+
+2015-10-06  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* config/i386/i386.c (expand_vec_perm_even_odd_trunc): New.
+	(expand_vec_perm_even_odd_1): Handle V64QImode.
+	(ix86_expand_vec_perm_const_1): Try expansion with
+	expand_vec_perm_even_odd_trunc as well.
+	* config/i386/sse.md (VI124_AVX512F): Rename to ...
+	(define_mode_iterator VI124_AVX2_24_AVX512F_1_AVX512BW): This. Extend
+	to V54QI.
+	(define_mode_iterator VI248_AVX2_8_AVX512F): Rename to ...
+	(define_mode_iterator VI248_AVX2_8_AVX512F_24_AVX512BW): This. Extend
+	to V32HI and V16SI.
+	(define_insn "avx512bw_<code>v32hiv32qi2"): Unhide pattern name.
+	(define_expand "vec_pack_trunc_<mode>"): Update iterator name.
+	(define_expand "vec_unpacks_lo_<mode>"): Ditto.
+	(define_expand "vec_unpacks_hi_<mode>"): Ditto.
+	(define_expand "vec_unpacku_lo_<mode>"): Ditto.
+	(define_expand "vec_unpacku_hi_<mode>"): Ditto.
+
+2015-10-05  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2015-10-05  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/67821
+	* tree-ssanames.c (duplicate_ssa_name_range_info): Remove an assert.
+
+2015-10-03  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2015-09-29  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/67716
+	* config/sh/sh.c (sh_override_options_after_change): New.
+	(TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE): Define.
+	(sh_option_override): Move align_loops, align_jumps and
+	align_functions handling into sh_override_options_after_change.
+
+2015-10-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2015-09-15  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_const_operand_ok): Add missing
+	brackets.
+
+2015-10-01  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2015-10-01  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/67769
+	* tree-ssa-phiopt.c (conditional_replacement): Call
+	reset_flow_sensitive_info_in_bb.
+	(minmax_replacement): Likewise.
+	(abs_replacement): Likewise.
+
+2015-10-01  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline
+	2015-09-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (gcc_cv_ld_pie): Check for gld >= 2.26 on Solaris.
+	Check for ld -type pie on Solaris 11.x and 12.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+	* config/sol2.h (STARTFILE_CRTBEGIN_SPEC): Define.
+	(STARTFILE_SPEC): Use it.
+	(ENDFILE_CRTEND_SPEC): Define.
+	(ENDFILE_SPEC): Use it and ENDFILE_ARCH_SPEC.
+	(SUBTARGET_EXTRA_SPECS): Add STARTFILE_CRTBEGIN_SPEC,
+	ENDFILE_ARCH_SPEC, ENDFILE_CRTEND_SPEC.
+	(LINK_PIE_SPEC): Define.
+	* config/i386/sol2.h (ENDFILE_SPEC): Remove.
+	(ENDFILE_ARCH_SPEC): Define.
+	* config/sparc/sol2.h (ENDFILE_ARCH_SPEC): Define.
+
+2015-10-01  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline
+	2015-09-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (gcc_cv_solaris_crts): New test.
+	* configure. Regenerate.
+	* config.in: Regenerate.
+	* config/sol2.h (STARTFILE_SPEC): Simplify, provide
+	HAVE_SOLARIS_CRTS variant.
+
+2015-10-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2015-06-09  Shiva Chen  <shiva0217@gmail.com>
+
+	* sync.md (atomic_load<mode>): Add conditional code for lda/ldr
+	(atomic_store<mode>): Likewise.
+
+2015-09-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2015-08-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/67029
+	* ira-color.c: Include "recog.h" before including "ira-int.h".
+	* target-globals.c: Likewise.
+	* ira-lives.c (ira_implicitly_set_insn_hard_regs): Add an
+	adds an alternative_mask argument and use it instead of
+	preferred_alternatives.
+	* ira.h (ira_implicitly_set_insn_hard_regs): Moved to ...
+	* ira-int.h (ira_implicitly_set_insn_hard_regs): Here.
+	* sched-deps.c: Include "ira-int.h" after including "ira.h".
+	(sched_analyze_insn): Update call to
+	ira_implicitly_set_insn_hard_regs.
+	* sel-sched.c: Include "ira-int.h" after including "ira.h".
+	(implicit_clobber_conflict_p): Update call to
+	ira_implicitly_set_insn_hard_regs.
+
+2015-09-30  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2015-09-30  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/67690
+	* tree-ssa-ifcombine.c (pass_tree_ifcombine::execute): Call
+	reset_flow_sensitive_info_in_bb.
+	* tree-ssa-tail-merge.c: Include "stringpool.h" and "tree-ssanames.h".
+	(replace_block_by): Call reset_flow_sensitive_info_in_bb.
+	* tree-ssanames.c: Include "gimple-iterator.h".
+	(reset_flow_sensitive_info_in_bb): New function.
+	* tree-ssanames.h (reset_flow_sensitive_info_in_bb): Declare.
+
+2015-09-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Backport from mainline
+	2015-07-21  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR ipa/66424.
+	* lra-remat.c (operand_to_remat): Prevent using insns with input
+	subregs processed separately by IRA.
+
+2015-09-29  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2015-09-10  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_contiguous_bitmask_vector_p): Reject if
+	the vector element is bigger than 64 bit.
+
+2015-09-29  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2015-09-10  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/vx-builtins.md ("vec_vmal<mode>", "vec_vmah<mode>")
+	("vec_vmalh<mode>"): Change mode iterator from VI_HW to VI_HW_QHS.
+
+2015-09-29  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2015-09-10  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c: Add V1TImode to constant pool modes.
+
+2015-09-29  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2015-06-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/vx-builtins.md
+	("vec_scatter_element<mode>_<non_vec_int>")
+	("vec_scatter_element<V_HW_64:mode>_SI"): Replace gf mode
+	attribute with bhfgq.
+
+2015-09-29  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64.md (prefetch):
+	Change the predicate of operand 0 to register_operand.
+
+2015-09-28  Daniel Hellstrom  <daniel@gaisler.com>
+
+	* config/sparc/t-rtems: Remove -muser-mode. Add ut699, at697f and leon.
+
+2015-09-28  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2015-09-27  Oleg Endo  <olegendo@gcc.gnu.org>
+		    Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/67391
+	* config/sh/sh-protos.h (sh_lra_p): Declare.
+	* config/sh/sh.c (sh_lra_p): Make non-static.
+	* config/sh/sh.md (addsi3): Use arith_reg_dest for operands[0] and
+	arith_reg_operand for operands[1].  Remove TARGET_SHMEDIA case.
+	Expand into addsi3_scr if operands[2] if needed.
+	(*addsi3_compact): Rename to *addsi3_compact_lra.  Use
+	arith_reg_operand for operands[1].  Allow it only when LRA is enabled.
+	(addsi3_scr, *addsi3): New insn_and_split patterns.
+
+2015-09-28  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2015-08-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66917
+	* tree-vectorizer.h (struct dataref_aux): Add base_element_aligned
+	field.
+	(DR_VECT_AUX): New macro.
+	(set_dr_misalignment): Adjust.
+	(dr_misalignment): Likewise.
+	* tree-vect-data-refs.c (vect_compute_data_ref_alignment):
+	Compute whether the base is at least element aligned.
+	* tree-vect-stmts.c (ensure_base_align): Adjust.
+	(vectorizable_store): If the base is not element aligned
+	preserve alignment of the original access if misalignment is unknown.
+	(vectorizable_load): Likewise.
+
+	2015-09-16  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67442
+	* fold-const.c (extract_muldiv_1): Properly extend multiplication
+	result before builting a tree via wide_int_to_tree.
+
+2015-09-28  Daniel Cederman  <cederman@gaisler.com>
+
+	* config/sparc/driver-sparc.c: map LEON to leon3
+
+2015-09-28  Daniel Cederman  <cederman@gaisler.com>
+
+	* config/sparc/sparc.opt: Rename mask from USER_MODE to SV_MODE
+	  and make it inverse to change default
+	* config/sparc/sync.md: Only use supervisor ASI for CASA when in
+	  supervisor mode
+	* doc/invoke.texi: Document change of default
+
+2015-09-28  Daniel Cederman  <cederman@gaisler.com>
+
+	* config/sparc/sparc.c (sparc_function_value_regno_p): Do not return
+	true on %f0 for a target without FPU.
+	* config/sparc/sparc.md (untyped_call): Do not save %f0 for a target
+	without FPU.
+	(untyped_return): Do not load %f0 for a target without FPU.
+
 2015-09-25  Tobias Burnus  <burnus@net-b.de>
 
 	* doc/invoke.texi (-fsanitize): Minor wording tweak.
@@ -1048,20 +1443,7 @@
 	* doc/invoke.texi (i386 and x86-64 Options): -mno-fancy-math-387
 	is not actually the default on FreeBSD.
 
-2015-07-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
-
-	Backport from mainline
-	2015-06-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
-
-	* config/s390/vx-builtins.md
-	("vec_scatter_element<mode>_<non_vec_int>")
-	("vec_scatter_element<V_HW_64:mode>_SI"): Replace gf mode
-	attribute with bhfgq.
-
-2015-07-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
-
-	Backport from mainline
-	2015-06-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+2015-06-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
 
 	* config/s390/s390-builtins.def: Fix vpopct instruction comments.
 
