@@ -20,15 +20,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "tree.h"
-#include "options.h"
-#include "tm_p.h"
-#include "flags.h"
-#include "c-family/c-common.h"
 #include "target.h"
-#include "cpplib.h"
+#include "c-family/c-common.h"
+#include "tm_p.h"
 #include "c-family/c-pragma.h"
 
 static bool ix86_pragma_target_parse (tree, tree);
@@ -122,6 +116,10 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     case PROCESSOR_BDVER4:
       def_or_undef (parse_in, "__bdver4");
       def_or_undef (parse_in, "__bdver4__");
+      break;
+    case PROCESSOR_ZNVER1:
+      def_or_undef (parse_in, "__znver1");
+      def_or_undef (parse_in, "__znver1__");
       break;
     case PROCESSOR_BTVER1:
       def_or_undef (parse_in, "__btver1");
@@ -251,6 +249,9 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       break;
     case PROCESSOR_BDVER4:
       def_or_undef (parse_in, "__tune_bdver4__");
+      break;
+    case PROCESSOR_ZNVER1:
+      def_or_undef (parse_in, "__tune_znver1__");
       break;
     case PROCESSOR_BTVER1:
       def_or_undef (parse_in, "__tune_btver1__");
@@ -424,6 +425,8 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__SSE2_MATH__");
   if (isa_flag & OPTION_MASK_ISA_CLFLUSHOPT)
     def_or_undef (parse_in, "__CLFLUSHOPT__");
+  if (isa_flag & OPTION_MASK_ISA_CLZERO)
+    def_or_undef (parse_in, "__CLZERO__");
   if (isa_flag & OPTION_MASK_ISA_XSAVEC)
     def_or_undef (parse_in, "__XSAVEC__");
   if (isa_flag & OPTION_MASK_ISA_XSAVES)

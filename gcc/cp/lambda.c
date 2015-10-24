@@ -175,7 +175,7 @@ lambda_return_type (tree expr)
       || BRACE_ENCLOSED_INITIALIZER_P (expr))
     {
       cxx_incomplete_type_error (expr, TREE_TYPE (expr));
-      return void_type_node;
+      return error_mark_node;
     }
   gcc_checking_assert (!type_dependent_expression_p (expr));
   return cv_unqualified (type_decays_to (unlowered_expr_type (expr)));
@@ -895,7 +895,8 @@ maybe_add_lambda_conv_op (tree type)
 
   vec<tree, va_gc> *direct_argvec = 0;
   tree decltype_call = 0, call = 0;
-  tree fn_result = TREE_TYPE (TREE_TYPE (callop));
+  tree optype = TREE_TYPE (callop);
+  tree fn_result = TREE_TYPE (optype);
 
   if (generic_lambda_p)
     {
@@ -993,6 +994,8 @@ maybe_add_lambda_conv_op (tree type)
   CALL_FROM_THUNK_P (call) = 1;
 
   tree stattype = build_function_type (fn_result, FUNCTION_ARG_CHAIN (callop));
+  stattype = (cp_build_type_attribute_variant
+	      (stattype, TYPE_ATTRIBUTES (optype)));
 
   /* First build up the conversion op.  */
 

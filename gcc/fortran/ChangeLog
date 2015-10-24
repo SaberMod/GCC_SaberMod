@@ -1,3 +1,203 @@
+2015-10-23  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* trans-common.c (create_common): Adjust to use flag_checking.
+	* trans.c (gfc_add_modify_loc): Use gcc_checking_assert.
+
+2015-10-21  Martin Sebor  <msebor@redhat.com>
+
+	PR driver/68043
+	* lang.opt: End each sentence that describes an option with a period.
+
+2015-10-21  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67939
+	* data.c (create_character_initializer): Deal with zero length string.
+
+2015-10-19  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* resolve.c (gfc_verify_binding_labels): Check for NULL pointer.
+
+2015-10-19  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/68019
+	* decl.c (add_init_expr_to_sym): Remove an assert() to allow an error
+	message to be issued.
+
+2015-10-18  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/67758
+	* gfortran.h (gfc_symbol): Expand comment.
+	* match.c (gfc_match_common): Delay adding the symbol to
+	the common_block after the gfc_add_in_common call.
+	* symbol.c (gfc_free_symbol): Move common block memory handling...
+	(gfc_set_symbol_common_block): ... here as a new function.
+	(restore_old_symbol): Restore common block fields.
+	(gfc_restore_last_undo_checkpoint):
+	Check the common_block pointer instead of the in_common attribute.
+	When a symbol has been removed from the common block linked list,
+	clear its common_next pointer.
+
+2015-10-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67177
+	PR fortran/67977
+	* primary.c (match_substring): Add an argument 'deferred' to
+	flag that a substring reference with null start and end should
+	not be optimized away for deferred length strings.
+	(match_string_constant, gfc_match_rvalue): Set the argument.
+	* trans-expr.c (alloc_scalar_allocatable_for_assignment): If
+	there is a substring reference return.
+	* trans-intrinsic.c (conv_intrinsic_move_alloc): For deferred
+	characters, assign the 'from' string length to the 'to' string
+	length. If the 'from' expression is deferred, set its string
+	length to zero. If the 'to' expression has allocatable
+	components, deallocate them.
+
+2015-10-17  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67987
+	* decl.c (char_len_param_value): Unwrap unlong line.  If LEN < 0,
+	force it to zero per the Fortran 90, 95, 2003, and 2008 Standards.
+	* resolve.c (gfc_resolve_substring_charlen): Unwrap unlong line.
+	If 'start' is larger than 'end', length of substring is negative,
+	so explicitly set it to zero.
+	(resolve_charlen): Remove -Wsurprising warning.  Update comment to
+	reflect that the text is from the F2008 standard.
+
+2015-10-16  Richard Biener  <rguenther@suse.de>
+
+	* trans-intrinsic.c (gfc_conv_intrinsic_lib_function): Adjust
+	calls to build_addr.
+	(gfc_conv_intrinsic_mod): Likewise.
+	(gfc_conv_intrinsic_ctime): Likewise.
+	(gfc_conv_intrinsic_fdate): Likewise.
+	(gfc_conv_intrinsic_ttynam): Likewise.
+	(gfc_conv_intrinsic_minmax_char): Likewise.
+	(gfc_conv_intrinsic_index_scan_verify): Likewise.
+	(gfc_conv_intrinsic_trim): Likewise.
+
+2015-10-14  Maxim Ostapenko  <m.ostapenko@partner.samsung.com>
+
+	* parse.c (decode_statement): Initialize M to MATCH_NO.
+
+2015-10-13  Jakub Jelinek  <jakub@redhat.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+
+	* f95-lang.c (DEF_FUNCTION_TYPE_9, DEF_FUNCTION_TYPE_10,
+	DEF_FUNCTION_TYPE_11, DEF_FUNCTION_TYPE_VAR_1): Define.
+	* trans-openmp.c (gfc_trans_omp_clauses): Set
+	OMP_CLAUSE_IF_MODIFIER to ERROR_MARK, OMP_CLAUSE_ORDERED_EXPR
+	to NULL.
+	(gfc_trans_omp_critical): Adjust for addition of clauses.
+	(gfc_trans_omp_ordered): Likewise.
+	* types.def (BT_FN_BOOL_UINT_LONGPTR_LONGPTR_LONGPTR,
+	BT_FN_BOOL_UINT_ULLPTR_ULLPTR_ULLPTR,
+	BT_FN_BOOL_UINT_LONGPTR_LONG_LONGPTR_LONGPTR,
+	BT_FN_BOOL_UINT_ULLPTR_ULL_ULLPTR_ULLPTR,
+	BT_FN_VOID_INT_SIZE_PTR_PTR_PTR_UINT_PTR,
+	BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_UINT_PTR,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT_PTR_INT,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_INT_LONG_LONG_LONG,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_INT_ULL_ULL_ULL,
+	BT_FN_VOID_LONG_VAR, BT_FN_VOID_ULL_VAR): New.
+	(BT_FN_VOID_INT_PTR_SIZE_PTR_PTR_PTR,
+	BT_FN_VOID_INT_OMPFN_PTR_SIZE_PTR_PTR_PTR,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT_PTR): Remove.
+
+2015-10-07  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/65889
+	* trans-intrinsic.c (gfc_conv_intrinsic_sizeof): Handle pointer to and
+	on stack class objects as sizeof parameter.
+
+2015-10-06  Louis Krupp <louis.krupp@zoho.com>
+	PR fortran/65766
+	* resolve.c (gfc_resolve_substring_charlen): For derived type,
+	use typespec of string component when resolving substring length.
+
+2015-10-04  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* match.c (gfc_match_common): Remove dead variable old_blank_common.
+
+2015-10-04  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/67758
+	* match.c (gfc_match_common): Delay the common_block pointer
+	assignment after error checking.
+	Delay the call to gfc_add_in_common attribute after the handling
+	of array specs.
+	* resolve.c (resolve_common_vars): Call gfc_add_in_common again.
+
+2015-10-04  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* resolve.c (resolve_common_vars): Move access to the common
+	block's head symbol inside the function.
+	(resolve_common_blocks, resolve_types): Update callers.
+
+2015-10-01  Louis Krupp <louis.krupp@zoho.com>
+
+	PR fortran/62242
+	PR fortran/52332
+	* trans-array.c
+	(store_backend_decl): Create new gfc_charlen instance if requested
+	(get_array_ctor_all_strlen): Call store_backend_decl requesting
+	new gfc_charlen
+	(trans_array_constructor): Call store_backend_decl requesting
+	new gfc_charlen if get_array_ctor_strlen was called
+	(gfc_add_loop_ss_code): Don't try to convert non-constant length
+
+2015-10-01  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran.67802
+	* decl.c (add_init_expr_to_sym): Numeric constant for character
+	length must be an INTEGER.
+
+2015-10-01  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/66979
+	* io.c (gfc_resolve_filepos): Check for a UNIT number.  Add a nearby
+	missing 'return false'.
+
+2015-10-01  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67616
+	* primary.c (gfc_match_structure_constructor): Use a possibly
+	host-associated symtree to prevent ICE.
+
+2015-09-28  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/40054
+	PR fortran/63921
+	* decl.c (get_proc_name): Return if statement function is
+	found.
+	* expr.c (gfc_check_vardef_context): Add error return for
+	derived type expression lacking the derived type itself.
+	* match.c (gfc_match_ptr_fcn_assign): New function.
+	* match.h : Add prototype for gfc_match_ptr_fcn_assign.
+	* parse.c : Add static flag 'in_specification_block'.
+	(decode_statement): If in specification block match a statement
+	function, then, if no error arising from statement function
+	matching, try to match pointer function assignment.
+	(parse_interface): Set 'in_specification_block' on exiting from
+	parse_spec.
+	(parse_spec): Set and then reset 'in_specification_block'.
+	(gfc_parse_file): Set 'in_specification_block'.
+	* resolve.c (get_temp_from_expr): Extend to include functions
+	and array constructors as rvalues..
+	(resolve_ptr_fcn_assign): New function.
+	(gfc_resolve_code): Call it on finding a pointer function as an
+	lvalue. If valid or on error, go back to start of resolve_code.
+	* symbol.c (gfc_add_procedure): Add a sentence to the error to
+	flag up the ambiguity between a statement function and pointer
+	function assignment at the end of the specification block.
+
+2015-09-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* f95-lang.c (DEF_FUNCTION_TYPE_VAR_6): New.
+	(DEF_FUNCTION_TYPE_VAR_11): Delete.
+	* types.def (DEF_FUNCTION_TYPE_VAR_6): New.
+	(DEF_FUNCTION_TYPE_VAR_11): Delete.
+
 2015-09-26  Mikael Morin  <mikael@gcc.gnu.org>
 
 	PR fortran/67721
@@ -31,7 +231,6 @@
 2015-09-21  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	* resolve.c (nonscalar_typebound_assign): Fix typos in comment.
-
 
 2015-09-21  Steven G. Kargl  <kargl@gcc.gnu.org>
 

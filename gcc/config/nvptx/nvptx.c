@@ -23,39 +23,38 @@
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
-#include "tree.h"
+#include "target.h"
 #include "rtl.h"
+#include "tree.h"
+#include "cfghooks.h"
 #include "df.h"
+#include "tm_p.h"
+#include "expmed.h"
+#include "optabs.h"
+#include "regs.h"
+#include "emit-rtl.h"
+#include "recog.h"
+#include "diagnostic.h"
 #include "alias.h"
 #include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
-#include "insn-codes.h"
 #include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
 #include "calls.h"
-#include "emit-rtl.h"
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
-#include "regs.h"
-#include "optabs.h"
-#include "recog.h"
-#include "timevar.h"
-#include "tm_p.h"
 #include "tm-preds.h"
 #include "tm-constrs.h"
 #include "langhooks.h"
 #include "dbxout.h"
-#include "target.h"
-#include "diagnostic.h"
 #include "cfgrtl.h"
 #include "stor-layout.h"
 #include "builtins.h"
+#include "omp-low.h"
+#include "gomp-constants.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -529,13 +528,8 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   nvptx_write_function_decl (s, name, decl);
   fprintf (file, "%s", s.str().c_str());
 
-  bool return_in_mem = false;
-  if (TYPE_MODE (result_type) != VOIDmode)
-    {
-      machine_mode mode = TYPE_MODE (result_type);
-      if (!RETURN_IN_REG_P (mode))
-	return_in_mem = true;
-    }
+  bool return_in_mem = (TYPE_MODE (result_type) != VOIDmode
+			&& !RETURN_IN_REG_P (TYPE_MODE (result_type)));
 
   fprintf (file, "\n{\n");
 
@@ -545,9 +539,13 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
 		       false, return_in_mem);
   if (return_in_mem)
     fprintf (file, "\t.reg.u%d %%ar1;\n", GET_MODE_BITSIZE (Pmode));
-  else if (TYPE_MODE (result_type) != VOIDmode)
+
+  /* C++11 ABI causes us to return a reference to the passed in
+     pointer for return_in_mem.  */
+  if (cfun->machine->ret_reg_mode != VOIDmode)
     {
-      machine_mode mode = arg_promotion (TYPE_MODE (result_type));
+      machine_mode mode = arg_promotion
+	((machine_mode)cfun->machine->ret_reg_mode);
       fprintf (file, "\t.reg%s %%retval;\n",
 	       nvptx_ptx_type_from_mode (mode, false));
     }
@@ -633,17 +631,13 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
 const char *
 nvptx_output_return (void)
 {
-  tree fntype = TREE_TYPE (current_function_decl);
-  tree result_type = TREE_TYPE (fntype);
-  if (TYPE_MODE (result_type) != VOIDmode)
+  machine_mode mode = (machine_mode)cfun->machine->ret_reg_mode;
+
+  if (mode != VOIDmode)
     {
-      machine_mode mode = TYPE_MODE (result_type);
-      if (RETURN_IN_REG_P (mode))
-	{
-	  mode = arg_promotion (mode);
-	  fprintf (asm_out_file, "\tst.param%s\t[%%out_retval], %%retval;\n",
-		   nvptx_ptx_type_from_mode (mode, false));
-	}
+      mode = arg_promotion (mode);
+      fprintf (asm_out_file, "\tst.param%s\t[%%out_retval], %%retval;\n",
+	       nvptx_ptx_type_from_mode (mode, false));
     }
 
   return "ret;";
@@ -1855,9 +1849,7 @@ nvptx_print_operand (FILE *file, rtx x, int code)
 
 	case CONST_DOUBLE:
 	  long vals[2];
-	  REAL_VALUE_TYPE real;
-	  REAL_VALUE_FROM_CONST_DOUBLE (real, x);
-	  real_to_target (vals, &real, GET_MODE (x));
+	  real_to_target (vals, CONST_DOUBLE_REAL_VALUE (x), GET_MODE (x));
 	  vals[0] &= 0xffffffff;
 	  vals[1] &= 0xffffffff;
 	  if (GET_MODE (x) == SFmode)
@@ -2066,9 +2058,51 @@ nvptx_vector_alignment (const_tree type)
 static void
 nvptx_record_offload_symbol (tree decl)
 {
-  fprintf (asm_out_file, "//:%s_MAP %s\n",
-	   TREE_CODE (decl) == VAR_DECL ? "VAR" : "FUNC",
-	   IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+  switch (TREE_CODE (decl))
+    {
+    case VAR_DECL:
+      fprintf (asm_out_file, "//:VAR_MAP \"%s\"\n",
+	       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+      break;
+
+    case FUNCTION_DECL:
+      {
+	tree attr = get_oacc_fn_attrib (decl);
+	tree dims = NULL_TREE;
+	unsigned ix;
+
+	if (attr)
+	  dims = TREE_VALUE (attr);
+	fprintf (asm_out_file, "//:FUNC_MAP \"%s\"",
+		 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+
+	for (ix = 0; ix != GOMP_DIM_MAX; ix++)
+	  {
+	    int size = 1;
+
+	    /* TODO: This check can go away once the dimension default
+	       machinery is merged to trunk.  */
+	    if (dims)
+	      {
+		tree dim = TREE_VALUE (dims);
+
+		if (dim)
+		  size = TREE_INT_CST_LOW (dim);
+
+		gcc_assert (!TREE_PURPOSE (dims));
+		dims = TREE_CHAIN (dims);
+	      }
+	    
+	    fprintf (asm_out_file, ", %#x", size);
+	  }
+	
+	fprintf (asm_out_file, "\n");
+      }
+      break;
+  
+    default:
+      gcc_unreachable ();
+    }
 }
 
 /* Implement TARGET_ASM_FILE_START.  Write the kinds of things ptxas expects
@@ -2095,6 +2129,22 @@ nvptx_file_end (void)
   FOR_EACH_HASH_TABLE_ELEMENT (*needed_fndecls_htab, decl, tree, iter)
     nvptx_record_fndecl (decl, true);
   fputs (func_decls.str().c_str(), asm_out_file);
+}
+
+/* Validate compute dimensions of an OpenACC offload or routine, fill
+   in non-unity defaults.  FN_LEVEL indicates the level at which a
+   routine might spawn a loop.  It is negative for non-routines.  */
+
+static bool
+nvptx_goacc_validate_dims (tree ARG_UNUSED (decl), int *ARG_UNUSED (dims),
+			   int ARG_UNUSED (fn_level))
+{
+  bool changed = false;
+
+  /* TODO: Leave dimensions unaltered.  Partitioned execution needs
+     porting before filtering dimensions makes sense.  */
+
+  return changed;
 }
 
 #undef TARGET_OPTION_OVERRIDE
@@ -2182,6 +2232,9 @@ nvptx_file_end (void)
 
 #undef TARGET_VECTOR_ALIGNMENT
 #define TARGET_VECTOR_ALIGNMENT nvptx_vector_alignment
+
+#undef TARGET_GOACC_VALIDATE_DIMS
+#define TARGET_GOACC_VALIDATE_DIMS nvptx_goacc_validate_dims
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

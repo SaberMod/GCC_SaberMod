@@ -2218,11 +2218,9 @@
           || which_alternative == 4
           || which_alternative == 5))
     {
-      REAL_VALUE_TYPE r;
       long i;
 
-      REAL_VALUE_FROM_CONST_DOUBLE (r, operands[1]);
-      REAL_VALUE_TO_TARGET_SINGLE (r, i);
+      REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (operands[1]), i);
       operands[1] = GEN_INT (i);
     }
 
@@ -2265,11 +2263,9 @@
                    (match_operand:SF 2 "fp_const_high_losum_operand" "S")))]
   ""
 {
-  REAL_VALUE_TYPE r;
   long i;
 
-  REAL_VALUE_FROM_CONST_DOUBLE (r, operands[2]);
-  REAL_VALUE_TO_TARGET_SINGLE (r, i);
+  REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (operands[2]), i);
   operands[2] = GEN_INT (i);
   return "or\t%1, %%lo(%a2), %0";
 })
@@ -2279,11 +2275,9 @@
         (high:SF (match_operand:SF 1 "fp_const_high_losum_operand" "S")))]
   ""
 {
-  REAL_VALUE_TYPE r;
   long i;
 
-  REAL_VALUE_FROM_CONST_DOUBLE (r, operands[1]);
-  REAL_VALUE_TO_TARGET_SINGLE (r, i);
+  REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (operands[1]), i);
   operands[1] = GEN_INT (i);
   return "sethi\t%%hi(%1), %0";
 })
@@ -6398,7 +6392,6 @@
   ""
 {
   rtx valreg1 = gen_rtx_REG (DImode, 8);
-  rtx valreg2 = gen_rtx_REG (TARGET_ARCH64 ? TFmode : DFmode, 32);
   rtx result = operands[1];
 
   /* Pass constm1 to indicate that it may expect a structure value, but
@@ -6407,8 +6400,12 @@
 
   /* Save the function value registers.  */
   emit_move_insn (adjust_address (result, DImode, 0), valreg1);
-  emit_move_insn (adjust_address (result, TARGET_ARCH64 ? TFmode : DFmode, 8),
-				  valreg2);
+  if (TARGET_FPU)
+    {
+      rtx valreg2 = gen_rtx_REG (TARGET_ARCH64 ? TFmode : DFmode, 32);
+      emit_move_insn (adjust_address (result, TARGET_ARCH64 ? TFmode : DFmode, 8),
+                      valreg2);
+    }
 
   /* The optimizer does not know that the call sets the function value
      registers we stored in the result block.  We avoid problems by
@@ -6620,7 +6617,6 @@
   ""
 {
   rtx valreg1 = gen_rtx_REG (DImode, 24);
-  rtx valreg2 = gen_rtx_REG (TARGET_ARCH64 ? TFmode : DFmode, 32);
   rtx result = operands[0];
 
   if (! TARGET_ARCH64)
@@ -6637,14 +6633,18 @@
       emit_insn (gen_update_return (rtnreg, value));
     }
 
-  /* Reload the function value registers.  */
+  /* Reload the function value registers.
+     Put USE insns before the return.  */
   emit_move_insn (valreg1, adjust_address (result, DImode, 0));
-  emit_move_insn (valreg2,
-		  adjust_address (result, TARGET_ARCH64 ? TFmode : DFmode, 8));
-
-  /* Put USE insns before the return.  */
   emit_use (valreg1);
-  emit_use (valreg2);
+
+  if (TARGET_FPU)
+    {
+      rtx valreg2 = gen_rtx_REG (TARGET_ARCH64 ? TFmode : DFmode, 32);
+      emit_move_insn (valreg2,
+		      adjust_address (result, TARGET_ARCH64 ? TFmode : DFmode, 8));
+      emit_use (valreg2);
+    }
 
   /* Construct the return.  */
   expand_naked_return ();

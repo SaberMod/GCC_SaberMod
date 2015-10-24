@@ -26,55 +26,38 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "cfghooks.h"
 #include "df.h"
-#include "insn-config.h"
+#include "tm_p.h"
+#include "stringpool.h"
+#include "optabs.h"
+#include "emit-rtl.h"
+#include "recog.h"
+#include "diagnostic-core.h"
 #include "alias.h"
 #include "fold-const.h"
-#include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "varasm.h"
 #include "flags.h"
-#include "expmed.h"
-#include "dojump.h"
 #include "explow.h"
-#include "emit-rtl.h"
-#include "stmt.h"
 #include "expr.h"
-#include "insn-codes.h"
-#include "optabs.h"
 #include "reload.h"
-#include "regs.h"
 #include "output.h"
 #include "insn-attr.h"
-#include "diagnostic-core.h"
-#include "recog.h"
 #include "dwarf2.h"
-#include "tm_p.h"
-#include "target.h"
 #include "langhooks.h"
 #include "cfgrtl.h"
-#include "cfganal.h"
-#include "lcm.h"
-#include "cfgbuild.h"
-#include "cfgcleanup.h"
 #include "intl.h"
 #include "sched-int.h"
-#include "params.h"
-#include "internal-fn.h"
-#include "gimple-fold.h"
-#include "tree-eh.h"
 #include "gimplify.h"
-#include "cfgloop.h"
-#include "alloc-pool.h"
 #include "tm-constrs.h"
 #include "opts.h"
 #include "tree-pass.h"
-#include "pass_manager.h"
 #include "context.h"
 #include "builtins.h"
 #include "rtl-iter.h"
@@ -202,6 +185,7 @@ static bool noncall_uses_reg (rtx, rtx_insn *, rtx *);
 static rtx_insn *gen_block_redirect (rtx_insn *, int, int);
 static void sh_reorg (void);
 static void sh_option_override (void);
+static void sh_override_options_after_change (void);
 static void output_stack_adjust (int, rtx, int, HARD_REG_SET *, bool);
 static rtx_insn *frame_insn (rtx);
 static rtx push (int);
@@ -216,7 +200,6 @@ static int sh_mode_after (int, int, rtx_insn *);
 static int sh_mode_entry (int);
 static int sh_mode_exit (int);
 static int sh_mode_priority (int entity, int n);
-static bool sh_lra_p (void);
 
 static rtx mark_constant_pool_use (rtx);
 static tree sh_handle_interrupt_handler_attribute (tree *, tree, tree,
@@ -392,6 +375,10 @@ static const struct attribute_spec sh_attribute_table[] =
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE sh_option_override
+
+#undef TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE
+#define TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE \
+  sh_override_options_after_change
 
 #undef TARGET_PRINT_OPERAND
 #define TARGET_PRINT_OPERAND sh_print_operand
@@ -1045,6 +1032,50 @@ sh_option_override (void)
       TARGET_ACCUMULATE_OUTGOING_ARGS = 1;
     }
 
+  if (flag_unsafe_math_optimizations)
+    {
+      /* Enable fsca insn for SH4A if not otherwise specified by the user.  */
+      if (global_options_set.x_TARGET_FSCA == 0 && TARGET_SH4A_FP)
+	TARGET_FSCA = 1;
+
+      /* Enable fsrra insn for SH4A if not otherwise specified by the user.  */
+      if (global_options_set.x_TARGET_FSRRA == 0 && TARGET_SH4A_FP)
+	TARGET_FSRRA = 1;
+    }
+
+  /*  Allow fsrra insn only if -funsafe-math-optimizations and
+      -ffinite-math-only is enabled.  */
+  TARGET_FSRRA = TARGET_FSRRA
+		 && flag_unsafe_math_optimizations
+		 && flag_finite_math_only;
+
+  /* If the -mieee option was not explicitly set by the user, turn it on
+     unless -ffinite-math-only was specified.  See also PR 33135.  */
+  if (! global_options_set.x_TARGET_IEEE)
+    TARGET_IEEE = ! flag_finite_math_only;
+
+  if (sh_fixed_range_str)
+    sh_fix_range (sh_fixed_range_str);
+
+  /* This target defaults to strict volatile bitfields.  */
+  if (flag_strict_volatile_bitfields < 0 && abi_version_at_least(2))
+    flag_strict_volatile_bitfields = 1;
+
+  sh_override_options_after_change ();
+
+  /* Parse atomic model option and make sure it is valid for the current
+     target CPU.  */
+  selected_atomic_model_
+    = parse_validate_atomic_model_option (sh_atomic_model_str);
+
+  register_sh_passes ();
+}
+
+/* Implement targetm.override_options_after_change.  */
+
+static void
+sh_override_options_after_change (void)
+{
   /*  Adjust loop, jump and function alignment values (in bytes), if those
       were not specified by the user using -falign-loops, -falign-jumps
       and -falign-functions options.
@@ -1094,42 +1125,6 @@ sh_option_override (void)
       if (align_functions < min_align)
 	align_functions = min_align;
     }
-
-  if (flag_unsafe_math_optimizations)
-    {
-      /* Enable fsca insn for SH4A if not otherwise specified by the user.  */
-      if (global_options_set.x_TARGET_FSCA == 0 && TARGET_SH4A_FP)
-	TARGET_FSCA = 1;
-
-      /* Enable fsrra insn for SH4A if not otherwise specified by the user.  */
-      if (global_options_set.x_TARGET_FSRRA == 0 && TARGET_SH4A_FP)
-	TARGET_FSRRA = 1;
-    }
-
-  /*  Allow fsrra insn only if -funsafe-math-optimizations and
-      -ffinite-math-only is enabled.  */
-  TARGET_FSRRA = TARGET_FSRRA
-		 && flag_unsafe_math_optimizations
-		 && flag_finite_math_only;
-
-  /* If the -mieee option was not explicitly set by the user, turn it on
-     unless -ffinite-math-only was specified.  See also PR 33135.  */
-  if (! global_options_set.x_TARGET_IEEE)
-    TARGET_IEEE = ! flag_finite_math_only;
-
-  if (sh_fixed_range_str)
-    sh_fix_range (sh_fixed_range_str);
-
-  /* This target defaults to strict volatile bitfields.  */
-  if (flag_strict_volatile_bitfields < 0 && abi_version_at_least(2))
-    flag_strict_volatile_bitfields = 1;
-
-  /* Parse atomic model option and make sure it is valid for the current
-     target CPU.  */
-  selected_atomic_model_
-    = parse_validate_atomic_model_option (sh_atomic_model_str);
-
-  register_sh_passes ();
 }
 
 /* Print the operand address in x to the stream.  */
@@ -3593,13 +3588,12 @@ sh_rtx_costs (rtx x, machine_mode mode ATTRIBUTE_UNUSED, int outer_code,
 
     case EQ:
       /* An and with a constant compared against zero is
-	 most likely going to be a TST #imm, R0 instruction.
-	 Notice that this does not catch the zero_extract variants from
-	 the md file.  */
+	 most likely going to be a TST #imm, R0 instruction.  */
       if (XEXP (x, 1) == const0_rtx
-          && (GET_CODE (XEXP (x, 0)) == AND
-              || (SUBREG_P (XEXP (x, 0))
-		  && GET_CODE (SUBREG_REG (XEXP (x, 0))) == AND)))
+          && ((GET_CODE (XEXP (x, 0)) == AND
+               || (SUBREG_P (XEXP (x, 0))
+		   && GET_CODE (SUBREG_REG (XEXP (x, 0))) == AND))
+	      || GET_CODE (XEXP (x, 0)) == ZERO_EXTRACT))
 	{
 	  *total = 1;
 	  return true;
@@ -4331,7 +4325,7 @@ gen_shl_and (rtx dest, rtx left_rtx, rtx mask_rtx, rtx source)
 	 that don't matter.  This way, we might be able to get a shorter
 	 signed constant.  */
       if (mask & ((HOST_WIDE_INT) 1 << (31 - total_shift)))
-	mask |= (HOST_WIDE_INT) ~0 << (31 - total_shift);
+	mask |= (HOST_WIDE_INT) ((HOST_WIDE_INT_M1U) << (31 - total_shift));
     case 2:
       /* Don't expand fine-grained when combining, because that will
          make the pattern fail.  */
@@ -4615,7 +4609,7 @@ gen_shl_sext (rtx dest, rtx left_rtx, rtx size_rtx, rtx source)
 	}
       emit_insn (gen_andsi3 (dest, source, GEN_INT ((1 << insize) - 1)));
       emit_insn (gen_xorsi3 (dest, dest, GEN_INT (1 << (insize - 1))));
-      emit_insn (gen_addsi3 (dest, dest, GEN_INT (-1 << (insize - 1))));
+      emit_insn (gen_addsi3 (dest, dest, GEN_INT (HOST_WIDE_INT_M1U << (insize - 1))));
       operands[0] = dest;
       operands[2] = kind == 7 ? GEN_INT (left + 1) : left_rtx;
       gen_shifty_op (ASHIFT, operands);
@@ -9989,26 +9983,23 @@ system_reg_operand (rtx op, machine_mode mode ATTRIBUTE_UNUSED)
 bool
 fp_zero_operand (rtx op)
 {
-  REAL_VALUE_TYPE r;
+  const REAL_VALUE_TYPE *r;
 
   if (GET_MODE (op) != SFmode)
     return false;
 
-  REAL_VALUE_FROM_CONST_DOUBLE (r, op);
-  return REAL_VALUES_EQUAL (r, dconst0) && ! REAL_VALUE_MINUS_ZERO (r);
+  r = CONST_DOUBLE_REAL_VALUE (op);
+  return real_equal (r, &dconst0) && ! REAL_VALUE_MINUS_ZERO (*r);
 }
 
 /* Returns true if OP is a floating point value with value 1.0.  */
 bool
 fp_one_operand (rtx op)
 {
-  REAL_VALUE_TYPE r;
-
   if (GET_MODE (op) != SFmode)
     return false;
 
-  REAL_VALUE_FROM_CONST_DOUBLE (r, op);
-  return REAL_VALUES_EQUAL (r, dconst1);
+  return real_equal (CONST_DOUBLE_REAL_VALUE (op), &dconst1);
 }
 
 /* Return the TLS type for TLS symbols.  */
@@ -12098,7 +12089,7 @@ sh_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
        __builtin_sh_set_fpscr (masked_fenv);  */
 
-  fenv_var = create_tmp_var (unsigned_type_node);
+  fenv_var = create_tmp_var_raw (unsigned_type_node);
   mask = build_int_cst (unsigned_type_node,
 			~((SH_FE_ALL_EXCEPT << SH_FE_EXCEPT_SHIFT)
 			  | SH_FE_ALL_EXCEPT));
@@ -12106,9 +12097,11 @@ sh_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 		    fenv_var, build_call_expr (sh_builtin_get_fpscr, 0));
   masked_fenv = build2 (BIT_AND_EXPR, unsigned_type_node, fenv_var, mask);
   hold_fnclex = build_call_expr (sh_builtin_set_fpscr, 1, masked_fenv);
-  *hold = build2 (COMPOUND_EXPR, void_type_node,
-		  build2 (COMPOUND_EXPR, void_type_node, masked_fenv, ld_fenv),
-		  hold_fnclex);
+  fenv_var = build4 (TARGET_EXPR, unsigned_type_node, fenv_var,
+		     build2 (COMPOUND_EXPR, void_type_node, masked_fenv,
+			     ld_fenv),
+		     NULL_TREE, NULL_TREE);
+  *hold = build2 (COMPOUND_EXPR, void_type_node, fenv_var, hold_fnclex);
 
   /* Store the value of masked_fenv to clear the exceptions:
      __builtin_sh_set_fpscr (masked_fenv);  */
@@ -12123,7 +12116,7 @@ sh_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
        __atomic_feraiseexcept (new_fenv_var);  */
 
-  new_fenv_var = create_tmp_var (unsigned_type_node);
+  new_fenv_var = create_tmp_var_raw (unsigned_type_node);
   reload_fenv = build2 (MODIFY_EXPR, unsigned_type_node, new_fenv_var,
 			build_call_expr (sh_builtin_get_fpscr, 0));
   restore_fnenv = build_call_expr (sh_builtin_set_fpscr, 1, fenv_var);
@@ -14201,7 +14194,8 @@ sh_recog_treg_set_expr (rtx op, machine_mode mode)
     return false;
 
   /* Early accept known possible operands before doing recog.  */
-  if (op == const0_rtx || op == const1_rtx || t_reg_operand (op, mode))
+  if (op == const0_rtx || op == const1_rtx || t_reg_operand (op, mode)
+      || negt_reg_operand (op, mode))
     return true;
 
   /* Early reject impossible operands before doing recog.
@@ -14210,8 +14204,8 @@ sh_recog_treg_set_expr (rtx op, machine_mode mode)
      such as lower-subreg will bail out.  Some insns such as SH4A movua are
      done with UNSPEC, so must reject those, too, or else it would result
      in an invalid reg -> treg move.  */
-  if (register_operand (op, mode) || memory_operand (op, mode)
-      || sh_unspec_insn_p (op))
+  if (CONST_INT_P (op) || register_operand (op, mode)
+      || memory_operand (op, mode) || sh_unspec_insn_p (op))
     return false;
 
   if (!can_create_pseudo_p ())
@@ -14231,26 +14225,30 @@ sh_recog_treg_set_expr (rtx op, machine_mode mode)
   SET_PREV_INSN (i) = NULL;
   SET_NEXT_INSN (i) = NULL;
 
+  /* If the comparison op doesn't have a result mode, set it to SImode.  */
+  machine_mode prev_op_mode = GET_MODE (op);
+  if (COMPARISON_P (op) && prev_op_mode == VOIDmode)
+    PUT_MODE (op, SImode);
+
   int result = recog (PATTERN (i), i, 0);
 
-  /* It seems there is no insn like that.  Create a simple negated
-     version and try again.  If we hit a negated form, we'll allow that
-     and append a nott sequence when splitting out the insns.  Insns that
-     do the split can then remove the trailing nott if they know how to
-     deal with it.  */
-  if (result < 0 && GET_CODE (op) == EQ)
+  /* It seems there is no insn like that.  Create a negated version and
+     try again.  If we hit a negated form, we'll allow that and append a
+     nott sequence when splitting out the insns.  Insns that do the split
+     can then remove the trailing nott if they know how to deal with it.  */
+  if (result < 0 && COMPARISON_P (op))
     {
-      PUT_CODE (op, NE);
+      machine_mode cmp_mode = GET_MODE (XEXP (op, 0));
+      if (cmp_mode == VOIDmode)
+        cmp_mode = GET_MODE (XEXP (op, 1));
+
+      rtx_code prev_code = GET_CODE (op);
+      PUT_CODE (op, reverse_condition (GET_CODE (op)));
       result = recog (PATTERN (i), i, 0);
-      PUT_CODE (op, EQ);
-    }
-  if (result < 0 && GET_CODE (op) == NE)
-    {
-      PUT_CODE (op, EQ);
-      result = recog (PATTERN (i), i, 0);
-      PUT_CODE (op, NE);
+      PUT_CODE (op, prev_code);
     }
 
+  PUT_MODE (op, prev_op_mode);
   recog_data = prev_recog_data;
   return result >= 0;
 }
@@ -14351,36 +14349,42 @@ sh_split_treg_set_expr (rtx x, rtx_insn* curr_insn)
       fprintf (dump_file, "\n");
     }
 
+  /* If the insn is not found, we will try a negated form and append
+     a nott.  */
+  bool append_nott = false;
+
   /* We are going to invoke recog/split_insns in a re-entrant way and thus
      have to capture its current state and restore it afterwards.  */
   recog_data_d prev_recog_data = recog_data;
 
-  int insn_code = recog (PATTERN (i), i, 0);
-
-  /* If the insn was not found, see if we matched the negated form before
-     and append a nott.  */
-  bool append_nott = false;
-
-  if (insn_code < 0 && GET_CODE (x) == EQ)
+  if (negt_reg_operand (x, GET_MODE (x)))
     {
-      PUT_CODE (x, NE);
-      insn_code = recog (PATTERN (i), i, 0);
-      if (insn_code >= 0)
-	append_nott = true;
-      else
-	PUT_CODE (x, EQ);
+      /* This is a normal movt followed by a nott.  It will be converted
+	 into a movrt after initial expansion.  */
+      XEXP (PATTERN (i), 1) = get_t_reg_rtx ();
+      append_nott = true;
     }
-  if (insn_code < 0 && GET_CODE (x) == NE)
+  else
     {
-      PUT_CODE (x, EQ);
-      insn_code = recog (PATTERN (i), i, 0);
-      if (insn_code >= 0)
-	append_nott = true;
-      else
-	PUT_CODE (x, NE);
-    }
+      /* If the comparison op doesn't have a mode set, set it to SImode.  */
+      if (COMPARISON_P (x) && GET_MODE (x) == VOIDmode)
+	PUT_MODE (x, SImode);
 
-  gcc_assert (insn_code >= 0);
+      int insn_code = recog (PATTERN (i), i, 0);
+
+      if (insn_code < 0 && COMPARISON_P (x))
+	{
+	  machine_mode cmp_mode = GET_MODE (XEXP (x, 0));
+	  if (cmp_mode == VOIDmode)
+	    cmp_mode = GET_MODE (XEXP (x, 1));
+
+	  PUT_CODE (x, reverse_condition (GET_CODE (x)));
+	  insn_code = recog (PATTERN (i), i, 0);
+	  append_nott = true;
+	}
+
+      gcc_assert (insn_code >= 0);
+    }
 
   /* Try to recursively split the insn.  Some insns might refuse to split
      any further while we are in the treg_set_expr splitting phase.  They
@@ -14507,7 +14511,7 @@ sh_mode_priority (int entity ATTRIBUTE_UNUSED, int n)
 */
 
 /* Return true if we use LRA instead of reload pass.  */
-static bool
+bool
 sh_lra_p (void)
 {
   return sh_lra_flag;

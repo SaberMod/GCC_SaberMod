@@ -1659,7 +1659,19 @@ match_builtin_function_types (tree newtype, tree oldtype)
     }
 
   trytype = build_function_type (newrettype, tryargs);
-  return build_type_attribute_variant (trytype, TYPE_ATTRIBUTES (oldtype));
+
+  /* Allow declaration to change transaction_safe attribute.  */
+  tree oldattrs = TYPE_ATTRIBUTES (oldtype);
+  tree oldtsafe = lookup_attribute ("transaction_safe", oldattrs);
+  tree newattrs = TYPE_ATTRIBUTES (newtype);
+  tree newtsafe = lookup_attribute ("transaction_safe", newattrs);
+  if (oldtsafe && !newtsafe)
+    oldattrs = remove_attribute ("transaction_safe", oldattrs);
+  else if (newtsafe && !oldtsafe)
+    oldattrs = tree_cons (get_identifier ("transaction_safe"),
+			  NULL_TREE, oldattrs);
+
+  return build_type_attribute_variant (trytype, oldattrs);
 }
 
 /* Subroutine of diagnose_mismatched_decls.  Check for function type
@@ -8316,6 +8328,12 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
 	  && comptypes (TREE_TYPE (TREE_TYPE (decl1)),
 			TREE_TYPE (TREE_TYPE (old_decl))))
 	{
+	  if (stdarg_p (TREE_TYPE (old_decl)))
+	    {
+	      warning_at (loc, 0, "%q+D defined as variadic function "
+			  "without prototype", decl1);
+	      locate_old_decl (old_decl);
+	    }
 	  TREE_TYPE (decl1) = composite_type (TREE_TYPE (old_decl),
 					      TREE_TYPE (decl1));
 	  current_function_prototype_locus = DECL_SOURCE_LOCATION (old_decl);

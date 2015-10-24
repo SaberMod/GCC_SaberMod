@@ -468,6 +468,9 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo, int *max_vf)
     dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_analyze_data_ref_dependences ===\n");
 
+  LOOP_VINFO_DDRS (loop_vinfo)
+    .create (LOOP_VINFO_DATAREFS (loop_vinfo).length ()
+	     * LOOP_VINFO_DATAREFS (loop_vinfo).length ());
   LOOP_VINFO_NO_DATA_DEPENDENCIES (loop_vinfo) = true;
   if (!compute_all_dependences (LOOP_VINFO_DATAREFS (loop_vinfo),
 				&LOOP_VINFO_DDRS (loop_vinfo),
@@ -784,23 +787,17 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
    Return FALSE if a data reference is found that cannot be vectorized.  */
 
 static bool
-vect_compute_data_refs_alignment (loop_vec_info loop_vinfo,
-                                  bb_vec_info bb_vinfo)
+vect_compute_data_refs_alignment (vec_info *vinfo)
 {
-  vec<data_reference_p> datarefs;
+  vec<data_reference_p> datarefs = vinfo->datarefs;
   struct data_reference *dr;
   unsigned int i;
-
-  if (loop_vinfo)
-    datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
-  else
-    datarefs = BB_VINFO_DATAREFS (bb_vinfo);
 
   FOR_EACH_VEC_ELT (datarefs, i, dr)
     if (STMT_VINFO_VECTORIZABLE (vinfo_for_stmt (DR_STMT (dr)))
         && !vect_compute_data_ref_alignment (dr))
       {
-        if (bb_vinfo)
+        if (is_a <bb_vec_info> (vinfo))
           {
             /* Mark unsupported statement as unvectorizable.  */
             STMT_VINFO_VECTORIZABLE (vinfo_for_stmt (DR_STMT (dr))) = false;
@@ -879,17 +876,12 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
    handled with respect to alignment.  */
 
 bool
-vect_verify_datarefs_alignment (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
+vect_verify_datarefs_alignment (vec_info *vinfo)
 {
-  vec<data_reference_p> datarefs;
+  vec<data_reference_p> datarefs = vinfo->datarefs;
   struct data_reference *dr;
   enum dr_alignment_support supportable_dr_alignment;
   unsigned int i;
-
-  if (loop_vinfo)
-    datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
-  else
-    datarefs = BB_VINFO_DATAREFS (bb_vinfo);
 
   FOR_EACH_VEC_ELT (datarefs, i, dr)
     {
@@ -1050,10 +1042,48 @@ vect_get_data_access_cost (struct data_reference *dr,
 }
 
 
+typedef struct _vect_peel_info
+{
+  int npeel;
+  struct data_reference *dr;
+  unsigned int count;
+} *vect_peel_info;
+
+typedef struct _vect_peel_extended_info
+{
+  struct _vect_peel_info peel_info;
+  unsigned int inside_cost;
+  unsigned int outside_cost;
+  stmt_vector_for_cost body_cost_vec;
+} *vect_peel_extended_info;
+
+
+/* Peeling hashtable helpers.  */
+
+struct peel_info_hasher : free_ptr_hash <_vect_peel_info>
+{
+  static inline hashval_t hash (const _vect_peel_info *);
+  static inline bool equal (const _vect_peel_info *, const _vect_peel_info *);
+};
+
+inline hashval_t
+peel_info_hasher::hash (const _vect_peel_info *peel_info)
+{
+  return (hashval_t) peel_info->npeel;
+}
+
+inline bool
+peel_info_hasher::equal (const _vect_peel_info *a, const _vect_peel_info *b)
+{
+  return (a->npeel == b->npeel);
+}
+
+
 /* Insert DR into peeling hash table with NPEEL as key.  */
 
 static void
-vect_peeling_hash_insert (loop_vec_info loop_vinfo, struct data_reference *dr,
+vect_peeling_hash_insert (hash_table<peel_info_hasher> *peeling_htab,
+			  loop_vec_info loop_vinfo, struct data_reference *dr,
                           int npeel)
 {
   struct _vect_peel_info elem, *slot;
@@ -1061,7 +1091,7 @@ vect_peeling_hash_insert (loop_vec_info loop_vinfo, struct data_reference *dr,
   bool supportable_dr_alignment = vect_supportable_dr_alignment (dr, true);
 
   elem.npeel = npeel;
-  slot = LOOP_VINFO_PEELING_HTAB (loop_vinfo)->find (&elem);
+  slot = peeling_htab->find (&elem);
   if (slot)
     slot->count++;
   else
@@ -1070,8 +1100,7 @@ vect_peeling_hash_insert (loop_vec_info loop_vinfo, struct data_reference *dr,
       slot->npeel = npeel;
       slot->dr = dr;
       slot->count = 1;
-      new_slot
-       	= LOOP_VINFO_PEELING_HTAB (loop_vinfo)->find_slot (slot, INSERT);
+      new_slot = peeling_htab->find_slot (slot, INSERT);
       *new_slot = slot;
     }
 
@@ -1175,7 +1204,8 @@ vect_peeling_hash_get_lowest_cost (_vect_peel_info **slot,
    option that aligns as many accesses as possible.  */
 
 static struct data_reference *
-vect_peeling_hash_choose_best_peeling (loop_vec_info loop_vinfo,
+vect_peeling_hash_choose_best_peeling (hash_table<peel_info_hasher> *peeling_htab,
+				       loop_vec_info loop_vinfo,
                                        unsigned int *npeel,
 				       stmt_vector_for_cost *body_cost_vec)
 {
@@ -1188,16 +1218,14 @@ vect_peeling_hash_choose_best_peeling (loop_vec_info loop_vinfo,
      {
        res.inside_cost = INT_MAX;
        res.outside_cost = INT_MAX;
-       LOOP_VINFO_PEELING_HTAB (loop_vinfo)
-           ->traverse <_vect_peel_extended_info *,
-                       vect_peeling_hash_get_lowest_cost> (&res);
+       peeling_htab->traverse <_vect_peel_extended_info *,
+	   		       vect_peeling_hash_get_lowest_cost> (&res);
      }
    else
      {
        res.peel_info.count = 0;
-       LOOP_VINFO_PEELING_HTAB (loop_vinfo)
-           ->traverse <_vect_peel_extended_info *,
-                       vect_peeling_hash_get_most_frequent> (&res);
+       peeling_htab->traverse <_vect_peel_extended_info *,
+	   		       vect_peeling_hash_get_most_frequent> (&res);
      }
 
    *npeel = res.peel_info.npeel;
@@ -1318,10 +1346,15 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
   tree vectype;
   unsigned int nelements, mis, same_align_drs_max = 0;
   stmt_vector_for_cost body_cost_vec = stmt_vector_for_cost ();
+  hash_table<peel_info_hasher> peeling_htab (1);
 
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_enhance_data_refs_alignment ===\n");
+
+  /* Reset data so we can safely be called multiple times.  */
+  LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo).truncate (0);
+  LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo) = 0;
 
   /* While cost model enhancements are expected in the future, the high level
      view of the code at this time is as follows:
@@ -1390,10 +1423,6 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 						    size_zero_node) < 0;
 
               /* Save info about DR in the hash table.  */
-              if (!LOOP_VINFO_PEELING_HTAB (loop_vinfo))
-                LOOP_VINFO_PEELING_HTAB (loop_vinfo)
-		  = new hash_table<peel_info_hasher> (1);
-
               vectype = STMT_VINFO_VECTYPE (stmt_info);
               nelements = TYPE_VECTOR_SUBPARTS (vectype);
               mis = DR_MISALIGNMENT (dr) / GET_MODE_SIZE (TYPE_MODE (
@@ -1435,7 +1464,8 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 
               for (j = 0; j < possible_npeel_number; j++)
                 {
-                  vect_peeling_hash_insert (loop_vinfo, dr, npeel_tmp);
+                  vect_peeling_hash_insert (&peeling_htab, loop_vinfo,
+					    dr, npeel_tmp);
                   npeel_tmp += nelements;
                 }
 
@@ -1601,7 +1631,8 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
       gcc_assert (!all_misalignments_unknown);
 
       /* Choose the best peeling from the hash table.  */
-      dr0 = vect_peeling_hash_choose_best_peeling (loop_vinfo, &npeel,
+      dr0 = vect_peeling_hash_choose_best_peeling (&peeling_htab,
+						   loop_vinfo, &npeel,
 						   &body_cost_vec);
       if (!dr0 || !npeel)
         do_peeling = false;
@@ -1679,7 +1710,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 
       if (do_peeling && known_alignment_for_access_p (dr0) && npeel == 0)
         {
-          stat = vect_verify_datarefs_alignment (loop_vinfo, NULL);
+          stat = vect_verify_datarefs_alignment (loop_vinfo);
           if (!stat)
             do_peeling = false;
           else
@@ -1758,7 +1789,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 	     Drop the body_cst_vec on the floor here.  */
 	  body_cost_vec.release ();
 
-	  stat = vect_verify_datarefs_alignment (loop_vinfo, NULL);
+	  stat = vect_verify_datarefs_alignment (loop_vinfo);
 	  gcc_assert (stat);
           return stat;
         }
@@ -1875,7 +1906,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
       /* Peeling and versioning can't be done together at this time.  */
       gcc_assert (! (do_peeling && do_versioning));
 
-      stat = vect_verify_datarefs_alignment (loop_vinfo, NULL);
+      stat = vect_verify_datarefs_alignment (loop_vinfo);
       gcc_assert (stat);
       return stat;
     }
@@ -1883,7 +1914,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
   /* This point is reached if neither peeling nor versioning is being done.  */
   gcc_assert (! (do_peeling || do_versioning));
 
-  stat = vect_verify_datarefs_alignment (loop_vinfo, NULL);
+  stat = vect_verify_datarefs_alignment (loop_vinfo);
   return stat;
 }
 
@@ -1967,8 +1998,7 @@ vect_find_same_alignment_drs (struct data_dependence_relation *ddr,
    Return FALSE if a data reference is found that cannot be vectorized.  */
 
 bool
-vect_analyze_data_refs_alignment (loop_vec_info loop_vinfo,
-                                  bb_vec_info bb_vinfo)
+vect_analyze_data_refs_alignment (vec_info *vinfo)
 {
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
@@ -1976,17 +2006,17 @@ vect_analyze_data_refs_alignment (loop_vec_info loop_vinfo,
 
   /* Mark groups of data references with same alignment using
      data dependence information.  */
-  if (loop_vinfo)
+  if (is_a <loop_vec_info> (vinfo))
     {
-      vec<ddr_p> ddrs = LOOP_VINFO_DDRS (loop_vinfo);
+      vec<ddr_p> ddrs = vinfo->ddrs;
       struct data_dependence_relation *ddr;
       unsigned int i;
 
       FOR_EACH_VEC_ELT (ddrs, i, ddr)
-	vect_find_same_alignment_drs (ddr, loop_vinfo);
+	vect_find_same_alignment_drs (ddr, as_a <loop_vec_info> (vinfo));
     }
 
-  if (!vect_compute_data_refs_alignment (loop_vinfo, bb_vinfo))
+  if (!vect_compute_data_refs_alignment (vinfo))
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -2084,7 +2114,6 @@ vect_analyze_group_access_1 (struct data_reference *dr)
  	  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 	                   "not consecutive access ");
 	  dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
-	  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
         }
 
       if (bb_vinfo)
@@ -2094,7 +2123,9 @@ vect_analyze_group_access_1 (struct data_reference *dr)
           return true;
         }
 
-      return false;
+      dump_printf_loc (MSG_NOTE, vect_location, "using strided accesses\n");
+      STMT_VINFO_STRIDED_P (stmt_info) = true;
+      return true;
     }
 
   if (GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) == stmt)
@@ -2124,6 +2155,10 @@ vect_analyze_group_access_1 (struct data_reference *dr)
                                      "Two store stmts share the same dr.\n");
                   return false;
                 }
+
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				 "Two or more load stmts share the same dr.\n");
 
               /* For load use the same data-ref load.  */
               GROUP_SAME_DR_STMT (vinfo_for_stmt (next)) = prev;
@@ -2516,20 +2551,15 @@ dr_group_sort_cmp (const void *dra_, const void *drb_)
    FORNOW: handle only arrays and pointer accesses.  */
 
 bool
-vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
+vect_analyze_data_ref_accesses (vec_info *vinfo)
 {
   unsigned int i;
-  vec<data_reference_p> datarefs;
+  vec<data_reference_p> datarefs = vinfo->datarefs;
   struct data_reference *dr;
 
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_analyze_data_ref_accesses ===\n");
-
-  if (loop_vinfo)
-    datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
-  else
-    datarefs = BB_VINFO_DATAREFS (bb_vinfo);
 
   if (datarefs.is_empty ())
     return true;
@@ -2654,7 +2684,7 @@ vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
 	  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 	                   "not vectorized: complicated access pattern.\n");
 
-        if (bb_vinfo)
+        if (is_a <bb_vec_info> (vinfo))
           {
             /* Mark the statement as not vectorizable.  */
             STMT_VINFO_VECTORIZABLE (vinfo_for_stmt (DR_STMT (dr))) = false;
@@ -3217,9 +3247,7 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo, tree *basep,
 */
 
 bool
-vect_analyze_data_refs (loop_vec_info loop_vinfo,
-			bb_vec_info bb_vinfo,
-			int *min_vf, unsigned *n_stmts)
+vect_analyze_data_refs (vec_info *vinfo, int *min_vf, unsigned *n_stmts)
 {
   struct loop *loop = NULL;
   basic_block bb = NULL;
@@ -3232,7 +3260,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo,
     dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_analyze_data_refs ===\n");
 
-  if (loop_vinfo)
+  if (loop_vec_info loop_vinfo = dyn_cast <loop_vec_info> (vinfo))
     {
       basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
 
@@ -3304,6 +3332,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo,
     }
   else
     {
+      bb_vec_info bb_vinfo = as_a <bb_vec_info> (vinfo);
       gimple_stmt_iterator gsi;
 
       bb = BB_VINFO_BB (bb_vinfo);
@@ -3381,11 +3410,11 @@ again:
 	      && !TREE_THIS_VOLATILE (DR_REF (dr))
 	      && targetm.vectorize.builtin_scatter != NULL;
 	  bool maybe_simd_lane_access
-	    = loop_vinfo && loop->simduid;
+	    = is_a <loop_vec_info> (vinfo) && loop->simduid;
 
 	  /* If target supports vector gather loads or scatter stores, or if
 	     this might be a SIMD lane access, see if they can't be used.  */
-	  if (loop_vinfo
+	  if (is_a <loop_vec_info> (vinfo)
 	      && (maybe_gather || maybe_scatter || maybe_simd_lane_access)
 	      && !nested_in_vect_loop_p (loop, stmt))
 	    {
@@ -3468,7 +3497,7 @@ again:
                   dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
 		}
 
-	      if (bb_vinfo)
+	      if (is_a <bb_vec_info> (vinfo))
 		break;
 
 	      return false;
@@ -3482,7 +3511,7 @@ again:
                              "not vectorized: base addr of dr is a "
                              "constant\n");
 
-          if (bb_vinfo)
+          if (is_a <bb_vec_info> (vinfo))
 	    break;
 
 	  if (gatherscatter != SG_NONE || simd_lane_access)
@@ -3500,7 +3529,7 @@ again:
               dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
             }
 
-          if (bb_vinfo)
+          if (is_a <bb_vec_info> (vinfo))
 	    break;
 
           return false;
@@ -3517,7 +3546,7 @@ again:
               dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
             }
 
-          if (bb_vinfo)
+          if (is_a <bb_vec_info> (vinfo))
 	    break;
 
 	  if (gatherscatter != SG_NONE || simd_lane_access)
@@ -3537,7 +3566,7 @@ again:
               dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
             }
 
-          if (bb_vinfo)
+          if (is_a <bb_vec_info> (vinfo))
 	    break;
 
 	  if (gatherscatter != SG_NONE || simd_lane_access)
@@ -3562,7 +3591,7 @@ again:
 	      dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
 	    }
 
-	  if (bb_vinfo)
+	  if (is_a <bb_vec_info> (vinfo))
 	    break;
 
 	  if (gatherscatter != SG_NONE || simd_lane_access)
@@ -3700,7 +3729,7 @@ again:
               dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
             }
 
-          if (bb_vinfo)
+          if (is_a <bb_vec_info> (vinfo))
 	    break;
 
 	  if (gatherscatter != SG_NONE || simd_lane_access)
@@ -3733,7 +3762,7 @@ again:
               dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
             }
 
-          if (bb_vinfo)
+          if (is_a <bb_vec_info> (vinfo))
 	    break;
 
 	  if (gatherscatter != SG_NONE || simd_lane_access)
@@ -3766,7 +3795,8 @@ again:
       if (gatherscatter != SG_NONE)
 	{
 	  tree off;
-	  if (!vect_check_gather_scatter (stmt, loop_vinfo, NULL, &off, NULL)
+	  if (!vect_check_gather_scatter (stmt, as_a <loop_vec_info> (vinfo),
+					  NULL, &off, NULL)
 	      || get_vectype_for_scalar_type (TREE_TYPE (off)) == NULL_TREE)
 	    {
 	      STMT_VINFO_DATA_REF (stmt_info) = NULL;
@@ -3789,7 +3819,7 @@ again:
 	  STMT_VINFO_GATHER_SCATTER_P (stmt_info) = gatherscatter;
 	}
 
-      else if (loop_vinfo
+      else if (is_a <loop_vec_info> (vinfo)
 	       && TREE_CODE (DR_STEP (dr)) != INTEGER_CST)
 	{
 	  if (nested_in_vect_loop_p (loop, stmt))
@@ -3814,7 +3844,7 @@ again:
      avoids spending useless time in analyzing their dependence.  */
   if (i != datarefs.length ())
     {
-      gcc_assert (bb_vinfo != NULL);
+      gcc_assert (is_a <bb_vec_info> (vinfo));
       for (unsigned j = i; j < datarefs.length (); ++j)
 	{
 	  data_reference_p dr = datarefs[j];
@@ -3864,6 +3894,41 @@ vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
     }
   else
     new_vect_var = create_tmp_reg (type, prefix);
+
+  return new_vect_var;
+}
+
+/* Like vect_get_new_vect_var but return an SSA name.  */
+
+tree
+vect_get_new_ssa_name (tree type, enum vect_var_kind var_kind, const char *name)
+{
+  const char *prefix;
+  tree new_vect_var;
+
+  switch (var_kind)
+  {
+  case vect_simple_var:
+    prefix = "vect";
+    break;
+  case vect_scalar_var:
+    prefix = "stmp";
+    break;
+  case vect_pointer_var:
+    prefix = "vectp";
+    break;
+  default:
+    gcc_unreachable ();
+  }
+
+  if (name)
+    {
+      char* tmp = concat (prefix, "_", name, NULL);
+      new_vect_var = make_temp_ssa_name (type, NULL, tmp);
+      free (tmp);
+    }
+  else
+    new_vect_var = make_temp_ssa_name (type, NULL, prefix);
 
   return new_vect_var;
 }
@@ -4259,7 +4324,7 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
 		 aggr_ptr, loop, &incr_gsi, insert_after,
 		 &indx_before_incr, &indx_after_incr);
       incr = gsi_stmt (incr_gsi);
-      set_vinfo_for_stmt (incr, new_stmt_vec_info (incr, loop_vinfo, NULL));
+      set_vinfo_for_stmt (incr, new_stmt_vec_info (incr, loop_vinfo));
 
       /* Copy the points-to information if it exists. */
       if (DR_PTR_INFO (dr))
@@ -4289,7 +4354,7 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
 		 containing_loop, &incr_gsi, insert_after, &indx_before_incr,
 		 &indx_after_incr);
       incr = gsi_stmt (incr_gsi);
-      set_vinfo_for_stmt (incr, new_stmt_vec_info (incr, loop_vinfo, NULL));
+      set_vinfo_for_stmt (incr, new_stmt_vec_info (incr, loop_vinfo));
 
       /* Copy the points-to information if it exists. */
       if (DR_PTR_INFO (dr))

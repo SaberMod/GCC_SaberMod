@@ -141,6 +141,7 @@
 #include "lra.h"
 #include "insn-attr.h"
 #include "lra-int.h"
+#include "print-rtl.h"
 
 /* Value of LRA_CURR_RELOAD_NUM at the beginning of BB of the current
    insn.  Remember that LRA_CURR_RELOAD_NUM is the number of emitted
@@ -855,10 +856,11 @@ narrow_reload_pseudo_class (rtx reg, enum reg_class cl)
    numbers with end marker -1) with reg class GOAL_CLASS.  Add input
    and output reloads correspondingly to the lists *BEFORE and *AFTER.
    OUT might be negative.  In this case we generate input reloads for
-   matched input operands INS.  */
+   matched input operands INS.  EARLY_CLOBBER_P is a flag that the
+   output operand is early clobbered for chosen alternative.  */
 static void
 match_reload (signed char out, signed char *ins, enum reg_class goal_class,
-	      rtx_insn **before, rtx_insn **after)
+	      rtx_insn **before, rtx_insn **after, bool early_clobber_p)
 {
   int i, in;
   rtx new_in_reg, new_out_reg, reg;
@@ -939,17 +941,19 @@ match_reload (signed char out, signed char *ins, enum reg_class goal_class,
 	 have a situation like "a <- a op b", where the constraints
 	 force the second input operand ("b") to match the output
 	 operand ("a").  "b" must then be copied into a new register
-	 so that it doesn't clobber the current value of "a".  */
+	 so that it doesn't clobber the current value of "a".
+
+	 We can not use the same value if the output pseudo is
+	 early clobbered or the input pseudo is mentioned in the
+	 output, e.g. as an address part in memory, because
+	 output reload will actually extend the pseudo liveness.
+	 We don't care about eliminable hard regs here as we are
+	 interesting only in pseudos.  */
 
       new_in_reg = new_out_reg
-	= (ins[1] < 0 && REG_P (in_rtx)
+	= (! early_clobber_p && ins[1] < 0 && REG_P (in_rtx)
 	   && (int) REGNO (in_rtx) < lra_new_regno_start
 	   && find_regno_note (curr_insn, REG_DEAD, REGNO (in_rtx))
-	   /* We can not use the same value if the pseudo is mentioned
-	      in the output, e.g. as an address part in memory,
-	      becuase output reload will actually extend the pseudo
-	      liveness.  We don't care about eliminable hard regs here
-	      as we are interesting only in pseudos.  */
 	   && (out < 0 || regno_use_in (REGNO (in_rtx), out_rtx) == NULL_RTX)
 	   ? lra_create_new_reg (inmode, in_rtx, goal_class, "")
 	   : lra_create_new_reg_with_unique_value (outmode, out_rtx,
@@ -1339,7 +1343,7 @@ process_addr_reg (rtx *loc, bool check_only_p, rtx_insn **before, rtx_insn **aft
   if (after != NULL)
     {
       start_sequence ();
-      lra_emit_move (reg, new_reg);
+      lra_emit_move (before_p ? copy_rtx (reg) : reg, new_reg);
       emit_insn (*after);
       *after = get_insns ();
       end_sequence ();
@@ -3867,13 +3871,18 @@ curr_insn_transform (bool check_only_p)
 	  match_inputs[0] = i;
 	  match_inputs[1] = -1;
 	  match_reload (goal_alt_matched[i][0], match_inputs,
-			goal_alt[i], &before, &after);
+			goal_alt[i], &before, &after,
+			curr_static_id->operand_alternative
+			[goal_alt_number * n_operands + goal_alt_matched[i][0]]
+			.earlyclobber);
 	}
       else if (curr_static_id->operand[i].type == OP_OUT
 	       && (curr_static_id->operand[goal_alt_matched[i][0]].type
 		   == OP_IN))
 	/* Generate reloads for output and matched inputs.  */
-	match_reload (i, goal_alt_matched[i], goal_alt[i], &before, &after);
+	match_reload (i, goal_alt_matched[i], goal_alt[i], &before, &after,
+		      curr_static_id->operand_alternative
+		      [goal_alt_number * n_operands + i].earlyclobber);
       else if (curr_static_id->operand[i].type == OP_IN
 	       && (curr_static_id->operand[goal_alt_matched[i][0]].type
 		   == OP_IN))
@@ -3883,7 +3892,7 @@ curr_insn_transform (bool check_only_p)
 	  for (j = 0; (k = goal_alt_matched[i][j]) >= 0; j++)
 	    match_inputs[j + 1] = k;
 	  match_inputs[j + 1] = -1;
-	  match_reload (-1, match_inputs, goal_alt[i], &before, &after);
+	  match_reload (-1, match_inputs, goal_alt[i], &before, &after, false);
 	}
       else
 	/* We must generate code in any case when function
@@ -4537,7 +4546,7 @@ setup_next_usage_insn (int regno, rtx insn, int reloads_num, bool after_p)
    optional debug insns finished by a non-debug insn using REGNO.
    RELOADS_NUM is current number of reload insns processed so far.  */
 static void
-add_next_usage_insn (int regno, rtx insn, int reloads_num)
+add_next_usage_insn (int regno, rtx_insn *insn, int reloads_num)
 {
   rtx next_usage_insns;
 

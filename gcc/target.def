@@ -1639,6 +1639,27 @@ int, (struct cgraph_node *), NULL)
 
 HOOK_VECTOR_END (simd_clone)
 
+/* Functions relating to openacc.  */
+#undef HOOK_PREFIX
+#define HOOK_PREFIX "TARGET_GOACC_"
+HOOK_VECTOR (TARGET_GOACC, goacc)
+
+DEFHOOK
+(validate_dims,
+"This hook should check the launch dimensions provided for an OpenACC\n\
+compute region, or routine.  Defaulted values are represented as -1\n\
+and non-constant values as 0. The @var{fn_level} is negative for the\n\
+function corresponding to the compute region.  For a routine is is the\n\
+outermost level at which partitioned execution may be spawned.  It\n\
+should fill in anything that needs to default to non-unity and verify\n\
+non-defaults.  Diagnostics should be issued as appropriate.  Return\n\
+true, if changes have been made.  You must override this hook to\n\
+provide dimensions larger than 1.",
+bool, (tree decl, int dims[], int fn_level),
+default_goacc_validate_dims)
+
+HOOK_VECTOR_END (goacc)
+
 /* Functions relating to vectorization.  */
 #undef HOOK_PREFIX
 #define HOOK_PREFIX "TARGET_VECTORIZE_"
@@ -1788,6 +1809,16 @@ The default is zero which means to not iterate over other vector sizes.",
  unsigned int,
  (void),
  default_autovectorize_vector_sizes)
+
+/* Function to get a target mode for a vector mask.  */
+DEFHOOK
+(get_mask_mode,
+ "This hook returns mode to be used for a mask to be used for a vector\n\
+of specified @var{length} with @var{nunits} elements.  By default an integer\n\
+vector mode of a proper size is returned.",
+ machine_mode,
+ (unsigned nunits, unsigned length),
+ default_get_mask_mode)
 
 /* Target builtin that implements vector gather operation.  */
 DEFHOOK
@@ -3098,8 +3129,7 @@ DEFHOOK
 (pointer_mode,
  "Define this to return the machine mode to use for pointers to\n\
 @var{address_space} if the target supports named address spaces.\n\
-The default version of this hook returns @code{ptr_mode} for the\n\
-generic address space only.",
+The default version of this hook returns @code{ptr_mode}.",
  machine_mode, (addr_space_t address_space),
  default_addr_space_pointer_mode)
 
@@ -3108,8 +3138,7 @@ DEFHOOK
 (address_mode,
  "Define this to return the machine mode to use for addresses in\n\
 @var{address_space} if the target supports named address spaces.\n\
-The default version of this hook returns @code{Pmode} for the\n\
-generic address space only.",
+The default version of this hook returns @code{Pmode}.",
  machine_mode, (addr_space_t address_space),
  default_addr_space_address_mode)
 
@@ -5598,6 +5627,12 @@ default, inlining is not allowed if the callee function has function\n\
 specific target options and the caller does not use the same options.",
  bool, (tree caller, tree callee),
  default_target_can_inline_p)
+
+DEFHOOK
+(relayout_function,
+"This target hook fixes function @var{fndecl} after attributes are processed. Default does nothing. On ARM, the default function's alignment is updated with the attribute target.",
+ void, (tree fndecl),
+ hook_void_tree)
 
 HOOK_VECTOR_END (target_option)
 
