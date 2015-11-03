@@ -1197,19 +1197,29 @@ Func_descriptor_expression::do_get_backend(Translate_context* context)
 
   Gogo* gogo = context->gogo();
   std::string var_name;
-  if (no->package() == NULL)
-    var_name = gogo->pkgpath_symbol();
+  bool is_descriptor = false;
+  if (no->is_function_declaration()
+      && !no->func_declaration_value()->asm_name().empty()
+      && Linemap::is_predeclared_location(no->location()))
+    {
+      var_name = no->func_declaration_value()->asm_name() + "_descriptor";
+      is_descriptor = true;
+    }
   else
-    var_name = no->package()->pkgpath_symbol();
-  var_name.push_back('.');
-  var_name.append(Gogo::unpack_hidden_name(no->name()));
-  var_name.append("$descriptor");
+    {
+      if (no->package() == NULL)
+	var_name = gogo->pkgpath_symbol();
+      else
+	var_name = no->package()->pkgpath_symbol();
+      var_name.push_back('.');
+      var_name.append(Gogo::unpack_hidden_name(no->name()));
+      var_name.append("$descriptor");
+    }
 
   Btype* btype = this->type()->get_backend(gogo);
 
   Bvariable* bvar;
-  if (no->package() != NULL
-      || Linemap::is_predeclared_location(no->location()))
+  if (no->package() != NULL || is_descriptor)
     bvar = context->backend()->immutable_struct_reference(var_name, btype,
 							  loc);
   else
@@ -8598,6 +8608,16 @@ Builtin_call_expression::do_export(Export* exp) const
 int
 Call_expression::do_traverse(Traverse* traverse)
 {
+  // If we are calling a function in a different package that returns
+  // an unnamed type, this may be the only chance we get to traverse
+  // that type.  We don't traverse this->type_ because it may be a
+  // Call_multiple_result_type that will just lead back here.
+  if (this->type_ != NULL && !this->type_->is_error_type())
+    {
+      Function_type *fntype = this->get_function_type();
+      if (fntype != NULL && Type::traverse(fntype, traverse) == TRAVERSE_EXIT)
+	return TRAVERSE_EXIT;
+    }
   if (Expression::traverse(&this->fn_, traverse) == TRAVERSE_EXIT)
     return TRAVERSE_EXIT;
   if (this->args_ != NULL)

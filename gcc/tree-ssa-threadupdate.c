@@ -20,26 +20,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
 #include "backend.h"
-#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
-#include "hard-reg-set.h"
+#include "cfghooks.h"
+#include "tree-pass.h"
 #include "ssa.h"
-#include "options.h"
 #include "fold-const.h"
-#include "flags.h"
 #include "cfganal.h"
-#include "internal-fn.h"
 #include "gimple-iterator.h"
 #include "tree-ssa.h"
 #include "tree-ssa-threadupdate.h"
-#include "dumpfile.h"
 #include "cfgloop.h"
 #include "dbgcnt.h"
 #include "tree-cfg.h"
-#include "tree-pass.h"
 
 /* Given a block B, update the CFG and SSA graph to reflect redirecting
    one or more in-edges to B to instead reach the destination of an
@@ -2510,9 +2504,8 @@ duplicate_thread_path (edge entry, edge exit,
       scale_bbs_frequencies_int (region_copy, n_region, entry_freq, total_freq);
     }
 
-#ifdef ENABLE_CHECKING
-  verify_jump_thread (region_copy, n_region);
-#endif
+  if (flag_checking)
+    verify_jump_thread (region_copy, n_region);
 
   /* Remove the last branch in the jump thread path.  */
   remove_ctrl_stmt_and_useless_edges (region_copy[n_region - 1], exit->dest);
@@ -2554,29 +2547,38 @@ valid_jump_thread_path (vec<jump_thread_edge *> *path)
 {
   unsigned len = path->length ();
   bool multiway_branch = false;
+  bool threaded_through_latch = false;
 
   /* Check that the path is connected and see if there's a multi-way
      branch on the path.  */
   for (unsigned int j = 0; j < len - 1; j++)
     {
-      if ((*path)[j]->e->dest != (*path)[j+1]->e->src)
+      edge e = (*path)[j]->e;
+      struct loop *loop = e->dest->loop_father;
+
+      if (e->dest != (*path)[j+1]->e->src)
         return false;
-      gimple *last = last_stmt ((*path)[j]->e->dest);
+
+      /* If we're threading through the loop latch back into the
+	 same loop and the destination does not dominate the loop
+	 latch, then this thread would create an irreducible loop.  */
+      if (loop->latch
+	  && loop_latch_edge (loop) == e
+	  && loop == path->last()->e->dest->loop_father
+	  && (determine_bb_domination_status (loop, path->last ()->e->dest)
+	       == DOMST_NONDOMINATING))
+	threaded_through_latch = true;
+
+      gimple *last = last_stmt (e->dest);
       multiway_branch |= (last && gimple_code (last) == GIMPLE_SWITCH);
     }
 
-  /* If we are trying to thread the loop latch to a block that does
-     not dominate the loop latch, then that will create an irreducible
-     loop.  We avoid that unless the jump thread has a multi-way
+  /* If we are trying to thread through the loop latch to a block in the
+     loop that does not dominate the loop latch, then that will create an
+     irreducible loop.  We avoid that unless the jump thread has a multi-way
      branch, in which case we have deemed it worth losing other
      loop optimizations later if we can eliminate the multi-way branch.  */
-  edge e = (*path)[0]->e;
-  struct loop *loop = e->dest->loop_father;
-  if (!multiway_branch
-      && loop->latch
-      && loop_latch_edge (loop) == e
-      && (determine_bb_domination_status (loop, path->last ()->e->dest)
-	  == DOMST_NONDOMINATING))
+  if (!multiway_branch && threaded_through_latch)
     return false;
 
   return true;
