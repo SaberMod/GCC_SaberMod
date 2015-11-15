@@ -11061,8 +11061,6 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
       release_scratch_register_on_entry (&sr);
     }
 
-  gcc_assert (cfun->machine->fs.cfa_reg != stack_pointer_rtx);
-
   /* Even if the stack pointer isn't the CFA register, we need to correctly
      describe the adjustments made to it, in particular differentiate the
      frame-related ones from the frame-unrelated ones.  */
@@ -11286,7 +11284,11 @@ ix86_finalize_stack_realign_flags (void)
       && !crtl->accesses_prior_frames
       && !cfun->calls_alloca
       && !crtl->calls_eh_return
-      && !(flag_stack_check && STACK_CHECK_MOVING_SP)
+      /* See ira_setup_eliminable_regset for the rationale.  */
+      && !(STACK_CHECK_MOVING_SP
+	   && flag_stack_check
+	   && flag_exceptions
+	   && cfun->can_throw_non_call_exceptions)
       && !ix86_frame_pointer_required ()
       && get_frame_size () == 0
       && ix86_nsaved_sseregs () == 0
