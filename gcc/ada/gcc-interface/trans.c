@@ -39,7 +39,6 @@
 #include "stor-layout.h"
 #include "stmt.h"
 #include "varasm.h"
-#include "flags.h"
 #include "output.h"
 #include "libfuncs.h"	/* For set_stack_check_libfunc.  */
 #include "tree-iterator.h"
@@ -51,7 +50,6 @@
 #include "adadecode.h"
 #include "types.h"
 #include "atree.h"
-#include "elists.h"
 #include "namet.h"
 #include "nlists.h"
 #include "snames.h"
@@ -1029,7 +1027,8 @@ Identifier_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p)
      original type. Similarly, a class-wide type is equivalent to a subtype of
      itself. Finally, if the types are Itypes, one may be a copy of the other,
      which is also legal.  */
-  gnat_temp = (Nkind (gnat_node) == N_Defining_Identifier
+  gnat_temp = ((Nkind (gnat_node) == N_Defining_Identifier
+		|| Nkind (gnat_node) == N_Defining_Operator_Symbol)
 	       ? gnat_node : Entity (gnat_node));
   gnat_temp_type = Etype (gnat_temp);
 
@@ -2172,7 +2171,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 	tree gnu_field_offset;
 	tree gnu_inner;
 	machine_mode mode;
-	int unsignedp, volatilep;
+	int unsignedp, reversep, volatilep;
 
 	gnu_result_type = get_unpadded_type (Etype (gnat_node));
 	gnu_prefix = remove_conversions (gnu_prefix, true);
@@ -2194,7 +2193,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 			  && TREE_CODE (gnu_prefix) == FIELD_DECL));
 
 	get_inner_reference (gnu_prefix, &bitsize, &bitpos, &gnu_offset,
-			     &mode, &unsignedp, &volatilep, false);
+			     &mode, &unsignedp, &reversep, &volatilep, false);
 
 	if (TREE_CODE (gnu_prefix) == COMPONENT_REF)
 	  {
@@ -5696,6 +5695,7 @@ gnat_to_gnu (Node_Id gnat_node)
     case N_Expanded_Name:
     case N_Operator_Symbol:
     case N_Defining_Identifier:
+    case N_Defining_Operator_Symbol:
       gnu_result = Identifier_to_gnu (gnat_node, &gnu_result_type);
 
       /* If atomic access is required on the RHS, build the atomic load.  */
@@ -5959,13 +5959,40 @@ gnat_to_gnu (Node_Id gnat_node)
 	}
       break;
 
+    case N_Subprogram_Renaming_Declaration:
+      {
+	const Node_Id gnat_renaming = Defining_Entity (gnat_node);
+	const Node_Id gnat_renamed = Renamed_Entity (gnat_renaming);
+
+	gnu_result = alloc_stmt_list ();
+
+	/* Materializing renamed subprograms will only benefit the debugging
+	   information as they aren't referenced in the generated code.  So
+	   skip them when they aren't needed.  Avoid doing this if:
+
+	     - there is a freeze node: in this case the renamed entity is not
+	       elaborated yet,
+	     - the renamed subprogram is intrinsic: it will not be available in
+	       the debugging information (note that both or only one of the
+	       renaming and the renamed subprograms can be intrinsic).  */
+	if (!type_annotate_only
+	    && Needs_Debug_Info (gnat_renaming)
+	    && No (Freeze_Node (gnat_renaming))
+	    && Present (gnat_renamed)
+	    && (Ekind (gnat_renamed) == E_Function
+		|| Ekind (gnat_renamed) == E_Procedure)
+	    && !Is_Intrinsic_Subprogram (gnat_renaming)
+	    && !Is_Intrinsic_Subprogram (gnat_renamed))
+	  gnat_to_gnu_entity (gnat_renaming, gnat_to_gnu (gnat_renamed), 1);
+	break;
+      }
+
     case N_Implicit_Label_Declaration:
       gnat_to_gnu_entity (Defining_Entity (gnat_node), NULL_TREE, 1);
       gnu_result = alloc_stmt_list ();
       break;
 
     case N_Number_Declaration:
-    case N_Subprogram_Renaming_Declaration:
     case N_Package_Renaming_Declaration:
       /* These are fully handled in the front end.  */
       /* ??? For package renamings, find a way to use GENERIC namespaces so
@@ -8555,6 +8582,12 @@ process_decls (List_Id gnat_decls, List_Id gnat_decls2,
 		     || Nkind (gnat_decl) == N_Protected_Body_Stub)
 	      ;
 
+	    /* Renamed subprograms may not be elaborated yet at this point
+	       since renamings do not trigger freezing.  Wait for the second
+	       pass to take care of them.  */
+	    else if (Nkind (gnat_decl) == N_Subprogram_Renaming_Declaration)
+	      ;
+
 	    else
 	      add_stmt (gnat_to_gnu (gnat_decl));
 	  }
@@ -8583,6 +8616,9 @@ process_decls (List_Id gnat_decls, List_Id gnat_decls2,
 
 	    else if (Nkind (gnat_decl) == N_Freeze_Entity)
 	      process_decls (Actions (gnat_decl), Empty, Empty, false, true);
+
+	    else if (Nkind (gnat_decl) == N_Subprogram_Renaming_Declaration)
+	      add_stmt (gnat_to_gnu (gnat_decl));
 	  }
 }
 
@@ -9614,7 +9650,8 @@ Sloc_to_locus (Source_Ptr Sloc, location_t *locus, bool clear_column)
     line = 1;
 
   /* Translate the location.  */
-  *locus = linemap_position_for_line_and_column (map, line, column);
+  *locus = linemap_position_for_line_and_column (line_table, map,
+						 line, column);
 
   return true;
 }

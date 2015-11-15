@@ -1715,15 +1715,16 @@ interpret_rhs_expr (struct loop *loop, gimple *at_stmt,
         {
 	  machine_mode mode;
 	  HOST_WIDE_INT bitsize, bitpos;
-	  int unsignedp;
+	  int unsignedp, reversep;
 	  int volatilep = 0;
 	  tree base, offset;
 	  tree chrec3;
 	  tree unitpos;
 
 	  base = get_inner_reference (TREE_OPERAND (rhs1, 0),
-				      &bitsize, &bitpos, &offset,
-				      &mode, &unsignedp, &volatilep, false);
+				      &bitsize, &bitpos, &offset, &mode,
+				      &unsignedp, &reversep, &volatilep,
+				      false);
 
 	  if (TREE_CODE (base) == MEM_REF)
 	    {
@@ -1825,6 +1826,23 @@ interpret_rhs_expr (struct loop *loop, gimple *at_stmt,
       chrec1 = instantiate_parameters (loop, chrec1);
       chrec2 = instantiate_parameters (loop, chrec2);
       res = chrec_fold_multiply (type, chrec1, chrec2);
+      break;
+
+    case LSHIFT_EXPR:
+      {
+	/* Handle A<<B as A * (1<<B).  */
+	tree uns = unsigned_type_for (type);
+	chrec1 = analyze_scalar_evolution (loop, rhs1);
+	chrec2 = analyze_scalar_evolution (loop, rhs2);
+	chrec1 = chrec_convert (uns, chrec1, at_stmt);
+	chrec1 = instantiate_parameters (loop, chrec1);
+	chrec2 = instantiate_parameters (loop, chrec2);
+
+	tree one = build_int_cst (uns, 1);
+	chrec2 = fold_build2 (LSHIFT_EXPR, uns, one, chrec2);
+	res = chrec_fold_multiply (uns, chrec1, chrec2);
+	res = chrec_convert (type, res, at_stmt);
+      }
       break;
 
     CASE_CONVERT:

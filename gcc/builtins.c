@@ -78,7 +78,6 @@ const char * built_in_names[(int) END_BUILTINS] =
 {
 #include "builtins.def"
 };
-#undef DEF_BUILTIN
 
 /* Setup an array of builtin_info_type, make sure each element decl is
    initialized to NULL_TREE.  */
@@ -143,12 +142,10 @@ static tree fold_builtin_constant_p (tree);
 static tree fold_builtin_classify_type (tree);
 static tree fold_builtin_strlen (location_t, tree, tree);
 static tree fold_builtin_inf (location_t, tree, int);
-static tree fold_builtin_nan (tree, tree, int);
 static tree rewrite_call_expr (location_t, tree, int, tree, int, ...);
 static bool validate_arg (const_tree, enum tree_code code);
 static rtx expand_builtin_fabs (tree, rtx, rtx);
 static rtx expand_builtin_signbit (tree, rtx);
-static tree fold_builtin_bitop (tree, tree);
 static tree fold_builtin_strchr (location_t, tree, tree, tree);
 static tree fold_builtin_memchr (location_t, tree, tree, tree, tree);
 static tree fold_builtin_memcmp (location_t, tree, tree, tree);
@@ -255,14 +252,14 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
   HOST_WIDE_INT bitsize, bitpos;
   tree offset;
   machine_mode mode;
-  int unsignedp, volatilep;
+  int unsignedp, reversep, volatilep;
   unsigned int align = BITS_PER_UNIT;
   bool known_alignment = false;
 
   /* Get the innermost object and the constant (bitpos) and possibly
      variable (offset) offset of the access.  */
-  exp = get_inner_reference (exp, &bitsize, &bitpos, &offset,
-			     &mode, &unsignedp, &volatilep, true);
+  exp = get_inner_reference (exp, &bitsize, &bitpos, &offset, &mode,
+			     &unsignedp, &reversep, &volatilep, true);
 
   /* Extract alignment information from the innermost object and
      possibly adjust bitpos and offset.  */
@@ -614,27 +611,6 @@ c_strlen (tree src, int only_value)
      Since OFFSET is our starting index into the string, no further
      calculation is needed.  */
   return ssize_int (strlen (ptr + offset));
-}
-
-/* Return a char pointer for a C string if it is a string constant
-   or sum of string constant and integer constant.  */
-
-const char *
-c_getstr (tree src)
-{
-  tree offset_node;
-
-  src = string_constant (src, &offset_node);
-  if (src == 0)
-    return 0;
-
-  if (offset_node == 0)
-    return TREE_STRING_POINTER (src);
-  else if (!tree_fits_uhwi_p (offset_node)
-	   || compare_tree_int (offset_node, TREE_STRING_LENGTH (src) - 1) > 0)
-    return 0;
-
-  return TREE_STRING_POINTER (src) + tree_to_uhwi (offset_node);
 }
 
 /* Return a constant integer corresponding to target reading
@@ -7286,26 +7262,6 @@ fold_builtin_inf (location_t loc, tree type, int warn)
   return build_real (type, real);
 }
 
-/* Fold a call to __builtin_nan or __builtin_nans with argument ARG.  */
-
-static tree
-fold_builtin_nan (tree arg, tree type, int quiet)
-{
-  REAL_VALUE_TYPE real;
-  const char *str;
-
-  if (!validate_arg (arg, POINTER_TYPE))
-    return NULL_TREE;
-  str = c_getstr (arg);
-  if (!str)
-    return NULL_TREE;
-
-  if (!real_nan (&real, str, quiet, TYPE_MODE (type)))
-    return NULL_TREE;
-
-  return build_real (type, real);
-}
-
 /* Fold function call to builtin sincos, sincosf, or sincosl.  Return
    NULL_TREE if no simplification can be made.  */
 
@@ -7351,99 +7307,6 @@ fold_builtin_sincos (location_t loc,
 		 build2 (MODIFY_EXPR, void_type_node,
 			 build_fold_indirect_ref_loc (loc, arg2),
 			 fold_build1_loc (loc, REALPART_EXPR, type, call)));
-}
-
-/* Fold function call to builtin ffs, clz, ctz, popcount and parity
-   and their long and long long variants (i.e. ffsl and ffsll).  ARG is
-   the argument to the call.  Return NULL_TREE if no simplification can
-   be made.  */
-
-static tree
-fold_builtin_bitop (tree fndecl, tree arg)
-{
-  if (!validate_arg (arg, INTEGER_TYPE))
-    return NULL_TREE;
-
-  /* Optimize for constant argument.  */
-  if (TREE_CODE (arg) == INTEGER_CST && !TREE_OVERFLOW (arg))
-    {
-      tree type = TREE_TYPE (arg);
-      int result;
-
-      switch (DECL_FUNCTION_CODE (fndecl))
-	{
-	CASE_INT_FN (BUILT_IN_FFS):
-	  result = wi::ffs (arg);
-	  break;
-
-	CASE_INT_FN (BUILT_IN_CLZ):
-	  if (wi::ne_p (arg, 0))
-	    result = wi::clz (arg);
-	  else if (! CLZ_DEFINED_VALUE_AT_ZERO (TYPE_MODE (type), result))
-	    result = TYPE_PRECISION (type);
-	  break;
-
-	CASE_INT_FN (BUILT_IN_CTZ):
-	  if (wi::ne_p (arg, 0))
-	    result = wi::ctz (arg);
-	  else if (! CTZ_DEFINED_VALUE_AT_ZERO (TYPE_MODE (type), result))
-	    result = TYPE_PRECISION (type);
-	  break;
-
-	CASE_INT_FN (BUILT_IN_CLRSB):
-	  result = wi::clrsb (arg);
-	  break;
-
-	CASE_INT_FN (BUILT_IN_POPCOUNT):
-	  result = wi::popcount (arg);
-	  break;
-
-	CASE_INT_FN (BUILT_IN_PARITY):
-	  result = wi::parity (arg);
-	  break;
-
-	default:
-	  gcc_unreachable ();
-	}
-
-      return build_int_cst (TREE_TYPE (TREE_TYPE (fndecl)), result);
-    }
-
-  return NULL_TREE;
-}
-
-/* Fold function call to builtin_bswap and the short, long and long long
-   variants.  Return NULL_TREE if no simplification can be made.  */
-static tree
-fold_builtin_bswap (tree fndecl, tree arg)
-{
-  if (! validate_arg (arg, INTEGER_TYPE))
-    return NULL_TREE;
-
-  /* Optimize constant value.  */
-  if (TREE_CODE (arg) == INTEGER_CST && !TREE_OVERFLOW (arg))
-    {
-      tree type = TREE_TYPE (TREE_TYPE (fndecl));
-
-      switch (DECL_FUNCTION_CODE (fndecl))
-	{
-	  case BUILT_IN_BSWAP16:
-	  case BUILT_IN_BSWAP32:
-	  case BUILT_IN_BSWAP64:
-	    {
-	      signop sgn = TYPE_SIGN (type);
-	      tree result =
-		wide_int_to_tree (type,
-				  wide_int::from (arg, TYPE_PRECISION (type),
-						  sgn).bswap ());
-	      return result;
-	    }
-	default:
-	  gcc_unreachable ();
-	}
-    }
-
-  return NULL_TREE;
 }
 
 /* Fold function call to builtin memchr.  ARG1, ARG2 and LEN are the
@@ -7493,8 +7356,6 @@ fold_builtin_memchr (location_t loc, tree arg1, tree arg2, tree len, tree type)
 static tree
 fold_builtin_memcmp (location_t loc, tree arg1, tree arg2, tree len)
 {
-  const char *p1, *p2;
-
   if (!validate_arg (arg1, POINTER_TYPE)
       || !validate_arg (arg2, POINTER_TYPE)
       || !validate_arg (len, INTEGER_TYPE))
@@ -7508,25 +7369,6 @@ fold_builtin_memcmp (location_t loc, tree arg1, tree arg2, tree len)
   /* If ARG1 and ARG2 are the same (and not volatile), return zero.  */
   if (operand_equal_p (arg1, arg2, 0))
     return omit_one_operand_loc (loc, integer_type_node, integer_zero_node, len);
-
-  p1 = c_getstr (arg1);
-  p2 = c_getstr (arg2);
-
-  /* If all arguments are constant, and the value of len is not greater
-     than the lengths of arg1 and arg2, evaluate at compile-time.  */
-  if (tree_fits_uhwi_p (len) && p1 && p2
-      && compare_tree_int (len, strlen (p1) + 1) <= 0
-      && compare_tree_int (len, strlen (p2) + 1) <= 0)
-    {
-      const int r = memcmp (p1, p2, tree_to_uhwi (len));
-
-      if (r > 0)
-	return integer_one_node;
-      else if (r < 0)
-	return integer_minus_one_node;
-      else
-	return integer_zero_node;
-    }
 
   /* If len parameter is one, return an expression corresponding to
      (*(const unsigned char*)arg1 - (const unsigned char*)arg2).  */
@@ -7560,8 +7402,6 @@ fold_builtin_memcmp (location_t loc, tree arg1, tree arg2, tree len)
 static tree
 fold_builtin_strcmp (location_t loc, tree arg1, tree arg2)
 {
-  const char *p1, *p2;
-
   if (!validate_arg (arg1, POINTER_TYPE)
       || !validate_arg (arg2, POINTER_TYPE))
     return NULL_TREE;
@@ -7570,21 +7410,8 @@ fold_builtin_strcmp (location_t loc, tree arg1, tree arg2)
   if (operand_equal_p (arg1, arg2, 0))
     return integer_zero_node;
 
-  p1 = c_getstr (arg1);
-  p2 = c_getstr (arg2);
-
-  if (p1 && p2)
-    {
-      const int i = strcmp (p1, p2);
-      if (i < 0)
-	return integer_minus_one_node;
-      else if (i > 0)
-	return integer_one_node;
-      else
-	return integer_zero_node;
-    }
-
   /* If the second arg is "", return *(const unsigned char*)arg1.  */
+  const char *p2 = c_getstr (arg2);
   if (p2 && *p2 == '\0')
     {
       tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
@@ -7599,6 +7426,7 @@ fold_builtin_strcmp (location_t loc, tree arg1, tree arg2)
     }
 
   /* If the first arg is "", return -*(const unsigned char*)arg2.  */
+  const char *p1 = c_getstr (arg1);
   if (p1 && *p1 == '\0')
     {
       tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
@@ -7623,8 +7451,6 @@ fold_builtin_strcmp (location_t loc, tree arg1, tree arg2)
 static tree
 fold_builtin_strncmp (location_t loc, tree arg1, tree arg2, tree len)
 {
-  const char *p1, *p2;
-
   if (!validate_arg (arg1, POINTER_TYPE)
       || !validate_arg (arg2, POINTER_TYPE)
       || !validate_arg (len, INTEGER_TYPE))
@@ -7639,22 +7465,9 @@ fold_builtin_strncmp (location_t loc, tree arg1, tree arg2, tree len)
   if (operand_equal_p (arg1, arg2, 0))
     return omit_one_operand_loc (loc, integer_type_node, integer_zero_node, len);
 
-  p1 = c_getstr (arg1);
-  p2 = c_getstr (arg2);
-
-  if (tree_fits_uhwi_p (len) && p1 && p2)
-    {
-      const int i = strncmp (p1, p2, tree_to_uhwi (len));
-      if (i > 0)
-	return integer_one_node;
-      else if (i < 0)
-	return integer_minus_one_node;
-      else
-	return integer_zero_node;
-    }
-
   /* If the second arg is "", and the length is greater than zero,
      return *(const unsigned char*)arg1.  */
+  const char *p2 = c_getstr (arg2);
   if (p2 && *p2 == '\0'
       && TREE_CODE (len) == INTEGER_CST
       && tree_int_cst_sgn (len) == 1)
@@ -7672,6 +7485,7 @@ fold_builtin_strncmp (location_t loc, tree arg1, tree arg2, tree len)
 
   /* If the first arg is "", and the length is greater than zero,
      return -*(const unsigned char*)arg2.  */
+  const char *p1 = c_getstr (arg1);
   if (p1 && *p1 == '\0'
       && TREE_CODE (len) == INTEGER_CST
       && tree_int_cst_sgn (len) == 1)
@@ -8039,7 +7853,6 @@ static tree
 fold_builtin_classify (location_t loc, tree fndecl, tree arg, int builtin_index)
 {
   tree type = TREE_TYPE (TREE_TYPE (fndecl));
-  REAL_VALUE_TYPE r;
 
   if (!validate_arg (arg, REAL_TYPE))
     return NULL_TREE;
@@ -8049,16 +7862,6 @@ fold_builtin_classify (location_t loc, tree fndecl, tree arg, int builtin_index)
     case BUILT_IN_ISINF:
       if (!HONOR_INFINITIES (arg))
 	return omit_one_operand_loc (loc, type, integer_zero_node, arg);
-
-      if (TREE_CODE (arg) == REAL_CST)
-	{
-	  r = TREE_REAL_CST (arg);
-	  if (real_isinf (&r))
-	    return real_compare (GT_EXPR, &r, &dconst0)
-		   ? integer_one_node : integer_minus_one_node;
-	  else
-	    return integer_zero_node;
-	}
 
       return NULL_TREE;
 
@@ -8099,23 +7902,11 @@ fold_builtin_classify (location_t loc, tree fndecl, tree arg, int builtin_index)
 	  && !HONOR_INFINITIES (arg))
 	return omit_one_operand_loc (loc, type, integer_one_node, arg);
 
-      if (TREE_CODE (arg) == REAL_CST)
-	{
-	  r = TREE_REAL_CST (arg);
-	  return real_isfinite (&r) ? integer_one_node : integer_zero_node;
-	}
-
       return NULL_TREE;
 
     case BUILT_IN_ISNAN:
       if (!HONOR_NANS (arg))
 	return omit_one_operand_loc (loc, type, integer_zero_node, arg);
-
-      if (TREE_CODE (arg) == REAL_CST)
-	{
-	  r = TREE_REAL_CST (arg);
-	  return real_isnan (&r) ? integer_one_node : integer_zero_node;
-	}
 
       arg = builtin_save_expr (arg);
       return fold_build2_loc (loc, UNORDERED_EXPR, type, arg, arg);
@@ -8398,28 +8189,6 @@ fold_builtin_1 (location_t loc, tree fndecl, tree arg0)
 
     CASE_FLT_FN (BUILT_IN_CARG):
       return fold_builtin_carg (loc, arg0, type);
-
-    CASE_FLT_FN (BUILT_IN_NAN):
-    case BUILT_IN_NAND32:
-    case BUILT_IN_NAND64:
-    case BUILT_IN_NAND128:
-      return fold_builtin_nan (arg0, type, true);
-
-    CASE_FLT_FN (BUILT_IN_NANS):
-      return fold_builtin_nan (arg0, type, false);
-
-    case BUILT_IN_BSWAP16:
-    case BUILT_IN_BSWAP32:
-    case BUILT_IN_BSWAP64:
-      return fold_builtin_bswap (fndecl, arg0);
-
-    CASE_INT_FN (BUILT_IN_FFS):
-    CASE_INT_FN (BUILT_IN_CLZ):
-    CASE_INT_FN (BUILT_IN_CTZ):
-    CASE_INT_FN (BUILT_IN_CLRSB):
-    CASE_INT_FN (BUILT_IN_POPCOUNT):
-    CASE_INT_FN (BUILT_IN_PARITY):
-      return fold_builtin_bitop (fndecl, arg0);
 
     case BUILT_IN_ISASCII:
       return fold_builtin_isascii (loc, arg0);
@@ -9226,13 +8995,6 @@ fold_builtin_strspn (location_t loc, tree s1, tree s2)
     {
       const char *p1 = c_getstr (s1), *p2 = c_getstr (s2);
 
-      /* If both arguments are constants, evaluate at compile-time.  */
-      if (p1 && p2)
-	{
-	  const size_t r = strspn (p1, p2);
-	  return build_int_cst (size_type_node, r);
-	}
-
       /* If either argument is "", return NULL_TREE.  */
       if ((p1 && *p1 == '\0') || (p2 && *p2 == '\0'))
 	/* Evaluate and ignore both arguments in case either one has
@@ -9269,16 +9031,8 @@ fold_builtin_strcspn (location_t loc, tree s1, tree s2)
     return NULL_TREE;
   else
     {
-      const char *p1 = c_getstr (s1), *p2 = c_getstr (s2);
-
-      /* If both arguments are constants, evaluate at compile-time.  */
-      if (p1 && p2)
-	{
-	  const size_t r = strcspn (p1, p2);
-	  return build_int_cst (size_type_node, r);
-	}
-
       /* If the first argument is "", return NULL_TREE.  */
+      const char *p1 = c_getstr (s1);
       if (p1 && *p1 == '\0')
 	{
 	  /* Evaluate and ignore argument s2 in case it has
@@ -9288,6 +9042,7 @@ fold_builtin_strcspn (location_t loc, tree s1, tree s2)
 	}
 
       /* If the second argument is "", return __builtin_strlen(s1).  */
+      const char *p2 = c_getstr (s2);
       if (p2 && *p2 == '\0')
 	{
 	  tree fn = builtin_decl_implicit (BUILT_IN_STRLEN);

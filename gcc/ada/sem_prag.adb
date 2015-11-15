@@ -3737,10 +3737,11 @@ package body Sem_Prag is
       --  Activate the set of configuration pragmas and permissions that make
       --  up the Rational profile.
 
-      procedure Set_Ravenscar_Profile (N : Node_Id);
+      procedure Set_Ravenscar_Profile (Profile : Profile_Name; N : Node_Id);
       --  Activate the set of configuration pragmas and restrictions that make
-      --  up the Ravenscar Profile. N is the corresponding pragma node, which
-      --  is used for error messages on any constructs violating the profile.
+      --  up the Profile. Profile must be either GNAT_Extended_Ravencar or
+      --  Ravenscar. N is the corresponding pragma node, which is used for
+      --  error messages on any constructs violating the profile.
 
       ----------------------------------
       -- Acquire_Warning_Match_String --
@@ -4327,8 +4328,12 @@ package body Sem_Prag is
       begin
          Check_Arg_Is_Local_Name (Arg);
 
+         --  If it came from an aspect, we want to give the error just as if it
+         --  came from source.
+
          if not Is_Library_Level_Entity (Entity (Get_Pragma_Arg (Arg)))
-           and then Comes_From_Source (N)
+           and then (Comes_From_Source (N)
+                       or else Present (Corresponding_Aspect (Parent (Arg))))
          then
             Error_Pragma_Arg
               ("argument for pragma% must be library level entity", Arg);
@@ -9654,11 +9659,35 @@ package body Sem_Prag is
       --      No_Dependence => Ada.Task_Attributes
       --      No_Dependence => System.Multiprocessors.Dispatching_Domains
 
-      procedure Set_Ravenscar_Profile (N : Node_Id) is
-         Prefix_Entity   : Entity_Id;
-         Selector_Entity : Entity_Id;
-         Prefix_Node     : Node_Id;
-         Node            : Node_Id;
+      procedure Set_Ravenscar_Profile (Profile : Profile_Name; N : Node_Id) is
+         procedure Set_Error_Msg_To_Profile_Name;
+         --  Set Error_Msg_String and Error_Msg_Strlen to the name of the
+         --  profile.
+
+         -----------------------------------
+         -- Set_Error_Msg_To_Profile_Name --
+         -----------------------------------
+
+         procedure Set_Error_Msg_To_Profile_Name is
+            Prof_Nam : constant Node_Id :=
+                         Get_Pragma_Arg
+                           (First (Pragma_Argument_Associations (N)));
+
+         begin
+            Get_Name_String (Chars (Prof_Nam));
+            Adjust_Name_Case (Sloc (Prof_Nam));
+            Error_Msg_Strlen := Name_Len;
+            Error_Msg_String (1 .. Name_Len) := Name_Buffer (1 .. Name_Len);
+         end Set_Error_Msg_To_Profile_Name;
+
+         --  Local variables
+
+         Nod     : Node_Id;
+         Pref    : Node_Id;
+         Pref_Id : Node_Id;
+         Sel_Id  : Node_Id;
+
+      --  Start of processing for Set_Ravenscar_Profile
 
       begin
          --  pragma Task_Dispatching_Policy (FIFO_Within_Priorities)
@@ -9667,7 +9696,8 @@ package body Sem_Prag is
            and then Task_Dispatching_Policy /= 'F'
          then
             Error_Msg_Sloc := Task_Dispatching_Policy_Sloc;
-            Error_Pragma ("Profile (Ravenscar) incompatible with policy#");
+            Set_Error_Msg_To_Profile_Name;
+            Error_Pragma ("Profile (~) incompatible with policy#");
 
          --  Set the FIFO_Within_Priorities policy, but always preserve
          --  System_Location since we like the error message with the run time
@@ -9687,7 +9717,8 @@ package body Sem_Prag is
            and then Locking_Policy /= 'C'
          then
             Error_Msg_Sloc := Locking_Policy_Sloc;
-            Error_Pragma ("Profile (Ravenscar) incompatible with policy#");
+            Set_Error_Msg_To_Profile_Name;
+            Error_Pragma ("Profile (~) incompatible with policy#");
 
          --  Set the Ceiling_Locking policy, but preserve System_Location since
          --  we like the error message with the run time name.
@@ -9707,7 +9738,7 @@ package body Sem_Prag is
          --  Set the corresponding restrictions
 
          Set_Profile_Restrictions
-           (Ravenscar, N, Warn => Treat_Restrictions_As_Warnings);
+           (Profile, N, Warn => Treat_Restrictions_As_Warnings);
 
          --  Set the No_Dependence restrictions
 
@@ -9721,52 +9752,56 @@ package body Sem_Prag is
          --    No_Dependence => Ada.Execution_Time.Group_Budget
          --    No_Dependence => Ada.Execution_Time.Timers
 
+         --  ??? The use of Name_Buffer here is suspicious. The names should
+         --  be registered in snames.ads-tmpl and used to build the qualified
+         --  names of units.
+
          if Ada_Version >= Ada_2005 then
             Name_Buffer (1 .. 3) := "ada";
             Name_Len := 3;
 
-            Prefix_Entity := Make_Identifier (Loc, Name_Find);
+            Pref_Id := Make_Identifier (Loc, Name_Find);
 
             Name_Buffer (1 .. 14) := "execution_time";
             Name_Len := 14;
 
-            Selector_Entity := Make_Identifier (Loc, Name_Find);
+            Sel_Id := Make_Identifier (Loc, Name_Find);
 
-            Prefix_Node :=
+            Pref :=
               Make_Selected_Component
                 (Sloc          => Loc,
-                 Prefix        => Prefix_Entity,
-                 Selector_Name => Selector_Entity);
+                 Prefix        => Pref_Id,
+                 Selector_Name => Sel_Id);
 
             Name_Buffer (1 .. 13) := "group_budgets";
             Name_Len := 13;
 
-            Selector_Entity := Make_Identifier (Loc, Name_Find);
+            Sel_Id := Make_Identifier (Loc, Name_Find);
 
-            Node :=
+            Nod :=
               Make_Selected_Component
                 (Sloc          => Loc,
-                 Prefix        => Prefix_Node,
-                 Selector_Name => Selector_Entity);
+                 Prefix        => Pref,
+                 Selector_Name => Sel_Id);
 
             Set_Restriction_No_Dependence
-              (Unit    => Node,
+              (Unit    => Nod,
                Warn    => Treat_Restrictions_As_Warnings,
                Profile => Ravenscar);
 
             Name_Buffer (1 .. 6) := "timers";
             Name_Len := 6;
 
-            Selector_Entity := Make_Identifier (Loc, Name_Find);
+            Sel_Id := Make_Identifier (Loc, Name_Find);
 
-            Node :=
+            Nod :=
               Make_Selected_Component
                 (Sloc          => Loc,
-                 Prefix        => Prefix_Node,
-                 Selector_Name => Selector_Entity);
+                 Prefix        => Pref,
+                 Selector_Name => Sel_Id);
 
             Set_Restriction_No_Dependence
-              (Unit    => Node,
+              (Unit    => Nod,
                Warn    => Treat_Restrictions_As_Warnings,
                Profile => Ravenscar);
          end if;
@@ -9779,32 +9814,32 @@ package body Sem_Prag is
             Name_Buffer (1 .. 6) := "system";
             Name_Len := 6;
 
-            Prefix_Entity := Make_Identifier (Loc, Name_Find);
+            Pref_Id := Make_Identifier (Loc, Name_Find);
 
             Name_Buffer (1 .. 15) := "multiprocessors";
             Name_Len := 15;
 
-            Selector_Entity := Make_Identifier (Loc, Name_Find);
+            Sel_Id := Make_Identifier (Loc, Name_Find);
 
-            Prefix_Node :=
+            Pref :=
               Make_Selected_Component
                 (Sloc          => Loc,
-                 Prefix        => Prefix_Entity,
-                 Selector_Name => Selector_Entity);
+                 Prefix        => Pref_Id,
+                 Selector_Name => Sel_Id);
 
             Name_Buffer (1 .. 19) := "dispatching_domains";
             Name_Len := 19;
 
-            Selector_Entity := Make_Identifier (Loc, Name_Find);
+            Sel_Id := Make_Identifier (Loc, Name_Find);
 
-            Node :=
+            Nod :=
               Make_Selected_Component
                 (Sloc          => Loc,
-                 Prefix        => Prefix_Node,
-                 Selector_Name => Selector_Entity);
+                 Prefix        => Pref,
+                 Selector_Name => Sel_Id);
 
             Set_Restriction_No_Dependence
-              (Unit    => Node,
+              (Unit    => Nod,
                Warn    => Treat_Restrictions_As_Warnings,
                Profile => Ravenscar);
          end if;
@@ -12569,22 +12604,15 @@ package body Sem_Prag is
 
             Obj_Id := Defining_Entity (Obj_Decl);
 
-            --  The object declaration must be a library-level variable with
-            --  an initialization expression. The expression must depend on
-            --  a variable, parameter, or another constant_after_elaboration,
-            --  but the compiler cannot detect this property, as this requires
-            --  full flow analysis (SPARK RM 3.3.1).
+            --  The object declaration must be a library-level variable which
+            --  is either explicitly initialized or obtains a value during the
+            --  elaboration of a package body (SPARK RM 3.3.1).
 
             if Ekind (Obj_Id) = E_Variable then
                if not Is_Library_Level_Entity (Obj_Id) then
                   Error_Pragma
                     ("pragma % must apply to a library level variable");
                   return;
-
-               elsif not Has_Init_Expression (Obj_Decl) then
-                  Error_Pragma
-                    ("pragma % must apply to a variable with initialization "
-                     & "expression");
                end if;
 
             --  Otherwise the pragma applies to a constant, which is illegal
@@ -12670,9 +12698,14 @@ package body Sem_Prag is
             Subp_Decl :=
               Find_Related_Declaration_Or_Body (N, Do_Checks => True);
 
+            --  Entry
+
+            if Nkind (Subp_Decl) = N_Entry_Declaration then
+               null;
+
             --  Generic subprogram
 
-            if Nkind (Subp_Decl) = N_Generic_Subprogram_Declaration then
+            elsif Nkind (Subp_Decl) = N_Generic_Subprogram_Declaration then
                null;
 
             --  Body acts as spec
@@ -18793,7 +18826,10 @@ package body Sem_Prag is
 
             begin
                if Chars (Argx) = Name_Ravenscar then
-                  Set_Ravenscar_Profile (N);
+                  Set_Ravenscar_Profile (Ravenscar, N);
+
+               elsif Chars (Argx) = Name_Gnat_Extended_Ravenscar then
+                  Set_Ravenscar_Profile (GNAT_Extended_Ravenscar, N);
 
                elsif Chars (Argx) = Name_Restricted then
                   Set_Profile_Restrictions
@@ -19716,7 +19752,7 @@ package body Sem_Prag is
             GNAT_Pragma;
             Check_Arg_Count (0);
             Check_Valid_Configuration_Pragma;
-            Set_Ravenscar_Profile (N);
+            Set_Ravenscar_Profile (Ravenscar, N);
 
             if Warn_On_Obsolescent_Feature then
                Error_Msg_N
@@ -25403,6 +25439,14 @@ package body Sem_Prag is
                         SPARK_Msg_N
                           ("\all constituents must be declared before body #",
                            N);
+
+                        --  A misplaced constituent is a critical error because
+                        --  pragma Refined_Depends or Refined_Global depends on
+                        --  the proper link between a state and a constituent.
+                        --  Stop the compilation, as this leads to a multitude
+                        --  of misleading cascaded errors.
+
+                        raise Program_Error;
                      end if;
 
                   --  The constituent is a valid state or object

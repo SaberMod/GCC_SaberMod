@@ -1158,7 +1158,7 @@ CXX_TARGET_OBJS=@cxx_target_objs@
 FORTRAN_TARGET_OBJS=@fortran_target_objs@
 
 # Object files for gcc many-languages driver.
-GCC_OBJS = gcc.o gcc-main.o ggc-none.o
+GCC_OBJS = gcc.o gcc-main.o ggc-none.o spellcheck.o
 
 c-family-warn = $(STRICT_WARN)
 
@@ -1263,6 +1263,7 @@ OBJS = \
 	fold-const-call.o \
 	function.o \
 	fwprop.o \
+	gcc-rich-location.o \
 	gcse.o \
 	gcse-common.o \
 	ggc-common.o \
@@ -1276,6 +1277,7 @@ OBJS = \
 	gimple-pretty-print.o \
 	gimple-ssa-backprop.o \
 	gimple-ssa-isolate-paths.o \
+	gimple-ssa-split-paths.o \
 	gimple-ssa-strength-reduction.o \
 	gimple-streamer-in.o \
 	gimple-streamer-out.o \
@@ -1403,6 +1405,8 @@ OBJS = \
 	shrink-wrap.o \
 	simplify-rtx.o \
 	sparseset.o \
+	spellcheck.o \
+	spellcheck-tree.o \
 	sreal.o \
 	stack-ptr-mod.o \
 	statistics.o \

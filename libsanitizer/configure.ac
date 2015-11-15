@@ -5,8 +5,6 @@ AC_PREREQ([2.64])
 AC_INIT(package-unused, version-unused, libsanitizer)
 AC_CONFIG_SRCDIR([include/sanitizer/common_interface_defs.h])
 
-AM_ENABLE_MULTILIB(, ..)
-
 AC_MSG_CHECKING([for --enable-version-specific-runtime-libs])
 AC_ARG_ENABLE(version-specific-runtime-libs,
 [  --enable-version-specific-runtime-libs    Specify that runtime libraries should be installed in a compiler-specific directory ],
@@ -334,6 +332,30 @@ else
 fi
 
 AC_SUBST([RPC_DEFS], [$rpc_defs])
+
+dnl If this file is processed by autoconf-2.67 or later then the CPPFLAGS
+dnl "-o conftest.iii" can disappear, conftest.iii be replaced with
+dnl conftest.i in the sed command line, and the rm deleted.
+dnl Not all cpp's accept -o, and gcc -E does not accept a second file
+dnl argument as the output file.
+AC_CACHE_CHECK([obstack params],
+[libsanitizer_cv_sys_obstack],
+[save_cppflags=$CPPFLAGS
+CPPFLAGS="-I${srcdir}/../include -o conftest.iii $CPPFLAGS"
+AC_PREPROC_IFELSE([AC_LANG_SOURCE([
+#include "obstack.h"
+#ifdef _OBSTACK_SIZE_T
+_OBSTACK_SIZE_T
+#else
+int
+#endif
+])],
+[libsanitizer_cv_sys_obstack=`sed -e '/^#/d;/^[	 ]*$/d' conftest.iii | sed -e '$!d;s/size_t/SIZE_T/'`],
+[libsanitizer_cv_sys_obstack=int])
+CPPFLAGS=$save_cppflags
+rm -f conftest.iii
+])
+AC_SUBST([OBSTACK_DEFS], [-D_OBSTACK_SIZE_T=\"$libsanitizer_cv_sys_obstack\"])
 
 AM_CONDITIONAL(LIBBACKTRACE_SUPPORTED,
 	       [test "x${BACKTRACE_SUPPORTED}x${BACKTRACE_USES_MALLOC}" = "x1x0"])

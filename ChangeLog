@@ -1,10 +1,7 @@
-2015-11-02  Alexandre Oliva <aoliva@redhat.com>
+2015-11-13  Tsvetkova Alexandra  <aleksandra.tsvetkova@intel.com>
 
-	PR tree-optimization/68083
-	* tree-ssa-ifcombine.c: Include tree-ssa.h.
-	(bb_no_side_effects_p): Test for undefined uses too.
-	* tree-ssa.c (gimple_uses_undefined_value_p): New.
-	* tree-ssa.h (gimple_uses_undefined_value_p): Declare.
+	* configure.ac: Enable libmpx by default.
+	* configure: Regenerated.
 
 2015-10-23  Steve Ellcey  <sellcey@imgtec.com>
 

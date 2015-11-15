@@ -31,21 +31,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "target.h"
 #include "c-family/c-target.h"
-#include "tree.h"
 #include "cp-tree.h"
-#include "c-family/c-common.h"
 #include "timevar.h"
-#include "tm_p.h"
 #include "stringpool.h"
 #include "cgraph.h"
-#include "tree-hasher.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "attribs.h"
-#include "calls.h"
 #include "flags.h"
 #include "tree-iterator.h"
-#include "tree-inline.h"
 #include "decl.h"
 #include "intl.h"
 #include "toplev.h"
@@ -2020,7 +2014,22 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       /* For typedefs use the old type, as the new type's DECL_NAME points
 	 at newdecl, which will be ggc_freed.  */
       if (TREE_CODE (newdecl) == TYPE_DECL)
-	newtype = oldtype;
+	{
+	  newtype = oldtype;
+
+	  /* And remove the new type from the variants list.  */
+	  if (TYPE_NAME (TREE_TYPE (newdecl)) == newdecl)
+	    {
+	      tree remove = TREE_TYPE (newdecl);
+	      for (tree t = TYPE_MAIN_VARIANT (remove); ;
+		   t = TYPE_NEXT_VARIANT (t))
+		if (TYPE_NEXT_VARIANT (t) == remove)
+		  {
+		    TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (remove);
+		    break;
+		  }
+	    }
+	}
       else
 	/* Merge the data types specified in the two decls.  */
 	newtype = merge_types (TREE_TYPE (newdecl), TREE_TYPE (olddecl));
@@ -8580,33 +8589,24 @@ stabilize_vla_size (tree size)
   cp_walk_tree (&size, stabilize_save_expr_r, &pset, &pset);
 }
 
-/* Helper function for compute_array_index_type.  Look for SIZEOF_EXPR
-   not inside of SAVE_EXPR and fold them.  */
+/* Reduce a SIZEOF_EXPR to its value.  */
 
-static tree
-fold_sizeof_expr_r (tree *expr_p, int *walk_subtrees, void *data)
+tree
+fold_sizeof_expr (tree t)
 {
-  tree expr = *expr_p;
-  if (TREE_CODE (expr) == SAVE_EXPR || TYPE_P (expr))
-    *walk_subtrees = 0;
-  else if (TREE_CODE (expr) == SIZEOF_EXPR)
-    {
-      *(bool *)data = true;
-      if (SIZEOF_EXPR_TYPE_P (expr))
-	expr = cxx_sizeof_or_alignof_type (TREE_TYPE (TREE_OPERAND (expr, 0)),
-					   SIZEOF_EXPR, false);
-      else if (TYPE_P (TREE_OPERAND (expr, 0)))
-	expr = cxx_sizeof_or_alignof_type (TREE_OPERAND (expr, 0), SIZEOF_EXPR,
-					   false);
-      else
-        expr = cxx_sizeof_or_alignof_expr (TREE_OPERAND (expr, 0), SIZEOF_EXPR,
-					   false);
-      if (expr == error_mark_node)
-        expr = size_one_node;
-      *expr_p = expr;
-      *walk_subtrees = 0;
-    }
-  return NULL;
+  tree r;
+  if (SIZEOF_EXPR_TYPE_P (t))
+    r = cxx_sizeof_or_alignof_type (TREE_TYPE (TREE_OPERAND (t, 0)),
+				    SIZEOF_EXPR, false);
+  else if (TYPE_P (TREE_OPERAND (t, 0)))
+    r = cxx_sizeof_or_alignof_type (TREE_OPERAND (t, 0), SIZEOF_EXPR,
+				    false);
+  else
+    r = cxx_sizeof_or_alignof_expr (TREE_OPERAND (t, 0), SIZEOF_EXPR,
+				    false);
+  if (r == error_mark_node)
+    r = size_one_node;
+  return r;
 }
 
 /* Given the SIZE (i.e., number of elements) in an array, compute an
@@ -8699,7 +8699,18 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
       SET_TYPE_STRUCTURAL_EQUALITY (itype);
       return itype;
     }
-  
+
+  if (TREE_CODE (size) != INTEGER_CST)
+    {
+      tree folded = cp_fully_fold (size);
+      if (TREE_CODE (folded) == INTEGER_CST)
+	pedwarn (location_of (size), OPT_Wpedantic,
+		 "size of array is not an integral constant-expression");
+      /* Use the folded result for VLAs, too; it will have resolved
+	 SIZEOF_EXPR.  */
+      size = folded;
+    }
+
   /* Normally, the array-bound will be a constant.  */
   if (TREE_CODE (size) == INTEGER_CST)
     {
@@ -8786,25 +8797,13 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 				  cp_convert (ssizetype, integer_one_node,
 					      complain),
 				  complain);
-      itype = fold (itype);
+      itype = maybe_constant_value (itype);
       processing_template_decl = saved_processing_template_decl;
 
       if (!TREE_CONSTANT (itype))
 	{
 	  /* A variable sized array.  */
 	  itype = variable_size (itype);
-
-	  if (TREE_CODE (itype) != SAVE_EXPR)
-	    {
-	      /* Look for SIZEOF_EXPRs in itype and fold them, otherwise
-		 they might survive till gimplification.  */
-	      tree newitype = itype;
-	      bool found = false;
-	      cp_walk_tree_without_duplicates (&newitype,
-					       fold_sizeof_expr_r, &found);
-	      if (found)
-		itype = variable_size (fold (newitype));
-	    }
 
 	  stabilize_vla_size (itype);
 
@@ -9945,6 +9944,9 @@ grokdeclarator (const cp_declarator *declarator,
 	case cdk_array:
 	  type = create_array_type_for_decl (dname, type,
 					     declarator->u.array.bounds);
+	  if (!valid_array_size_p (input_location, type, dname))
+	    type = error_mark_node;
+
 	  if (declarator->std_attributes)
 	    /* [dcl.array]/1:
 
@@ -10506,19 +10508,6 @@ grokdeclarator (const cp_declarator *declarator,
         type = make_pack_expansion (type);
       else
         error ("non-parameter %qs cannot be a parameter pack", name);
-    }
-
-  /* Did array size calculations overflow or does the array cover more
-     than half of the address-space?  */
-  if (TREE_CODE (type) == ARRAY_TYPE
-      && COMPLETE_TYPE_P (type)
-      && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST
-      && ! valid_constant_size_p (TYPE_SIZE_UNIT (type)))
-    {
-      error ("size of array %qs is too large", name);
-      /* If we proceed with the array type as it is, we'll eventually
-	 crash in tree_to_[su]hwi().  */
-      type = error_mark_node;
     }
 
   if ((decl_context == FIELD || decl_context == PARM)
@@ -13515,7 +13504,7 @@ incremented enumerator value is too large for %<long%>");
 		   "type %<%T%>", value, ENUM_UNDERLYING_TYPE (enumtype));
 
           /* Convert the value to the appropriate type.  */
-          value = convert (ENUM_UNDERLYING_TYPE (enumtype), value);
+          value = fold_convert (ENUM_UNDERLYING_TYPE (enumtype), value);
         }
     }
 

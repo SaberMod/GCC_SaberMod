@@ -788,11 +788,6 @@ do {									     \
 /* Jump table alignment is explicit in ASM_OUTPUT_CASE_LABEL.  */
 #define ADDR_VEC_ALIGN(JUMPTABLE) 0
 
-#define PRINT_OPERAND(STREAM, X, CODE) aarch64_print_operand (STREAM, X, CODE)
-
-#define PRINT_OPERAND_ADDRESS(STREAM, X) \
-  aarch64_print_operand_address (STREAM, X)
-
 #define MCOUNT_NAME "_mcount"
 
 #define NO_PROFILE_COUNTERS 1
@@ -858,6 +853,8 @@ extern enum aarch64_code_model aarch64_cmodel;
 #define HAS_LONG_UNCOND_BRANCH				\
   (aarch64_cmodel == AARCH64_CMODEL_TINY		\
    || aarch64_cmodel == AARCH64_CMODEL_TINY_PIC)
+
+#define TARGET_SUPPORTS_WIDE_INT 1
 
 /* Modes valid for AdvSIMD D registers, i.e. that fit in half a Q register.  */
 #define AARCH64_VALID_SIMD_DREG_MODE(MODE) \

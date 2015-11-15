@@ -237,7 +237,8 @@ struct GTY(()) cpp_identifier {
 /* A preprocessing token.  This has been carefully packed and should
    occupy 16 bytes on 32-bit hosts and 24 bytes on 64-bit hosts.  */
 struct GTY(()) cpp_token {
-  source_location src_loc;	/* Location of first char of token.  */
+  source_location src_loc;	/* Location of first char of token,
+				   together with range of full token.  */
   ENUM_BITFIELD(cpp_ttype) type : CHAR_BIT;  /* token type */
   unsigned short flags;		/* flags - see above */
 
@@ -573,9 +574,9 @@ struct cpp_callbacks
 
   /* Called to emit a diagnostic.  This callback receives the
      translated message.  */
-  bool (*error) (cpp_reader *, int, int, source_location, unsigned int,
+  bool (*error) (cpp_reader *, int, int, rich_location *,
 		 const char *, va_list *)
-       ATTRIBUTE_FPTR_PRINTF(6,0);
+       ATTRIBUTE_FPTR_PRINTF(5,0);
 
   /* Callbacks for when a macro is expanded, or tested (whether
      defined or not at the time) in #ifdef, #ifndef or "defined".  */

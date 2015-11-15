@@ -3357,7 +3357,7 @@ fi
 
 # Enable libmpx on supported systems by request.
 if test -d ${srcdir}/libmpx; then
-    if test x$enable_libmpx = xyes; then
+    if test x$enable_libmpx = x; then
        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for libmpx support" >&5
 $as_echo_n "checking for libmpx support... " >&6; }
        if (srcdir=${srcdir}/libmpx; \
@@ -3371,8 +3371,6 @@ $as_echo "no" >&6; }
            { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
        fi
-    else
-       noconfigdirs="$noconfigdirs target-libmpx"
     fi
 fi
 

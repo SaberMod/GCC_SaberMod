@@ -41,26 +41,53 @@ BEGIN {
 function handle_line()
 {
 	line = $0;
-	where = match(line, /NEXT_PASS \((.+)\)/)
-	if (where != 0)
+
+	# Find call expression.
+	call_starts_at = match(line, /NEXT_PASS \(.+\)/);
+	if (call_starts_at == 0)
 	{
-		len_of_start = length("NEXT_PASS (")
-		len_of_end = length(")")
-		len_of_pass_name = RLENGTH - (len_of_start + len_of_end)
-		line_length = length(line)
-		pass_starts_at = where + len_of_start
-		pass_name = substr(line, pass_starts_at, len_of_pass_name)
-		if (pass_name in pass_counts)
-			pass_counts[pass_name]++;
-		else
-			pass_counts[pass_name] = 1;
-		printf "%s, %s%s\n",
-			substr(line, 1, pass_starts_at + len_of_pass_name - 1),
-			pass_counts[pass_name],
-			substr(line, pass_starts_at + len_of_pass_name);
-	} else {
 		print line;
+		return;
 	}
+
+	# Length of the call expression.
+	len_of_call = RLENGTH;
+
+	len_of_start = length("NEXT_PASS (");
+	len_of_open = length("(");
+	len_of_close = length(")");
+
+	# Find arguments
+	len_of_args = len_of_call - (len_of_start + len_of_close);
+	args_start_at = call_starts_at + len_of_start;
+	args_str = substr(line, args_start_at, len_of_args);
+
+	# Set pass_name argument
+	pass_name = args_str;
+
+	# Find call expression prefix (until and including called function)
+	len_of_prefix = args_start_at - 1 - len_of_open;
+	prefix = substr(line, 1, len_of_prefix);
+
+	# Find call expression postfix
+	postfix_starts_at = call_starts_at + len_of_call;
+	postfix = substr(line, postfix_starts_at);
+
+	# Set pass_counts
+	if (pass_name in pass_counts)
+		pass_counts[pass_name]++;
+	else
+		pass_counts[pass_name] = 1;
+
+	pass_num = pass_counts[pass_name];
+
+	# Print call expression with extra pass_num argument
+	printf "%s(%s, %s)%s\n", prefix, pass_name, pass_num, postfix;
 }
 
 { handle_line() }
+
+# Local Variables:
+# mode:awk
+# c-basic-offset:8
+# End:

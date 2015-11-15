@@ -154,6 +154,9 @@ extern tree maybe_pad_type (tree type, tree size, unsigned int align,
 			    bool is_user_type, bool definition,
 			    bool set_rm_size);
 
+/* Return a copy of the padded TYPE but with reverse storage order.  */
+extern tree set_reverse_storage_order_on_pad_type (tree type);
+
 enum alias_set_op
 {
   ALIAS_SET_COPY,
@@ -1000,6 +1003,11 @@ extern bool renaming_from_generic_instantiation_p (Node_Id gnat_node);
    true, force the processing for all nodes, use the global context when nodes
    don't have a GNU translation.  */
 extern void process_deferred_decl_context (bool force);
+
+/* Return the innermost scope, starting at GNAT_NODE, we are be interested in
+   the debug info, or Empty if there is no such scope.  If not NULL, set
+   IS_SUBPROGRAM to whether the returned entity is a subprogram.  */
+extern Entity_Id get_debug_scope (Node_Id gnat_node, bool *is_subprogram);
 
 #ifdef __cplusplus
 extern "C" {
