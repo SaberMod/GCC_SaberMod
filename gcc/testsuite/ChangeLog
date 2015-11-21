@@ -1,5 +1,321 @@
+2015-11-21  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/simplify_cshift_1.f90: New test.
+
+2015-11-21  Nathan Sidwell  <nathan@acm.org>
+
+	* gcc.dg/atomic-generic.c: Include <string.h>.
+
+2015-11-21  David Edelsohn  <dje.gcc@gmail.com>
+
+	* gfortran.dg/submodule_6.f08: Add dg-require-effective-target lto.
+
+2015-11-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/init/vbase1.C: Also run on i?86-*-*.
+
+2015-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/66432
+	* gcc.dg/debug/pr66432.c: New test.
+
+2015-11-20  Ian Lance Taylor  <iant@google.com>
+
+	PR go/66406
+	* go.test/go-test.exp (go-gc-tests): Skip nilptr.go if PIE.
+
+2015-11-20  Mike Stump  <mikestump@comcast.net>
+
+	* g++.dg/init/vbase1.C: Only run on x86_64-*-* as this testcase
+	isn't portable.
+
+2015-11-20  David Malcolm  <dmalcolm@redhat.com>
+
+	PR 62314
+	* gcc.dg/fixits.c: New file.
+	* gcc.dg/plugin/diagnostic-test-show-locus-ascii-bw.c
+	(test_fixit_insert): New.
+	(test_fixit_remove): New.
+	(test_fixit_replace): New.
+	* gcc.dg/plugin/diagnostic-test-show-locus-ascii-color.c
+	(test_fixit_insert): New.
+	(test_fixit_remove): New.
+	(test_fixit_replace): New.
+	* gcc.dg/plugin/diagnostic_plugin_test_show_locus.c
+	(test_show_locus): Add tests of rendering fixit hints.
+
+2015-11-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/68339
+	* gcc.dg/vect/pr68339.c: New test.
+
+2015-11-20  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/arm/armv6-unaligned-load-ice.c: New test.
+
+2015-11-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/68237
+	* gfortran.dg/submodule_12.f90: New test
+
+	PR fortran/66762
+	* gfortran.dg/submodule_6.f08: Add compile option -flto.
+
+2015-11-20  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_arm_neon_ok_nocache): Add check
+	for M profile.
+
+2015-11-20  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/68373
+	* gcc.dg/autopar/pr68373.c: New test.
+
+2015-11-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/67354
+	* g++.dg/abi/mangle67.C: New test.
+
+2015-11-20  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/bswap-1.c: New test.
+
+2015-11-20  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gcc.target/s390/pfpo.c: New test.
+
+2015-11-20  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* c-c++-common/attr-simd-3.c: Put xfail (PR68158) on dg-error.
+	* c-c++-common/attr-simd.c: Limit scan of dump to x86_64/i?86.
+
+2015-11-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* g++.dg/spellcheck-fields.C: New file.
+
+2015-11-19  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	PR tree-optimization/68428
+	* gcc.dg/graphite/pr68428.c: New.
+
+2015-11-19  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	PR tree-optimization/68335
+	* gfortran.dg/graphite/pr68335.f90: New.
+
+2015-11-19  Nathan Sidwell  <nathan@acm.org>
+
+	* lib/target-supports.exp (check_weak_available): Add nvptx-*-*.
+	* gcc.dg/attr-weakref-1.c: Skip for nvptx-*-*
+	* gcc.dg/special/weak-2.c: Likewise.
+	* gcc.dg/weak/weak-12.c: Likewise.
+	* gcc.dg/weak/weak-15.c: Likewise.
+	* gcc.dg/weak/weak-16.c: Likewise.
+	* gcc.dg/weak/weak-1.c: Likewise.
+	* gcc.dg/weak/weak-2.c: Likewise.
+	* gcc.dg/weak/weak-4.c: Likewise.
+	* gcc.dg/torture/pr53922.c: Likewise.
+	* gcc.dg/torture/pr60092.c: Likewise.
+
+2015-11-19  Marek Polacek  <polacek@redhat.com>
+
+	PR c/68412
+	* gcc.dg/pr68412-2.c: New test.
+	* gcc.dg/pr68412.c: New test.
+
+2015-11-19  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/tree-ssa/vrp98.c: New testcase.
+	* gcc.target/avr/uint8-single-reg.c: New testcase.
+
+2015-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/67409
+	* g++.dg/eh/goto3.C: New test.
+
+2015-11-19  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/68431
+	* gcc.dg/tree-ssa/pr68431.c: New test.
+
+2015-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/68376
+	* gcc.c-torture/execute/pr68376-1.c: New test.
+	* gcc.c-torture/execute/pr68376-2.c: New test.
+
+	PR target/67770
+	* gcc.target/i386/pr67770.c: New test.
+
+2015-11-18  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/68198
+	* gcc.dg/tree-ssa/pr66752-3.c: Update expected output for VRP1.
+	* gcc.dg/tree-ssa/pr68198.c: New test.
+
+2015-11-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/59910
+	* gfortran.dg/pr59910.f90: New test.
+
+2015-11-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/43996
+	* gfortran.dg/pr43996.f90: New test.
+
+2015-11-18  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/65083
+	* gcc.dg/atomic/stdatomic-fence-2.c,
+	gcc.dg/atomic/stdatomic-flag-2.c: New tests.
+
+2015-11-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/loop_optimization19.adb: New test.
+	* gnat.dg/loop_optimization20.adb: Likewise.
+	* gnat.dg/loop_optimization21.ad[sb]: Likewise.
+
+2015-11-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt52.adb: New test.
+
+2015-11-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/goacc/nvptx-sese-1.c: New.
+
+2015-11-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/renaming7.adb: New test.
+	* gnat.dg/renaming7_pkg.ads: New helper.
+
+2015-11-18  Ajit Agarwal  <ajitkum@xilinx.com>
+
+	PR tree-optimization/68402
+	* gcc.dg/tree-ssa/split-path-1.c: Fix the testcase
+	to avoid undefined behaviour.
+
+2015-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/68157
+	* g++.dg/opt/pr68157.C: New test.
+
+2015-11-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67790
+	* gcc.dg/vect/pr67790.c: New testcase.
+
+2015-11-17  David Edelsohn  <dje.gcc@gmail.com>
+
+	* g++.dg/cpp1y/pr58708.C: Define wfoo based on sizeof wchar_t.
+
+2015-11-17  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/diagnostic-test-expressions-1.c (vector): New macro.
+	(test_braced_init): New function.
+	(test_statement_expression): New function.
+	(test_address_of_label): New function.
+	(test_transaction_expressions): New function.
+	(test_keywords): New function.
+	(test_builtin_va_arg): New function.
+	(test_builtin_offsetof): New function.
+	* lib/multiline.exp (_build_multiline_regex): Escape braces.
+
+2015-11-17  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/68308
+	* g++.dg/init/new46.C: New test.
+
+2015-11-17  Dominique d'Humieres <dominiq@lps.ens.fr>
+
+	PR fortran/65751
+	* gfortran.dg/unlimited_polymorphic_2.f03: Update test.
+
+2015-11-17  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR middle-end/68134
+	* gcc.dg/pr68134.c: New test.
+
+2015-11-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/68143
+	* gcc.c-torture/execute/pr68143_1.c: New test.
+
+2015-11-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/torture/pr68264.c: Use dg-add-options ieee.
+
+2015-11-17  Venkataramanan Kumar  <Venkataramanan.Kumar@amd.com>
+
+	* gcc.dg/tree-ssa/ifc-8.c: New test.
+
+2015-11-16  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/68362
+	* g++.dg/delayedfold/switch-1.C: New test.
+
+2015-11-16  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/58027
+	PR fortran/60993
+	* gfortran.dg/pr58027.f90: New test.
+
+2015-11-16  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* c-c++-common/attr-simd.c: New test.
+	* c-c++-common/attr-simd-2.c: New test.
+	* c-c++-common/attr-simd-3.c: New test.
+
+2015-11-16  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/aarch64/vclz.c: Correctly place INHIB_OPTIMIZATION.
+
+2015-11-16  Christian Bruel  <christian.bruel@st.com>
+
+	* lib/target-supports.exp (check_effective_target_arm_neon_ok_nocache):
+	 Check __ARM_NEON__ instead of "arm_neon.h.
+	* gcc.target/arm/attr-neon3.c: New test.
+	* gcc.target/arm/attr-neon-fp16.c: Likewise
+
+2015-11-16  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/65837
+	* gcc.target/arm/lto/pr65837_0.c
+	* gcc.target/arm/attr-neon2.c
+	* gcc.target/arm/attr-neon.c
+	* gcc.target/arm/attr-neon-builtin-fail.c
+	* gcc.target/arm/attr-crypto.c
+
+2015-11-16  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/vect/bb-slp-32.c: Adjust testcase.
+
+2015-11-15  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/50221
+	* gfortran.dg/deferred_character_1.f90: New test.
+	* gfortran.dg/deferred_character_4.f90: New test for comment
+	#4 of the PR.
+
+	PR fortran/68216
+	* gfortran.dg/deferred_character_2.f90: New test.
+
+	PR fortran/67674
+	* gfortran.dg/deferred_character_3.f90: New test.
+
+	PR fortran/63932
+	* gfortran.dg/deferred_character_5.f90: New test.
+
+	PR fortran/66408
+	* gfortran.dg/deferred_character_6.f90: New test.
+
+	PR fortran/49954
+	* gfortran.dg/deferred_character_7.f90: New test.
+
 2015-11-14  Steven G. Kargl  <kargl@gcc.gnu.org>
- 
+
 	PR fortran/67803
 	* gfortran.dg/pr67803.f90: New test.
 
@@ -4756,7 +5072,7 @@
 	PR c++-common/67882
 	* c-c++-common/builtin-offsetof-2.c: New test.
 
-2015-11-03  Dominique d'Humieres <dominiq@lps.ens.fr>
+015-11-03  Dominique d'Humieres <dominiq@lps.ens.fr>
 
 	PR fortran/67982
 	* gfortran.dg/warn_unused_function_3.f90: New test.

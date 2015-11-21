@@ -3073,7 +3073,7 @@ package body Sem_Ch4 is
          if not Is_Type (Nam) then
             if Is_Entity_Name (Name (N)) then
                Set_Entity (Name (N), Nam);
-               Set_Etype (Name (N), Etype (Nam));
+               Set_Etype  (Name (N), Etype (Nam));
 
             elsif Nkind (Name (N)) = N_Selected_Component then
                Set_Entity (Selector_Name (Name (N)),  Nam);
@@ -7425,12 +7425,27 @@ package body Sem_Ch4 is
          Check_Compiler_Unit ("generalized indexing", N);
       end if;
 
+      --  Create argument list for function call that represents generalized
+      --  indexing. Note that indices (i.e. actuals) may themselves be
+      --  overloaded.
+
       declare
-         Arg : Node_Id;
+         Arg     : Node_Id;
+         New_Arg : Node_Id;
+
       begin
          Arg := First (Exprs);
          while Present (Arg) loop
-            Append (Relocate_Node (Arg), Assoc);
+            New_Arg := Relocate_Node (Arg);
+
+            --  The arguments can be parameter associations, in which case the
+            --  explicit actual parameter carries the overloadings.
+
+            if Nkind (New_Arg) /= N_Parameter_Association then
+               Save_Interps (Arg, New_Arg);
+            end if;
+
+            Append (New_Arg, Assoc);
             Next (Arg);
          end loop;
       end;

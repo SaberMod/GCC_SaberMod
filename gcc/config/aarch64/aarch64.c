@@ -338,6 +338,13 @@ static const struct cpu_branch_cost generic_branch_cost =
   2   /* Unpredictable.  */
 };
 
+/* Branch costs for Cortex-A57.  */
+static const struct cpu_branch_cost cortexa57_branch_cost =
+{
+  1,  /* Predictable.  */
+  3   /* Unpredictable.  */
+};
+
 static const struct tune_params generic_tunings =
 {
   &cortexa57_extra_costs,
@@ -359,6 +366,31 @@ static const struct tune_params generic_tunings =
   0,	/* max_case_values.  */
   0,	/* cache_line_size.  */
   tune_params::AUTOPREFETCHER_OFF,	/* autoprefetcher_model.  */
+  (AARCH64_EXTRA_TUNE_NONE)	/* tune_flags.  */
+};
+
+static const struct tune_params cortexa35_tunings =
+{
+  &cortexa53_extra_costs,
+  &generic_addrcost_table,
+  &cortexa53_regmove_cost,
+  &generic_vector_cost,
+  &generic_branch_cost,
+  4, /* memmov_cost  */
+  1, /* issue_rate  */
+  (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD
+   | AARCH64_FUSE_MOVK_MOVK | AARCH64_FUSE_ADRP_LDR), /* fusible_ops  */
+  8,	/* function_align.  */
+  8,	/* jump_align.  */
+  4,	/* loop_align.  */
+  2,	/* int_reassoc_width.  */
+  4,	/* fp_reassoc_width.  */
+  1,	/* vec_reassoc_width.  */
+  2,	/* min_div_recip_mul_sf.  */
+  2,	/* min_div_recip_mul_df.  */
+  0,	/* max_case_values.  */
+  0,	/* cache_line_size.  */
+  tune_params::AUTOPREFETCHER_WEAK,	/* autoprefetcher_model.  */
   (AARCH64_EXTRA_TUNE_NONE)	/* tune_flags.  */
 };
 
@@ -393,7 +425,7 @@ static const struct tune_params cortexa57_tunings =
   &cortexa57_addrcost_table,
   &cortexa57_regmove_cost,
   &cortexa57_vector_cost,
-  &generic_branch_cost,
+  &cortexa57_branch_cost,
   4, /* memmov_cost  */
   3, /* issue_rate  */
   (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD

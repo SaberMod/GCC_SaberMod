@@ -963,8 +963,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	       function call is a constant object.  Therefore, it can be the
 	       inner object of a constant renaming and the renaming must be
 	       fully instantiated, i.e. it cannot be a reference to (part of)
-	       an existing object.  And treat null expressions, constructors
-	       and literals the same way.  */
+	       an existing object.  And treat other rvalues (addresses, null
+	       expressions, constructors and literals) the same way.  */
 	    tree inner = gnu_expr;
 	    while (handled_component_p (inner) || CONVERT_EXPR_P (inner))
 	      inner = TREE_OPERAND (inner, 0);
@@ -974,6 +974,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      inner = TREE_OPERAND (inner, 1);
 	    if ((TREE_CODE (inner) == CALL_EXPR
 		 && !call_is_atomic_load (inner))
+		|| TREE_CODE (inner) == ADDR_EXPR
 		|| TREE_CODE (inner) == NULL_EXPR
 		|| TREE_CODE (inner) == CONSTRUCTOR
 		|| CONSTANT_CLASS_P (inner))
@@ -1290,7 +1291,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		    else
 		      gnu_expr
 			= build_component_ref
-			    (gnu_expr, NULL_TREE,
+			    (gnu_expr,
 			     DECL_CHAIN (TYPE_FIELDS (TREE_TYPE (gnu_expr))),
 			     false);
 		  }
@@ -1334,8 +1335,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      add_stmt_with_node
 		(build_binary_op (INIT_EXPR, NULL_TREE,
 				  build_component_ref
-				  (gnu_new_var, NULL_TREE,
-				   TYPE_FIELDS (gnu_new_type), false),
+				  (gnu_new_var, TYPE_FIELDS (gnu_new_type),
+				   false),
 				  gnu_expr),
 		 gnat_entity);
 
@@ -1344,8 +1345,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    gnu_expr
 	      = build_unary_op
 		(ADDR_EXPR, NULL_TREE,
-		 build_component_ref (gnu_new_var, NULL_TREE,
-				      TYPE_FIELDS (gnu_new_type), false));
+		 build_component_ref (gnu_new_var, TYPE_FIELDS (gnu_new_type),
+				      false));
 	    TREE_CONSTANT (gnu_expr) = 1;
 
 	    used_by_ref = true;
@@ -6777,8 +6778,12 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
   TREE_THIS_VOLATILE (gnu_field) = TREE_SIDE_EFFECTS (gnu_field) = is_volatile;
 
   if (Ekind (gnat_field) == E_Discriminant)
-    DECL_DISCRIMINANT_NUMBER (gnu_field)
-      = UI_To_gnu (Discriminant_Number (gnat_field), sizetype);
+    {
+      DECL_INVARIANT_P (gnu_field)
+	= No (Discriminant_Default_Value (gnat_field));
+      DECL_DISCRIMINANT_NUMBER (gnu_field)
+	= UI_To_gnu (Discriminant_Number (gnat_field), sizetype);
+    }
 
   return gnu_field;
 }

@@ -208,6 +208,14 @@ package body Sem_Prag is
    --  corresponding constituent from list Constits (if any) appear in the same
    --  context denoted by Context. If this is the case, emit an error.
 
+   procedure Contract_Freeze_Error
+     (Contract_Id : Entity_Id;
+      Freeze_Id   : Entity_Id);
+   --  Subsidiary to the analysis of pragmas Contract_Cases, Part_Of, Post, and
+   --  Pre. Emit a freezing-related error message where Freeze_Id is the entity
+   --  of a body which caused contract "freezing" and Contract_Id denotes the
+   --  entity of the affected contstruct.
+
    procedure Duplication_Error (Prag : Node_Id; Prev : Node_Id);
    --  Subsidiary to all Find_Related_xxx routines. Emit an error on pragma
    --  Prag that duplicates previous pragma Prev.
@@ -341,8 +349,16 @@ package body Sem_Prag is
    -- Analyze_Contract_Cases_In_Decl_Part --
    -----------------------------------------
 
-   procedure Analyze_Contract_Cases_In_Decl_Part (N : Node_Id) is
+   procedure Analyze_Contract_Cases_In_Decl_Part
+     (N         : Node_Id;
+      Freeze_Id : Entity_Id := Empty)
+   is
+      Subp_Decl : constant Node_Id   := Find_Related_Declaration_Or_Body (N);
+      Spec_Id   : constant Entity_Id := Unique_Defining_Entity (Subp_Decl);
+
       Others_Seen : Boolean := False;
+      --  This flag is set when an "others" choice is encountered. It is used
+      --  to detect multiple illegal occurences of "others".
 
       procedure Analyze_Contract_Case (CCase : Node_Id);
       --  Verify the legality of a single contract case
@@ -354,6 +370,7 @@ package body Sem_Prag is
       procedure Analyze_Contract_Case (CCase : Node_Id) is
          Case_Guard  : Node_Id;
          Conseq      : Node_Id;
+         Errors      : Nat;
          Extra_Guard : Node_Id;
 
       begin
@@ -390,10 +407,34 @@ package body Sem_Prag is
             --  Preanalyze the case guard and consequence
 
             if Nkind (Case_Guard) /= N_Others_Choice then
+               Errors := Serious_Errors_Detected;
                Preanalyze_Assert_Expression (Case_Guard, Standard_Boolean);
+
+               --  Emit a clarification message when the case guard contains
+               --  at leat one undefined reference, possibly due to contract
+               --  "freezing".
+
+               if Errors /= Serious_Errors_Detected
+                 and then Present (Freeze_Id)
+                 and then Has_Undefined_Reference (Case_Guard)
+               then
+                  Contract_Freeze_Error (Spec_Id, Freeze_Id);
+               end if;
             end if;
 
+            Errors := Serious_Errors_Detected;
             Preanalyze_Assert_Expression (Conseq, Standard_Boolean);
+
+            --  Emit a clarification message when the consequence contains
+            --  at leat one undefined reference, possibly due to contract
+            --  "freezing".
+
+            if Errors /= Serious_Errors_Detected
+              and then Present (Freeze_Id)
+              and then Has_Undefined_Reference (Conseq)
+            then
+               Contract_Freeze_Error (Spec_Id, Freeze_Id);
+            end if;
 
          --  The contract case is malformed
 
@@ -404,9 +445,7 @@ package body Sem_Prag is
 
       --  Local variables
 
-      Subp_Decl : constant Node_Id   := Find_Related_Declaration_Or_Body (N);
-      Spec_Id   : constant Entity_Id := Unique_Defining_Entity (Subp_Decl);
-      CCases    : constant Node_Id   := Expression (Get_Argument (N, Spec_Id));
+      CCases : constant Node_Id := Expression (Get_Argument (N, Spec_Id));
 
       Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
 
@@ -594,10 +633,14 @@ package body Sem_Prag is
          elsif Ekind (Item_Id) = E_Loop_Parameter then
             Add_Str_To_Name_Buffer ("loop parameter");
 
-         elsif Ekind (Item_Id) = E_Protected_Type then
+         elsif Ekind (Item_Id) = E_Protected_Type
+           or else Is_Single_Protected_Object (Item_Id)
+         then
             Add_Str_To_Name_Buffer ("current instance of protected type");
 
-         elsif Ekind (Item_Id) = E_Task_Type then
+         elsif Ekind (Item_Id) = E_Task_Type
+           or else Is_Single_Task_Object (Item_Id)
+         then
             Add_Str_To_Name_Buffer ("current instance of task type");
 
          elsif Ekind (Item_Id) = E_Variable then
@@ -957,6 +1000,16 @@ package body Sem_Prag is
 
                      if Ekind (Item_Id) = E_Abstract_State then
                         Append_New_Elmt (Item_Id, States_Seen);
+
+                     --  The variable may eventually become a constituent of a
+                     --  single protected/task type. Record the reference now
+                     --  and verify its legality when analyzing the contract of
+                     --  the variable (SPARK RM 9.3).
+
+                     elsif Ekind (Item_Id) = E_Variable then
+                        Record_Possible_Part_Of_Reference
+                          (Var_Id => Item_Id,
+                           Ref    => Item);
                      end if;
 
                      if Ekind_In (Item_Id, E_Abstract_State,
@@ -2209,6 +2262,16 @@ package body Sem_Prag is
 
                if Ekind (Item_Id) = E_Abstract_State then
                   Append_New_Elmt (Item_Id, States_Seen);
+
+               --  The variable may eventually become a constituent of a single
+               --  protected/task type. Record the reference now and verify its
+               --  legality when analyzing the contract of the variable
+               --  (SPARK RM 9.3).
+
+               elsif Ekind (Item_Id) = E_Variable then
+                  Record_Possible_Part_Of_Reference
+                    (Var_Id => Item_Id,
+                     Ref    => Item);
                end if;
 
                if Ekind_In (Item_Id, E_Abstract_State, E_Constant, E_Variable)
@@ -3142,7 +3205,13 @@ package body Sem_Prag is
    -- Analyze_Part_Of_In_Decl_Part --
    ----------------------------------
 
-   procedure Analyze_Part_Of_In_Decl_Part (N : Node_Id) is
+   procedure Analyze_Part_Of_In_Decl_Part
+     (N         : Node_Id;
+      Freeze_Id : Entity_Id := Empty)
+   is
+      Encap    : constant Node_Id   :=
+                   Get_Pragma_Arg (First (Pragma_Argument_Associations (N)));
+      Errors   : constant Nat       := Serious_Errors_Detected;
       Var_Decl : constant Node_Id   := Find_Related_Context (N);
       Var_Id   : constant Entity_Id := Defining_Entity (Var_Decl);
       Encap_Id : Entity_Id;
@@ -3156,7 +3225,7 @@ package body Sem_Prag is
       Analyze_Part_Of
         (Indic    => N,
          Item_Id  => Var_Id,
-         Encap    => Get_Pragma_Arg (First (Pragma_Argument_Associations (N))),
+         Encap    => Encap,
          Encap_Id => Encap_Id,
          Legal    => Legal);
 
@@ -3168,6 +3237,16 @@ package body Sem_Prag is
 
          Append_Elmt (Var_Id, Part_Of_Constituents (Encap_Id));
          Set_Encapsulating_State (Var_Id, Encap_Id);
+      end if;
+
+      --  Emit a clarification message when the encapsulator is undefined,
+      --  possibly due to contract "freezing".
+
+      if Errors /= Serious_Errors_Detected
+        and then Present (Freeze_Id)
+        and then Has_Undefined_Reference (Encap)
+      then
+         Contract_Freeze_Error (Var_Id, Freeze_Id);
       end if;
    end Analyze_Part_Of_In_Decl_Part;
 
@@ -8768,30 +8847,28 @@ package body Sem_Prag is
       -----------------------------------------
 
       procedure Process_Interrupt_Or_Attach_Handler is
-         Arg1_X       : constant Node_Id   := Get_Pragma_Arg (Arg1);
-         Handler_Proc : constant Entity_Id := Entity (Arg1_X);
-         Proc_Scope   : constant Entity_Id := Scope (Handler_Proc);
+         Handler  : constant Entity_Id := Entity (Get_Pragma_Arg (Arg1));
+         Prot_Typ : constant Entity_Id := Scope (Handler);
 
       begin
          --  A pragma that applies to a Ghost entity becomes Ghost for the
          --  purposes of legality checks and removal of ignored Ghost code.
 
-         Mark_Pragma_As_Ghost (N, Handler_Proc);
-         Set_Is_Interrupt_Handler (Handler_Proc);
+         Mark_Pragma_As_Ghost (N, Handler);
+         Set_Is_Interrupt_Handler (Handler);
 
          --  If the pragma is not associated with a handler procedure within a
          --  protected type, then it must be for a nonprotected procedure for
          --  the AAMP target, in which case we don't associate a representation
          --  item with the procedure's scope.
 
-         if Ekind (Proc_Scope) = E_Protected_Type then
-            if Prag_Id = Pragma_Interrupt_Handler
-                 or else
-               Prag_Id = Pragma_Attach_Handler
-            then
-               Record_Rep_Item (Proc_Scope, N);
-            end if;
+         if Ekind (Prot_Typ) = E_Protected_Type then
+            Record_Rep_Item (Prot_Typ, N);
          end if;
+
+         --  Chain the pragma on the contract for completeness
+
+         Add_Contract_Item (N, Handler);
       end Process_Interrupt_Or_Attach_Handler;
 
       --------------------------------------------------
@@ -9998,7 +10075,7 @@ package body Sem_Prag is
          --  ABSTRACT_STATE_LIST ::=
          --     null
          --  |  STATE_NAME_WITH_OPTIONS
-         --  | (STATE_NAME_WITH_OPTIONS {, STATE_NAME_WITH_OPTIONS} )
+         --  | (STATE_NAME_WITH_OPTIONS {, STATE_NAME_WITH_OPTIONS})
 
          --  STATE_NAME_WITH_OPTIONS ::=
          --     STATE_NAME
@@ -10018,7 +10095,7 @@ package body Sem_Prag is
 
          --  EXTERNAL_PROPERTY_LIST ::=
          --     EXTERNAL_PROPERTY
-         --  | (EXTERNAL_PROPERTY {, EXTERNAL_PROPERTY} )
+         --  | (EXTERNAL_PROPERTY {, EXTERNAL_PROPERTY})
 
          --  EXTERNAL_PROPERTY ::=
          --    Async_Readers    [=> boolean_EXPRESSION]
@@ -13412,8 +13489,8 @@ package body Sem_Prag is
          --  pragma Depends (DEPENDENCY_RELATION);
 
          --  DEPENDENCY_RELATION ::=
-         --    null
-         --  | DEPENDENCY_CLAUSE {, DEPENDENCY_CLAUSE}
+         --     null
+         --  | (DEPENDENCY_CLAUSE {, DEPENDENCY_CLAUSE})
 
          --  DEPENDENCY_CLAUSE ::=
          --    OUTPUT_LIST =>[+] INPUT_LIST
@@ -14945,9 +15022,9 @@ package body Sem_Prag is
          --  pragma Global (GLOBAL_SPECIFICATION);
 
          --  GLOBAL_SPECIFICATION ::=
-         --    null
-         --  | GLOBAL_LIST
-         --  | MODED_GLOBAL_LIST {, MODED_GLOBAL_LIST}
+         --     null
+         --  | (GLOBAL_LIST)
+         --  | (MODED_GLOBAL_LIST {, MODED_GLOBAL_LIST})
 
          --  MODED_GLOBAL_LIST ::= MODE_SELECTOR => GLOBAL_LIST
 
@@ -15689,20 +15766,18 @@ package body Sem_Prag is
          -- Initializes --
          -----------------
 
-         --  pragma Initializes (INITIALIZATION_SPEC);
-
-         --  INITIALIZATION_SPEC ::= null | INITIALIZATION_LIST
+         --  pragma Initializes (INITIALIZATION_LIST);
 
          --  INITIALIZATION_LIST ::=
-         --    INITIALIZATION_ITEM
-         --    | (INITIALIZATION_ITEM {, INITIALIZATION_ITEM})
+         --     null
+         --  | (INITIALIZATION_ITEM {, INITIALIZATION_ITEM})
 
          --  INITIALIZATION_ITEM ::= name [=> INPUT_LIST]
 
          --  INPUT_LIST ::=
-         --    null
-         --    | INPUT
-         --    | (INPUT {, INPUT})
+         --     null
+         --  |  INPUT
+         --  | (INPUT {, INPUT})
 
          --  INPUT ::= name
 
@@ -19287,8 +19362,8 @@ package body Sem_Prag is
          --  pragma Refined_Depends (DEPENDENCY_RELATION);
 
          --  DEPENDENCY_RELATION ::=
-         --    null
-         --  | DEPENDENCY_CLAUSE {, DEPENDENCY_CLAUSE}
+         --     null
+         --  | (DEPENDENCY_CLAUSE {, DEPENDENCY_CLAUSE})
 
          --  DEPENDENCY_CLAUSE ::=
          --    OUTPUT_LIST =>[+] INPUT_LIST
@@ -19363,9 +19438,9 @@ package body Sem_Prag is
          --  pragma Refined_Global (GLOBAL_SPECIFICATION);
 
          --  GLOBAL_SPECIFICATION ::=
-         --    null
-         --  | GLOBAL_LIST
-         --  | MODED_GLOBAL_LIST {, MODED_GLOBAL_LIST}
+         --     null
+         --  | (GLOBAL_LIST)
+         --  | (MODED_GLOBAL_LIST {, MODED_GLOBAL_LIST})
 
          --  MODED_GLOBAL_LIST ::= MODE_SELECTOR => GLOBAL_LIST
 
@@ -19488,15 +19563,14 @@ package body Sem_Prag is
          --  pragma Refined_State (REFINEMENT_LIST);
 
          --  REFINEMENT_LIST ::=
-         --    REFINEMENT_CLAUSE
-         --    | (REFINEMENT_CLAUSE {, REFINEMENT_CLAUSE})
+         --    (REFINEMENT_CLAUSE {, REFINEMENT_CLAUSE})
 
          --  REFINEMENT_CLAUSE ::= state_NAME => CONSTITUENT_LIST
 
          --  CONSTITUENT_LIST ::=
-         --    null
-         --    | CONSTITUENT
-         --    | (CONSTITUENT {, CONSTITUENT})
+         --     null
+         --  |  CONSTITUENT
+         --  | (CONSTITUENT {, CONSTITUENT})
 
          --  CONSTITUENT ::= object_NAME | state_NAME
 
@@ -20415,9 +20489,7 @@ package body Sem_Prag is
                --    Obj : Anon_Task_Typ;
                --    pragma SPARK_Mode ...;
 
-               if Is_Single_Concurrent_Object (Spec_Id)
-                 and then Ekind (Spec_Typ) = E_Task_Type
-               then
+               if Is_Single_Task_Object (Spec_Id) then
                   Set_SPARK_Pragma               (Spec_Typ, N);
                   Set_SPARK_Pragma_Inherited     (Spec_Typ, False);
                   Set_SPARK_Aux_Pragma           (Spec_Typ, N);
@@ -22965,7 +23037,10 @@ package body Sem_Prag is
    -- Analyze_Pre_Post_Condition_In_Decl_Part --
    ---------------------------------------------
 
-   procedure Analyze_Pre_Post_Condition_In_Decl_Part (N : Node_Id) is
+   procedure Analyze_Pre_Post_Condition_In_Decl_Part
+     (N         : Node_Id;
+      Freeze_Id : Entity_Id := Empty)
+   is
       procedure Process_Class_Wide_Condition
         (Expr      : Node_Id;
          Spec_Id   : Entity_Id;
@@ -23119,6 +23194,7 @@ package body Sem_Prag is
 
       Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
 
+      Errors        : Nat;
       Restore_Scope : Boolean := False;
 
    --  Start of processing for Analyze_Pre_Post_Condition_In_Decl_Part
@@ -23151,7 +23227,18 @@ package body Sem_Prag is
          end if;
       end if;
 
+      Errors := Serious_Errors_Detected;
       Preanalyze_Assert_Expression (Expr, Standard_Boolean);
+
+      --  Emit a clarification message when the expression contains at leat one
+      --  undefined reference, possibly due to contract "freezing".
+
+      if Errors /= Serious_Errors_Detected
+        and then Present (Freeze_Id)
+        and then Has_Undefined_Reference (Expr)
+      then
+         Contract_Freeze_Error (Spec_Id, Freeze_Id);
+      end if;
 
       --  For a class-wide condition, a reference to a controlling formal must
       --  be interpreted as having the class-wide type (or an access to such)
@@ -23311,7 +23398,7 @@ package body Sem_Prag is
 
                return
                  Ekind (Item_Id) = E_Abstract_State
-                   and then Has_Null_Refinement (Item_Id);
+                   and then Has_Null_Visible_Refinement (Item_Id);
             else
                return False;
             end if;
@@ -23362,7 +23449,7 @@ package body Sem_Prag is
                   --  An abstract state with visible null refinement matches
                   --  null or Empty (special case).
 
-                  if Has_Null_Refinement (Dep_Item_Id)
+                  if Has_Null_Visible_Refinement (Dep_Item_Id)
                     and then (No (Ref_Item) or else Nkind (Ref_Item) = N_Null)
                   then
                      Record_Item (Dep_Item_Id);
@@ -23371,7 +23458,7 @@ package body Sem_Prag is
                   --  An abstract state with visible non-null refinement
                   --  matches one of its constituents.
 
-                  elsif Has_Non_Null_Refinement (Dep_Item_Id) then
+                  elsif Has_Non_Null_Visible_Refinement (Dep_Item_Id) then
                      if Is_Entity_Name (Ref_Item) then
                         Ref_Item_Id := Entity_Of (Ref_Item);
 
@@ -23701,7 +23788,7 @@ package body Sem_Prag is
                   --  Ensure that all of the constituents are utilized as
                   --  outputs in pragma Refined_Depends.
 
-                  elsif Has_Non_Null_Refinement (Item_Id) then
+                  elsif Has_Non_Null_Visible_Refinement (Item_Id) then
                      Check_Constituent_Usage (Item_Id);
                   end if;
                end if;
@@ -24273,7 +24360,7 @@ package body Sem_Prag is
                --  Ensure that one of the three coverage variants is satisfied
 
                if Ekind (Item_Id) = E_Abstract_State
-                 and then Has_Non_Null_Refinement (Item_Id)
+                 and then Has_Non_Null_Visible_Refinement (Item_Id)
                then
                   Check_Constituent_Usage (Item_Id);
                end if;
@@ -24364,7 +24451,7 @@ package body Sem_Prag is
                --  is of mode Input.
 
                if Ekind (Item_Id) = E_Abstract_State
-                 and then Has_Non_Null_Refinement (Item_Id)
+                 and then Has_Non_Null_Visible_Refinement (Item_Id)
                then
                   Check_Constituent_Usage (Item_Id);
                end if;
@@ -24458,7 +24545,7 @@ package body Sem_Prag is
                --  have mode Output.
 
                if Ekind (Item_Id) = E_Abstract_State
-                 and then Has_Non_Null_Refinement (Item_Id)
+                 and then Has_Non_Null_Visible_Refinement (Item_Id)
                then
                   Check_Constituent_Usage (Item_Id);
                end if;
@@ -24548,7 +24635,7 @@ package body Sem_Prag is
                --  is of mode Proof_In
 
                if Ekind (Item_Id) = E_Abstract_State
-                 and then Has_Non_Null_Refinement (Item_Id)
+                 and then Has_Non_Null_Visible_Refinement (Item_Id)
                then
                   Check_Constituent_Usage (Item_Id);
                end if;
@@ -24753,10 +24840,10 @@ package body Sem_Prag is
             --  be null in which case there are no constituents.
 
             if Ekind (Item_Id) = E_Abstract_State then
-               if Has_Null_Refinement (Item_Id) then
+               if Has_Null_Visible_Refinement (Item_Id) then
                   Has_Null_State := True;
 
-               elsif Has_Non_Null_Refinement (Item_Id) then
+               elsif Has_Non_Null_Visible_Refinement (Item_Id) then
                   Append_New_Elmt (Item_Id, States);
 
                   if Item_Mode = Name_Input then
@@ -25457,6 +25544,17 @@ package body Sem_Prag is
                   then
                      Match_Constituent (Constit_Id);
 
+                     --  The variable may eventually become a constituent of a
+                     --  single protected/task type. Record the reference now
+                     --  and verify its legality when analyzing the contract of
+                     --  the variable (SPARK RM 9.3).
+
+                     if Ekind (Constit_Id) = E_Variable then
+                        Record_Possible_Part_Of_Reference
+                          (Var_Id => Constit_Id,
+                           Ref    => Constit);
+                     end if;
+
                   --  Otherwise the constituent is illegal
 
                   else
@@ -25847,11 +25945,6 @@ package body Sem_Prag is
       --  List all abstract states that were left unrefined
 
       Report_Unrefined_States (Available_States);
-
-      --  Ensure that all abstract states and objects declared in the body
-      --  state space of the related package are utilized as constituents.
-
-      Report_Unused_Body_States (Body_Id, Body_States);
 
       Set_Is_Analyzed_Pragma (N);
    end Analyze_Refined_State_In_Decl_Part;
@@ -26605,13 +26698,13 @@ package body Sem_Prag is
 
       --  Local variables
 
-      Subp_Decl : constant Node_Id   := Unit_Declaration_Node (Subp_Id);
-      Spec_Id   : constant Entity_Id := Unique_Defining_Entity (Subp_Decl);
       Clause    : Node_Id;
       Clauses   : Node_Id;
       Depends   : Node_Id;
       Formal    : Entity_Id;
       Global    : Node_Id;
+      Spec_Id   : Entity_Id;
+      Subp_Decl : Node_Id;
       Typ       : Entity_Id;
 
    --  Start of processing for Collect_Subprogram_Inputs_Outputs
@@ -26619,36 +26712,60 @@ package body Sem_Prag is
    begin
       Global_Seen := False;
 
-      --  Process all [generic] formal parameters
+      --  Process all formal parameters of entries, [generic] subprograms and
+      --  their bodies.
 
-      Formal := First_Entity (Spec_Id);
-      while Present (Formal) loop
-         if Ekind_In (Formal, E_Generic_In_Parameter,
-                              E_In_Out_Parameter,
-                              E_In_Parameter)
-         then
-            Append_New_Elmt (Formal, Subp_Inputs);
-         end if;
+      if Ekind_In (Subp_Id, E_Entry,
+                            E_Entry_Family,
+                            E_Function,
+                            E_Generic_Function,
+                            E_Generic_Procedure,
+                            E_Procedure,
+                            E_Subprogram_Body)
+      then
+         Subp_Decl := Unit_Declaration_Node (Subp_Id);
+         Spec_Id   := Unique_Defining_Entity (Subp_Decl);
 
-         if Ekind_In (Formal, E_Generic_In_Out_Parameter,
-                              E_In_Out_Parameter,
-                              E_Out_Parameter)
-         then
-            Append_New_Elmt (Formal, Subp_Outputs);
+         --  Process all [generic] formal parameters
 
-            --  Out parameters can act as inputs when the related type is
-            --  tagged, unconstrained array, unconstrained record or record
-            --  with unconstrained components.
-
-            if Ekind (Formal) = E_Out_Parameter
-              and then Is_Unconstrained_Or_Tagged_Item (Formal)
+         Formal := First_Entity (Spec_Id);
+         while Present (Formal) loop
+            if Ekind_In (Formal, E_Generic_In_Parameter,
+                                 E_In_Out_Parameter,
+                                 E_In_Parameter)
             then
                Append_New_Elmt (Formal, Subp_Inputs);
             end if;
-         end if;
 
-         Next_Entity (Formal);
-      end loop;
+            if Ekind_In (Formal, E_Generic_In_Out_Parameter,
+                                 E_In_Out_Parameter,
+                                 E_Out_Parameter)
+            then
+               Append_New_Elmt (Formal, Subp_Outputs);
+
+               --  Out parameters can act as inputs when the related type is
+               --  tagged, unconstrained array, unconstrained record or record
+               --  with unconstrained components.
+
+               if Ekind (Formal) = E_Out_Parameter
+                 and then Is_Unconstrained_Or_Tagged_Item (Formal)
+               then
+                  Append_New_Elmt (Formal, Subp_Inputs);
+               end if;
+            end if;
+
+            Next_Entity (Formal);
+         end loop;
+
+      --  Otherwise the input denotes a task type, a task body, or the
+      --  anonymous object created for a single task type.
+
+      elsif Ekind_In (Subp_Id, E_Task_Type, E_Task_Body)
+        or else Is_Single_Task_Object (Subp_Id)
+      then
+         Subp_Decl := Declaration_Node (Subp_Id);
+         Spec_Id   := Unique_Defining_Entity (Subp_Decl);
+      end if;
 
       --  When processing an entry, subprogram or task body, look for pragmas
       --  Refined_Depends and Refined_Global as they specify the inputs and
@@ -26698,45 +26815,63 @@ package body Sem_Prag is
          end if;
       end if;
 
+      --  The current instance of a protected type acts as a formal parameter
+      --  of mode IN for functions and IN OUT for entries and procedures
+      --  (SPARK RM 6.1.4).
+
       if Ekind (Scope (Spec_Id)) = E_Protected_Type then
          Typ := Scope (Spec_Id);
 
-         --  A single protected type declaration does not have a current
-         --  instance because the type is technically an object.
+         --  Use the anonymous object when the type is single protected
 
          if Is_Single_Concurrent_Type_Declaration (Declaration_Node (Typ)) then
-            null;
-
-         --  Otherwise the current instance of the protected type acts as a
-         --  formal parameter of mode IN for functions and IN OUT for entries
-         --  and procedures (SPARK RM 6.1.4).
-
-         else
-            Append_New_Elmt (Typ, Subp_Inputs);
-
-            if Ekind_In (Spec_Id, E_Entry, E_Entry_Family, E_Procedure) then
-               Append_New_Elmt (Typ, Subp_Outputs);
-            end if;
+            Typ := Anonymous_Object (Typ);
          end if;
+
+         Append_New_Elmt (Typ, Subp_Inputs);
+
+         if Ekind_In (Spec_Id, E_Entry, E_Entry_Family, E_Procedure) then
+            Append_New_Elmt (Typ, Subp_Outputs);
+         end if;
+
+      --  The current instance of a task type acts as a formal parameter of
+      --  mode IN OUT (SPARK RM 6.1.4).
 
       elsif Ekind (Spec_Id) = E_Task_Type then
          Typ := Spec_Id;
 
-         --  A single task type declaration does not have a current instance
-         --  because the type is technically an object.
+         --  Use the anonymous object when the type is single task
 
          if Is_Single_Concurrent_Type_Declaration (Declaration_Node (Typ)) then
-            null;
-
-         --  Otherwise the current instance of the task type acts as a formal
-         --  parameter of mode IN OUT (SPARK RM 6.1.4).
-
-         else
-            Append_New_Elmt (Typ, Subp_Inputs);
-            Append_New_Elmt (Typ, Subp_Outputs);
+            Typ := Anonymous_Object (Typ);
          end if;
+
+         Append_New_Elmt (Typ, Subp_Inputs);
+         Append_New_Elmt (Typ, Subp_Outputs);
+
+      elsif Is_Single_Task_Object (Spec_Id) then
+         Append_New_Elmt (Spec_Id, Subp_Inputs);
+         Append_New_Elmt (Spec_Id, Subp_Outputs);
       end if;
    end Collect_Subprogram_Inputs_Outputs;
+
+   ---------------------------
+   -- Contract_Freeze_Error --
+   ---------------------------
+
+   procedure Contract_Freeze_Error
+     (Contract_Id : Entity_Id;
+      Freeze_Id   : Entity_Id)
+   is
+   begin
+      Error_Msg_Name_1 := Chars (Contract_Id);
+      Error_Msg_Sloc   := Sloc (Freeze_Id);
+
+      SPARK_Msg_NE
+        ("body & declared # freezes the contract of%", Contract_Id, Freeze_Id);
+      SPARK_Msg_N
+        ("\all contractual items must be declared before body #", Contract_Id);
+   end Contract_Freeze_Error;
 
    ---------------------------------
    -- Delay_Config_Pragma_Analyze --

@@ -7231,10 +7231,23 @@ package body Sem_Res is
                   & "(SPARK RM 7.1.3(12))", N);
             end if;
 
-            --  Check possible elaboration issues with respect to variables
+            --  Check for possible elaboration issues with respect to reads of
+            --  variables. The act of renaming the variable is not considered a
+            --  read as it simply establishes an alias.
+
+            if Ekind (E) = E_Variable
+              and then Nkind (Par) /= N_Object_Renaming_Declaration
+            then
+               Check_Elab_Call (N);
+            end if;
+
+            --  The variable may eventually become a constituent of a single
+            --  protected/task type. Record the reference now and verify its
+            --  legality when analyzing the contract of the variable
+            --  (SPARK RM 9.3).
 
             if Ekind (E) = E_Variable then
-               Check_Elab_Call (N);
+               Record_Possible_Part_Of_Reference (E, N);
             end if;
          end if;
 
@@ -8115,7 +8128,11 @@ package body Sem_Res is
          Resolve (P);
       end if;
 
-      if Is_Access_Type (Etype (P)) then
+      --  If the prefix might be null, add an access check
+
+      if Is_Access_Type (Etype (P))
+        and then not Can_Never_Be_Null (Etype (P))
+      then
          Apply_Access_Check (N);
       end if;
 

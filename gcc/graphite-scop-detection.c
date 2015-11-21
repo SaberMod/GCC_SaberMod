@@ -1063,10 +1063,14 @@ scop_detection::harmful_stmt_in_region (sese_l scop) const
   basic_block bb;
   FOR_EACH_VEC_ELT (dom, i, bb)
     {
-      DEBUG_PRINT (dp << "\nVisiting bb_" << bb->index);
+      DEBUG_PRINT (dp << "Visiting bb_" << bb->index << "\n");
 
       /* We don't want to analyze any bb outside sese.  */
       if (!dominated_by_p (CDI_POST_DOMINATORS, bb, exit_bb))
+	continue;
+
+      /* Basic blocks dominated by the scop->exit are not in the scop.  */
+      if (bb != exit_bb && dominated_by_p (CDI_DOMINATORS, bb, exit_bb))
 	continue;
 
       /* The basic block should not be part of an irreducible loop.  */
@@ -1718,9 +1722,9 @@ build_cross_bb_scalars_use (scop_p scop, tree use, gimple *use_stmt,
   gimple *def_stmt = SSA_NAME_DEF_STMT (use);
   if (gimple_bb (def_stmt) != gimple_bb (use_stmt))
     {
-      DEBUG_PRINT (dp << "Adding scalar read:\n";
+      DEBUG_PRINT (dp << "\nAdding scalar read:";
 		   print_generic_expr (dump_file, use, 0);
-		   dp << "From stmt:\n";
+		   dp << "\nFrom stmt:";
 		   print_gimple_stmt (dump_file, use_stmt, 0, 0));
       reads->safe_push (std::make_pair (use_stmt, use));
     }

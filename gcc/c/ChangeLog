@@ -1,3 +1,43 @@
+2015-11-20  David Malcolm  <dmalcolm@redhat.com>
+
+	PR 62314
+	* c-typeck.c (should_suggest_deref_p): New function.
+	(build_component_ref): Special-case POINTER_TYPE when
+	generating a "not a structure of union"  error message, and
+	suggest a "->" rather than a ".", providing a fix-it hint.
+
+2015-11-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-typeck.c (lookup_field_fuzzy): Move determination of closest
+	candidate into a new function, find_closest_identifier.
+
+2015-11-19  Marek Polacek  <polacek@redhat.com>
+
+	PR c/68412
+	* c-typeck.c (parser_build_binary_op): Properly handle
+	C_MAYBE_CONST_EXPR before calling warn_tautological_cmp.
+
+2015-11-17  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-parser.c (set_c_expr_source_range): Bulletproof both
+	overloaded implementations against NULL expr->value.
+	(c_parser_braced_init): Set src_range for "ret" to a sane pair of
+	values.
+	(c_parser_unary_expression): Likewise when handling addresses of
+	labels.
+	(c_parser_postfix_expression): Likewise for statement expressions,
+	for __FUNCTION__, __PRETTY_FUNCTION_ and __func__ keywords, for
+	__builtin_va_arg, and for __builtin_offset_of.
+	(c_parser_postfix_expression_after_paren_type): Initialize expr's
+	src_range using the range of the braced initializer.
+	(c_parser_transaction_expression): Set src_range for "ret" to a
+	sane pair of values.
+
+2015-11-16  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* c-parser.c (c_finish_omp_declare_simd): Look for
+	"simd" attribute as well. Update error message.
+
 2015-11-14  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
 
 	* c-parser.c (c_parser_omp_declare_target): Adjust.

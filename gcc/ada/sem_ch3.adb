@@ -2495,54 +2495,10 @@ package body Sem_Ch3 is
             Analyze_Package_Body_Contract (Defining_Entity (Context));
          end if;
 
-         --  Analyze the contracts of eligible constructs (see below) due to
-         --  the delayed visibility needs of their aspects and pragmas.
+         --  Analyze the contracts of various constructs now due to the delayed
+         --  visibility needs of their aspects and pragmas.
 
-         Decl := First (L);
-         while Present (Decl) loop
-
-            --  Entry or subprogram declarations
-
-            if Nkind_In (Decl, N_Abstract_Subprogram_Declaration,
-                               N_Entry_Declaration,
-                               N_Generic_Subprogram_Declaration,
-                               N_Subprogram_Declaration)
-            then
-               Analyze_Entry_Or_Subprogram_Contract (Defining_Entity (Decl));
-
-            --  Entry or subprogram bodies
-
-            elsif Nkind_In (Decl, N_Entry_Body, N_Subprogram_Body) then
-               Analyze_Entry_Or_Subprogram_Body_Contract
-                 (Defining_Entity (Decl));
-
-            --  Objects
-
-            elsif Nkind (Decl) = N_Object_Declaration then
-               Analyze_Object_Contract (Defining_Entity (Decl));
-
-            --  Protected untis
-
-            elsif Nkind_In (Decl, N_Protected_Type_Declaration,
-                                  N_Single_Protected_Declaration)
-            then
-               Analyze_Protected_Contract (Defining_Entity (Decl));
-
-            --  Subprogram body stubs
-
-            elsif Nkind (Decl) = N_Subprogram_Body_Stub then
-               Analyze_Subprogram_Body_Stub_Contract (Defining_Entity (Decl));
-
-            --  Task units
-
-            elsif Nkind_In (Decl, N_Single_Task_Declaration,
-                                  N_Task_Type_Declaration)
-            then
-               Analyze_Task_Contract (Defining_Entity (Decl));
-            end if;
-
-            Next (Decl);
-         end loop;
+         Analyze_Contracts (L);
 
          if Nkind (Context) = N_Package_Body then
 
@@ -3390,6 +3346,7 @@ package body Sem_Ch3 is
       --  Local variables
 
       Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
+      Related_Id      : Entity_Id;
 
    --  Start of processing for Analyze_Object_Declaration
 
@@ -4015,7 +3972,25 @@ package body Sem_Ch3 is
                return;
 
             else
-               Expand_Subtype_From_Expr (N, T, Object_Definition (N), E);
+               --  Ensure that the generated subtype has a unique external name
+               --  when the related object is public. This guarantees that the
+               --  subtype and its bounds will not be affected by switches or
+               --  pragmas that may offset the internal counter due to extra
+               --  generated code.
+
+               if Is_Public (Id) then
+                  Related_Id := Id;
+               else
+                  Related_Id := Empty;
+               end if;
+
+               Expand_Subtype_From_Expr
+                 (N             => N,
+                  Unc_Type      => T,
+                  Subtype_Indic => Object_Definition (N),
+                  Exp           => E,
+                  Related_Id    => Related_Id);
+
                Act_T := Find_Type_Of_Object (Object_Definition (N), N);
             end if;
 

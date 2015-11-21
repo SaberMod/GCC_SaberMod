@@ -1208,7 +1208,18 @@ package body Checks is
         or else (Nkind (P) = N_Range
                   and then Nkind (Parent (P)) in N_Membership_Test)
       then
-         return;
+         --  If_Expressions and Case_Expressions are treated as arithmetic
+         --  ops, but if they appear in an assignment or similar contexts
+         --  there is no overflow check that starts from that parent node,
+         --  so apply check now.
+
+         if Nkind_In (P, N_If_Expression, N_Case_Expression)
+           and then not Is_Signed_Integer_Arithmetic_Op (Parent (P))
+         then
+            null;
+         else
+            return;
+         end if;
       end if;
 
       --  Otherwise, we have a top level arithmetic operation node, and this
@@ -1250,10 +1261,10 @@ package body Checks is
          --  This block is inserted (using Insert_Actions), and then the node
          --  is replaced with a reference to Rnn.
 
-         --  A special case arises if our parent is a conversion node. In this
-         --  case no point in generating a conversion to Result_Type, we will
-         --  let the parent handle this. Note that this special case is not
-         --  just about optimization. Consider
+         --  If our parent is a conversion node then there is no point in
+         --  generating a conversion to Result_Type, we will let the parent
+         --  handle this. Note that this special case is not just about
+         --  optimization. Consider
 
          --      A,B,C : Integer;
          --      ...
@@ -1302,7 +1313,7 @@ package body Checks is
             Analyze_And_Resolve (Op);
          end;
 
-      --  Here we know the result is Long_Long_Integer'Base, of that it has
+      --  Here we know the result is Long_Long_Integer'Base, or that it has
       --  been rewritten because the parent operation is a conversion. See
       --  Apply_Arithmetic_Overflow_Strict.Conversion_Optimization.
 
@@ -2359,9 +2370,19 @@ package body Checks is
 
          --  Ensure that the actual is an object that is not passed by value.
          --  Elementary types are always passed by value, therefore actuals of
-         --  such types cannot lead to aliasing.
+         --  such types cannot lead to aliasing. An aggregate is an object in
+         --  Ada 2012, but an actual that is an aggregate cannot overlap with
+         --  another actual.
 
-         if Is_Object_Reference (Original_Actual (Actual_1))
+         if Nkind (Original_Actual (Actual_1)) = N_Aggregate
+           or else
+             (Nkind (Original_Actual (Actual_1)) = N_Qualified_Expression
+                and then Nkind (Expression (Original_Actual (Actual_1))) =
+                           N_Aggregate)
+         then
+            null;
+
+         elsif Is_Object_Reference (Original_Actual (Actual_1))
            and then not Is_Elementary_Type (Etype (Original_Actual (Actual_1)))
          then
             Actual_2 := Next_Actual (Actual_1);

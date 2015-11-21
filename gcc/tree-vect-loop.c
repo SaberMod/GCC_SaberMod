@@ -815,6 +815,8 @@ vect_analyze_scalar_cycles_1 (loop_vec_info loop_vinfo, struct loop *loop)
 	      dump_generic_expr (MSG_NOTE, TDF_SLIM, access_fn);
               dump_printf (MSG_NOTE, "\n");
 	    }
+	  STMT_VINFO_LOOP_PHI_EVOLUTION_BASE_UNCHANGED (stmt_vinfo)
+	    = initial_condition_in_loop_num (access_fn, loop->num);
 	  STMT_VINFO_LOOP_PHI_EVOLUTION_PART (stmt_vinfo)
 	    = evolution_part_in_loop_num (access_fn, loop->num);
 	}
@@ -828,6 +830,8 @@ vect_analyze_scalar_cycles_1 (loop_vec_info loop_vinfo, struct loop *loop)
 	  continue;
 	}
 
+      gcc_assert (STMT_VINFO_LOOP_PHI_EVOLUTION_BASE_UNCHANGED (stmt_vinfo)
+		  != NULL_TREE);
       gcc_assert (STMT_VINFO_LOOP_PHI_EVOLUTION_PART (stmt_vinfo) != NULL_TREE);
 
       if (dump_enabled_p ())
@@ -2468,16 +2472,13 @@ vect_is_slp_reduction (loop_vec_info loop_info, gimple *phi,
        if (a[i] < val)
 	ret_val = a[i];
 
-   If MODIFY is true it tries also to rework the code in-place to enable
-   detection of more reduction patterns.  For the time being we rewrite
-   "res -= RHS" into "rhs += -RHS" when it seems worthwhile.
 */
 
 static gimple *
-vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple *phi,
-			    bool check_reduction, bool *double_reduc,
-			    bool modify, bool need_wrapping_integral_overflow,
-			    enum vect_reduction_type *v_reduc_type)
+vect_is_simple_reduction (loop_vec_info loop_info, gimple *phi,
+			  bool check_reduction, bool *double_reduc,
+			  bool need_wrapping_integral_overflow,
+			  enum vect_reduction_type *v_reduc_type)
 {
   struct loop *loop = (gimple_bb (phi))->loop_father;
   struct loop *vect_loop = LOOP_VINFO_LOOP (loop_info);
@@ -2634,7 +2635,6 @@ vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple *phi,
      gimple instruction for the first simple tests and only do this
      if we're allowed to change code at all.  */
   if (code == MINUS_EXPR
-      && modify
       && (op1 = gimple_assign_rhs1 (def_stmt))
       && TREE_CODE (op1) == SSA_NAME
       && SSA_NAME_DEF_STMT (op1) == phi)
@@ -2791,23 +2791,6 @@ vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple *phi,
 	}
     }
 
-  /* If we detected "res -= x[i]" earlier, rewrite it into
-     "res += -x[i]" now.  If this turns out to be useless reassoc
-     will clean it up again.  */
-  if (orig_code == MINUS_EXPR)
-    {
-      tree rhs = gimple_assign_rhs2 (def_stmt);
-      tree negrhs = make_ssa_name (TREE_TYPE (rhs));
-      gimple *negate_stmt = gimple_build_assign (negrhs, NEGATE_EXPR, rhs);
-      gimple_stmt_iterator gsi = gsi_for_stmt (def_stmt);
-      set_vinfo_for_stmt (negate_stmt, new_stmt_vec_info (negate_stmt, 
-							  loop_info));
-      gsi_insert_before (&gsi, negate_stmt, GSI_NEW_STMT);
-      gimple_assign_set_rhs2 (def_stmt, negrhs);
-      gimple_assign_set_rhs_code (def_stmt, PLUS_EXPR);
-      update_stmt (def_stmt);
-    }
-
   /* Reduction is safe. We're dealing with one of the following:
      1) integer arithmetic and no trapv
      2) floating point arithmetic, and special flags permit this optimization
@@ -2863,7 +2846,8 @@ vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple *phi,
                           == vect_internal_def
 		      && !is_loop_header_bb_p (gimple_bb (def2)))))))
     {
-      if (check_reduction)
+      if (check_reduction
+	  && orig_code != MINUS_EXPR)
         {
 	  if (code == COND_EXPR)
 	    {
@@ -2915,21 +2899,6 @@ vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple *phi,
   return NULL;
 }
 
-/* Wrapper around vect_is_simple_reduction_1, that won't modify code
-   in-place.  Arguments as there.  */
-
-static gimple *
-vect_is_simple_reduction (loop_vec_info loop_info, gimple *phi,
-			  bool check_reduction, bool *double_reduc,
-			  bool need_wrapping_integral_overflow,
-			  enum vect_reduction_type *v_reduc_type)
-{
-  return vect_is_simple_reduction_1 (loop_info, phi, check_reduction,
-				     double_reduc, false,
-				     need_wrapping_integral_overflow,
-				     v_reduc_type);
-}
-
 /* Wrapper around vect_is_simple_reduction_1, which will modify code
    in-place if it enables detection of more reductions.  Arguments
    as there.  */
@@ -2940,10 +2909,10 @@ vect_force_simple_reduction (loop_vec_info loop_info, gimple *phi,
 			     bool need_wrapping_integral_overflow)
 {
   enum vect_reduction_type v_reduc_type;
-  return vect_is_simple_reduction_1 (loop_info, phi, check_reduction,
-				     double_reduc, true,
-				     need_wrapping_integral_overflow,
-				     &v_reduc_type);
+  return vect_is_simple_reduction (loop_info, phi, check_reduction,
+				   double_reduc,
+				   need_wrapping_integral_overflow,
+				   &v_reduc_type);
 }
 
 /* Calculate cost of peeling the loop PEEL_ITERS_PROLOGUE times.  */
@@ -5163,7 +5132,7 @@ static bool
 is_nonwrapping_integer_induction (gimple *stmt, struct loop *loop)
 {
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
-  tree base = PHI_ARG_DEF_FROM_EDGE (stmt, loop_preheader_edge (loop));
+  tree base = STMT_VINFO_LOOP_PHI_EVOLUTION_BASE_UNCHANGED (stmt_vinfo);
   tree step = STMT_VINFO_LOOP_PHI_EVOLUTION_PART (stmt_vinfo);
   tree lhs_type = TREE_TYPE (gimple_phi_result (stmt));
   widest_int ni, max_loop_value, lhs_max;
@@ -5298,7 +5267,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
   tree def0, def1, tem, op0, op1 = NULL_TREE;
   bool first_p = true;
   tree cr_index_scalar_type = NULL_TREE, cr_index_vector_type = NULL_TREE;
-  bool cond_expr_is_nonwrapping_integer_induction = false;
+  gimple *cond_expr_induction_def_stmt = NULL;
 
   /* In case of reduction chain we switch to the first stmt in the chain, but
      we don't update STMT_INFO, since only the last stmt is marked as reduction
@@ -5398,6 +5367,8 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
     }
   /* The default is that the reduction variable is the last in statement.  */
   int reduc_index = op_type - 1;
+  if (code == MINUS_EXPR)
+    reduc_index = 0;
 
   if (code == COND_EXPR && slp_node)
     return false;
@@ -5417,8 +5388,11 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
      The last use is the reduction variable.  In case of nested cycle this
      assumption is not true: we use reduc_index to record the index of the
      reduction variable.  */
-  for (i = 0; i < op_type - 1; i++)
+  for (i = 0; i < op_type; i++)
     {
+      if (i == reduc_index)
+	continue;
+
       /* The condition of COND_EXPR is checked in vectorizable_condition().  */
       if (i == 0 && code == COND_EXPR)
         continue;
@@ -5443,18 +5417,12 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
           reduc_index = i;
         }
 
-      if (i == 1 && code == COND_EXPR && dt == vect_induction_def
-	  && is_nonwrapping_integer_induction (def_stmt, loop))
-	{
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, vect_location,
-			     "condition expression based on integer "
-			     "induction.\n");
-	  cond_expr_is_nonwrapping_integer_induction = true;
-	}
+      if (i == 1 && code == COND_EXPR && dt == vect_induction_def)
+	cond_expr_induction_def_stmt = def_stmt;
     }
 
-  is_simple_use = vect_is_simple_use (ops[i], loop_vinfo, &def_stmt, &dt, &tem);
+  is_simple_use = vect_is_simple_use (ops[reduc_index], loop_vinfo,
+				      &def_stmt, &dt, &tem);
   if (!vectype_in)
     vectype_in = tem;
   gcc_assert (is_simple_use);
@@ -5477,14 +5445,23 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
       return false;
     }
 
-  gimple *tmp = vect_is_simple_reduction
-		  (loop_vinfo, reduc_def_stmt,
-		  !nested_cycle, &dummy, false,
-		  &STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info));
+  enum vect_reduction_type v_reduc_type;
+  gimple *tmp = vect_is_simple_reduction (loop_vinfo, reduc_def_stmt,
+					  !nested_cycle, &dummy, false,
+					  &v_reduc_type);
 
-  if (cond_expr_is_nonwrapping_integer_induction
-      && STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) == COND_REDUCTION)
-    STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) = INTEGER_INDUC_COND_REDUCTION;
+  /* If we have a condition reduction, see if we can simplify it further.  */
+  if (v_reduc_type == COND_REDUCTION
+      && cond_expr_induction_def_stmt != NULL
+      && is_nonwrapping_integer_induction (cond_expr_induction_def_stmt, loop))
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE, vect_location,
+			 "condition expression based on integer induction.\n");
+      STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) = INTEGER_INDUC_COND_REDUCTION;
+    }
+  else
+   STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) = v_reduc_type;
 
   if (orig_stmt)
     gcc_assert (tmp == orig_stmt
@@ -5624,6 +5601,9 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
       /* Regular reduction: use the same vectype and tree-code as used for
          the vector code inside the loop can be used for the epilog code. */
       orig_code = code;
+
+      if (code == MINUS_EXPR)
+	orig_code = PLUS_EXPR;
 
       /* For simple condition reductions, replace with the actual expression
 	 we want to base our reduction around.  */

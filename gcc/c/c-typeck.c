@@ -2274,33 +2274,34 @@ lookup_field_fuzzy (tree type, tree component)
   lookup_field_fuzzy_find_candidates (type, component,
 				      &candidates);
 
-  /* Now determine which is closest.  */
-  int i;
-  tree identifier;
-  tree best_identifier = NULL;
-  edit_distance_t best_distance = MAX_EDIT_DISTANCE;
-  FOR_EACH_VEC_ELT (candidates, i, identifier)
-    {
-      gcc_assert (TREE_CODE (identifier) == IDENTIFIER_NODE);
-      edit_distance_t dist = levenshtein_distance (component, identifier);
-      if (dist < best_distance)
-	{
-	  best_distance = dist;
-	  best_identifier = identifier;
-	}
-    }
+  return find_closest_identifier (component, &candidates);
+}
 
-  /* If more than half of the letters were misspelled, the suggestion is
-     likely to be meaningless.  */
-  if (best_identifier)
-    {
-      unsigned int cutoff = MAX (IDENTIFIER_LENGTH (component),
-				 IDENTIFIER_LENGTH (best_identifier)) / 2;
-      if (best_distance > cutoff)
-	return NULL;
-    }
+/* Support function for build_component_ref's error-handling.
 
-  return best_identifier;
+   Given DATUM_TYPE, and "DATUM.COMPONENT", where DATUM is *not* a
+   struct or union, should we suggest "DATUM->COMPONENT" as a hint?  */
+
+static bool
+should_suggest_deref_p (tree datum_type)
+{
+  /* We don't do it for Objective-C, since Objective-C 2.0 dot-syntax
+     allows "." for ptrs; we could be handling a failed attempt
+     to access a property.  */
+  if (c_dialect_objc ())
+    return false;
+
+  /* Only suggest it for pointers...  */
+  if (TREE_CODE (datum_type) != POINTER_TYPE)
+    return false;
+
+  /* ...to structs/unions.  */
+  tree underlying_type = TREE_TYPE (datum_type);
+  enum tree_code code = TREE_CODE (underlying_type);
+  if (code == RECORD_TYPE || code == UNION_TYPE)
+    return true;
+  else
+    return false;
 }
 
 /* Make an expression to refer to the COMPONENT field of structure or
@@ -2394,6 +2395,18 @@ build_component_ref (location_t loc, tree datum, tree component)
       while (field);
 
       return ref;
+    }
+  else if (should_suggest_deref_p (type))
+    {
+      /* Special-case the error message for "ptr.field" for the case
+	 where the user has confused "." vs "->".  */
+      rich_location richloc (line_table, loc);
+      /* "loc" should be the "." token.  */
+      richloc.add_fixit_replace (source_range::from_location (loc), "->");
+      error_at_rich_loc (&richloc,
+			 "%qE is a pointer; did you mean to use %<->%>?",
+			 datum);
+      return error_mark_node;
     }
   else if (code != ERROR_MARK)
     error_at (loc,
@@ -3512,7 +3525,28 @@ parser_build_binary_op (location_t location, enum tree_code code,
 			   code1, arg1.value, code2, arg2.value);
 
   if (warn_tautological_compare)
-    warn_tautological_cmp (location, code, arg1.value, arg2.value);
+    {
+      tree lhs = arg1.value;
+      tree rhs = arg2.value;
+      if (TREE_CODE (lhs) == C_MAYBE_CONST_EXPR)
+	{
+	  if (C_MAYBE_CONST_EXPR_PRE (lhs) != NULL_TREE
+	      && TREE_SIDE_EFFECTS (C_MAYBE_CONST_EXPR_PRE (lhs)))
+	    lhs = NULL_TREE;
+	  else
+	    lhs = C_MAYBE_CONST_EXPR_EXPR (lhs);
+	}
+      if (TREE_CODE (rhs) == C_MAYBE_CONST_EXPR)
+	{
+	  if (C_MAYBE_CONST_EXPR_PRE (rhs) != NULL_TREE
+	      && TREE_SIDE_EFFECTS (C_MAYBE_CONST_EXPR_PRE (rhs)))
+	    rhs = NULL_TREE;
+	  else
+	    rhs = C_MAYBE_CONST_EXPR_EXPR (rhs);
+	}
+      if (lhs != NULL_TREE && rhs != NULL_TREE)
+	warn_tautological_cmp (location, code, lhs, rhs);
+    }
 
   if (warn_logical_not_paren
       && TREE_CODE_CLASS (code) == tcc_comparison

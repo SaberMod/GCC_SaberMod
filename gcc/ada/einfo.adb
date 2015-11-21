@@ -95,13 +95,14 @@ package body Einfo is
    --    Normalized_Position_Max         Uint10
    --    Part_Of_Constituents            Elist10
 
+   --    Block_Node                      Node11
    --    Component_Bit_Offset            Uint11
    --    Full_View                       Node11
    --    Entry_Component                 Node11
    --    Enumeration_Pos                 Uint11
    --    Generic_Homonym                 Node11
+   --    Part_Of_References              Elist11
    --    Protected_Body_Subprogram       Node11
-   --    Block_Node                      Node11
 
    --    Barrier_Function                Node12
    --    Enumeration_Rep                 Uint12
@@ -2860,6 +2861,12 @@ package body Einfo is
       pragma Assert (Ekind_In (Id, E_Abstract_State, E_Variable));
       return Elist10 (Id);
    end Part_Of_Constituents;
+
+   function Part_Of_References (Id : E) return L is
+   begin
+      pragma Assert (Ekind (Id) = E_Variable);
+      return Elist11 (Id);
+   end Part_Of_References;
 
    function Partial_View_Has_Unknown_Discr (Id : E) return B is
    begin
@@ -5897,6 +5904,12 @@ package body Einfo is
       Set_Elist10 (Id, V);
    end Set_Part_Of_Constituents;
 
+   procedure Set_Part_Of_References (Id : E; V : L) is
+   begin
+      pragma Assert (Ekind (Id) = E_Variable);
+      Set_Elist11 (Id, V);
+   end Set_Part_Of_References;
+
    procedure Set_Partial_View_Has_Unknown_Discr (Id : E; V : B := True) is
    begin
       pragma Assert (Is_Type (Id));
@@ -7103,6 +7116,7 @@ package body Einfo is
 
       Is_CLS : constant Boolean :=
                  Id = Pragma_Abstract_State             or else
+                 Id = Pragma_Attach_Handler             or else
                  Id = Pragma_Async_Readers              or else
                  Id = Pragma_Async_Writers              or else
                  Id = Pragma_Constant_After_Elaboration or else
@@ -7113,6 +7127,7 @@ package body Einfo is
                  Id = Pragma_Global                     or else
                  Id = Pragma_Initial_Condition          or else
                  Id = Pragma_Initializes                or else
+                 Id = Pragma_Interrupt_Handler          or else
                  Id = Pragma_Part_Of                    or else
                  Id = Pragma_Refined_Depends            or else
                  Id = Pragma_Refined_Global             or else
@@ -7301,11 +7316,11 @@ package body Einfo is
         and then Present (Non_Limited_View (Id));
    end Has_Non_Limited_View;
 
-   -----------------------------
-   -- Has_Non_Null_Refinement --
-   -----------------------------
+   -------------------------------------
+   -- Has_Non_Null_Visible_Refinement --
+   -------------------------------------
 
-   function Has_Non_Null_Refinement (Id : E) return B is
+   function Has_Non_Null_Visible_Refinement (Id : E) return B is
    begin
       --  "Refinement" is a concept applicable only to abstract states
 
@@ -7322,7 +7337,7 @@ package body Einfo is
       end if;
 
       return False;
-   end Has_Non_Null_Refinement;
+   end Has_Non_Null_Visible_Refinement;
 
    -----------------------------
    -- Has_Null_Abstract_State --
@@ -7337,11 +7352,11 @@ package body Einfo is
           and then Is_Null_State (Node (First_Elmt (Abstract_States (Id))));
    end Has_Null_Abstract_State;
 
-   -------------------------
-   -- Has_Null_Refinement --
-   -------------------------
+   ---------------------------------
+   -- Has_Null_Visible_Refinement --
+   ---------------------------------
 
-   function Has_Null_Refinement (Id : E) return B is
+   function Has_Null_Visible_Refinement (Id : E) return B is
    begin
       --  "Refinement" is a concept applicable only to abstract states
 
@@ -7358,7 +7373,7 @@ package body Einfo is
       end if;
 
       return False;
-   end Has_Null_Refinement;
+   end Has_Null_Visible_Refinement;
 
    --------------------
    -- Has_Unmodified --
@@ -9361,10 +9376,13 @@ package body Einfo is
          when E_Generic_Package                            =>
             Write_Str ("Generic_Homonym");
 
-         when E_Function                                   |
-              E_Procedure                                  |
-              E_Entry                                      |
-              E_Entry_Family                               =>
+         when E_Variable                                   =>
+            Write_Str ("Part_Of_References");
+
+         when E_Entry                                      |
+              E_Entry_Family                               |
+              E_Function                                   |
+              E_Procedure                                  =>
             Write_Str ("Protected_Body_Subprogram");
 
          when others                                       =>

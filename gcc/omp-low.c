@@ -4444,11 +4444,13 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 
 	      if (!integer_zerop (bias))
 		{
-		  bias = fold_convert_loc (clause_loc, sizetype, bias);
-		  bias = fold_build1_loc (clause_loc, NEGATE_EXPR,
-					  sizetype, bias);
-		  x = fold_build2_loc (clause_loc, POINTER_PLUS_EXPR,
-				       TREE_TYPE (x), x, bias);
+		  bias = fold_convert_loc (clause_loc, pointer_sized_int_node,
+					   bias);
+		  yb = fold_convert_loc (clause_loc, pointer_sized_int_node,
+					 x);
+		  yb = fold_build2_loc (clause_loc, MINUS_EXPR,
+					pointer_sized_int_node, yb, bias);
+		  x = fold_convert_loc (clause_loc, TREE_TYPE (x), yb);
 		  yb = create_tmp_var (ptype, name);
 		  gimplify_assign (yb, x, ilist);
 		  x = yb;
@@ -12426,6 +12428,46 @@ get_oacc_ifn_dim_arg (const gimple *stmt)
   return (int) axis;
 }
 
+/* Mark the loops inside the kernels region starting at REGION_ENTRY and ending
+   at REGION_EXIT.  */
+
+static void
+mark_loops_in_oacc_kernels_region (basic_block region_entry,
+				   basic_block region_exit)
+{
+  struct loop *outer = region_entry->loop_father;
+  gcc_assert (region_exit == NULL || outer == region_exit->loop_father);
+
+  /* Don't parallelize the kernels region if it contains more than one outer
+     loop.  */
+  unsigned int nr_outer_loops = 0;
+  struct loop *single_outer;
+  for (struct loop *loop = outer->inner; loop != NULL; loop = loop->next)
+    {
+      gcc_assert (loop_outer (loop) == outer);
+
+      if (!dominated_by_p (CDI_DOMINATORS, loop->header, region_entry))
+	continue;
+
+      if (region_exit != NULL
+	  && dominated_by_p (CDI_DOMINATORS, loop->header, region_exit))
+	continue;
+
+      nr_outer_loops++;
+      single_outer = loop;
+    }
+  if (nr_outer_loops != 1)
+    return;
+
+  for (struct loop *loop = single_outer->inner; loop != NULL; loop = loop->inner)
+    if (loop->next)
+      return;
+
+  /* Mark the loops in the region.  */
+  for (struct loop *loop = single_outer; loop != NULL; loop = loop->inner)
+    loop->in_oacc_kernels_region = true;
+}
+
 /* Expand the GIMPLE_OMP_TARGET starting at REGION.  */
 
 static void
@@ -12480,6 +12522,9 @@ expand_omp_target (struct omp_region *region)
 
   entry_bb = region->entry;
   exit_bb = region->exit;
+
+  if (gimple_omp_target_kind (entry_stmt) == GF_OMP_TARGET_KIND_OACC_KERNELS)
+    mark_loops_in_oacc_kernels_region (region->entry, region->exit);
 
   if (offloaded)
     {
@@ -18276,6 +18321,10 @@ expand_simd_clones (struct cgraph_node *node)
       && TYPE_ARG_TYPES (TREE_TYPE (node->decl)) == NULL_TREE)
     return;
 
+  /* Call this before creating clone_info, as it might ggc_collect.  */
+  if (node->definition && node->has_gimple_body_p ())
+    node->get_body ();
+
   do
     {
       /* Start with parsing the "omp declare simd" attribute(s).  */
@@ -18407,10 +18456,7 @@ public:
 bool
 pass_omp_simd_clone::gate (function *)
 {
-  return ((flag_openmp || flag_openmp_simd
-	   || flag_cilkplus
-	   || (in_lto_p && !flag_wpa))
-	  && (targetm.simd_clone.compute_vecsize_and_simdlen != NULL));
+  return targetm.simd_clone.compute_vecsize_and_simdlen != NULL;
 }
 
 } // anon namespace

@@ -1294,15 +1294,6 @@ package body Sem_Ch6 is
             Analyze_Aspect_Specifications_On_Body_Or_Stub (N);
          end if;
 
-         --  A generic subprogram body "freezes" the contract of its initial
-         --  declaration. This analysis depends on attribute Corresponding_Spec
-         --  being set. Only bodies coming from source should cause this type
-         --  of "freezing".
-
-         if Comes_From_Source (N) then
-            Analyze_Initial_Declaration_Contract (N);
-         end if;
-
          Analyze_Declarations (Declarations (N));
          Check_Completion;
 
@@ -2786,7 +2777,10 @@ package body Sem_Ch6 is
          procedure Detect_And_Exchange (Id : Entity_Id);
          --  Determine whether Id's type denotes an incomplete type associated
          --  with a limited with clause and exchange the limited view with the
-         --  non-limited one when available.
+         --  non-limited one when available. Note that the non-limited view
+         --  may exist because of a with_clause in another unit in the context,
+         --  but cannot be used because the current view of the enclosing unit
+         --  is still a limited view.
 
          -------------------------
          -- Detect_And_Exchange --
@@ -2795,7 +2789,10 @@ package body Sem_Ch6 is
          procedure Detect_And_Exchange (Id : Entity_Id) is
             Typ : constant Entity_Id := Etype (Id);
          begin
-            if From_Limited_With (Typ) and then Has_Non_Limited_View (Typ) then
+            if From_Limited_With (Typ)
+              and then Has_Non_Limited_View (Typ)
+              and then not From_Limited_With (Scope (Typ))
+            then
                Set_Etype (Id, Non_Limited_View (Typ));
             end if;
          end Detect_And_Exchange;
@@ -2982,7 +2979,8 @@ package body Sem_Ch6 is
 
    begin
       --  A [generic] subprogram body "freezes" the contract of the nearest
-      --  enclosing package body:
+      --  enclosing package body and all other contracts encountered in the
+      --  same declarative part upto and excluding the subprogram body:
 
       --    package body Nearest_Enclosing_Package
       --      with Refined_State => (State => Constit)
@@ -3003,7 +3001,7 @@ package body Sem_Ch6 is
       --  Original_Node.
 
       if Comes_From_Source (Original_Node (N)) then
-         Analyze_Enclosing_Package_Body_Contract (N);
+         Analyze_Previous_Contracts (N);
       end if;
 
       --  Generic subprograms are handled separately. They always have a
@@ -3779,14 +3777,6 @@ package body Sem_Ch6 is
 
       if Has_Aspects (N) then
          Analyze_Aspect_Specifications_On_Body_Or_Stub (N);
-      end if;
-
-      --  A subprogram body "freezes" the contract of its initial declaration.
-      --  This analysis depends on attribute Corresponding_Spec being set. Only
-      --  bodies coming from source should cause this type of "freezing".
-
-      if Comes_From_Source (N) then
-         Analyze_Initial_Declaration_Contract (N);
       end if;
 
       Analyze_Declarations (Declarations (N));
@@ -10423,6 +10413,17 @@ package body Sem_Ch6 is
 
       if Nkind (Related_Nod) = N_Function_Specification then
          Analyze_Return_Type (Related_Nod);
+
+         --  If return type is class-wide, subprogram freezing may be
+         --  delayed as well.
+
+         if Is_Class_Wide_Type (Etype (Current_Scope))
+           and then not Is_Thunk (Current_Scope)
+           and then Nkind (Unit_Declaration_Node (Current_Scope)) =
+             N_Subprogram_Declaration
+         then
+            Set_Has_Delayed_Freeze (Current_Scope);
+         end if;
       end if;
 
       --  Now set the kind (mode) of each formal

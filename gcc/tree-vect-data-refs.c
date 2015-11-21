@@ -967,13 +967,13 @@ vect_verify_datarefs_alignment (loop_vec_info vinfo)
       /* For interleaving, only the alignment of the first access matters.   */
       if (STMT_VINFO_GROUPED_ACCESS (stmt_info)
 	  && GROUP_FIRST_ELEMENT (stmt_info) != stmt)
-	return true;
+	continue;
 
       /* Strided accesses perform only component accesses, alignment is
 	 irrelevant for them.  */
       if (STMT_VINFO_STRIDED_P (stmt_info)
 	  && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
-	return true;
+	continue;
 
       if (! verify_data_ref_alignment (dr))
 	return false;
@@ -2545,6 +2545,8 @@ compare_tree (tree t1, tree t2)
   if (t2 == NULL)
     return 1;
 
+  STRIP_NOPS (t1);
+  STRIP_NOPS (t2);
 
   if (TREE_CODE (t1) != TREE_CODE (t2))
     return TREE_CODE (t1) < TREE_CODE (t2) ? -1 : 1;

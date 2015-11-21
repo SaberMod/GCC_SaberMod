@@ -1,3 +1,37 @@
+2015-11-21  David Edelsohn  <dje.gcc@gmail.com>
+
+	* testsuite/23_containers/vector/profile/vector.cc: Add maxdata
+	option on AIX.
+
+2015-11-20  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	PR libstdc++/68448
+	* python/hook.in: Call register_libstdcxx_printers.
+	* python/libstdcxx/v6/__init__.py: Wrap it to
+	register_libstdcxx_printers.
+
+2015-11-17  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/66059
+	* include/std/utility (_Build_index_tuple): Optimise.
+
+2015-11-16  Doug Evans  <dje@google.com>
+
+	PR libstdc++/67440
+	* python/libstdcxx/v6/printers.py (find_type): Handle "const" in
+	type name.
+	* testsuite/libstdc++-prettyprinters/debug.cc: Add test for
+	const set<int>.
+	* testsuite/libstdc++-prettyprinters/simple.cc: Ditto.
+	* testsuite/libstdc++-prettyprinters/simple11.cc: Ditto.
+
+2015-11-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/68353
+	* include/bits/basic_string.h: Test value of _GLIBCXX_USE_C99_WCHAR
+	not whether it is defined.
+	* include/ext/vstring.h: Likewise.
+
 2015-11-14  Andreas Tobler  <andreast@gcc.gnu.org>
 
 	* acinclude.m4 (GLIBCXX_ENABLE_CLOCALE): Change locale implementation
