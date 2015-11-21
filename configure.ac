@@ -1659,6 +1659,9 @@ if test "x$with_isl" != "xno"; then
       ISL_CHECK_VERSION(0,12)
       if test "${gcc_cv_isl}" = no ; then
         ISL_CHECK_VERSION(0,14)
+        if test "${gcc_cv_isl}" = no ; then
+          ISL_CHECK_VERSION(0,15)
+        fi
       fi
     fi
   fi
