@@ -1,3 +1,104 @@
+2015-11-24  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	Backport from mainline r230796.
+	2015-11-24  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR c/68337
+	* gimple-fold.c: Include ipa-chkp.h.
+	(gimple_fold_builtin_memory_op): Don't fold call if we
+	are going to instrument it and it may copy pointers.
+
+2015-11-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2015-11-24  Bernd Schmidt <bschmidt@redhat.com>
+	            Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/68194
+	PR rtl-optimization/68328
+	PR rtl-optimization/68185
+	* ree.c (combine_reaching_defs): Reject copy_needed case if
+	copies_list is not empty.
+
+2015-11-24  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/68221
+	* tree-ssa-sccvn.c (copy_reference_ops_from_ref): Properly
+	use mem_ref_offset.
+
+2015-11-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/68483
+	* tree-vect-generic.c (lower_vec_perm): If VEC_PERM_EXPR
+	is valid vec_shr pattern, don't lower it even if can_vec_perm_p
+	returns false.
+	* optabs.c (shift_amt_for_vec_perm_mask): Return NULL_RTX
+	whenever first is nelt or above.  Don't mask expected with
+	2 * nelt - 1.
+
+2015-11-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2015-10-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+		    Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/67808
+	* config/rs6000/rs6000.md (extenddftf2): In the expander, only
+	allow registers, but provide insns for the combiner to create for
+	loads from memory. Separate VSX code from non-VSX code. For
+	non-VSX code, combine extenddftf2_fprs into extenddftf2 and rename
+	externaldftf2_internal to externaldftf2_fprs. Reorder constraints
+	so that registers come before memory operations. Drop support from
+	converting DFmode to TFmode, if the DFmode value is in a GPR
+	register.
+	(extenddftf2_fprs): Likewise.
+	(extenddftf2_internal): Likewise.
+	(extenddftf2_vsx): Likewise.
+	(extendsftf2): In the expander, only allow registers, but provide
+	insns for the combiner to create for stores and loads.
+
+2015-11-23  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2015-11-23  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/68363
+	* config/aarch64/aarch64.c (aarch64_madd_needs_nop): Reject arguments
+	that are not INSN_P.
+
+2015-11-23  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2015-06-22  Jan Hubicka  <hubicka@ucw.cz>
+		    Martin Liska  <mliska@suse.cz>
+
+	PR ipa/65908
+	* ipa-icf.c (sem_item::target_supports_symbol_aliases): Remove
+	construction of arg_types.
+	(sem_function::sem_function): Likewise.
+	(sem_function::~sem_function): Remove destruction of arg_types.
+	(sem_function::compatible_parm_types_p): New function.
+	(sem_function::equals_wpa): Reorg matching of return values
+	and parameter types.
+	(sem_function::equals_private): Reorg mathcing of argument types.
+	(sem_function::parse_tree_args): Remove.
+	(sem_function::param_used_p): New function.
+	* ipa-icf.h (init_wpa): Do not call it.
+	(parse_tree_args): Remove.
+	(compatible_parm_types_p): Declare.
+	(result_type): Remove.
+	(arg_types): Remove.
+	(param_used_p): Declare.
+
+2015-11-23  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2015-10-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/56956
+	* fold-const.c (fold_cond_expr_with_comparison): Do not fold
+	unsigned conditonal negation to ABS_EXPR.
+
 2015-11-22  Dominique d'Humieres  <dominiq@lps.ens.fr>
 
 	Backport from mainline
