@@ -17675,18 +17675,20 @@ output_387_binary_op (rtx insn, rtx *operands)
 
   /* Even if we do not want to check the inputs, this documents input
      constraints.  Which helps in understanding the following code.  */
-  if (flag_checking
-      && STACK_REG_P (operands[0])
-      && ((REG_P (operands[1])
-	   && REGNO (operands[0]) == REGNO (operands[1])
-	   && (STACK_REG_P (operands[2]) || MEM_P (operands[2])))
-	  || (REG_P (operands[2])
-	      && REGNO (operands[0]) == REGNO (operands[2])
-	      && (STACK_REG_P (operands[1]) || MEM_P (operands[1]))))
-      && (STACK_TOP_P (operands[1]) || STACK_TOP_P (operands[2])))
-    ; /* ok */
-  else
-    gcc_checking_assert (is_sse);
+  if (flag_checking)
+    {
+      if (STACK_REG_P (operands[0])
+	  && ((REG_P (operands[1])
+	       && REGNO (operands[0]) == REGNO (operands[1])
+	       && (STACK_REG_P (operands[2]) || MEM_P (operands[2])))
+	      || (REG_P (operands[2])
+		  && REGNO (operands[0]) == REGNO (operands[2])
+		  && (STACK_REG_P (operands[1]) || MEM_P (operands[1]))))
+	  && (STACK_TOP_P (operands[1]) || STACK_TOP_P (operands[2])))
+	; /* ok */
+      else
+	gcc_assert (is_sse);
+    }
 
   switch (GET_CODE (operands[3]))
     {
@@ -21137,7 +21139,8 @@ ix86_cc_mode (enum rtx_code code, rtx op0, rtx op1)
     case LTU:			/* CF=1 */
       /* Detect overflow checks.  They need just the carry flag.  */
       if (GET_CODE (op0) == PLUS
-	  && rtx_equal_p (op1, XEXP (op0, 0)))
+	  && (rtx_equal_p (op1, XEXP (op0, 0))
+	      || rtx_equal_p (op1, XEXP (op0, 1))))
 	return CCCmode;
       else
 	return CCmode;

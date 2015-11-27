@@ -18,22 +18,11 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#define USES_ISL
+
 #include "config.h"
 
 #ifdef HAVE_isl
-/* Workaround for GMP 5.1.3 bug, see PR56019.  */
-#include <stddef.h>
-
-#include <isl/union_map.h>
-#include <isl/schedule.h>
-#include <isl/band.h>
-#include <isl/aff.h>
-#include <isl/options.h>
-#include <isl/union_set.h>
-#include <isl/ctx.h>
-#ifdef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
-#include <isl/schedule_node.h>
-#endif
 
 #include "system.h"
 #include "coretypes.h"
@@ -46,9 +35,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-loop.h"
 #include "cfgloop.h"
 #include "tree-data-ref.h"
-#include "graphite-poly.h"
 #include "params.h"
 #include "dumpfile.h"
+
+#include <isl/union_map.h>
+#include <isl/schedule.h>
+#include <isl/band.h>
+#include <isl/aff.h>
+#include <isl/options.h>
+#include <isl/union_set.h>
+#include <isl/ctx.h>
+#ifdef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
+#include <isl/schedule_node.h>
+#endif
+
+#include "graphite.h"
 
 #ifdef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
 
@@ -438,23 +439,11 @@ optimize_isl (scop_p scop)
 #else
   isl_union_map *schedule_map = get_schedule_map (schedule);
 #endif
+  apply_schedule_map_to_scop (scop, schedule_map);
 
-  if (isl_union_map_is_equal (scop->original_schedule, schedule_map))
-    {
-      if (dump_file && dump_flags)
-	fprintf (dump_file, "\nISL schedule same as original schedule\n");
-
-      isl_schedule_free (schedule);
-      isl_union_map_free (schedule_map);
-      return false;
-    }
-  else
-    {
-      apply_schedule_map_to_scop (scop, schedule_map);
-      isl_schedule_free (schedule);
-      isl_union_map_free (schedule_map);
-      return true;
-    }
+  isl_schedule_free (schedule);
+  isl_union_map_free (schedule_map);
+  return true;
 }
 
 #endif /* HAVE_isl */

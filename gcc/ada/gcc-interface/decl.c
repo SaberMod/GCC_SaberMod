@@ -1501,7 +1501,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	   exception handler, and we aren't using the GCC exception mechanism,
 	   we must force this variable in memory in order to avoid an invalid
 	   optimization.  */
-	if (Exception_Mechanism != Back_End_Exceptions
+	if (Front_End_Exceptions ()
 	    && Has_Nested_Block_With_Handler (Scope (gnat_entity)))
 	  TREE_ADDRESSABLE (gnu_decl) = 1;
 
@@ -1520,9 +1520,10 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 	/* If we are defining an object with variable size or an object with
 	   fixed size that will be dynamically allocated, and we are using the
-	   setjmp/longjmp exception mechanism, update the setjmp buffer.  */
+	   front-end setjmp/longjmp exception mechanism, update the setjmp
+	   buffer.  */
 	if (definition
-	    && Exception_Mechanism == Setjmp_Longjmp
+	    && Exception_Mechanism == Front_End_SJLJ
 	    && get_block_jmpbuf_decl ()
 	    && DECL_SIZE_UNIT (gnu_decl)
 	    && (TREE_CODE (DECL_SIZE_UNIT (gnu_decl)) != INTEGER_CST
@@ -4099,7 +4100,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
           trigger an "abnormal" transfer of control flow; thus they can be
           neither "const" nor "pure" in the back-end sense.  */
 	bool const_flag
-	  = (Exception_Mechanism == Back_End_Exceptions
+	  = (Back_End_Exceptions ()
 	     && Is_Pure (gnat_entity));
 	bool noreturn_flag = No_Return (gnat_entity);
 	bool return_by_direct_ref_p = false;
@@ -4736,13 +4737,51 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
       maybe_present = true;
       break;
 
-    case E_Task_Type:
-    case E_Task_Subtype:
     case E_Protected_Type:
     case E_Protected_Subtype:
-      /* Concurrent types are always transformed into their record type.  */
+    case E_Task_Type:
+    case E_Task_Subtype:
+      /* If we are just annotating types and have no equivalent record type,
+	 just return void_type, except for root types that have discriminants
+	 because the discriminants will very likely be used in the declarative
+	 part of the associated body so they need to be translated.  */
       if (type_annotate_only && No (gnat_equiv_type))
-	gnu_type = void_type_node;
+	{
+	  if (Has_Discriminants (gnat_entity)
+	      && Root_Type (gnat_entity) == gnat_entity)
+	    {
+	      tree gnu_field_list = NULL_TREE;
+	      Entity_Id gnat_field;
+
+	      /* This is a minimal version of the E_Record_Type handling.  */
+	      gnu_type = make_node (RECORD_TYPE);
+	      TYPE_NAME (gnu_type) = gnu_entity_name;
+
+	      for (gnat_field = First_Stored_Discriminant (gnat_entity);
+		   Present (gnat_field);
+		   gnat_field = Next_Stored_Discriminant (gnat_field))
+		{
+		  tree gnu_field
+		    = gnat_to_gnu_field (gnat_field, gnu_type, false,
+					 definition, debug_info_p);
+
+		  save_gnu_tree (gnat_field,
+				 build3 (COMPONENT_REF, TREE_TYPE (gnu_field),
+					 build0 (PLACEHOLDER_EXPR, gnu_type),
+					 gnu_field, NULL_TREE),
+				 true);
+
+		  DECL_CHAIN (gnu_field) = gnu_field_list;
+		  gnu_field_list = gnu_field;
+		}
+
+	      TYPE_FIELDS (gnu_type) = nreverse (gnu_field_list);
+	    }
+	  else
+	    gnu_type = void_type_node;
+	}
+
+      /* Concurrent types are always transformed into their record type.  */
       else
 	gnu_decl = gnat_to_gnu_entity (gnat_equiv_type, NULL_TREE, 0);
       maybe_present = true;
@@ -5402,7 +5441,26 @@ get_minimal_subprog_decl (Entity_Id gnat_entity)
 bool
 is_cplusplus_method (Entity_Id gnat_entity)
 {
+  /* Check that the subprogram has C++ convention.  */
   if (Convention (gnat_entity) != Convention_CPP)
+    return false;
+
+  /* A constructor is a method on the C++ side.  We deal with it now because
+     it is declared without the 'this' parameter in the sources and, although
+     the front-end will create a version with the 'this' parameter for code
+     generation purposes, we want to return true for both versions.  */
+  if (Is_Constructor (gnat_entity))
+    return true;
+
+  /* And that the type of the first parameter (indirectly) has it too.  */
+  Entity_Id gnat_first = First_Formal (gnat_entity);
+  if (No (gnat_first))
+    return false;
+
+  Entity_Id gnat_type = Etype (gnat_first);
+  if (Is_Access_Type (gnat_type))
+    gnat_type = Directly_Designated_Type (gnat_type);
+  if (Convention (gnat_type) != Convention_CPP)
     return false;
 
   /* This is the main case: C++ method imported as a primitive operation.
@@ -5413,10 +5471,6 @@ is_cplusplus_method (Entity_Id gnat_entity)
 
   /* A thunk needs to be handled like its associated primitive operation.  */
   if (Is_Subprogram (gnat_entity) && Is_Thunk (gnat_entity))
-    return true;
-
-  /* A constructor is a method on the C++ side.  */
-  if (Is_Constructor (gnat_entity))
     return true;
 
   /* This is set on the E_Subprogram_Type built for a dispatching call.  */

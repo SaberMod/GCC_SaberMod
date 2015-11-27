@@ -2176,6 +2176,27 @@ vect_analyze_group_access_1 (struct data_reference *dr)
   if (tree_fits_shwi_p (step))
     {
       dr_step = tree_to_shwi (step);
+      /* Check that STEP is a multiple of type size.  Otherwise there is
+         a non-element-sized gap at the end of the group which we
+	 cannot represent in GROUP_GAP or GROUP_SIZE.
+	 ???  As we can handle non-constant step fine here we should
+	 simply remove uses of GROUP_GAP between the last and first
+	 element and instead rely on DR_STEP.  GROUP_SIZE then would
+	 simply not include that gap.  */
+      if ((dr_step % type_size) != 0)
+	{
+	  if (dump_enabled_p ())
+	    {
+	      dump_printf_loc (MSG_NOTE, vect_location,
+	                       "Step ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM, step);
+	      dump_printf (MSG_NOTE,
+			   " is not a multiple of the element size for ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr));
+	      dump_printf (MSG_NOTE, "\n");
+	    }
+	  return false;
+	}
       groupsize = absu_hwi (dr_step) / type_size;
     }
   else
@@ -2748,7 +2769,8 @@ vect_analyze_data_ref_accesses (vec_info *vinfo)
 	  /* If init_b == init_a + the size of the type * k, we have an
 	     interleaving, and DRA is accessed before DRB.  */
 	  HOST_WIDE_INT type_size_a = tree_to_uhwi (sza);
-	  if ((init_b - init_a) % type_size_a != 0)
+	  if (type_size_a == 0
+	      || (init_b - init_a) % type_size_a != 0)
 	    break;
 
 	  /* If we have a store, the accesses are adjacent.  This splits

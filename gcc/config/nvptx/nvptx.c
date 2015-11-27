@@ -206,37 +206,19 @@ nvptx_ptx_type_from_mode (machine_mode mode, bool promote)
     }
 }
 
-/* Return the number of pieces to use when dealing with a pseudo of *PMODE.
-   Alter *PMODE if we return a number greater than one.  */
+/* If MODE should be treated as two registers of an inner mode, return
+   that inner mode.  Otherwise return VOIDmode.  */
 
-static int
-maybe_split_mode (machine_mode *pmode)
-{
-  machine_mode mode = *pmode;
-
-  if (COMPLEX_MODE_P (mode))
-    {
-      *pmode = GET_MODE_INNER (mode);
-      return 2;
-    }
-  else if (mode == TImode)
-    {
-      *pmode = DImode;
-      return 2;
-    }
-  return 1;
-}
-
-/* Like maybe_split_mode, but only return whether or not the mode
-   needs to be split.  */
-static bool
-nvptx_split_reg_p (machine_mode mode)
+static machine_mode
+maybe_split_mode (machine_mode mode)
 {
   if (COMPLEX_MODE_P (mode))
-    return true;
+    return GET_MODE_INNER (mode);
+
   if (mode == TImode)
-    return true;
-  return false;
+    return DImode;
+
+  return VOIDmode;
 }
 
 /* Emit forking instructions for MASK.  */
@@ -315,13 +297,12 @@ write_one_arg (std::stringstream &s, tree type, int i, machine_mode mode,
   if (!PASS_IN_REG_P (mode, type))
     mode = Pmode;
 
-  int count = maybe_split_mode (&mode);
-
-  if (count == 2)
+  machine_mode split = maybe_split_mode (mode);
+  if (split != VOIDmode)
     {
-      write_one_arg (s, NULL_TREE, i, mode, false);
-      write_one_arg (s, NULL_TREE, i + 1, mode, false);
-      return i + 1;
+      i = write_one_arg (s, NULL_TREE, i, split, false);
+      i = write_one_arg (s, NULL_TREE, i, split, false);
+      return i;
     }
 
   if (no_arg_types && !AGGREGATE_TYPE_P (type))
@@ -331,13 +312,13 @@ write_one_arg (std::stringstream &s, tree type, int i, machine_mode mode,
       mode = arg_promotion (mode);
     }
 
-  if (i > 0)
+  if (i)
     s << ", ";
   s << ".param" << nvptx_ptx_type_from_mode (mode, false) << " %in_ar"
-    << (i + 1) << (mode == QImode || mode == HImode ? "[1]" : "");
+    << i << (mode == QImode || mode == HImode ? "[1]" : "");
   if (mode == BLKmode)
     s << "[" << int_size_in_bytes (type) << "]";
-  return i;
+  return i + 1;
 }
 
 /* Look for attributes in ATTRS that would indicate we must write a function
@@ -416,10 +397,10 @@ nvptx_write_function_decl (std::stringstream &s, const char *name, const_tree de
     {
       s << "(";
       int i = 0;
-      bool any_args = false;
+
       if (return_in_mem)
 	{
-	  s << ".param.u" << GET_MODE_BITSIZE (Pmode) << " %in_ar1";
+	  s << ".param.u" << GET_MODE_BITSIZE (Pmode) << " %in_ar0";
 	  i++;
 	}
       while (args != NULL_TREE)
@@ -428,12 +409,8 @@ nvptx_write_function_decl (std::stringstream &s, const char *name, const_tree de
 	  machine_mode mode = TYPE_MODE (type);
 
 	  if (mode != VOIDmode)
-	    {
-	      i = write_one_arg (s, type, i, mode,
-				 TYPE_ARG_TYPES (fntype) == 0);
-	      any_args = true;
-	      i++;
-	    }
+	    i = write_one_arg (s, type, i, mode,
+			       TYPE_ARG_TYPES (fntype) == 0);
 	  args = TREE_CHAIN (args);
 	}
       if (stdarg_p (fntype))
@@ -443,68 +420,15 @@ nvptx_write_function_decl (std::stringstream &s, const char *name, const_tree de
 	}
       if (DECL_STATIC_CHAIN (decl))
 	{
-	  if (i > 0)
+	  if (i)
 	    s << ", ";
 	  s << ".reg.u" << GET_MODE_BITSIZE (Pmode)
 	    << reg_names [STATIC_CHAIN_REGNUM];
 	}
-      if (!any_args && is_main)
+      if (!i && is_main)
 	s << ".param.u32 %argc, .param.u" << GET_MODE_BITSIZE (Pmode)
 	  << " %argv";
       s << ")";
-    }
-}
-
-/* Walk either ARGTYPES or ARGS if the former is null, and write out part of
-   the function header to FILE.  If WRITE_COPY is false, write reg
-   declarations, otherwise write the copy from the incoming argument to that
-   reg.  RETURN_IN_MEM indicates whether to start counting arg numbers at 1
-   instead of 0.  */
-
-static void
-walk_args_for_param (FILE *file, tree argtypes, tree args, bool write_copy,
-		     bool return_in_mem)
-{
-  int i;
-
-  bool args_from_decl = false;
-  if (argtypes == 0)
-    args_from_decl = true;
-  else
-    args = argtypes;
-
-  for (i = return_in_mem ? 1 : 0; args != NULL_TREE; args = TREE_CHAIN (args))
-    {
-      tree type = args_from_decl ? TREE_TYPE (args) : TREE_VALUE (args);
-      machine_mode mode = TYPE_MODE (type);
-
-      if (mode == VOIDmode)
-	break;
-
-      if (!PASS_IN_REG_P (mode, type))
-	mode = Pmode;
-
-      int count = maybe_split_mode (&mode);
-      if (count == 1)
-	{
-	  if (argtypes == NULL && !AGGREGATE_TYPE_P (type))
-	    {
-	      if (mode == SFmode)
-		mode = DFmode;
-
-	    }
-	}
-      mode = arg_promotion (mode);
-      while (count-- > 0)
-	{
-	  i++;
-	  if (write_copy)
-	    fprintf (file, "\tld.param%s %%ar%d, [%%in_ar%d];\n",
-		     nvptx_ptx_type_from_mode (mode, false), i, i);
-	  else
-	    fprintf (file, "\t.reg%s %%ar%d;\n",
-		     nvptx_ptx_type_from_mode (mode, false), i);
-	}
     }
 }
 
@@ -608,6 +532,7 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
 {
   tree fntype = TREE_TYPE (decl);
   tree result_type = TREE_TYPE (fntype);
+  int argno  = 0;
 
   name = nvptx_name_replacement (name);
 
@@ -632,12 +557,54 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
 
   fprintf (file, "\n{\n");
 
-  /* Ensure all arguments that should live in a register have one
-     declared.  We'll emit the copies below.  */
-  walk_args_for_param (file, TYPE_ARG_TYPES (fntype), DECL_ARGUMENTS (decl),
-		       false, return_in_mem);
   if (return_in_mem)
-    fprintf (file, "\t.reg.u%d %%ar1;\n", GET_MODE_BITSIZE (Pmode));
+    {
+      fprintf (file, "\t.reg.u%d %%ar%d;\n", GET_MODE_BITSIZE (Pmode), argno);
+      fprintf (file, "\tld.param.u%d %%ar%d, [%%in_ar%d];\n",
+	       GET_MODE_BITSIZE (Pmode), argno, argno);
+      argno++;
+    }
+
+  /* Declare and initialize incoming arguments.  */
+  tree args = DECL_ARGUMENTS (decl);
+  bool prototyped = false;
+  if (TYPE_ARG_TYPES (fntype))
+    {
+      args = TYPE_ARG_TYPES (fntype);
+      prototyped = true;
+    }
+
+  for (; args != NULL_TREE; args = TREE_CHAIN (args))
+    {
+      tree type = prototyped ? TREE_VALUE (args) : TREE_TYPE (args);
+      machine_mode mode = TYPE_MODE (type);
+      int count = 1;
+
+      if (mode == VOIDmode)
+	break;
+
+      if (!PASS_IN_REG_P (mode, type))
+	mode = Pmode;
+
+      machine_mode split = maybe_split_mode (mode);
+      if (split != VOIDmode)
+	{
+	  count = 2;
+	  mode = split;
+	}
+      else if (!prototyped && !AGGREGATE_TYPE_P (type) && mode == SFmode)
+	mode = DFmode;
+
+      mode = arg_promotion (mode);
+      while (count--)
+	{
+	  fprintf (file, "\t.reg%s %%ar%d;\n",
+		   nvptx_ptx_type_from_mode (mode, false), argno);
+	  fprintf (file, "\tld.param%s %%ar%d, [%%in_ar%d];\n",
+		   nvptx_ptx_type_from_mode (mode, false), argno, argno);
+	  argno++;
+	}
+    }
 
   /* C++11 ABI causes us to return a reference to the passed in
      pointer for return_in_mem.  */
@@ -650,7 +617,11 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
     }
 
   if (stdarg_p (fntype))
-    fprintf (file, "\t.reg.u%d %%argp;\n", GET_MODE_BITSIZE (Pmode));
+    {
+      fprintf (file, "\t.reg.u%d %%argp;\n", GET_MODE_BITSIZE (Pmode));
+      fprintf (file, "\tld.param.u%d %%argp, [%%in_argp];\n",
+	       GET_MODE_BITSIZE (Pmode));
+    }
 
   fprintf (file, "\t.reg.u%d %s;\n", GET_MODE_BITSIZE (Pmode),
 	   reg_names[OUTGOING_STATIC_CHAIN_REGNUM]);
@@ -662,18 +633,17 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
       if (regno_reg_rtx[i] != const0_rtx)
 	{
 	  machine_mode mode = PSEUDO_REGNO_MODE (i);
-	  int count = maybe_split_mode (&mode);
-	  if (count > 1)
+	  machine_mode split = maybe_split_mode (mode);
+	  if (split != VOIDmode)
 	    {
-	      while (count-- > 0)
-		fprintf (file, "\t.reg%s %%r%d$%d;\n",
-			 nvptx_ptx_type_from_mode (mode, true),
-			 i, count);
+	      fprintf (file, "\t.reg%s %%r%d$%d;\n",
+		       nvptx_ptx_type_from_mode (split, true), i, 0);
+	      fprintf (file, "\t.reg%s %%r%d$%d;\n",
+		       nvptx_ptx_type_from_mode (split, true), i, 1);
 	    }
 	  else
 	    fprintf (file, "\t.reg%s %%r%d;\n",
-		     nvptx_ptx_type_from_mode (mode, true),
-		     i);
+		     nvptx_ptx_type_from_mode (mode, true), i);
 	}
     }
 
@@ -685,13 +655,23 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   if (sz == 0)
     sz = 1;
   if (cfun->machine->has_call_with_varargs)
-    fprintf (file, "\t.reg.u%d %%outargs;\n"
-	     "\t.local.align 8 .b8 %%outargs_ar[" HOST_WIDE_INT_PRINT_DEC"];\n",
-	     BITS_PER_WORD, sz);
+    {
+      fprintf (file, "\t.reg.u%d %%outargs;\n"
+	       "\t.local.align 8 .b8 %%outargs_ar["
+	       HOST_WIDE_INT_PRINT_DEC"];\n",
+	       BITS_PER_WORD, sz);
+      fprintf (file, "\tcvta.local.u%d %%outargs, %%outargs_ar;\n",
+	       BITS_PER_WORD);
+    }
+
   if (cfun->machine->punning_buffer_size > 0)
-    fprintf (file, "\t.reg.u%d %%punbuffer;\n"
-	     "\t.local.align 8 .b8 %%punbuffer_ar[%d];\n",
-	     BITS_PER_WORD, cfun->machine->punning_buffer_size);
+    {
+      fprintf (file, "\t.reg.u%d %%punbuffer;\n"
+	       "\t.local.align 8 .b8 %%punbuffer_ar[%d];\n",
+	       BITS_PER_WORD, cfun->machine->punning_buffer_size);
+      fprintf (file, "\tcvta.local.u%d %%punbuffer, %%punbuffer_ar;\n",
+	       BITS_PER_WORD);
+    }
 
   /* Declare a local variable for the frame.  */
   sz = get_frame_size ();
@@ -705,23 +685,6 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
       fprintf (file, "\tcvta.local.u%d %%frame, %%farray;\n",
 	       BITS_PER_WORD);
     }
-
-  if (cfun->machine->has_call_with_varargs)
-      fprintf (file, "\tcvta.local.u%d %%outargs, %%outargs_ar;\n",
-	       BITS_PER_WORD);
-  if (cfun->machine->punning_buffer_size > 0)
-      fprintf (file, "\tcvta.local.u%d %%punbuffer, %%punbuffer_ar;\n",
-	       BITS_PER_WORD);
-
-  /* Now emit any copies necessary for arguments.  */
-  walk_args_for_param (file, TYPE_ARG_TYPES (fntype), DECL_ARGUMENTS (decl),
-		       true, return_in_mem);
-  if (return_in_mem)
-    fprintf (file, "\tld.param.u%d %%ar1, [%%in_ar1];\n",
-	     GET_MODE_BITSIZE (Pmode));
-  if (stdarg_p (fntype))
-    fprintf (file, "\tld.param.u%d %%argp, [%%in_argp];\n",
-	     GET_MODE_BITSIZE (Pmode));
 
   /* Emit axis predicates. */
   if (cfun->machine->axis_predicate[0])
@@ -756,62 +719,46 @@ nvptx_output_return (void)
    generated by emit_library_call for which no decl exists.  */
 
 static void
-write_func_decl_from_insn (std::stringstream &s, rtx result, rtx pat,
-			   rtx callee)
+write_func_decl_from_insn (std::stringstream &s, const char *name,
+			   rtx result, rtx pat)
 {
-  bool callprototype = register_operand (callee, Pmode);
-  const char *name = "_";
-  if (!callprototype)
+  if (!name)
     {
-      name = XSTR (callee, 0);
-      name = nvptx_name_replacement (name);
-      s << "\n// BEGIN GLOBAL FUNCTION DECL: " << name << "\n";
+      s << "\t.callprototype ";
+      name = "_";
     }
-  s << (callprototype ? "\t.callprototype\t" : "\t.extern .func ");
+  else
+    {
+      s << "\n// BEGIN GLOBAL FUNCTION DECL: " << name << "\n";
+      s << "\t.extern .func ";
+    }
 
   if (result != NULL_RTX)
-    {
-      s << "(.param";
-      s << nvptx_ptx_type_from_mode (arg_promotion (GET_MODE (result)),
-				     false);
-      s << " ";
-      if (callprototype)
-	s << "_";
-      else
-	s << "%out_retval";
-      s << ")";
-    }
+    s << "(.param"
+      << nvptx_ptx_type_from_mode (arg_promotion (GET_MODE (result)), false)
+      << " %rval) ";
 
   s << name;
 
+  const char *sep = " (";
   int arg_end = XVECLEN (pat, 0);
-      
-  if (1 < arg_end)
+  for (int i = 1; i < arg_end; i++)
     {
-      const char *comma = "";
-      s << " (";
-      for (int i = 1; i < arg_end; i++)
-	{
-	  rtx t = XEXP (XVECEXP (pat, 0, i), 0);
-	  machine_mode mode = GET_MODE (t);
-	  int count = maybe_split_mode (&mode);
+      /* We don't have to deal with mode splitting here, as that was
+	 already done when generating the call sequence.  */
+      machine_mode mode = GET_MODE (XEXP (XVECEXP (pat, 0, i), 0));
 
-	  while (count--)
-	    {
-	      s << comma << ".param";
-	      s << nvptx_ptx_type_from_mode (mode, false);
-	      s << " ";
-	      if (callprototype)
-		s << "_";
-	      else
-		s << "%arg" << i - 1;
-	      if (mode == QImode || mode == HImode)
-		s << "[1]";
-	      comma = ", ";
-	    }
-	}
-      s << ")";
+      s << sep
+	<< ".param"
+	<< nvptx_ptx_type_from_mode (mode, false)
+	<< " %arg"
+	<< i;
+      if (mode == QImode || mode == HImode)
+	s << "[1]";
+      sep = ", ";
     }
+  if (arg_end != 1)
+    s << ")";
   s << ";\n";
 }
 
@@ -935,10 +882,7 @@ nvptx_expand_call (rtx retval, rtx address)
       && stdarg_p (cfun->machine->funtype))
     {
       varargs = gen_reg_rtx (Pmode);
-      if (Pmode == DImode)
-	emit_move_insn (varargs, stack_pointer_rtx);
-      else
-	emit_move_insn (varargs, stack_pointer_rtx);
+      emit_move_insn (varargs, stack_pointer_rtx);
       cfun->machine->has_call_with_varargs = true;
     }
   vec = rtvec_alloc (nargs + 1 + (varargs ? 1 : 0));
@@ -981,7 +925,11 @@ nvptx_expand_call (rtx retval, rtx address)
       if (*slot == NULL)
 	{
 	  *slot = callee;
-	  write_func_decl_from_insn (func_decls, retval, pat, callee);
+
+	  const char *name = XSTR (callee, 0);
+	  if (decl_type)
+	    name = nvptx_name_replacement (name);
+	  write_func_decl_from_insn (func_decls, name, retval, pat);
 	}
     }
 
@@ -1024,7 +972,7 @@ nvptx_function_incoming_arg (cumulative_args_t cum_v, machine_mode mode,
      happen is complex modes and those are dealt with by
      TARGET_SPLIT_COMPLEX_ARG.  */
   return gen_rtx_UNSPEC (mode,
-			 gen_rtvec (1, GEN_INT (1 + cum->count)),
+			 gen_rtvec (1, GEN_INT (cum->count)),
 			 UNSPEC_ARG_REG);
 }
 
@@ -1828,7 +1776,7 @@ nvptx_assemble_undefined_decl (FILE *file, const char *name, const_tree decl)
 const char *
 nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
 {
-  char buf[256];
+  char buf[16];
   static int labelno;
   bool needs_tgt = register_operand (callee, Pmode);
   rtx pat = PATTERN (insn);
@@ -1855,40 +1803,22 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
       labelno++;
       ASM_OUTPUT_LABEL (asm_out_file, buf);
       std::stringstream s;
-      write_func_decl_from_insn (s, result, pat, callee);
+      write_func_decl_from_insn (s, NULL, result, pat);
       fputs (s.str().c_str(), asm_out_file);
     }
 
-  for (int i = 1, argno = 0; i < arg_end; i++)
+  for (int argno = 1; argno < arg_end; argno++)
     {
-      rtx t = XEXP (XVECEXP (pat, 0, i), 0);
+      rtx t = XEXP (XVECEXP (pat, 0, argno), 0);
       machine_mode mode = GET_MODE (t);
-      int count = maybe_split_mode (&mode);
 
-      while (count--)
-	fprintf (asm_out_file, "\t\t.param%s %%out_arg%d%s;\n",
-		 nvptx_ptx_type_from_mode (mode, false), argno++,
-		 mode == QImode || mode == HImode ? "[1]" : "");
-    }
-  for (int i = 1, argno = 0; i < arg_end; i++)
-    {
-      rtx t = XEXP (XVECEXP (pat, 0, i), 0);
-      gcc_assert (REG_P (t));
-      machine_mode mode = GET_MODE (t);
-      int count = maybe_split_mode (&mode);
-
-      if (count == 1)
-	fprintf (asm_out_file, "\t\tst.param%s [%%out_arg%d], %%r%d;\n",
-		 nvptx_ptx_type_from_mode (mode, false), argno++,
-		 REGNO (t));
-      else
-	{
-	  int n = 0;
-	  while (count--)
-	    fprintf (asm_out_file, "\t\tst.param%s [%%out_arg%d], %%r%d$%d;\n",
-		     nvptx_ptx_type_from_mode (mode, false), argno++,
-		     REGNO (t), n++);
-	}
+      /* Mode splitting has already been done.  */
+      fprintf (asm_out_file, "\t\t.param%s %%out_arg%d%s;\n",
+	       nvptx_ptx_type_from_mode (mode, false), argno,
+	       mode == QImode || mode == HImode ? "[1]" : "");
+      fprintf (asm_out_file, "\t\tst.param%s [%%out_arg%d], %%r%d;\n",
+	       nvptx_ptx_type_from_mode (mode, false), argno,
+	       REGNO (t));
     }
 
   fprintf (asm_out_file, "\t\tcall ");
@@ -1904,29 +1834,20 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
   else
     output_address (VOIDmode, callee);
 
-  if (arg_end > 1 || (decl && DECL_STATIC_CHAIN (decl)))
+  const char *open = "(";
+  for (int argno = 1; argno < arg_end; argno++)
     {
-      const char *comma = "";
-      
-      fprintf (asm_out_file, ", (");
-      for (int i = 1, argno = 0; i < arg_end; i++)
-	{
-	  rtx t = XEXP (XVECEXP (pat, 0, i), 0);
-	  machine_mode mode = GET_MODE (t);
-	  int count = maybe_split_mode (&mode);
-
-	  while (count--)
-	    {
-	      fprintf (asm_out_file, "%s%%out_arg%d", comma, argno++);
-	      comma = ", ";
-	    }
-	}
-      if (decl && DECL_STATIC_CHAIN (decl))
-	fprintf (asm_out_file, "%s%s", comma,
-		 reg_names [OUTGOING_STATIC_CHAIN_REGNUM]);
-
-      fprintf (asm_out_file, ")");
+      fprintf (asm_out_file, ", %s%%out_arg%d", open, argno);
+      open = "";
     }
+  if (decl && DECL_STATIC_CHAIN (decl))
+    {
+      fprintf (asm_out_file, ", %s%s", open,
+	       reg_names [OUTGOING_STATIC_CHAIN_REGNUM]);
+      open = "";
+    }
+  if (!open[0])
+    fprintf (asm_out_file, ")");
 
   if (needs_tgt)
     {
@@ -1934,10 +1855,8 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
       assemble_name (asm_out_file, buf);
     }
   fprintf (asm_out_file, ";\n");
-  if (result != NULL_RTX)
-    return "\tld.param%t0\t%0, [%%retval_in];\n\t}";
 
-  return "}";
+  return result != NULL_RTX ? "\tld.param%t0\t%0, [%%retval_in];\n\t}" : "}";
 }
 
 /* Implement TARGET_PRINT_OPERAND_PUNCT_VALID_P.  */
@@ -2155,10 +2074,10 @@ nvptx_print_operand (FILE *file, rtx x, int code)
 	    fprintf (file, "%s", reg_names[REGNO (x)]);
 	  else
 	    fprintf (file, "%%r%d", REGNO (x));
-	  if (code != 'f' && nvptx_split_reg_p (GET_MODE (x)))
+	  if (code != 'f' && maybe_split_mode (GET_MODE (x)) != VOIDmode)
 	    {
 	      gcc_assert (GET_CODE (orig_x) == SUBREG
-			  && !nvptx_split_reg_p (GET_MODE (orig_x)));
+			  && maybe_split_mode (GET_MODE (orig_x)) == VOIDmode);
 	      fprintf (file, "$%d", SUBREG_BYTE (orig_x) / UNITS_PER_WORD);
 	    }
 	  break;
