@@ -1,3 +1,139 @@
+2015-11-28  Tom de Vries  <tom@codesourcery.com>
+
+	* lto-wrapper.c (run_gcc): Handle -flinker-output argument.
+
+2015-11-27  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/invoke.texi (Option Summary): Use negative form of
+	-Waggressive-loop-optimizations, remove redundant -Wpedantic-ms-format,
+	sort alphabetically and re-justify.
+
+2015-11-27  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/68536
+	* lra.c (lra_emit_add): Add code for null base.
+	* lra-constraints.c (curr_insn_transform): Skip operators for
+	subreg reloads.
+
+2015-11-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Revert
+	2015-11-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* ifcvt.c (insn_valid_noce_process_p): Reject insn if it satisfies
+	multiple_sets.
+	(noce_try_cmove_arith): Add checking asserts that orig_a and orig_b
+	are not modified by the final modified insns in the basic blocks.
+
+2015-11-27  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx-protos.h (nvptx_addr_space_from_address):
+	Don't declare.
+	* config/nvptx/nvptx.c (nvptx_addr_space_from_sym): New.
+	(nvptx_maybe_convert_symbolic_operand): Simplify.
+	(nvptx_addr_space_from_address): Delete.
+	(nvptx_print_operand): Adjust 'A' case.
+
+2015-11-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/68559
+	* tree-vect-data-refs.c (vect_analyze_group_access_1): Move
+	peeling for gap checks ...
+	* tree-vect-stmts.c (vectorizable_load): ... here and relax
+	for SLP.
+	* tree-vect-loop.c (vect_analyze_loop_2): Re-set
+	LOOP_VINFO_PEELING_FOR_GAPS before re-trying without SLP.
+
+2015-11-27  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx-protos.h (nvptx_record_needed_decl): Don't
+	declaree.
+	* config/nvptx/nvptx.c (write_func_decl_from_insn): Move earlier.
+	(nvptx_record_fndecl): Don't return value, remove force
+	argyment. Require fndecl.
+	(nvptx_record_libfunc): New.
+	(nvptx_record_needed_decl): Deteermine how to record decl here.
+	(nvptx_maybe_record_fnsym): New.
+	(nvptx_expand_call): Don't record libfuncs here,
+	(nvptx_maybe_convert_symbolic_operand): Use
+	nvptx_maye_record_fnsym.
+	(nvptx_assemble_integer): Reimplement with single switch.
+	(nvptx_output_call_insn): Register libfuncs here.
+	(nvptx_file_end): Adjust  nvptx_record_fndecl call.
+	* config/nvptx/nvptx.md (expand_movdi): Don't call
+	nvptx_record_needed_decl.
+
+2015-11-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/68553
+	* tree-vect-slp.c (vect_create_mask_and_perm): Skip VEC_PERM_EXPR
+	generation for 1:1 permutations.
+	(vect_transform_slp_perm_load): Detect 1:1 permutations.
+
+2015-11-27  Bernd Schmidt  <bschmidt@redhat.com>
+
+	* gimple.h (nonbarrier_call_p): Declare.
+	* gimple.c (nonbarrier_call_p): New function.
+	* tree-ssa-phiopt.c (nontrapping_dom_walker::before_dom_children):
+	Also increment call phase for ASMs with vdef and potential barrier
+	calls.
+
+2015-11-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* ifcvt.c (insn_valid_noce_process_p): Reject insn if it satisfies
+	multiple_sets.
+	(noce_try_cmove_arith): Add checking asserts that orig_a and orig_b
+	are not modified by the final modified insns in the basic blocks.
+
+2015-11-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/68506
+	* ifcvt.c (noce_try_cmove_arith): Try emitting the else basic block
+	first if emit_a exists or then_bb modifies 'b'.  Reindent if-else
+	blocks.
+
+2015-11-27  Martin Liska  <mliska@suse.cz>
+
+	PR c++/68312
+	* vec.h (release_vec_vec): New function.
+
+2015-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/68552
+	* optabs.c (expand_vec_perm_1): Move vec_shr handling from here...
+	(expand_vec_perm): ... here.  Do it regardless of vec_perm_const_optab
+	or whether v0 == v1.
+
+2015-11-27  Martin Liska  <mliska@suse.cz>
+
+	* tree-ssa-uninit.c: Fix whitespaces in the source file.
+	The change is just automatical.
+
+2015-11-27  Martin Liska  <mliska@suse.cz>
+
+	* tree-chkp.c (chkp_make_static_bounds): Release buffer
+	used for string.
+
+2015-11-27  Martin Liska  <mliska@suse.cz>
+
+	* tree-vect-loop-manip.c (vect_create_cond_for_alias_checks):
+	Do not release memory for comp_alias_ddrs.
+	* tree-vect-loop.c (destroy_loop_vec_info): Release
+	the memory for all loop_vec_info.
+
+2015-11-27  Martin Liska  <mliska@suse.cz>
+
+	* ipa-devirt.c (ipa_devirt): Use auto_vec instead
+	of a local-scope vec.
+	(struct final_warning_record): Use auto_vec instead
+	of vec.
+
+2015-11-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/68553
+	* tree-vect-slp.c (vect_get_mask_element): Remove.
+	(vect_transform_slp_perm_load): Implement in a simpler way.
+
 2015-11-26  Alexandre Oliva <aoliva@redhat.com>
 
 	PR rtl-optimization/67753

@@ -1,3 +1,35 @@
+2015-11-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/68559
+	* gcc.dg/vect/slp-perm-4.c: Adjust again.
+	* gcc.dg/vect/pr45752.c: Likewise.
+
+2015-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/68250
+	* gcc.c-torture/execute/pr68250.c: New test.
+
+2015-11-27  Marek Polacek  <polacek@redhat.com>
+
+	* gcc.dg/pr63568.c: Convert to GIMPLE.
+
+2015-11-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/68506
+	* gcc.c-torture/execute/pr68506.c: New test.
+
+2015-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/63326
+	* gcc.dg/gomp/barrier-2.c (f2): Expect another error after label.
+	* c-c++-common/gomp/pr63326.c: New test.
+
+2015-11-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/68553
+	* gcc.dg/vect/pr45752.c: Adjust.
+	* gcc.dg/vect/slp-perm-4.c: Likewise.
+
 2015-11-26  Martin Sebor  <msebor@redhat.com>
 
 	* g++.dg/init/new45.C (cookie_size): New constant set to a value

@@ -1180,6 +1180,7 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo, bool clean_stmts)
   free_dependence_relations (LOOP_VINFO_DDRS (loop_vinfo));
   LOOP_VINFO_LOOP_NEST (loop_vinfo).release ();
   LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo).release ();
+  LOOP_VINFO_COMP_ALIAS_DDRS (loop_vinfo).release ();
   LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo).release ();
   slp_instances = LOOP_VINFO_SLP_INSTANCES (loop_vinfo);
   FOR_EACH_VEC_ELT (slp_instances, j, instance)
@@ -2189,6 +2190,7 @@ again:
     = init_cost (LOOP_VINFO_LOOP (loop_vinfo));
   /* Reset assorted flags.  */
   LOOP_VINFO_PEELING_FOR_NITER (loop_vinfo) = false;
+  LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo) = false;
   LOOP_VINFO_COST_MODEL_THRESHOLD (loop_vinfo) = 0;
 
   goto start_over;
