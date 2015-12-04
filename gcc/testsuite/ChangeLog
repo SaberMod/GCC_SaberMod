@@ -1,3 +1,11 @@
+2015-12-04  Andre Vieira <andre.simoesdiasvieira@arm.com>
+
+	Backport from mainline:
+	2015-10-15  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	PR testsuite/67948
+	* gcc.target/arm/xor-and.c: check for eor instead of orr.
+
 2015-12-04  Andre Vieira  <andre.simoesdiasvieira@arm.com>
 
 	Backport from mainline:
