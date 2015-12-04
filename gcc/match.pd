@@ -389,6 +389,49 @@ along with GCC; see the file COPYING3.  If not see
 	&& (TREE_CODE (@4) != SSA_NAME || has_single_use (@4)))
    (bit_xor (bit_and (bit_xor @0 @1) @2) @0)))
 
+/* ((X inner_op C0) outer_op C1)
+   With X being a tree where value_range has reasoned certain bits to always be
+   zero throughout its computed value range,
+   inner_op = {|,^}, outer_op = {|,^} and inner_op != outer_op
+   where zero_mask has 1's for all bits that are sure to be 0 in
+   and 0's otherwise.
+   if (inner_op == '^') C0 &= ~C1;
+   if ((C0 & ~zero_mask) == 0) then emit (X outer_op (C0 outer_op C1)
+   if ((C1 & ~zero_mask) == 0) then emit (X inner_op (C0 outer_op C1)
+*/
+(for inner_op (bit_ior bit_xor)
+     outer_op (bit_xor bit_ior)
+(simplify
+ (outer_op
+  (inner_op@3 @2 INTEGER_CST@0) INTEGER_CST@1)
+ (with
+  {
+    bool fail = false;
+    wide_int zero_mask_not;
+    wide_int C0;
+    wide_int cst_emit;
+
+    if (TREE_CODE (@2) == SSA_NAME &&
+	(TREE_CODE (@3) != SSA_NAME || has_single_use (@3)))
+      zero_mask_not = get_nonzero_bits (@2);
+    else
+      fail = true;
+
+    if (inner_op == BIT_XOR_EXPR)
+      {
+	C0 = wi::bit_and_not (@0, @1);
+	cst_emit = wi::bit_or (C0, @1);
+      }
+    else
+      {
+	C0 = @0;
+	cst_emit = wi::bit_xor (@0, @1);
+      }
+  }
+  (if (!fail && wi::bit_and (C0, zero_mask_not) == 0)
+   (outer_op @2 { wide_int_to_tree (type, cst_emit); }))
+  (if (!fail && wi::bit_and (@1, zero_mask_not) == 0)
+    (inner_op @2 { wide_int_to_tree (type, cst_emit); })))))
 
 /* Associate (p +p off1) +p off2 as (p +p (off1 + off2)).  */
 (simplify
@@ -613,6 +656,17 @@ along with GCC; see the file COPYING3.  If not see
  (simplify
   (cmp (bit_and (lshift integer_onep @0) integer_onep) integer_zerop)
   (icmp @0 { build_zero_cst (TREE_TYPE (@0)); })))
+
+/* Fold (X {&,^,|} C2) << C1 into (X << C1) {&,^,|} (C2 << C1)
+   (X {&,^,|} C2) >> C1 into (X >> C1) & (C2 >> C1).  */
+ (for shift (lshift rshift)
+ (for bit_op (bit_and bit_xor bit_ior)
+  (simplify
+   (shift (convert? (bit_op@4 @0 INTEGER_CST@2)) INTEGER_CST@1)
+   (with { bool fail = !(TREE_CODE (@4) != SSA_NAME || has_single_use (@4)); }
+    (if (!fail && tree_nop_conversion_p (type, TREE_TYPE (@0)))
+     (with { tree mask = int_const_binop (shift, fold_convert (type, @2), @1); }
+      (bit_op (shift (convert @0) @1) { mask; })))))))
 
 /* Simplifications of conversions.  */
 
