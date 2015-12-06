@@ -1,3 +1,20 @@
+2015-12-04  Jan Sommer <soja-lists@aries.uberspace.de>
+
+	PR ada/68169
+	* s-oscons-tmplt.c: Generate pthread constants for RTEMS
+	* s-osinte-rtems.ads: Declare pthread structs as opaque types in Ada
+
+2015-12-04  Release Manager
+
+	* GCC 5.3.0 released.
+
+2015-11-29  Matthias Klose  <doko@ubuntu.com>
+
+	PR ada/68564
+	* gcc-interface/Makefile.in: Fix powerpc/powerpc64* and
+	mipsel/mips64el bitness detection.
+	Merge the mipsel/mips64el definitions into one.
+
 2015-11-28  Matthias Klose  <doko@ubuntu.com>
 
 	PR ada/68564
