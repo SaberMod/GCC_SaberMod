@@ -77,7 +77,8 @@ gfc_free_omp_clauses (gfc_omp_clauses *c)
   gfc_free_expr (c->thread_limit);
   gfc_free_expr (c->dist_chunk_size);
   gfc_free_expr (c->async_expr);
-  gfc_free_expr (c->gang_expr);
+  gfc_free_expr (c->gang_num_expr);
+  gfc_free_expr (c->gang_static_expr);
   gfc_free_expr (c->worker_expr);
   gfc_free_expr (c->vector_expr);
   gfc_free_expr (c->num_gangs_expr);
@@ -395,21 +396,41 @@ cleanup:
 static match
 match_oacc_clause_gang (gfc_omp_clauses *cp)
 {
-  if (gfc_match_char ('(') != MATCH_YES)
+  match ret = MATCH_YES;
+
+  if (gfc_match (" ( ") != MATCH_YES)
     return MATCH_NO;
-  if (gfc_match (" num :") == MATCH_YES)
+
+  /* The gang clause accepts two optional arguments, num and static.
+     The num argument may either be explicit (num: <val>) or
+     implicit without (<val> without num:).  */
+
+  while (ret == MATCH_YES)
     {
-      cp->gang_static = false;
-      return gfc_match (" %e )", &cp->gang_expr);
+      if (gfc_match (" static :") == MATCH_YES)
+	{
+	  if (cp->gang_static)
+	    return MATCH_ERROR;
+	  else
+	    cp->gang_static = true;
+	  if (gfc_match_char ('*') == MATCH_YES)
+	    cp->gang_static_expr = NULL;
+	  else if (gfc_match (" %e ", &cp->gang_static_expr) != MATCH_YES)
+	    return MATCH_ERROR;
+	}
+      else
+	{
+	  /* This is optional.  */
+	  if (cp->gang_num_expr || gfc_match (" num :") == MATCH_ERROR)
+	    return MATCH_ERROR;
+	  else if (gfc_match (" %e ", &cp->gang_num_expr) != MATCH_YES)
+	    return MATCH_ERROR;
+	}
+
+      ret = gfc_match (" , ");
     }
-  if (gfc_match (" static :") == MATCH_YES)
-    {
-      cp->gang_static = true;
-      if (gfc_match (" * )") != MATCH_YES)
-	return gfc_match (" %e )", &cp->gang_expr);
-      return MATCH_YES;
-    }
-  return gfc_match (" %e )", &cp->gang_expr);
+
+  return gfc_match (" ) ");
 }
 
 static match
@@ -957,7 +978,8 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 
 	  if (gfc_match_omp_variable_list (" :",
 					   &c->lists[OMP_LIST_REDUCTION],
-					   false, NULL, &head) == MATCH_YES)
+					   false, NULL, &head, openacc)
+	      == MATCH_YES)
 	    {
 	      gfc_omp_namelist *n;
 	      if (rop == OMP_REDUCTION_NONE)
@@ -1318,6 +1340,8 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
    | OMP_CLAUSE_DELETE)
 #define OACC_WAIT_CLAUSES \
   (OMP_CLAUSE_ASYNC)
+#define OACC_ROUTINE_CLAUSES \
+  (OMP_CLAUSE_GANG | OMP_CLAUSE_WORKER | OMP_CLAUSE_VECTOR | OMP_CLAUSE_SEQ)
 
 
 match
@@ -1619,13 +1643,44 @@ gfc_match_oacc_cache (void)
   return MATCH_YES;
 }
 
+/* Determine the loop level for a routine.   */
+
+static int
+gfc_oacc_routine_dims (gfc_omp_clauses *clauses)
+{
+  int level = -1;
+
+  if (clauses)
+    {
+      unsigned mask = 0;
+
+      if (clauses->gang)
+	level = GOMP_DIM_GANG, mask |= GOMP_DIM_MASK (level);
+      if (clauses->worker)
+	level = GOMP_DIM_WORKER, mask |= GOMP_DIM_MASK (level);
+      if (clauses->vector)
+	level = GOMP_DIM_VECTOR, mask |= GOMP_DIM_MASK (level);
+      if (clauses->seq)
+	level = GOMP_DIM_MAX, mask |= GOMP_DIM_MASK (level);
+
+      if (mask != (mask & -mask))
+	gfc_error ("Multiple loop axes specified for routine");
+    }
+
+  if (level < 0)
+    level = GOMP_DIM_MAX;
+
+  return level;
+}
 
 match
 gfc_match_oacc_routine (void)
 {
   locus old_loc;
-  gfc_symbol *sym;
+  gfc_symbol *sym = NULL;
   match m;
+  gfc_omp_clauses *c = NULL;
+  gfc_oacc_routine_name *n = NULL;
 
   old_loc = gfc_current_locus;
 
@@ -1640,52 +1695,85 @@ gfc_match_oacc_routine (void)
       goto cleanup;
     }
 
-  if (m == MATCH_NO
-      && gfc_current_ns->proc_name
-      && gfc_match_omp_eos () == MATCH_YES)
+  if (m == MATCH_YES)
+    {
+      char buffer[GFC_MAX_SYMBOL_LEN + 1];
+      gfc_symtree *st;
+
+      m = gfc_match_name (buffer);
+      if (m == MATCH_YES)
+	{
+	  st = gfc_find_symtree (gfc_current_ns->sym_root, buffer);
+	  if (st)
+	    {
+	      sym = st->n.sym;
+	      if (strcmp (sym->name, gfc_current_ns->proc_name->name) == 0)
+	        sym = NULL;
+	    }
+
+	  if (st == NULL
+	      || (sym
+		  && !sym->attr.external
+		  && !sym->attr.function
+		  && !sym->attr.subroutine))
+	    {
+	      gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %C, "
+			 "invalid function name %s",
+			 (sym) ? sym->name : buffer);
+	      gfc_current_locus = old_loc;
+	      return MATCH_ERROR;
+	    }
+	}
+      else
+        {
+	  gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %C");
+	  gfc_current_locus = old_loc;
+	  return MATCH_ERROR;
+	}
+
+      if (gfc_match_char (')') != MATCH_YES)
+	{
+	  gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %C, expecting"
+		     " ')' after NAME");
+	  gfc_current_locus = old_loc;
+	  return MATCH_ERROR;
+	}
+    }
+
+  if (gfc_match_omp_eos () != MATCH_YES
+      && (gfc_match_omp_clauses (&c, OACC_ROUTINE_CLAUSES, false, false, true)
+	  != MATCH_YES))
+    return MATCH_ERROR;
+
+  if (sym != NULL)
+    {
+      n = gfc_get_oacc_routine_name ();
+      n->sym = sym;
+      n->clauses = NULL;
+      n->next = NULL;
+      if (gfc_current_ns->oacc_routine_names != NULL)
+	n->next = gfc_current_ns->oacc_routine_names;
+
+      gfc_current_ns->oacc_routine_names = n;
+    }
+  else if (gfc_current_ns->proc_name)
     {
       if (!gfc_add_omp_declare_target (&gfc_current_ns->proc_name->attr,
 				       gfc_current_ns->proc_name->name,
 				       &old_loc))
 	goto cleanup;
-      return MATCH_YES;
+      gfc_current_ns->proc_name->attr.oacc_function
+	= gfc_oacc_routine_dims (c) + 1;
     }
 
-  if (m != MATCH_YES)
-    return m;
+  if (n)
+    n->clauses = c;
+  else if (gfc_current_ns->oacc_routine)
+    gfc_current_ns->oacc_routine_clauses = c;
 
-  /* Scan for a function name.  */
-  m = gfc_match_symbol (&sym, 0);
-
-  if (m != MATCH_YES)
-    {
-      gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %C");
-      gfc_current_locus = old_loc;
-      return MATCH_ERROR;
-    }
-
-  if (!sym->attr.external && !sym->attr.function && !sym->attr.subroutine)
-    {
-      gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %C, invalid"
-		 " function name %qs", sym->name);
-      gfc_current_locus = old_loc;
-      return MATCH_ERROR;
-    }
-
-  if (gfc_match_char (')') != MATCH_YES)
-    {
-      gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %C, expecting"
-		 " ')' after NAME");
-      gfc_current_locus = old_loc;
-      return MATCH_ERROR;
-    }
-
-  if (gfc_match_omp_eos () != MATCH_YES)
-    {
-      gfc_error ("Unexpected junk after !$ACC ROUTINE at %C");
-      goto cleanup;
-    }
-  return MATCH_YES;
+  new_st.op = EXEC_OACC_ROUTINE;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;  
 
 cleanup:
   gfc_current_locus = old_loc;
@@ -3226,6 +3314,11 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 		       n->sym->name, &n->where);
 	  else
 	    n->sym->mark = 1;
+
+	  /* OpenACC does not support reductions on arrays.  */
+	  if (n->sym->as)
+	    gfc_error ("Array %qs is not permitted in reduction at %L",
+		       n->sym->name, &n->where);
 	}
     }
   
@@ -3660,11 +3753,15 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
   if (omp_clauses->num_gangs_expr)
     resolve_oacc_positive_int_expr (omp_clauses->num_gangs_expr, "NUM_GANGS");
   if (omp_clauses->num_workers_expr)
-    resolve_oacc_positive_int_expr (omp_clauses->num_workers_expr, "NUM_WORKERS");
+    resolve_oacc_positive_int_expr (omp_clauses->num_workers_expr,
+				    "NUM_WORKERS");
   if (omp_clauses->vector_length_expr)
-    resolve_oacc_positive_int_expr (omp_clauses->vector_length_expr, "VECTOR_LENGTH");
-  if (omp_clauses->gang_expr)
-    resolve_oacc_positive_int_expr (omp_clauses->gang_expr, "GANG");
+    resolve_oacc_positive_int_expr (omp_clauses->vector_length_expr,
+				    "VECTOR_LENGTH");
+  if (omp_clauses->gang_num_expr)
+    resolve_oacc_positive_int_expr (omp_clauses->gang_num_expr, "GANG");
+  if (omp_clauses->gang_static_expr)
+    resolve_oacc_positive_int_expr (omp_clauses->gang_static_expr, "GANG");
   if (omp_clauses->worker_expr)
     resolve_oacc_positive_int_expr (omp_clauses->worker_expr, "WORKER");
   if (omp_clauses->vector_expr)
@@ -4639,20 +4736,21 @@ resolve_oacc_nested_loops (gfc_code *code, gfc_code* do_code, int collapse,
 
 
 static void
-resolve_oacc_params_in_parallel (gfc_code *code, const char *clause)
+resolve_oacc_params_in_parallel (gfc_code *code, const char *clause,
+				 const char *arg)
 {
   fortran_omp_context *c;
 
   if (oacc_is_parallel (code))
     gfc_error ("!$ACC LOOP %s in PARALLEL region doesn't allow "
-	       "non-static arguments at %L", clause, &code->loc);
+	       "%s arguments at %L", clause, arg, &code->loc);
   for (c = omp_current_ctx; c; c = c->previous)
     {
       if (oacc_is_loop (c->code))
 	break;
       if (oacc_is_parallel (c->code))
 	gfc_error ("!$ACC LOOP %s in PARALLEL region doesn't allow "
-		   "non-static arguments at %L", clause, &code->loc);
+		   "%s arguments at %L", clause, arg, &code->loc);
     }
 }
 
@@ -4735,13 +4833,16 @@ resolve_oacc_loop_blocks (gfc_code *code)
 	       "vectors at the same time at %L", &code->loc);
 
   if (code->ext.omp_clauses->gang
-      && code->ext.omp_clauses->gang_expr
-      && !code->ext.omp_clauses->gang_static)
-    resolve_oacc_params_in_parallel (code, "GANG");
+      && code->ext.omp_clauses->gang_num_expr)
+    resolve_oacc_params_in_parallel (code, "GANG", "num");
 
   if (code->ext.omp_clauses->worker
       && code->ext.omp_clauses->worker_expr)
-    resolve_oacc_params_in_parallel (code, "WORKER");
+    resolve_oacc_params_in_parallel (code, "WORKER", "num");
+
+  if (code->ext.omp_clauses->vector
+      && code->ext.omp_clauses->vector_expr)
+    resolve_oacc_params_in_parallel (code, "VECTOR", "length");
 
   if (code->ext.omp_clauses->tile_list)
     {

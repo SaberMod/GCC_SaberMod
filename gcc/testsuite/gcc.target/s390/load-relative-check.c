@@ -1,11 +1,14 @@
 /* Check if load-relative instructions are created */
 /* { dg-do compile { target { s390*-*-* } } } */
-/* { dg-options "-O2 -march=z10" } */
+/* { dg-options "-O2 -march=z10 -mzarch" } */
 
-/* { dg-final { scan-assembler "lgfrl\t%r.?,b.4" } } */
-/* { dg-final { scan-assembler "lgfrl\t%r.?,s.12" } } */
-/* { dg-final { scan-assembler "lgrl\t%r.?,s" } } */
-/* { dg-final { scan-assembler "larl\t%r.?,.L.?" } } */
+/* { dg-final { scan-assembler "lgfrl\t%r.?,b.4" { target { lp64 } } } } */
+/* { dg-final { scan-assembler "lgfrl\t%r.?,s.12" { target { lp64 } } } } */
+/* { dg-final { scan-assembler "lgrl\t%r.?,s" { target { lp64 } } } } */
+
+/* { dg-final { scan-assembler "lrl\t%r.?,b.4" { target { ! lp64 } } } } */
+/* { dg-final { scan-assembler "lrl\t%r.?,s.8" { target { ! lp64 } } } } */
+/* { dg-final { scan-assembler "lrl\t%r.?,s" { target { ! lp64 } } } } */
 
 int b[20];
 

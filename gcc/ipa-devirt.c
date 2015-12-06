@@ -209,93 +209,6 @@ struct GTY(()) odr_type_d
   bool rtti_broken;
 };
 
-/* Return true if T is a type with linkage defined.  */
-
-bool
-type_with_linkage_p (const_tree t)
-{
-  /* Builtin types do not define linkage, their TYPE_CONTEXT is NULL.  */
-  if (!TYPE_CONTEXT (t)
-      || !TYPE_NAME (t) || TREE_CODE (TYPE_NAME (t)) != TYPE_DECL
-      || !TYPE_STUB_DECL (t))
-    return false;
-
-  /* In LTO do not get confused by non-C++ produced types or types built
-     with -fno-lto-odr-type-merigng.  */
-  if (in_lto_p)
-    {
-      /* To support -fno-lto-odr-type-merigng recognize types with vtables
-         to have linkage.  */
-      if (RECORD_OR_UNION_TYPE_P (t)
-	  && TYPE_BINFO (t) && BINFO_VTABLE (TYPE_BINFO (t)))
-        return true;
-      /* Do not accept any other types - we do not know if they were produced
-         by C++ FE.  */
-      if (!DECL_ASSEMBLER_NAME_SET_P (TYPE_NAME (t)))
-        return false;
-    }
-
-  return (RECORD_OR_UNION_TYPE_P (t)
-	  || TREE_CODE (t) == ENUMERAL_TYPE);
-}
-
-/* Return true if T is in anonymous namespace.
-   This works only on those C++ types with linkage defined.  */
-
-bool
-type_in_anonymous_namespace_p (const_tree t)
-{
-  gcc_assert (type_with_linkage_p (t));
-
-  /* Keep -fno-lto-odr-type-merging working by recognizing classes with vtables
-     properly into anonymous namespaces.  */
-  if (RECORD_OR_UNION_TYPE_P (t)
-      && TYPE_BINFO (t) && BINFO_VTABLE (TYPE_BINFO (t)))
-    return (TYPE_STUB_DECL (t) && !TREE_PUBLIC (TYPE_STUB_DECL (t)));
-
-  if (TYPE_STUB_DECL (t) && !TREE_PUBLIC (TYPE_STUB_DECL (t)))
-    {
-      /* C++ FE uses magic <anon> as assembler names of anonymous types.
- 	 verify that this match with type_in_anonymous_namespace_p.  */
-      if (in_lto_p)
-	gcc_checking_assert (!strcmp ("<anon>",
-				      IDENTIFIER_POINTER
-					(DECL_ASSEMBLER_NAME (TYPE_NAME (t)))));
-      return true;
-    }
-  return false;
-}
-
-/* Return true of T is type with One Definition Rule info attached. 
-   It means that either it is anonymous type or it has assembler name
-   set.  */
-
-bool
-odr_type_p (const_tree t)
-{
-  /* We do not have this information when not in LTO, but we do not need
-     to care, since it is used only for type merging.  */
-  gcc_checking_assert (in_lto_p || flag_lto);
-
-  /* To support -fno-lto-odr-type-merging consider types with vtables ODR.  */
-  if (type_with_linkage_p (t) && type_in_anonymous_namespace_p (t))
-    return true;
-
-  if (TYPE_NAME (t) && TREE_CODE (TYPE_NAME (t)) == TYPE_DECL
-      && (DECL_ASSEMBLER_NAME_SET_P (TYPE_NAME (t))))
-    {
-      /* C++ FE uses magic <anon> as assembler names of anonymous types.
- 	 verify that this match with type_in_anonymous_namespace_p.  */
-      gcc_checking_assert (!type_with_linkage_p (t)
-			   || strcmp ("<anon>",
-				      IDENTIFIER_POINTER
-					(DECL_ASSEMBLER_NAME (TYPE_NAME (t))))
-			   || type_in_anonymous_namespace_p (t));
-      return true;
-    }
-  return false;
-}
-
 /* Return TRUE if all derived types of T are known and thus
    we may consider the walk of derived type complete.
 
@@ -1969,15 +1882,6 @@ add_type_duplicate (odr_type val, tree type)
       merge = false;
       odr_violation_reported = true;
       val->odr_violated = true;
-      if (symtab->dump_file)
-	{
-	  fprintf (symtab->dump_file, "ODR violation\n");
-
-	  print_node (symtab->dump_file, "", val->type, 0);
-	  putc ('\n',symtab->dump_file);
-	  print_node (symtab->dump_file, "", type, 0);
-	  putc ('\n',symtab->dump_file);
-	}
     }
   gcc_assert (val->odr_violated || !odr_must_violate);
   /* Sanity check that all bases will be build same way again.  */

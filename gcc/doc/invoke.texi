@@ -845,6 +845,7 @@ Objective-C and Objective-C++ Dialects}.
 
 @emph{MSP430 Options}
 @gccoptlist{-msim -masm-hex -mmcu= -mcpu= -mlarge -msmall -mrelax @gol
+-mwarn-mcu @gol
 -mcode-region= -mdata-region= @gol
 -msilicon-errata= -msilicon-errata-warn= @gol
 -mhwmult= -minrt}
@@ -1100,7 +1101,7 @@ See RS/6000 and PowerPC Options.
 -mpclmul -mfsgsbase -mrdrnd -mf16c -mfma @gol
 -mprefetchwt1 -mclflushopt -mxsavec -mxsaves @gol
 -msse4a -m3dnow -mpopcnt -mabm -mbmi -mtbm -mfma4 -mxop -mlzcnt @gol
--mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mmpx -mmwaitx -mthreads @gol
+-mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mmpx -mmwaitx -mclzero -mthreads @gol
 -mms-bitfields -mno-align-stringops  -minline-all-stringops @gol
 -minline-stringops-dynamically -mstringop-strategy=@var{alg} @gol
 -mmemcpy-strategy=@var{strategy} -mmemset-strategy=@var{strategy} @gol
@@ -6134,6 +6135,11 @@ report undefined behavior using @code{__builtin_trap} rather than
 a @code{libubsan} library routine.  The advantage of this is that the
 @code{libubsan} library is not needed and is not linked in, so this
 is usable even in freestanding environments.
+
+@item -fsanitize-coverage=trace-pc
+@opindex fsanitize-coverage=trace-pc
+Enable coverage-guided fuzzing code instrumentation.
+Inserts call to __sanitizer_cov_trace_pc into every basic block.
 
 @item -fcheck-pointer-bounds
 @opindex fcheck-pointer-bounds
@@ -12480,10 +12486,9 @@ Generate big-endian code.  This is the default when GCC is configured for an
 
 @item -mgeneral-regs-only
 @opindex mgeneral-regs-only
-Generate code which uses only the general-purpose registers.  This is equivalent
-to feature modifier @option{nofp} of @option{-march} or @option{-mcpu}, except
-that @option{-mgeneral-regs-only} takes precedence over any conflicting feature
-modifier regardless of sequence.
+Generate code which uses only the general-purpose registers.  This will prevent
+the compiler from using floating-point and Advanced SIMD registers but will not
+impose any restrictions on the assembler.
 
 @item -mlittle-endian
 @opindex mlittle-endian
@@ -18511,6 +18516,16 @@ cause the linker to search for a script called @file{xxx.ld}.
 
 This option is also passed on to the assembler.
 
+@item -mwarn-mcu
+@itemx -mno-warn-mcu
+@opindex mwarn-mcu
+@opindex mno-warn-mcu
+This option enables or disables warnings about conflicts between the
+MCU name specified by the @option{-mmcu} option and the ISA set by the
+@option{-mcpu} option and/or the hardware multiply support set by the
+@option{-mhwmult} option.  It also toggles warnings about unrecognised
+MCU names.  This option is on by default.
+
 @item -mcpu=
 @opindex mcpu=
 Specifies the ISA to use.  Accepted values are @samp{msp430},
@@ -18545,10 +18560,9 @@ for the original 16-bit-only multiply supported by early MCUs.
 @samp{f5series} for the 16/32-bit multiply supported by F5-series MCUs.
 A value of @samp{auto} can also be given.  This tells GCC to deduce
 the hardware multiply support based upon the MCU name provided by the
-@option{-mmcu} option.  If no @option{-mmcu} option is specified then
-@samp{32bit} hardware multiply support is assumed.  If the MCU name is
-not recognised then no hardware multiply support is assumed.
-@code{auto} is the default setting.
+@option{-mmcu} option.  If no @option{-mmcu} option is specified or if
+the MCU name is not recognised then no hardware multiply support is
+assumed.  @code{auto} is the default setting.
 
 Hardware multiplies are normally performed by calling a library
 routine.  This saves space in the generated code.  When compiling at
@@ -23202,6 +23216,9 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @need 200
 @itemx -mmwaitx
 @opindex mmwaitx
+@need 200
+@itemx -mclzero
+@opindex mclzero
 These switches enable the use of instructions in the MMX, SSE,
 SSE2, SSE3, SSSE3, SSE4.1, AVX, AVX2, AVX512F, AVX512PF, AVX512ER, AVX512CD,
 SHA, AES, PCLMUL, FSGSBASE, RDRND, F16C, FMA, SSE4A, FMA4, XOP, LWP, ABM,

@@ -575,6 +575,7 @@ cgraph_node::analyze (void)
       cgraph_node *t = cgraph_node::get (thunk.alias);
 
       create_edge (t, NULL, 0, CGRAPH_FREQ_BASE);
+      callees->can_throw_external = !TREE_NOTHROW (t->decl);
       /* Target code in expand_thunk may need the thunk's target
 	 to be analyzed, so recurse here.  */
       if (!t->analyzed)
@@ -956,7 +957,7 @@ check_global_declaration (symtab_node *snode)
       && ! DECL_ABSTRACT_ORIGIN (decl)
       && ! TREE_PUBLIC (decl)
       /* A volatile variable might be used in some non-obvious way.  */
-      && ! TREE_THIS_VOLATILE (decl)
+      && (! VAR_P (decl) || ! TREE_THIS_VOLATILE (decl))
       /* Global register variables must be declared to reserve them.  */
       && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
       /* Global ctors and dtors are called by the runtime.  */

@@ -4817,14 +4817,26 @@ ok:
       goto cleanup;
     }
 
-  if (formal)
+  /* gfc_error_now used in following and return with MATCH_YES because
+     doing otherwise results in a cascade of extraneous errors and in
+     some cases an ICE in symbol.c(gfc_release_symbol).  */
+  if (progname->attr.module_procedure && progname->attr.host_assoc)
     {
+      bool arg_count_mismatch = false;
+
+      if (!formal && head)
+	arg_count_mismatch = true;
+
+      /* Abbreviated module procedure declaration is not meant to have any
+	 formal arguments!  */
+      if (!progname->abr_modproc_decl && formal && !head)
+	arg_count_mismatch = true;
+
       for (p = formal, q = head; p && q; p = p->next, q = q->next)
 	{
 	  if ((p->next != NULL && q->next == NULL)
 	      || (p->next == NULL && q->next != NULL))
-	    gfc_error_now ("Mismatch in number of MODULE PROCEDURE "
-		           "formal arguments at %C");
+	    arg_count_mismatch = true;
 	  else if ((p->sym == NULL && q->sym == NULL)
 		    || strcmp (p->sym->name, q->sym->name) == 0)
 	    continue;
@@ -4833,6 +4845,10 @@ ok:
 			   "argument names (%s/%s) at %C",
 			   p->sym->name, q->sym->name);
 	}
+
+      if (arg_count_mismatch)
+	gfc_error_now ("Mismatch in number of MODULE PROCEDURE "
+		       "formal arguments at %C");
     }
 
   return MATCH_YES;

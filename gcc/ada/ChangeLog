@@ -1,3 +1,128 @@
+2015-12-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/56274
+	* s-osinte-kfreebsd-gnu.ads (pthread_rwlock_t): New subtype.
+	(pthread_rwlockattr_t): Likewise.
+
+2015-12-06  Ludovic Brenta  <ludovic@ludovic-brenta.org>
+
+	PR ada/49944
+	* s-osinte-freebsd.ads: Minor reformatting.
+	(Stack_Base_Available): Correct comments.
+	* s-osinte-kfreebsd-gnu.ads (Time_Slice_Supported, nanosleep,
+	clock_id_t, clock_gettime, Stack_Base_Available, Get_Page_Size,
+	mprotect, pthread_mutexattr_setprotocol,pthread_mutexattr_getprotocol
+	pthread_mutexattr_setprioceiling, pthread_mutexattr_getprioceiling,
+	pthread_attr_setscope, pthread_attr_getscope,
+	pthread_attr_setinheritsched, pthread_attr_getinheritsched,
+	Time_Slice_Supported): Copy from s-osinte-freebsd.ads.
+	* gcc-interface/Makefile.in (x86/kfreebsd): Use the POSIX version of
+	the System.Task_Primitives.Operations package.
+
+2015-12-06  Ludovic Brenta  <ludovic@ludovic-brenta.org>
+
+	PR ada/49940
+	* s-osinte-kfreebsd-gnu.ads (lwp_self): New imported function.
+
+2015-12-01  Jan Sommer <soja-lists@aries.uberspace.de>
+
+	PR ada/68169
+	* s-oscons-tmplt.c: Generate pthread constants for RTEMS
+	* s-osinte-rtems.ads: Declare pthread structs as opaque types in Ada
+
+2015-12-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/Makefile.in (ADA_EXCLUDE_SRCS): Reorder.
+
+2015-11-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (gigi): Fix initialization order.
+
+2015-11-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* osint.adb: Add use type clause for CRTL.size_t.
+	(C_String_Length): Return CRTL.size_t instead of Integer.
+	(To_Path_String_Access): Take CRTL.size_t instead of Integer.
+	(Get_Libraries_From_Registry): Use CRTL throughout.
+	(To_Canonical_Dir_Spec): Use CRTL.size_t instead of Integer.
+	(To_Canonical_File_List): Likewise.
+	(To_Canonical_File_Spec): Likewise.
+	(To_Canonical_Path_Spec): Likewise.
+	(To_Host_Dir_Spec): Likewise.
+	(To_Host_File_Spec): Likewise.
+	(Update_Path): Use CRTL throughout.
+	* s-shasto.adb: Add with clause for System.CRTL.
+	(Initialize): Rename CRTL.strncpy instead of importing it manually.
+
+2015-11-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/gigi.h (create_var_decl): Adjust prototype.
+	(create_subprog_decl): Likewise.
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Variable>: Rename
+	static_p into static_flag and add volatile_flag local variable.
+	Do not locally change the type of a volatile object, except for the
+	pointed-to type if the object is handled by reference.  Adjust calls
+	to create_var_decl.
+	<E_Subprogram_Type>: Likewise for const and noreturn subprograms.
+	(get_minimal_subprog_decl): Adjust call to create_subprog_decl.
+	(elaborate_expression_1): Adjust call to create_var_decl.
+	(gnat_to_gnu_field): Minor tweak.
+	* gcc-interface/trans.c (gigi): Adjust calls to create_var_decl and
+	create_subprog_decl.
+	(build_raise_check): Likewise.
+	(Subprogram_Body_to_gnu): Likewise.
+	(create_temporary): Likewise.
+	(Handled_Sequence_Of_Statements_to_gnu): Likewise.
+	(Exception_Handler_to_gnu_gcc): Likewise.
+	(Compilation_Unit_to_gnu): Likewise.
+	(gnat_to_gnu): Likewise.
+	* gcc-interface/utils.c (maybe_pad_type): Likewise.
+	(create_var_decl): Add VOLATILE_FLAG parameter and handle it.
+	(create_subprog_decl): Add CONST_FLAG and VOLATILE_FLAG parameters and
+	handle them.
+
+2015-11-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/gigi.h (is_simple_additive_expression): Declare.
+	* gcc-interface/trans.c (struct range_check_info_d): Add DISP and
+	NEG_P fields.
+	(find_loop_for): Add DISP and NEG_P parameters with default value.
+	Call is_simple_additive_expression to handle additive expressions.
+	(Loop_Statement_to_gnu): Deal with displacement in range checks.
+	(Raise_Error_to_gnu): Likewise.
+	(gnat_to_gnu): Add call to find_loop_for.
+	(is_simple_additive_expression): New function extracted from...
+	(gnat_invariant_expr): ...here.  Call it on the expression.
+
+2015-11-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils2.c (gnat_invariant_expr): Add type conversions.
+
+2015-11-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/ada-tree.h (TYPE_MAX_ALIGN): New macro.
+	* gcc-interface/decl.c (gnat_to_gnu_entity): Do not set PACKED to -2.
+	Remove obsolete code setting the alignment on some atomic types.
+	When the type has no alignment but needs strict alignment and has a
+	size clause, compute a maximum alignment and set it on the type.
+	(adjust_packed): Remove handling of -2 argument.  Deal with TYPE_ALIGN
+	and TYPE_MAX_ALIGN directly.
+	(gnat_to_gnu_field): Do not document -2 as argument.
+	(components_to_record): Likewise.
+	* gcc-interface/utils.c (finish_record_type): Do not bump alignment of
+	the record type beyond TYPE_MAX_ALIGN.  Reset the latter on exit.
+
+	* gcc-interface/Makefile.in (PICFLAG_FOR_TARGET): Move around.
+	(GNATLIBCFLAGS_FOR_C): Reformat.
+	(GCC_CFLAGS): Delete.
+
+2015-11-29  Matthias Klose  <doko@ubuntu.com>
+
+	PR ada/68564
+	* gcc-interface/Makefile.in: Fix powerpc/powerpc64* and
+	mipsel/mips64el bitness detection.
+	Merge the mipsel/mips64el definitions into one.
+
 2015-11-28  Matthias Klose  <doko@ubuntu.com>
 
 	PR ada/68564

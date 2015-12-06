@@ -1,3 +1,12 @@
+2015-12-04  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto-symtab.c (lto_cgraph_replace_node): Update code computing
+	merged_comdat.
+
+2015-12-01  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c (compare_tree_sccs_1): Do not compare TYPE_ALIAS_SET.
+
 2015-11-25  Jan Hubicka  <jh@suse.cz>
 
 	* lto-lang.c (lto_post_options): Process flag_lto_linker_output.

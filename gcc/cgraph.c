@@ -1994,6 +1994,8 @@ cgraph_node::dump (FILE *f)
     fprintf (f, " tm_clone");
   if (icf_merged)
     fprintf (f, " icf_merged");
+  if (merged_comdat)
+    fprintf (f, " merged_comdat");
   if (nonfreeing_fn)
     fprintf (f, " nonfreeing_fn");
   if (DECL_STATIC_CONSTRUCTOR (decl))
@@ -2253,8 +2255,9 @@ cgraph_node::make_local (cgraph_node *node, void *)
       node->forced_by_abi = false;
       node->local.local = true;
       node->set_section (NULL);
-      node->unique_name = (node->resolution == LDPR_PREVAILING_DEF_IRONLY
-				  || node->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP);
+      node->unique_name = ((node->resolution == LDPR_PREVAILING_DEF_IRONLY
+			   || node->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP)
+			   && !flag_incremental_link);
       node->resolution = LDPR_PREVAILING_DEF_IRONLY;
       gcc_assert (node->get_availability () == AVAIL_LOCAL);
     }

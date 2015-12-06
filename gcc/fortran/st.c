@@ -118,6 +118,8 @@ gfc_free_statement (gfc_code *p)
     case EXEC_SYNC_MEMORY:
     case EXEC_LOCK:
     case EXEC_UNLOCK:
+    case EXEC_EVENT_POST:
+    case EXEC_EVENT_WAIT:
       break;
 
     case EXEC_BLOCK:
@@ -202,6 +204,7 @@ gfc_free_statement (gfc_code *p)
     case EXEC_OACC_CACHE:
     case EXEC_OACC_ENTER_DATA:
     case EXEC_OACC_EXIT_DATA:
+    case EXEC_OACC_ROUTINE:
     case EXEC_OMP_CANCEL:
     case EXEC_OMP_CANCELLATION_POINT:
     case EXEC_OMP_DISTRIBUTE:
