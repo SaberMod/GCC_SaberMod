@@ -5277,9 +5277,13 @@ aarch64_override_options (void)
   global_options.x_warn_unused_but_set_variable = 0;
   global_options.x_warn_maybe_uninitialized = 0;
   global_options.x_warn_strict_overflow = 0;
-  global_options.x_warn_all = 0;
-  global_options.x_warn_extra = 0;
-  set_Wall = 0;
+  global_options_set.x_warn_array_bounds = false;
+  global_options_set.x_warn_clobbered = false;
+  global_options_set.x_warn_unused = false;
+  global_options_set.x_warn_unused_but_set_parameter = false;
+  global_options_set.x_warn_unused_but_set_variable = false;
+  global_options_set.x_warn_maybe_uninitialized = false;
+  global_options_set.x_warn_strict_overflow = false;
 
   aarch64_override_options_after_change ();
 }
