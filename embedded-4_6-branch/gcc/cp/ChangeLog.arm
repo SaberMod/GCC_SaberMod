@@ -1,9 +1,0 @@
-2012-06-12  Bin Cheng  <bin.cheng@arm.com>
-
-	Backport r180986 from mainline
-	2011-11-04  Eric Botcazou  <ebotcazou@adacore.com>
-
-	PR c++/50608
-	* semantics.c (finish_offsetof): Adjust call to fold_offsetof.
-	* typeck.c (cp_build_addr_expr_1): Call fold_offsetof_1.
-

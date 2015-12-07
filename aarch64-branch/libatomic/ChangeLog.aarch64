@@ -1,5 +1,0 @@
-2012-05-25  Sofiane Naci <sofiane.naci@arm.com>
-
-	Mark libatomic unsupported in AArch64.
-
-	* configure.tgt: Mark libatomic unsupported.
