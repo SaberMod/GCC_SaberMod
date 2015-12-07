@@ -6209,6 +6209,24 @@ aarch64_override_options (void)
       aarch64_fix_a53_err843419 = 1;
     }
 
+  /* While warnings are actually quite good things, they aren't
+     always helpful and occasionally make some users shy away from
+     using SaberMod. Let's fix that. */
+  global_options.x_warn_array_bounds = 0;
+  global_options.x_warn_clobbered = 0;
+  global_options.x_warn_unused = 0;
+  global_options.x_warn_unused_but_set_parameter = 0;
+  global_options.x_warn_unused_but_set_variable = 0;
+  global_options.x_warn_maybe_uninitialized = 0;
+  global_options.x_warn_strict_overflow = 0;
+  global_options_set.x_warn_array_bounds = false;
+  global_options_set.x_warn_clobbered = false;
+  global_options_set.x_warn_unused = false;
+  global_options_set.x_warn_unused_but_set_parameter = false;
+  global_options_set.x_warn_unused_but_set_variable = false;
+  global_options_set.x_warn_maybe_uninitialized = false;
+  global_options_set.x_warn_strict_overflow = false;
+
   aarch64_override_options_after_change ();
 
   if (TARGET_ANDROID)
