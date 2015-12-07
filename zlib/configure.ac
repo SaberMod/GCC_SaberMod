@@ -1,10 +1,8 @@
 dnl Process this with autoconf to create configure
 
-AC_PREREQ(2.64)
+AC_PREREQ(2.69)
 AC_INIT
 AC_CONFIG_SRCDIR([zlib.h])
-
-AM_ENABLE_MULTILIB(, ..)
 
 AC_CANONICAL_SYSTEM
 

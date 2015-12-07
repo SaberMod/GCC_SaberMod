@@ -1,11 +1,9 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.64])
+AC_PREREQ([2.69])
 AC_INIT(package-unused, version-unused, libsanitizer)
 AC_CONFIG_SRCDIR([include/sanitizer/common_interface_defs.h])
-
-AM_ENABLE_MULTILIB(, ..)
 
 AC_MSG_CHECKING([for --enable-version-specific-runtime-libs])
 AC_ARG_ENABLE(version-specific-runtime-libs,
@@ -64,7 +62,7 @@ AC_SUBST(toolexeclibdir)
 AC_PROG_CC
 AC_PROG_CXX
 AM_PROG_AS
-AC_PROG_RANLIB
+LT_INIT
 
 AC_LIBTOOL_DLOPEN
 AM_PROG_LIBTOOL
