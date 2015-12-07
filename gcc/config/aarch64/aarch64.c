@@ -5267,7 +5267,7 @@ aarch64_override_options (void)
 #endif
     }
 
-  /* While warnings are actually quite good things, they aren't 
+  /* While warnings are actually quite good things, they aren't
      always helpful and occasionally make some users shy away from
      using SaberMod. Let's fix that. */
   global_options.x_warn_array_bounds = 0;
@@ -5277,6 +5277,9 @@ aarch64_override_options (void)
   global_options.x_warn_unused_but_set_variable = 0;
   global_options.x_warn_maybe_uninitialized = 0;
   global_options.x_warn_strict_overflow = 0;
+  global_options.x_warn_all = 0;
+  global_options.x_warn_extra = 0;
+  set_Wall = 0;
 
   aarch64_override_options_after_change ();
 }
