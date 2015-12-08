@@ -1,0 +1,4 @@
+2015-12-08  Hale Wang  <hale.wang@arm.com>
+	    Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* config/arm/lib1funcs.S: Add new wrapper.
