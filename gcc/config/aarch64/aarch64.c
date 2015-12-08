@@ -5267,11 +5267,6 @@ aarch64_override_options (void)
 #endif
     }
 
-  if (aarch64_fix_a53_err843419 == 2)
-    {
-      aarch64_fix_a53_err843419 = 1;
-    }
-
   /* While warnings are actually quite good things, they aren't
      always helpful and occasionally make some users shy away from
      using SaberMod. Let's fix that. */
