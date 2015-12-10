@@ -1,3 +1,12 @@
+2015-12-10  Tejas Belagod  <tejas.belagod@arm.com>
+
+	Backport from Mainline
+	2015-04-22  Hale Wang  <hale.wang@arm.com>
+		    Terry Guo  <terry.guo@arm.com>
+
+	PR rtl-optimization/64818
+	* gcc.target/arm/pr64818.c: New test.
+
 2015-12-04  Andre Vieira <andre.simoesdiasvieira@arm.com>
 
 	Backport from mainline:
