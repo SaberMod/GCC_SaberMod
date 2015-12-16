@@ -1,0 +1,9 @@
+2015-12-16  Tejas Belagod  <tejas.belagod@arm.com>
+
+	Backport from Mainline
+	2015-11-25  Jan Hubicka  <jh@suse.cz>
+
+	PR lto/67548
+	* lto-plugin.c (linker_output, linker_output_set): New statics.
+	(all_symbols_read_handler): Add -flinker-output option.
+	(onload): Record linker_output info.
