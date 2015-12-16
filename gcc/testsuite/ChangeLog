@@ -1,3 +1,33 @@
+2015-12-15  Alessandro Fanfarillo  <fanfarillo@gmail.com>
+
+	Backport from mainline.
+	2015-12-15
+	Alessandro Fanfarillo <fanfarillo.gcc@gmail.com>
+
+	* gfortran.dg/coarray_critical_1.f90: New.
+
+2015-12-14  Tobias Burnus  <burnus@net-b.de>
+	    Alessandro Fanfarillo <fanfarillo.gcc@gmail.com>
+
+	Backport from mainline.
+	2015-12-09  Tobias Burnus  <burnus@net-b.de>
+	    Alessandro Fanfarillo <fanfarillo.gcc@gmail.com>
+
+	* gfortran.dg/coarray_40.f90: New.
+
+2015-12-14  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/66616
+	* g++.dg/ipa/pr66616.C: New test.
+
+2015-12-14  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Backport from mainline.
+	2015-12-09  James Greenhalgh  <james.greenhalgh@arm.com> 
+
+	PR rtl-optimization/67609
+	* gcc.dg/torture/pr67609.c: New.
+
 2015-12-10  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/68376

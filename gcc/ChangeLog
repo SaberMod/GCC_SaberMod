@@ -1,3 +1,45 @@
+2015-12-14  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/66616
+	* ipa-cp.c (propagate_constants_accross_call): Move thuk check...
+	(call_passes_through_thunk_p): ...here.
+	(find_more_scalar_values_for_callers_subset): Perform thunk checks
+	like propagate_constants_accross_call does.
+
+2015-12-14  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Backport from mainline.
+	2015-12-09  James Greenhalgh  <james.greenhalgh@arm.com> 
+
+	PR rtl-optimization/67609
+	* config/aarch64/aarch64-protos.h
+	(aarch64_cannot_change_mode_class): Bring back.
+	* config/aarch64/aarch64.c
+	(aarch64_cannot_change_mode_class): Likewise.
+	* config/aarch64/aarch64.h (CANNOT_CHANGE_MODE_CLASS): Likewise.
+	* config/aarch64/aarch64.md (aarch64_movdi_<mode>low): Use
+	zero_extract rather than truncate.
+	(aarch64_movdi_<mode>high): Likewise.
+
+2015-12-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2015-12-11  Martin Liska  <mliska@suse.cz>
+		    Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/67484
+	* config/i386/i386.c (ix86_valid_target_attribute_tree):
+	Use ggc_strdup to copy option_strings to opts->x_ix86_arch_string and
+	opts->x_ix86_tune_string.
+
+2015-12-13  Alexandre Oliva <aoliva@redhat.com>
+
+	PR debug/67355
+	* var-tracking.c (reverse_op): Don't add dummy zero to reverse
+	ops that simplify back to the original value.
+	* alias.c (refs_newer_value_p): Cut off recursion for
+	expressions containing the original value.
+
 2015-12-10  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/68376
