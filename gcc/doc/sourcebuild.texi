@@ -1578,6 +1578,10 @@ Some multilibs may be incompatible with these options.
 ARM target prefers @code{LDRD} and @code{STRD} instructions over
 @code{LDM} and @code{STM} instructions.
 
+@item arm_thumb1_movt_ko
+ARM target generates Thumb-1 code for @code{-mthumb} with no
+@code{MOVT} instruction available.
+
 @end table
 
 @subsubsection MIPS-specific attributes

@@ -1,5 +1,12 @@
 2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	* lib/target-supports.exp (check_effective_target_arm_thumb1_movt_ko):
+	Define effective target.
+	* gcc.target/arm/pr42574.c: Require arm_thumb1_movt_ko instead of
+	arm_thumb1_ok as effective target to exclude ARMv8-M Baseline.
+
+2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	* lib/target-supports.exp: Generate add_options_for_arm_arch_FUNC and
 	check_effective_target_arm_arch_FUNC_multilib for ARMv8-M Baseline and
 	ARMv8-M Mainline architectures.
