@@ -2153,9 +2153,11 @@ static const struct processors *arm_selected_arch;
 static const struct processors *arm_selected_cpu;
 static const struct processors *arm_selected_tune;
 
-/* The name of the preprocessor macro to define for this architecture.  */
+/* The name of the preprocessor macro to define for this architecture.  PROFILE
+   is replaced by the architecture name (eg. 8A) in arm_option_override () and
+   is thus chosen to be big enough to hold the biggest architecture name.  */
 
-char arm_arch_name[] = "__ARM_ARCH_0UNK__";
+char arm_arch_name[] = "__ARM_ARCH_PROFILE__";
 
 /* Available values for -mfpu=.  */
 
@@ -2869,7 +2871,8 @@ arm_option_override (void)
   if (arm_restrict_it == 2)
     arm_restrict_it = arm_arch8 && TARGET_THUMB2;
 
-  if (!TARGET_THUMB2)
+  /* ARM execution state and M profile don't have [restrict] IT.  */
+  if (!TARGET_THUMB2 || !arm_arch_notm)
     arm_restrict_it = 0;
 
   /* If we are not using the default (ARM mode) section anchor offset
@@ -25731,7 +25734,7 @@ arm_file_start (void)
 	      const char* pos = strchr (arm_selected_arch->name, '+');
 	      if (pos)
 		{
-		  char buf[15];
+		  char buf[32];
 		  gcc_assert (strlen (arm_selected_arch->name)
 			      <= sizeof (buf) / sizeof (*pos));
 		  strncpy (buf, arm_selected_arch->name,

@@ -1,5 +1,9 @@
 2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	* config/arm/lib1funcs.S (__ARM_ARCH__): Define to 8 for ARMv8-M.
+
+2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	* config/arm/bpabi-v6m.S: Fix header comment to mention Thumb-1 rather
 	than ARMv6-M.
 	* config/arm/lib1funcs.S (__prefer_thumb__): Define among other cases

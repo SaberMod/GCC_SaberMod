@@ -397,6 +397,8 @@ extern bool arm_is_constant_pool_ref (rtx);
 #define FL_FOR_ARCH7M	(FL_FOR_ARCH7 | FL_THUMB_DIV)
 #define FL_FOR_ARCH7EM  (FL_FOR_ARCH7M | FL_ARCH7EM)
 #define FL_FOR_ARCH8A	(FL_FOR_ARCH7VE | FL_ARCH8)
+#define FL_FOR_ARCH8M_BASE     (FL_FOR_ARCH6M | FL_ARCH8 | FL_THUMB_DIV)
+#define FL_FOR_ARCH8M_MAIN     (FL_FOR_ARCH7M | FL_ARCH8)
 
 /* The bits in this mask specify which
    instructions we are allowed to generate.  */

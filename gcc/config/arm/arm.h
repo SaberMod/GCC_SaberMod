@@ -377,7 +377,7 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 				 && arm_arch_notm)
 
 /* Nonzero if this chip supports load-acquire and store-release.  */
-#define TARGET_HAVE_LDACQ	(TARGET_ARM_ARCH >= 8)
+#define TARGET_HAVE_LDACQ	(TARGET_ARM_ARCH >= 8 && TARGET_32BIT)
 
 /* Nonzero if integer division instructions supported.  */
 #define TARGET_IDIV		((TARGET_ARM && arm_arch_arm_hwdiv) \
@@ -483,7 +483,9 @@ enum base_architecture
   BASE_ARCH_7R = 7,
   BASE_ARCH_7M = 7,
   BASE_ARCH_7EM = 7,
-  BASE_ARCH_8A = 8
+  BASE_ARCH_8A = 8,
+  BASE_ARCH_8M_BASE = 8,
+  BASE_ARCH_8M_MAIN = 8
 };
 
 /* The major revision number of the ARM Architecture implemented by the target.  */
@@ -2340,6 +2342,8 @@ extern int making_const_table;
 			&& !arm_arch_thumb2)
 #define TARGET_ARM_V7M (TARGET_ARM_ARCH == BASE_ARCH_7M && !arm_arch_notm \
 			&& arm_arch_thumb2)
+#define TARGET_ARM_V8M (TARGET_ARM_ARCH == BASE_ARCH_8M_BASE \
+			&& !arm_arch_notm && !arm_arch_thumb2)
 
 /* The highest Thumb instruction set version supported by the chip.  */
 #define TARGET_ARM_ARCH_ISA_THUMB 		\
