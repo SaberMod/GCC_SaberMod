@@ -1,5 +1,14 @@
 2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	* config/arm/arm.c (arm_print_operand_punct_valid_p): Make %? valid
+	for Thumb-1.
+	* config/arm/arm.h (TARGET_HAVE_CBZ): Define.
+	(TARGET_IDIV): Set for all Thumb targets provided they have hardware
+	divide feature.
+	* config/arm/thumb1.md (thumb1_cbz): New insn.
+
+2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	* config/arm/arm.h (TARGET_HAVE_MOVT): Include ARMv8-M as having MOVT.
 	* config/arm/arm.c (arm_arch_name): (const_ok_for_op): Check MOVT/MOVW
 	availability with TARGET_HAVE_MOVT.
