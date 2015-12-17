@@ -1431,6 +1431,7 @@ OBJS = \
 	tree-scalar-evolution.o \
 	tree-sra.o \
 	tree-switch-conversion.o \
+	tree-switch-shortcut.o \
 	tree-ssa-address.o \
 	tree-ssa-alias.o \
 	tree-ssa-ccp.o \

@@ -1115,6 +1115,20 @@ DEFPARAM (PARAM_MAX_SLSR_CANDIDATE_SCAN,
 	  "strength reduction",
 	  50, 1, 999999)
 
+/* Maximum number of instructions to duplicate when shortcutting a switch.  */
+DEFPARAM (PARAM_MAX_SWITCH_INSNS,
+	  "max-switch-insns",
+	  "Maximum number of instructions to duplicate when "
+	  "shortcutting a switch statement",
+	  100, 1, 999999)
+
+/* Maximum number of paths to duplicate when shortcutting a switch.  */
+DEFPARAM (PARAM_MAX_SWITCH_PATHS,
+	  "max-switch-paths",
+	  "Maximum number of new paths to create when"
+	  " shortcutting a switch statement",
+	  50, 1, 999999)
+
 DEFPARAM (PARAM_ASAN_STACK,
          "asan-stack",
          "Enable asan stack protection",
