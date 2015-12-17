@@ -1,15 +1,3 @@
-2014-12-17  Hale Wang  <hale.wang@arm.com>
-
-	* Makefile.in (tree-switch-shortcut): New object file.
-	* common.opt (-ftree-switch-shortcut): New option.
-	* opts.c: Likewise.
-	* params.def: Define the maxinum number of instructions and paths
-	to duplicate when shortcutting a switch.
-	* passes.def (pass_tree_switch_shortcut): New pass.
-	* timevar.def (TV_TREE_SWITCH_SHORTCUT): Define new value.
-	* tree-pass.h (make_pass_tree_switch_shortcut): New pass.
-	* tree-switch-shortcut.c: New file.
-
 2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	* Makefile.in (with_multilib_list): New variables substituted by

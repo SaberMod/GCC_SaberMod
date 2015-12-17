@@ -590,7 +590,6 @@ extern gimple_opt_pass *make_pass_early_inline (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_inline_parameters (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_update_address_taken (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_convert_switch (gcc::context *ctxt);
-extern gimple_opt_pass *make_pass_tree_switch_shortcut (gcc::context *ctxt);
 
 /* Current optimization pass.  */
 extern opt_pass *current_pass;
