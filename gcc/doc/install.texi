@@ -1103,14 +1103,23 @@ Currently only implemented for arm*-*-*, sh*-*-* and x86-64-*-linux*.
 
 @table @code
 @item arm*-*-*
-@var{list} is either @code{default} or @code{aprofile}.  Specifying
-@code{default} is equivalent to omitting this option while specifying
-@code{aprofile} builds multilibs for each combination of ISA (@code{-marm} or
-@code{-mthumb}), architecture (@code{-march=armv7-a}, @code{-march=armv7ve},
-or @code{-march=armv8-a}), FPU available (none, @code{-mfpu=vfpv3-d16},
-@code{neon}, @code{vfpv4-d16}, @code{neon-vfpv4} or @code{neon-fp-armv8}
-depending on architecture) and floating-point ABI (@code{-mfloat-abi=softfp}
-or @code{-mfloat-abi=hard}).
+@var{list} is one of:
+
+@itemize @bullet
+ @item @code{default}
+ @item @code{aprofile}
+ @item any combination of @code{armv6-m}, @code{armv7-m}, @code{armv7e-m},
+ @code{armv7-r}, @code{armv8-m.base} and @code{armv8-m.main}
+@end itemize
+
+Specifying @code{default} is equivalent to omitting this option while
+specifying @code{aprofile} builds multilibs for each combination of ISA
+(@code{-marm} or @code{-mthumb}), architecture (@code{-march=armv7-a},
+@code{-march=armv7ve}, or @code{-march=armv8-a}), FPU available (none,
+@code{-mfpu=vfpv3-d16}, @code{neon}, @code{vfpv4-d16}, @code{neon-vfpv4} or
+@code{neon-fp-armv8} depending on architecture) and floating-point ABI
+(@code{-mfloat-abi=softfp} or @code{-mfloat-abi=hard}).  The last option
+specifies a list of bare-metal multilibs that must be built.
 
 @item sh*-*-*
 @var{list} is a comma separated list of CPU names.  These must be of the

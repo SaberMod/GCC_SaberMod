@@ -1,5 +1,17 @@
 2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	* Makefile.in (with_multilib_list): New variables substituted by
+	configure.
+	* config.gcc: Handle bare-metal multilibs in --with-multilib-list
+	option.
+	* config/arm/t-baremetal: New file.
+	* configure.ac (with_multilib_list): New AC_SUBST.
+	* configure: Regenerate.
+	* doc/install.texi (--with-multilib-list): Update description for
+	arm*-*-* targets to mention bare-metal multilibs.
+
+2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	* config.gcc: Error out when conflicting multilib is detected.  Do not
 	loop over multilibs since no combination is legal.
 

@@ -3716,15 +3716,25 @@ case "${target}" in
 			default)
 				;;
 			*)
-				echo "Error: --with-multilib-list=${with_multilib_list} not supported." 1>&2
-				exit 1
+				for arm_multilib in ${arm_multilibs}; do
+					case ${arm_multilib} in
+					armv6-m | armv7-m | armv7e-m | armv7-r | armv8-m.base | armv8-m.main)
+						tmake_profile_file="arm/t-baremetal"
+						;;
+					*)
+						echo "Error: --with-multilib-list=${with_multilib_list} not supported." 1>&2
+						exit 1
+						;;
+					esac
+				done
 				;;
 			esac
 
 			if test "x${tmake_profile_file}" != x ; then
-				# arm/t-aprofile is only designed to work
-				# without any with-cpu, with-arch, with-mode,
-				# with-fpu or with-float options.
+				# arm/t-aprofile and arm/t-baremetal are only
+				# designed to work without any with-cpu,
+				# with-arch, with-mode, with-fpu or with-float
+				# options.
 				if test "x$with_arch" != x \
 				    || test "x$with_cpu" != x \
 				    || test "x$with_float" != x \

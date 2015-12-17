@@ -760,6 +760,7 @@ LN
 LN_S
 AWK
 SET_MAKE
+with_multilib_list
 accel_dir_suffix
 real_target_noncanonical
 enable_as_accelerator
@@ -7469,6 +7470,7 @@ if test "${with_multilib_list+set}" = set; then :
 else
   with_multilib_list=default
 fi
+
 
 
 # -------------------------
