@@ -1,5 +1,10 @@
 2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	* config.gcc: Error out when conflicting multilib is detected.  Do not
+	loop over multilibs since no combination is legal.
+
+2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	* doc/install.texi (--with-multilib-list): Describe the meaning of the
 	option for arm*-*-* targets.
 
