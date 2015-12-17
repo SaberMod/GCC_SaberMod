@@ -1,5 +1,21 @@
 2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	* config/arm/arm.h (TARGET_USE_MOVT): Check MOVT/MOVW availability
+	with TARGET_HAVE_MOVT.
+	(TARGET_HAVE_MOVT): Define.
+	* config/arm/arm.c (const_ok_for_op): Check MOVT/MOVW
+	availability with TARGET_HAVE_MOVT.
+	* config/arm/arm.md (arm_movt): Use TARGET_HAVE_MOVT to check movt
+	availability.
+	(addsi splitter): Use TARGET_USE_MOVT to check whether to use
+	movt + movw.
+	(symbol_refs movsi splitter): Remove TARGET_32BIT check.
+	(arm_movtas_ze): Use TARGET_HAVE_MOVT to check movt availability.
+	* config/arm/constraints.md (define_constraint "j"): Use
+	TARGET_HAVE_MOVT to check movt availability.
+
+2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	* config/arm/arm-protos.h: Reindent FL_FOR_* macro definitions.
 
 2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
