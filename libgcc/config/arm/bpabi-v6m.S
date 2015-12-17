@@ -1,4 +1,4 @@
-/* Miscellaneous BPABI functions.  ARMv6M implementation
+/* Miscellaneous BPABI functions.  Thumb-1 only implementation
 
    Copyright (C) 2006-2015 Free Software Foundation, Inc.
    Contributed by CodeSourcery.

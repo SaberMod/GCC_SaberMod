@@ -1,3 +1,28 @@
+2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/bpabi-v6m.S: Fix header comment to mention Thumb-1 rather
+	than ARMv6-M.
+	* config/arm/lib1funcs.S (__prefer_thumb__): Define among other cases
+	for all Thumb-1 only targets.
+	(__only_thumb1__): Define for all Thumb-1 only targets.
+	(THUMB_LDIV0): Test for __only_thumb1__ rather than __ARM_ARCH_6M__.
+	(EQUIV): Likewise.
+	(ARM_FUNC_ALIAS): Likewise.
+	(umodsi3): Add check to __only_thumb1__ to guard the idiv version.
+	(modsi3): Likewise.
+	(HAVE_ARM_CLZ): Test for __only_thumb1__ rather than __ARM_ARCH_6M__.
+	(clzsi2): Likewise.
+	(clzdi2): Likewise.
+	(ctzsi2): Likewise.
+	(L_interwork_call_via_rX): Test for __ARM_ARCH_ISA_ARM rather than
+	__ARM_ARCH_6M__ in guard for checking whether it is defined.
+	(final includes): Test for __only_thumb1__ rather than
+	__ARM_ARCH_6M__ and add comment to indicate the connection between
+	this condition and the one in gcc/config/arm/elf.h.
+	* config/arm/libunwind.S: Test for __ARM_ARCH_ISA_THUMB and
+	__ARM_ARCH_ISA_ARM rather than __ARM_ARCH_6M__.
+	* config/arm/t-softfp: Likewise.
+
 2015-12-08  Hale Wang  <hale.wang@arm.com>
 	    Andre Vieira  <andre.simoesdiasvieira@arm.com>
 

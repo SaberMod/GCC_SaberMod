@@ -2336,8 +2336,10 @@ extern int making_const_table;
 #define TARGET_ARM_ARCH	\
   (arm_base_arch)	\
 
-#define TARGET_ARM_V6M (!arm_arch_notm && !arm_arch_thumb2)
-#define TARGET_ARM_V7M (!arm_arch_notm && arm_arch_thumb2)
+#define TARGET_ARM_V6M (TARGET_ARM_ARCH == BASE_ARCH_6M && !arm_arch_notm \
+			&& !arm_arch_thumb2)
+#define TARGET_ARM_V7M (TARGET_ARM_ARCH == BASE_ARCH_7M && !arm_arch_notm \
+			&& arm_arch_thumb2)
 
 /* The highest Thumb instruction set version supported by the chip.  */
 #define TARGET_ARM_ARCH_ISA_THUMB 		\
