@@ -1,5 +1,10 @@
 2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	* doc/install.texi (--with-multilib-list): Describe the meaning of the
+	option for arm*-*-* targets.
+
+2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	* config/arm/arm.c (arm_print_operand_punct_valid_p): Make %? valid
 	for Thumb-1.
 	* config/arm/arm.h (TARGET_HAVE_CBZ): Define.
