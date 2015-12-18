@@ -2849,16 +2849,23 @@ arm_option_override (void)
   if (target_slow_flash_data)
     arm_disable_literal_pool = true;
 
-  /* While warnings are actually quite good things, they aren't 
+  /* While warnings are actually quite good things, they aren't
      always helpful and occasionally make some users shy away from
      using SaberMod. Let's fix that. */
-  global_options.x_warn_array_bounds = 0;
-  global_options.x_warn_clobbered = 0;
-  global_options.x_warn_unused = 0;
-  global_options.x_warn_unused_but_set_parameter = 0;
-  global_options.x_warn_unused_but_set_variable = 0;
-  global_options.x_warn_maybe_uninitialized = 0;
-  global_options.x_warn_strict_overflow = 0;
+  global_options.x_warn_array_bounds = false;
+  global_options.x_warn_clobbered = false;
+  global_options.x_warn_unused = false;
+  global_options.x_warn_unused_but_set_parameter = false;
+  global_options.x_warn_unused_but_set_variable = false;
+  global_options.x_warn_maybe_uninitialized = false;
+  global_options.x_warn_strict_overflow = false;
+  global_options_set.x_warn_array_bounds = false;
+  global_options_set.x_warn_clobbered = false;
+  global_options_set.x_warn_unused = false;
+  global_options_set.x_warn_unused_but_set_parameter = false;
+  global_options_set.x_warn_unused_but_set_variable = false;
+  global_options_set.x_warn_maybe_uninitialized = false;
+  global_options_set.x_warn_strict_overflow = false;
 
   /* Register global variables with the garbage collector.  */
   arm_add_gc_roots ();
