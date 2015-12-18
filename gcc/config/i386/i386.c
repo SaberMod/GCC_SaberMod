@@ -4150,6 +4150,17 @@ ix86_option_override_internal (bool main_args_p,
       opts->x_target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
     }
 
+  /* Stack realignment without -maccumulate-outgoing-args requires %ebp,
+     so enable -maccumulate-outgoing-args when %ebp is fixed.  */
+  if (fixed_regs[BP_REG]
+      && !(opts->x_target_flags & MASK_ACCUMULATE_OUTGOING_ARGS))
+    {
+      if (opts_set->x_target_flags & MASK_ACCUMULATE_OUTGOING_ARGS)
+	warning (0, "fixed ebp register requires %saccumulate-outgoing-args%s",
+		 prefix, suffix);
+      opts->x_target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
+    }
+
   /* Figure out what ASM_GENERATE_INTERNAL_LABEL builds as a prefix.  */
   {
     char *p;
@@ -4982,12 +4993,14 @@ ix86_valid_target_attribute_tree (tree args,
       /* If we are using the default tune= or arch=, undo the string assigned,
 	 and use the default.  */
       if (option_strings[IX86_FUNCTION_SPECIFIC_ARCH])
-	opts->x_ix86_arch_string = option_strings[IX86_FUNCTION_SPECIFIC_ARCH];
+	opts->x_ix86_arch_string
+	  = ggc_strdup (option_strings[IX86_FUNCTION_SPECIFIC_ARCH]);
       else if (!orig_arch_specified)
 	opts->x_ix86_arch_string = NULL;
 
       if (option_strings[IX86_FUNCTION_SPECIFIC_TUNE])
-	opts->x_ix86_tune_string = option_strings[IX86_FUNCTION_SPECIFIC_TUNE];
+	opts->x_ix86_tune_string
+	  = ggc_strdup (option_strings[IX86_FUNCTION_SPECIFIC_TUNE]);
       else if (orig_tune_defaulted)
 	opts->x_ix86_tune_string = NULL;
 
