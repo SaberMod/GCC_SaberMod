@@ -288,7 +288,7 @@ esac
 
 # Current mingw has an internal compiler error when building gold.
 # Bug: http://b/22045105
-if [ "$MINGW" = "yes" ]; then
+if [ "$MINGW" = "yes" -a "$TRY64" = "no" ]; then
     ENABLE_GOLD_FLAGS=
 fi
 
