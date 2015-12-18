@@ -1,3 +1,72 @@
+2015-12-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/68196
+	*expr.c (gfc_has_default_initializer): Prevent infinite recursion
+	through this function for procedure pointer components.
+	* trans-array.c (structure_alloc_comps): Ditto twice.
+
+2015-12-15  Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
+
+	* resolve.c (resolve_critical): Committing symbols of
+	lock variables.
+
+2014-12-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/68850
+	* gfortran.texi (Standards): Mention TS 18508.
+	(Fortran 2003 and 2008 Status): Add section on TS 18508 status.
+	* intrinsic.texi (EVENT_QUERY): Add.
+
+2014-12-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/45859
+	* expr.c (gfc_is_simply_contiguous): Optionally permit array elements.
+	(gfc_check_pointer_assign): Update call.
+	* interface.c (compare_parameter): Ditto.
+	* trans-array.c (gfc_conv_array_parameter): Ditto.
+	* trans-intrinsic.c (gfc_conv_intrinsic_transfer,
+	conv_isocbinding_function): Ditto.
+	* gfortran.h (gfc_is_simply_contiguous): Update prototype.
+
+2014-12-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/68815
+	* check.c (gfc_check_reshape): Replace %<%d%> by %qd.
+	* matchexp.c (gfc_match_defined_op_name): Use %qc.
+	* symbol.c (gfc_add_new_implicit_range,
+	gfc_merge_new_implicit): Ditto.
+
+2015-12-10  David Malcolm  <dmalcolm@redhat.com>
+
+	* io.c (gfc_match_open): Fix indentation.
+
+2015-12-09  Tobias Burnus  <burnus@net-b.de>
+	    Alessandro Fanfarillo <fanfarillo.gcc@gmail.com>
+
+	* trans.c (gfc_allocate_using_lib,gfc_deallocate_with_status):
+	Introducing __asm__ __volatile__ ("":::"memory")
+	after image control statements.
+	* trans-stmt.c 	(gfc_trans_sync, gfc_trans_event_post_wait,
+	gfc_trans_lock_unlock, gfc_trans_critical): Ditto.
+	* trans-intrinsic.c (gfc_conv_intrinsic_caf_get,
+	conv_caf_send): Introducing __asm__ __volatile__ ("":::"memory")
+	after send, before get and around sendget.
+
+2015-12-09  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/68815
+	* decl.c (gfc_verify_c_interop_param, variable_decl): Use
+	%< ... %> for quoting in diagnostics.
+	* io.c (check_format): Ditto.
+	* resolve.c (resolve_operator): Ditto.
+	* symbol.c (check_conflict): Ditto.
+	* trans-common.c (translate_common): Ditto.
+
+2015-12-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* error.c (gfc_format_decoder): Update for change of
+	text_info::set_range to text_info::set_location.
+
 2015-12-05  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/68676

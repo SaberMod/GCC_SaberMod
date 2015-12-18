@@ -1,4 +1,4 @@
-/* Translation of ISL AST to Gimple.
+/* Translation of isl AST to Gimple.
    Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Contributed by Roman Gareev <gareevroman@gmail.com>.
 
@@ -53,25 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "cfganal.h"
 #include "value-prof.h"
-
-#include <isl/constraint.h>
-#include <isl/set.h>
-#include <isl/union_set.h>
-#include <isl/map.h>
-#include <isl/union_map.h>
-#include <isl/ast_build.h>
-
-/* Since ISL-0.13, the extern is in val_gmp.h.  */
-#if !defined(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE) && defined(__cplusplus)
-extern "C" {
-#endif
-#include <isl/val_gmp.h>
-#if !defined(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE) && defined(__cplusplus)
-}
-#endif
-
 #include "graphite.h"
-
 #include <map>
 
 /* We always try to use signed 128 bit types, but fall back to smaller types
@@ -116,12 +98,12 @@ graphite_verify (void)
   checking_verify_loop_closed_ssa (true);
 }
 
-/* IVS_PARAMS maps ISL's scattering and parameter identifiers
+/* IVS_PARAMS maps isl's scattering and parameter identifiers
    to corresponding trees.  */
 
 typedef std::map<isl_id *, tree> ivs_params;
 
-/* Free all memory allocated for ISL's identifiers.  */
+/* Free all memory allocated for isl's identifiers.  */
 
 void ivs_params_clear (ivs_params &ip)
 {
@@ -133,6 +115,29 @@ void ivs_params_clear (ivs_params &ip)
     }
 }
 
+#ifdef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
+
+/* Set the "separate" option for the schedule node.  */
+
+static __isl_give isl_schedule_node *
+set_separate_option (__isl_take isl_schedule_node *node, void *user)
+{
+  if (user)
+    return node;
+
+  if (isl_schedule_node_get_type (node) != isl_schedule_node_band)
+    return node;
+
+  /* Set the "separate" option unless it is set earlier to another option.  */
+  if (isl_schedule_node_band_member_get_ast_loop_type (node, 0)
+      == isl_ast_loop_default)
+    return isl_schedule_node_band_member_set_ast_loop_type
+      (node, 0, isl_ast_loop_separate);
+
+  return node;
+}
+#endif
+
 class translate_isl_ast_to_gimple
 {
  public:
@@ -140,7 +145,7 @@ class translate_isl_ast_to_gimple
     : region (r), codegen_error (false)
     { }
 
-  /* Translates an ISL AST node NODE to GCC representation in the
+  /* Translates an isl AST node NODE to GCC representation in the
      context of a SESE.  */
   edge translate_isl_ast (loop_p context_loop, __isl_keep isl_ast_node *node,
 			  edge next_e, ivs_params &ip);
@@ -196,7 +201,7 @@ class translate_isl_ast_to_gimple
   tree nary_op_to_tree (tree type, __isl_take isl_ast_expr *expr,
 			ivs_params &ip);
 
-  /* Converts an ISL AST expression E back to a GCC expression tree of
+  /* Converts an isl AST expression E back to a GCC expression tree of
      type TYPE.  */
   tree gcc_expression_from_isl_expression (tree type,
 					   __isl_take isl_ast_expr *,
@@ -228,7 +233,7 @@ class translate_isl_ast_to_gimple
      induction variable for the new LOOP.  New LOOP is attached to CFG
      starting at ENTRY_EDGE.  LOOP is inserted into the loop tree and
      becomes the child loop of the OUTER_LOOP.  NEWIVS_INDEX binds
-     ISL's scattering name to the induction variable created for the
+     isl's scattering name to the induction variable created for the
      loop of STMT.  The new induction variable is inserted in the NEWIVS
      vector and is of type TYPE.  */
   struct loop *graphite_create_new_loop (edge entry_edge,
@@ -252,7 +257,7 @@ class translate_isl_ast_to_gimple
 				       tree *type,
 				       tree *lb, tree *ub, ivs_params &ip);
 
-  /* Creates a new if region corresponding to ISL's cond.  */
+  /* Creates a new if region corresponding to isl's cond.  */
   edge graphite_create_new_guard (edge entry_edge,
 				  __isl_take isl_ast_expr *if_cond,
 				  ivs_params &ip);
@@ -271,7 +276,7 @@ class translate_isl_ast_to_gimple
 
   void translate_pending_phi_nodes (void);
 
-  /* Add ISL's parameter identifiers and corresponding trees to ivs_params.  */
+  /* Add isl's parameter identifiers and corresponding trees to ivs_params.  */
 
   void add_parameters_to_ivs_params (scop_p scop, ivs_params &ip);
 
@@ -297,6 +302,14 @@ class translate_isl_ast_to_gimple
      visit elements in a domain.  */
 
   __isl_give isl_union_map *generate_isl_schedule (scop_p scop);
+
+#ifdef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
+  /* Set the "separate" option for all schedules.  This helps reducing control
+     overhead.  */
+
+  __isl_give isl_schedule *
+    set_options_for_schedule_tree (__isl_take isl_schedule *schedule);
+#endif
 
   /* Set the separate option for all dimensions.
      This helps to reduce control overhead.  */
@@ -483,7 +496,7 @@ private:
   /* The region to be translated.  */
   sese_info_p region;
 
-  /* This flag is set when an error occurred during the translation of ISL AST
+  /* This flag is set when an error occurred during the translation of isl AST
      to Gimple.  */
   bool codegen_error;
 
@@ -569,7 +582,7 @@ binary_op_to_tree (tree type, __isl_take isl_ast_expr *expr, ivs_params &ip)
       return fold_build2 (MULT_EXPR, type, tree_lhs_expr, tree_rhs_expr);
 
     case isl_ast_op_div:
-      /* As ISL operates on arbitrary precision numbers, we may end up with
+      /* As isl operates on arbitrary precision numbers, we may end up with
 	 division by 2^64 that is folded to 0.  */
       if (integer_zerop (tree_rhs_expr))
 	{
@@ -579,7 +592,7 @@ binary_op_to_tree (tree type, __isl_take isl_ast_expr *expr, ivs_params &ip)
       return fold_build2 (EXACT_DIV_EXPR, type, tree_lhs_expr, tree_rhs_expr);
 
     case isl_ast_op_pdiv_q:
-      /* As ISL operates on arbitrary precision numbers, we may end up with
+      /* As isl operates on arbitrary precision numbers, we may end up with
 	 division by 2^64 that is folded to 0.  */
       if (integer_zerop (tree_rhs_expr))
 	{
@@ -589,10 +602,11 @@ binary_op_to_tree (tree type, __isl_take isl_ast_expr *expr, ivs_params &ip)
       return fold_build2 (TRUNC_DIV_EXPR, type, tree_lhs_expr, tree_rhs_expr);
 
 #if HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
+    /* isl 0.15 or later.  */
     case isl_ast_op_zdiv_r:
 #endif
     case isl_ast_op_pdiv_r:
-      /* As ISL operates on arbitrary precision numbers, we may end up with
+      /* As isl operates on arbitrary precision numbers, we may end up with
 	 division by 2^64 that is folded to 0.  */
       if (integer_zerop (tree_rhs_expr))
 	{
@@ -602,7 +616,7 @@ binary_op_to_tree (tree type, __isl_take isl_ast_expr *expr, ivs_params &ip)
       return fold_build2 (TRUNC_MOD_EXPR, type, tree_lhs_expr, tree_rhs_expr);
 
     case isl_ast_op_fdiv_q:
-      /* As ISL operates on arbitrary precision numbers, we may end up with
+      /* As isl operates on arbitrary precision numbers, we may end up with
 	 division by 2^64 that is folded to 0.  */
       if (integer_zerop (tree_rhs_expr))
 	{
@@ -762,6 +776,7 @@ gcc_expression_from_isl_expr_op (tree type, __isl_take isl_ast_expr *expr,
     case isl_ast_op_pdiv_r:
     case isl_ast_op_fdiv_q:
 #if HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
+    /* isl 0.15 or later.  */
     case isl_ast_op_zdiv_r:
 #endif
     case isl_ast_op_and:
@@ -786,7 +801,7 @@ gcc_expression_from_isl_expr_op (tree type, __isl_take isl_ast_expr *expr,
   return NULL_TREE;
 }
 
-/* Converts an ISL AST expression E back to a GCC expression tree of
+/* Converts an isl AST expression E back to a GCC expression tree of
    type TYPE.  */
 
 tree
@@ -822,7 +837,7 @@ gcc_expression_from_isl_expression (tree type, __isl_take isl_ast_expr *expr,
    induction variable for the new LOOP.  New LOOP is attached to CFG
    starting at ENTRY_EDGE.  LOOP is inserted into the loop tree and
    becomes the child loop of the OUTER_LOOP.  NEWIVS_INDEX binds
-   ISL's scattering name to the induction variable created for the
+   isl's scattering name to the induction variable created for the
    loop of STMT.  The new induction variable is inserted in the NEWIVS
    vector and is of type TYPE.  */
 
@@ -1163,7 +1178,7 @@ translate_isl_ast_node_block (loop_p context_loop,
   return next_e;
 }
  
-/* Creates a new if region corresponding to ISL's cond.  */
+/* Creates a new if region corresponding to isl's cond.  */
 
 edge
 translate_isl_ast_to_gimple::
@@ -1208,7 +1223,7 @@ translate_isl_ast_node_if (loop_p context_loop,
   return last_e;
 }
 
-/* Translates an ISL AST node NODE to GCC representation in the
+/* Translates an isl AST node NODE to GCC representation in the
    context of a SESE.  */
 
 edge
@@ -2915,7 +2930,7 @@ translate_isl_ast_to_gimple::copy_bb_and_scalar_dependences (basic_block bb,
 	      return NULL;
 	    }
 
-	  /* In case ISL did some loop peeling, like this:
+	  /* In case isl did some loop peeling, like this:
 
 	       S_8(0);
 	       for (int c1 = 1; c1 <= 5; c1 += 1) {
@@ -3049,7 +3064,7 @@ translate_isl_ast_to_gimple::print_isl_ast_node (FILE *file,
   isl_printer_free (prn);
 }
 
-/* Add ISL's parameter identifiers and corresponding trees to ivs_params.  */
+/* Add isl's parameter identifiers and corresponding trees to ivs_params.  */
 
 void
 translate_isl_ast_to_gimple::add_parameters_to_ivs_params (scop_p scop,
@@ -3169,6 +3184,19 @@ ast_build_before_for (__isl_keep isl_ast_build *build, void *user)
   return id;
 }
 
+#ifdef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
+/* Set the separate option for all schedules.  This helps reducing control
+   overhead.  */
+
+__isl_give isl_schedule *
+translate_isl_ast_to_gimple::set_options_for_schedule_tree
+(__isl_take isl_schedule *schedule)
+{
+  return isl_schedule_map_schedule_node_bottom_up
+    (schedule, set_separate_option, NULL);
+}
+#endif
+
 /* Set the separate option for all dimensions.
    This helps to reduce control overhead.  */
 
@@ -3193,6 +3221,7 @@ translate_isl_ast_to_gimple::set_options (__isl_take isl_ast_build *control,
 __isl_give isl_ast_node *
 translate_isl_ast_to_gimple::scop_to_isl_ast (scop_p scop, ivs_params &ip)
 {
+  isl_ast_node *ast_isl = NULL;
   /* Generate loop upper bounds that consist of the current loop iterator, an
      operator (< or <=) and an expression not involving the iterator.  If this
      option is not set, then the current loop iterator may appear several times
@@ -3203,18 +3232,28 @@ translate_isl_ast_to_gimple::scop_to_isl_ast (scop_p scop, ivs_params &ip)
   isl_union_map *schedule_isl = generate_isl_schedule (scop);
   isl_ast_build *context_isl = generate_isl_context (scop);
   context_isl = set_options (context_isl, schedule_isl);
-  isl_union_map *dependences = NULL;
   if (flag_loop_parallelize_all)
     {
-      dependences = scop_get_dependences (scop);
+      isl_union_map *dependence = scop_get_dependences (scop);
       context_isl =
 	isl_ast_build_set_before_each_for (context_isl, ast_build_before_for,
-					   dependences);
+					   dependence);
     }
-  isl_ast_node *ast_isl = isl_ast_build_ast_from_schedule (context_isl,
-							   schedule_isl);
-  if (dependences)
-    isl_union_map_free (dependences);
+
+#ifdef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
+  if (scop->schedule)
+    {
+      scop->schedule = set_options_for_schedule_tree (scop->schedule);
+      ast_isl = isl_ast_build_node_from_schedule (context_isl, scop->schedule);
+      isl_union_map_free(schedule_isl);
+    }
+  else
+    ast_isl = isl_ast_build_ast_from_schedule (context_isl, schedule_isl);
+#else
+  ast_isl = isl_ast_build_ast_from_schedule (context_isl, schedule_isl);
+  isl_schedule_free (scop->schedule);
+#endif
+
   isl_ast_build_free (context_isl);
   return ast_isl;
 }
@@ -3223,7 +3262,7 @@ translate_isl_ast_to_gimple::scop_to_isl_ast (scop_p scop, ivs_params &ip)
    the given SCOP.  Return true if code generation succeeded.
 
    FIXME: This is not yet a full implementation of the code generator
-   with ISL ASTs.  Generation of GIMPLE code has to be completed.  */
+   with isl ASTs.  Generation of GIMPLE code has to be completed.  */
 
 bool
 graphite_regenerate_ast_isl (scop_p scop)
@@ -3240,7 +3279,7 @@ graphite_regenerate_ast_isl (scop_p scop)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "ISL AST generated by ISL: \n");
+      fprintf (dump_file, "AST generated by isl: \n");
       t.print_isl_ast_node (dump_file, root_node, scop->isl_context);
     }
 

@@ -211,6 +211,7 @@
 ;; Scheduling
 (include "../arm/cortex-a53.md")
 (include "../arm/cortex-a57.md")
+(include "../arm/exynos-m1.md")
 (include "thunderx.md")
 (include "../arm/xgene1.md")
 
@@ -3682,6 +3683,28 @@
   [(set_attr "type" "logics_reg,logics_imm")]
 )
 
+(define_insn "*and<mode>3nr_compare0_zextract"
+  [(set (reg:CC_NZ CC_REGNUM)
+	(compare:CC_NZ
+	 (zero_extract:GPI (match_operand:GPI 0 "register_operand" "r")
+		  (match_operand:GPI 1 "const_int_operand" "n")
+		  (match_operand:GPI 2 "const_int_operand" "n"))
+	 (const_int 0)))]
+  "INTVAL (operands[1]) > 0
+   && ((INTVAL (operands[1]) + INTVAL (operands[2]))
+	<= GET_MODE_BITSIZE (<MODE>mode))
+   && aarch64_bitmask_imm (
+	UINTVAL (aarch64_mask_from_zextract_ops (operands[1],
+						 operands[2])),
+	<MODE>mode)"
+  {
+    operands[1]
+      = aarch64_mask_from_zextract_ops (operands[1], operands[2]);
+    return "tst\\t%<w>0, %1";
+  }
+  [(set_attr "type" "logics_shift_imm")]
+)
+
 (define_insn "*and_<SHIFT:optab><mode>3nr_compare0"
   [(set (reg:CC_NZ CC_REGNUM)
 	(compare:CC_NZ
@@ -4680,7 +4703,8 @@
 
 (define_insn "aarch64_movdi_<mode>low"
   [(set (match_operand:DI 0 "register_operand" "=r")
-        (truncate:DI (match_operand:TX 1 "register_operand" "w")))]
+	(zero_extract:DI (match_operand:TX 1 "register_operand" "w")
+			 (const_int 64) (const_int 0)))]
   "TARGET_FLOAT && (reload_completed || reload_in_progress)"
   "fmov\\t%x0, %d1"
   [(set_attr "type" "f_mrc")
@@ -4689,9 +4713,8 @@
 
 (define_insn "aarch64_movdi_<mode>high"
   [(set (match_operand:DI 0 "register_operand" "=r")
-        (truncate:DI
-	  (lshiftrt:TX (match_operand:TX 1 "register_operand" "w")
-		       (const_int 64))))]
+	(zero_extract:DI (match_operand:TX 1 "register_operand" "w")
+			 (const_int 64) (const_int 64)))]
   "TARGET_FLOAT && (reload_completed || reload_in_progress)"
   "fmov\\t%x0, %1.d[1]"
   [(set_attr "type" "f_mrc")

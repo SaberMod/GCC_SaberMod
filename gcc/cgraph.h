@@ -249,9 +249,10 @@ public:
   inline symtab_node *next_defined_symbol (void);
 
   /* Add reference recording that symtab node is alias of TARGET.
+     If TRANSPARENT is true make the alias to be transparent alias.
      The function can fail in the case of aliasing cycles; in this case
      it returns false.  */
-  bool resolve_alias (symtab_node *target);
+  bool resolve_alias (symtab_node *target, bool transparent = false);
 
   /* C++ FE sometimes change linkage flags after producing same
      body aliases.  */
@@ -354,8 +355,13 @@ public:
 
   /* Return 0 if symbol is known to have different address than S2,
      Return 1 if symbol is known to have same address as S2,
-     return 2 otherwise.   */
-  int equal_address_to (symtab_node *s2);
+     return 2 otherwise. 
+
+     If MEMORY_ACCESSED is true, assume that both memory pointer to THIS
+     and S2 is going to be accessed.  This eliminates the situations when
+     either THIS or S2 is NULL and is seful for comparing bases when deciding
+     about memory aliasing.  */
+  int equal_address_to (symtab_node *s2, bool memory_accessed = false);
 
   /* Return true if symbol's address may possibly be compared to other
      symbol's address.  */
@@ -421,6 +427,28 @@ public:
   /* True when symbol is an alias.
      Set by ssemble_alias.  */
   unsigned alias : 1;
+  /* When true the alias is translated into its target symbol either by GCC
+     or assembler (it also may just be a duplicate declaration of the same
+     linker name).
+
+     Currently transparent aliases come in three different flavors
+       - aliases having the same assembler name as their target (aka duplicated
+	 declarations). In this case the assembler names compare via
+	 assembler_names_equal_p and weakref is false
+       - aliases that are renamed at a time being output to final file
+	 by varasm.c. For those DECL_ASSEMBLER_NAME have
+	 IDENTIFIER_TRANSPARENT_ALIAS set and thus also their assembler
+	 name must be unique.
+	 Weakrefs belong to this cateogry when we target assembler without
+	 .weakref directive.
+       - weakrefs that are renamed by assembler via .weakref directive.
+	 In this case the alias may or may not be definition (depending if
+	 target declaration was seen by the compiler), weakref is set.
+	 Unless we are before renaming statics, assembler names are different.
+
+     Given that we now support duplicate declarations, the second option is
+     redundant and will be removed.  */
+  unsigned transparent_alias : 1;
   /* True when alias is a weakref.  */
   unsigned weakref : 1;
   /* C++ frontend produce same body aliases and extra name aliases for
@@ -1042,7 +1070,7 @@ public:
   cgraph_edge *get_edge (gimple *call_stmt);
 
   /* Collect all callers of cgraph_node and its aliases that are known to lead
-     to NODE (i.e. are not overwritable).  */
+     to NODE (i.e. are not overwritable) and that are not thunks.  */
   vec<cgraph_edge *> collect_callers (void);
 
   /* Remove all callers from the node.  */
@@ -2098,6 +2126,10 @@ public:
   /* Set the DECL_ASSEMBLER_NAME and update symtab hashtables.  */
   void change_decl_assembler_name (tree decl, tree name);
 
+  /* Return true if assembler names NAME1 and NAME2 leads to the same symbol
+     name.  */
+  static bool assembler_names_equal_p (const char *name1, const char *name2);
+
   int cgraph_count;
   int cgraph_max_uid;
   int cgraph_max_summary_uid;
@@ -2250,6 +2282,8 @@ symtab_node::real_symbol_p (void)
   cgraph_node *cnode;
 
   if (DECL_ABSTRACT_P (decl))
+    return false;
+  if (transparent_alias && definition)
     return false;
   if (!is_a <cgraph_node *> (this))
     return true;

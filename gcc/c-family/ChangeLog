@@ -1,3 +1,41 @@
+2015-12-16  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-common.h (conflict_marker_get_final_tok_kind): New prototype.
+	* c-lex.c (conflict_marker_get_final_tok_kind): New function.
+
+2015-12-15  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* c-common.c (c_common_attribute_table): Handle "omp declare target
+	link" attribute.
+
+2015-12-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/68833
+	* c.opt (Wmissing-format-attribute, Wnormalized): Add Warning option.
+
+2014-12-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/68815
+	* c-format.c (gcc_gfc_char_table): Add 'q' flag to remaining
+	specifiers (%d, %i,%u and %c).
+
+2015-12-10  David Malcolm  <dmalcolm@redhat.com>
+
+	* c.opt (Wmisleading-indentation): Add to -Wall for C and C++.
+
+2015-12-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/48088
+	PR c/68657
+	* c.opt (Wfloat-conversion, Wsign-conversion): Add Warning.
+	* c-pragma.c (handle_pragma_diagnostic): Adjust
+	control_warning_option caller.
+
+2015-12-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-common.c (c_cpp_error): Update for change to
+	rich_location::set_range.
+
 2015-12-04  Paolo Bonzini  <bonzini@gnu.org>
 
 	* c-common.c (maybe_warn_shift_overflow): Warn on all overflows if

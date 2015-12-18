@@ -821,6 +821,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_simd_attribute, false },
   { "omp declare target",     0, 0, true, false, false,
 			      handle_omp_declare_target_attribute, false },
+  { "omp declare target link", 0, 0, true, false, false,
+			      handle_omp_declare_target_attribute, false },
   { "alloc_align",	      1, 1, false, true, true,
 			      handle_alloc_align_attribute, false },
   { "assume_aligned",	      1, 2, false, true, true,
@@ -10161,9 +10163,7 @@ c_cpp_error (cpp_reader *pfile ATTRIBUTE_UNUSED, int level, int reason,
       gcc_unreachable ();
     }
   if (done_lexing)
-    richloc->set_range (0,
-			source_range::from_location (input_location),
-			true, true);
+    richloc->set_range (line_table, 0, input_location, true);
   diagnostic_set_info_translated (&diagnostic, msg, ap,
 				  richloc, dlevel);
   diagnostic_override_option_index (&diagnostic,

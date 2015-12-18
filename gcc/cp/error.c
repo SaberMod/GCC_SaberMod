@@ -875,7 +875,7 @@ dump_type_suffix (cxx_pretty_printer *pp, tree t, int flags)
     case ARRAY_TYPE:
       pp_maybe_space (pp);
       pp_cxx_left_bracket (pp);
-      if (TYPE_DOMAIN (t))
+      if (TYPE_DOMAIN (t) && TYPE_MAX_VALUE (TYPE_DOMAIN (t)))
 	{
 	  tree dtype = TYPE_DOMAIN (t);
 	  tree max = TYPE_MAX_VALUE (dtype);
@@ -953,7 +953,7 @@ dump_global_iord (cxx_pretty_printer *pp, tree t)
   else
     gcc_unreachable ();
 
-  pp_printf (pp, p, LOCATION_FILE (input_location));
+  pp_printf (pp, p, DECL_SOURCE_FILE (t));
 }
 
 static void

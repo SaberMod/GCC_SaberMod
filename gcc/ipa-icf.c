@@ -544,7 +544,7 @@ bool
 sem_function::param_used_p (unsigned int i)
 {
   if (ipa_node_params_sum == NULL)
-    return false;
+    return true;
 
   struct ipa_node_params *parms_info = IPA_NODE_REF (get_node ());
 
@@ -3398,13 +3398,19 @@ sem_item_optimizer::merge_classes (unsigned int prev_class_count)
 	if (c->members.length () == 1)
 	  continue;
 
-	gcc_assert (c->members.length ());
-
 	sem_item *source = c->members[0];
 
-	for (unsigned int j = 1; j < c->members.length (); j++)
+	if (MAIN_NAME_P (DECL_NAME (source->decl)))
+	  /* If merge via wrappers, picking main as the target can be
+	     problematic.  */
+	  source = c->members[1];
+
+	for (unsigned int j = 0; j < c->members.length (); j++)
 	  {
 	    sem_item *alias = c->members[j];
+
+	    if (alias == source)
+	      continue;
 
 	    if (dump_file)
 	      {

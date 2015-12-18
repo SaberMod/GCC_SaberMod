@@ -4181,14 +4181,14 @@ locate_and_pad_parm (machine_mode passed_mode, tree type, int in_regs,
 	locate->slot_offset.var = size_binop (MINUS_EXPR, ssize_int (0),
 					      initial_offset_ptr->var);
 
-	{
-	  tree s2 = sizetree;
-	  if (where_pad != none
-	      && (!tree_fits_uhwi_p (sizetree)
-		  || (tree_to_uhwi (sizetree) * BITS_PER_UNIT) % round_boundary))
-	    s2 = round_up (s2, round_boundary / BITS_PER_UNIT);
-	  SUB_PARM_SIZE (locate->slot_offset, s2);
-	}
+      {
+	tree s2 = sizetree;
+	if (where_pad != none
+	    && (!tree_fits_uhwi_p (sizetree)
+		|| (tree_to_uhwi (sizetree) * BITS_PER_UNIT) % round_boundary))
+	  s2 = round_up (s2, round_boundary / BITS_PER_UNIT);
+	SUB_PARM_SIZE (locate->slot_offset, s2);
+      }
 
       locate->slot_offset.constant += part_size_in_regs;
 
@@ -5148,15 +5148,16 @@ expand_function_start (tree subr)
       /* Compute the return values into a pseudo reg, which we will copy
 	 into the true return register after the cleanups are done.  */
       tree return_type = TREE_TYPE (res);
-      /* If we may coalesce this result, make sure it has the expected
-	 mode.  */
-      if (flag_tree_coalesce_vars && is_gimple_reg (res))
-	{
-	  tree def = ssa_default_def (cfun, res);
-	  gcc_assert (def);
-	  machine_mode mode = promote_ssa_mode (def, NULL);
-	  set_parm_rtl (res, gen_reg_rtx (mode));
-	}
+
+      /* If we may coalesce this result, make sure it has the expected mode
+	 in case it was promoted.  But we need not bother about BLKmode.  */
+      machine_mode promoted_mode
+	= flag_tree_coalesce_vars && is_gimple_reg (res)
+	  ? promote_ssa_mode (ssa_default_def (cfun, res), NULL)
+	  : BLKmode;
+
+      if (promoted_mode != BLKmode)
+	set_parm_rtl (res, gen_reg_rtx (promoted_mode));
       else if (TYPE_MODE (return_type) != BLKmode
 	       && targetm.calls.return_in_msb (return_type))
 	/* expand_function_end will insert the appropriate padding in

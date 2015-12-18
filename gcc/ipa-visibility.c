@@ -185,6 +185,8 @@ static bool
 cgraph_externally_visible_p (struct cgraph_node *node,
 			     bool whole_program)
 {
+  while (node->transparent_alias && node->definition)
+    node = node->get_alias_target ();
   if (!node->definition)
     return false;
   if (!TREE_PUBLIC (node->decl)
@@ -248,6 +250,8 @@ cgraph_externally_visible_p (struct cgraph_node *node,
 bool
 varpool_node::externally_visible_p (void)
 {
+  while (transparent_alias && definition)
+    return get_alias_target ()->externally_visible_p ();
   if (DECL_EXTERNAL (decl))
     return true;
 
@@ -325,19 +329,30 @@ varpool_node::externally_visible_p (void)
    Local aliases save dynamic linking overhead and enable more optimizations.
  */
 
-bool
+static bool
 can_replace_by_local_alias (symtab_node *node)
 {
+#ifndef ASM_OUTPUT_DEF
+  /* If aliases aren't supported, we can't do replacement.  */
+  return false;
+#endif
+  /* Weakrefs have a reason to be non-local.  Be sure we do not replace
+     them.  */
+  while (node->transparent_alias && node->definition && !node->weakref)
+    node = node->get_alias_target ();
+  if (node->weakref)
+    return false;
+  
   return (node->get_availability () > AVAIL_INTERPOSABLE
 	  && !decl_binds_to_current_def_p (node->decl)
 	  && !node->can_be_discarded_p ());
 }
 
-/* Return true if we can replace refernece to NODE by local alias
+/* Return true if we can replace reference to NODE by local alias
    within a virtual table.  Generally we can replace function pointers
    and virtual table pointers.  */
 
-bool
+static bool
 can_replace_by_local_alias_in_vtable (symtab_node *node)
 {
   if (is_a <varpool_node *> (node)
@@ -388,7 +403,7 @@ update_visibility_by_resolution_info (symtab_node * node)
     for (symtab_node *next = node->same_comdat_group;
 	 next != node; next = next->same_comdat_group)
       {
-	if (!next->externally_visible)
+	if (!next->externally_visible || next->transparent_alias)
 	  continue;
 
 	bool same_def
@@ -531,7 +546,8 @@ function_and_variable_visibility (bool whole_program)
 		  next->set_comdat_group (NULL);
 		  if (!next->alias)
 		    next->set_section (NULL);
-		  next->make_decl_local ();
+		  if (!next->transparent_alias)
+		    next->make_decl_local ();
 		  next->unique_name |= ((next->resolution == LDPR_PREVAILING_DEF_IRONLY
 					 || next->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP)
 				        && TREE_PUBLIC (next->decl)
@@ -547,7 +563,8 @@ function_and_variable_visibility (bool whole_program)
 	    node->set_comdat_group (NULL);
 	  if (DECL_COMDAT (node->decl) && !node->alias)
 	    node->set_section (NULL);
-	  node->make_decl_local ();
+	  if (!node->transparent_alias)
+	    node->make_decl_local ();
 	}
 
       if (node->thunk.thunk_p
@@ -579,10 +596,11 @@ function_and_variable_visibility (bool whole_program)
       if (!node->local.local)
         node->local.local |= node->local_p ();
 
-      /* If we know that function can not be overwritten by a different semantics
-	 and moreover its section can not be discarded, replace all direct calls
-	 by calls to an noninterposable alias.  This make dynamic linking
-	 cheaper and enable more optimization.
+      /* If we know that function can not be overwritten by a
+	 different semantics and moreover its section can not be
+	 discarded, replace all direct calls by calls to an
+	 noninterposable alias.  This make dynamic linking cheaper and
+	 enable more optimization.
 
 	 TODO: We can also update virtual tables.  */
       if (node->callers 
@@ -654,7 +672,7 @@ function_and_variable_visibility (bool whole_program)
 			    DECL_ATTRIBUTES (vnode->decl)))
 	vnode->no_reorder = 1;
       if (!vnode->externally_visible
-	  && !vnode->weakref)
+	  && !vnode->transparent_alias)
 	{
 	  gcc_assert (in_lto_p || whole_program || !TREE_PUBLIC (vnode->decl));
 	  vnode->unique_name |= ((vnode->resolution == LDPR_PREVAILING_DEF_IRONLY
@@ -675,11 +693,14 @@ function_and_variable_visibility (bool whole_program)
 		  next->set_comdat_group (NULL);
 		  if (!next->alias)
 		    next->set_section (NULL);
-		  next->make_decl_local ();
-		  next->unique_name |= ((next->resolution == LDPR_PREVAILING_DEF_IRONLY
-					 || next->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP)
-				        && TREE_PUBLIC (next->decl)
-					&& !flag_incremental_link);
+		  if (!next->transparent_alias)
+		    {
+		      next->make_decl_local ();
+		      next->unique_name |= ((next->resolution == LDPR_PREVAILING_DEF_IRONLY
+					     || next->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP)
+					    && TREE_PUBLIC (next->decl)
+					    && !flag_incremental_link);
+		    }
 		}
 	      vnode->dissolve_same_comdat_group_list ();
 	    }
@@ -687,8 +708,11 @@ function_and_variable_visibility (bool whole_program)
 	    vnode->set_comdat_group (NULL);
 	  if (DECL_COMDAT (vnode->decl) && !vnode->alias)
 	    vnode->set_section (NULL);
-	  vnode->make_decl_local ();
-	  vnode->resolution = LDPR_PREVAILING_DEF_IRONLY;
+	  if (!vnode->transparent_alias)
+	    {
+	      vnode->make_decl_local ();
+	      vnode->resolution = LDPR_PREVAILING_DEF_IRONLY;
+	    }
 	}
       update_visibility_by_resolution_info (vnode);
 
@@ -701,7 +725,7 @@ function_and_variable_visibility (bool whole_program)
 	  bool found = false;
 
 	  /* See if there is something to update.  */
-	  for (i = 0; vnode->iterate_referring (i, ref); i++)
+	  for (i = 0; vnode->iterate_reference (i, ref); i++)
 	    if (ref->use == IPA_REF_ADDR
 		&& can_replace_by_local_alias_in_vtable (ref->referred))
 	      {

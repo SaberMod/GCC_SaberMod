@@ -155,6 +155,8 @@ enum processor_flags
 #define SWITCHABLE_TARGET 1
 #endif
 
+#define TARGET_SUPPORTS_WIDE_INT 1
+
 /* Use the ABI introduced with IBM z13:
    - pass vector arguments <= 16 bytes in VRs
    - align *all* vector types to 8 bytes  */
@@ -212,7 +214,7 @@ extern const char *s390_host_detect_local_cpu (int argc, const char **argv);
   MARCH_MTUNE_NATIVE_SPECS,					\
   "%{!m31:%{!m64:-m" S390_TARGET_BITS_STRING "}}",		\
   "%{!mesa:%{!mzarch:%{m31:-mesa}%{m64:-mzarch}}}",		\
-  "%{!march=*:%{mesa:-march=g5}%{mzarch:-march=z900}}"
+  "%{!march=*:-march=z900}"
 
 /* Constants needed to control the TEST DATA CLASS (TDC) instruction.  */
 #define S390_TDC_POSITIVE_ZERO                     (1 << 11)

@@ -429,9 +429,9 @@ tree_unswitch_outer_loop (struct loop *loop)
   gcc_assert (loop->inner);
   if (loop->inner->next)
     return false;
-  /* Accept loops with single exit only.  */
+  /* Accept loops with single exit only which is not from inner loop.  */
   exit = single_exit (loop);
-  if (!exit)
+  if (!exit || exit->src->loop_father != loop)
     return false;
   /* Check that phi argument of exit edge is not defined inside loop.  */
   if (!check_exit_phi (loop))
@@ -444,7 +444,7 @@ tree_unswitch_outer_loop (struct loop *loop)
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, ";; Not unswitching, loop is not expected"
 		 " to iterate\n");
-	return false;
+      return false;
     }
 
   guard = find_loop_guard (loop);

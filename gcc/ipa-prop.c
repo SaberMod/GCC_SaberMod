@@ -1646,6 +1646,7 @@ ipa_compute_jump_functions_for_edge (struct ipa_func_body_info *fbi,
 	      && align % BITS_PER_UNIT == 0
 	      && hwi_bitpos % BITS_PER_UNIT == 0)
 	    {
+	      gcc_checking_assert (align != 0);
 	      jfunc->alignment.known = true;
 	      jfunc->alignment.align = align / BITS_PER_UNIT;
 	      jfunc->alignment.misalign = hwi_bitpos / BITS_PER_UNIT;
@@ -2245,17 +2246,18 @@ public:
   analysis_dom_walker (struct ipa_func_body_info *fbi)
     : dom_walker (CDI_DOMINATORS), m_fbi (fbi) {}
 
-  virtual void before_dom_children (basic_block);
+  virtual edge before_dom_children (basic_block);
 
 private:
   struct ipa_func_body_info *m_fbi;
 };
 
-void
+edge
 analysis_dom_walker::before_dom_children (basic_block bb)
 {
   ipa_analyze_params_uses_in_bb (m_fbi, bb);
   ipa_compute_jump_functions_for_bb (m_fbi, bb);
+  return NULL;
 }
 
 /* Release body info FBI.  */
@@ -2896,18 +2898,22 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
 					   true);
       if (t && vtable_pointer_value_to_vtable (t, &vtable, &offset))
 	{
+	  bool can_refer;
 	  t = gimple_get_virt_method_for_vtable (ie->indirect_info->otr_token,
-						      vtable, offset);
-	  if (t)
+						 vtable, offset, &can_refer);
+	  if (can_refer)
 	    {
-	      if ((TREE_CODE (TREE_TYPE (t)) == FUNCTION_TYPE
-		   && DECL_FUNCTION_CODE (t) == BUILT_IN_UNREACHABLE)
+	      if (!t
+		  || (TREE_CODE (TREE_TYPE (t)) == FUNCTION_TYPE
+		      && DECL_FUNCTION_CODE (t) == BUILT_IN_UNREACHABLE)
 		  || !possible_polymorphic_call_target_p
 		       (ie, cgraph_node::get (t)))
 		{
 		  /* Do not speculate builtin_unreachable, it is stupid!  */
 		  if (!ie->indirect_info->vptr_changed)
 		    target = ipa_impossible_devirt_target (ie, target);
+		  else
+		    target = NULL;
 		}
 	      else
 		{
@@ -5098,7 +5104,7 @@ public:
     : dom_walker (CDI_DOMINATORS), m_fbi (fbi), m_descriptors (descs),
       m_aggval (av), m_something_changed (sc), m_cfg_changed (cc) {}
 
-  virtual void before_dom_children (basic_block);
+  virtual edge before_dom_children (basic_block);
 
 private:
   struct ipa_func_body_info *m_fbi;
@@ -5107,7 +5113,7 @@ private:
   bool *m_something_changed, *m_cfg_changed;
 };
 
-void
+edge
 ipcp_modif_dom_walker::before_dom_children (basic_block bb)
 {
   gimple_stmt_iterator gsi;
@@ -5198,7 +5204,7 @@ ipcp_modif_dom_walker::before_dom_children (basic_block bb)
 	  && gimple_purge_dead_eh_edges (gimple_bb (stmt)))
 	*m_cfg_changed = true;
     }
-
+  return NULL;
 }
 
 /* Update alignment of formal parameters as described in

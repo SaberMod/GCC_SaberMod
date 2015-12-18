@@ -48,12 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "gimple-pretty-print.h"
-
-#include <isl/constraint.h>
-#include <isl/set.h>
-#include <isl/map.h>
-#include <isl/union_map.h>
-
 #include "graphite.h"
 
 class debug_printer
@@ -442,7 +436,7 @@ canonicalize_loop_closed_ssa_form (void)
 }
 
 /* Can all ivs be represented by a signed integer?
-   As ISL might generate negative values in its expressions, signed loop ivs
+   As isl might generate negative values in its expressions, signed loop ivs
    are required in the backend.  */
 
 static bool
@@ -1204,7 +1198,7 @@ scop_detection::graphite_can_represent_scev (tree scev)
     return false;
 
   /* We disable the handling of pointer types, because it’s currently not
-     supported by Graphite with the ISL AST generator. SSA_NAME nodes are
+     supported by Graphite with the isl AST generator. SSA_NAME nodes are
      the only nodes, which are disabled in case they are pointers to object
      types, but this can be changed.  */
 
@@ -1684,9 +1678,9 @@ build_cross_bb_scalars_def (scop_p scop, tree def, basic_block def_bb,
     if (def_bb != gimple_bb (use_stmt) && !is_gimple_debug (use_stmt))
       {
 	writes->safe_push (def);
-	DEBUG_PRINT (dp << "Adding scalar write:\n";
+	DEBUG_PRINT (dp << "Adding scalar write: ";
 		     print_generic_expr (dump_file, def, 0);
-		     dp << "From stmt:\n";
+		     dp << "\nFrom stmt: ";
 		     print_gimple_stmt (dump_file,
 					SSA_NAME_DEF_STMT (def), 0, 0));
 	/* This is required by the FOR_EACH_IMM_USE_STMT when we want to break
@@ -1713,9 +1707,9 @@ build_cross_bb_scalars_use (scop_p scop, tree use, gimple *use_stmt,
   gimple *def_stmt = SSA_NAME_DEF_STMT (use);
   if (gimple_bb (def_stmt) != gimple_bb (use_stmt))
     {
-      DEBUG_PRINT (dp << "Adding scalar read:";
+      DEBUG_PRINT (dp << "Adding scalar read: ";
 		   print_generic_expr (dump_file, use, 0);
-		   dp << "\nFrom stmt:";
+		   dp << "\nFrom stmt: ";
 		   print_gimple_stmt (dump_file, use_stmt, 0, 0));
       reads->safe_push (std::make_pair (use_stmt, use));
     }
@@ -1828,7 +1822,7 @@ class gather_bbs : public dom_walker
 public:
   gather_bbs (cdi_direction, scop_p);
 
-  virtual void before_dom_children (basic_block);
+  virtual edge before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
 
 private:
@@ -1844,11 +1838,11 @@ gather_bbs::gather_bbs (cdi_direction direction, scop_p scop)
 /* Call-back for dom_walk executed before visiting the dominated
    blocks.  */
 
-void
+edge
 gather_bbs::before_dom_children (basic_block bb)
 {
   if (!bb_in_sese_p (bb, scop->scop_info->region))
-    return;
+    return NULL;
 
   gcond *stmt = single_pred_cond_non_loop_exit (bb);
 
@@ -1868,7 +1862,7 @@ gather_bbs::before_dom_children (basic_block bb)
 
   gimple_poly_bb_p gbb = try_generate_gimple_bb (scop, bb);
   if (!gbb)
-    return;
+    return NULL;
 
   GBB_CONDITIONS (gbb) = conditions.copy ();
   GBB_CONDITION_CASES (gbb) = cases.copy ();
@@ -1879,7 +1873,20 @@ gather_bbs::before_dom_children (basic_block bb)
   int i;
   data_reference_p dr;
   FOR_EACH_VEC_ELT (gbb->data_refs, i, dr)
-    scop->drs.safe_push (dr_info (dr, pbb));
+    {
+      DEBUG_PRINT (dp << "Adding memory ";
+		   if (dr->is_read)
+		     dp << "read: ";
+		   else
+		     dp << "write: ";
+		   print_generic_expr (dump_file, dr->ref, 0);
+		   dp << "\nFrom stmt: ";
+		   print_gimple_stmt (dump_file, dr->stmt, 0, 0));
+
+      scop->drs.safe_push (dr_info (dr, pbb));
+    }
+
+  return NULL;
 }
 
 /* Call-back for dom_walk executed after visiting the dominated
