@@ -85,7 +85,7 @@
 	* config/arm/arm-tables.opt: Regenerate.
 	* config/arm/bpabi.h: Add armv8-m.base, armv8-m.main and
 	armv8-m.main+dsp to BE8_LINK_SPEC.
-	* config/arm/arm.h (TARGET_HAVE_LDACQ): Exclude ARMv8-M.
+	* config/arm/arm.h (TARGET_HAVE_LDACQ): Exclude ARMv8-M Baseline.
 	(enum base_architecture): Add BASE_ARCH_8M_BASE and BASE_ARCH_8M_MAIN.
 	(TARGET_ARM_V8M): Define.
 	* config/arm/arm.c (arm_arch_name): Increase size to work with ARMv8-M
