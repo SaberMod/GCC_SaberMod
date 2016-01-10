@@ -1,7 +1,15 @@
+2016-01-08  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline
+	2015-12-15  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/68851
+	* g++.dg/ipa/pr68851.C: New test.
+
 2015-12-22  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport from mainline
-	PR target/68772
+	PR target/68872
 	* gcc.target/powerpc/pr68872.c: New test.
 
 2015-12-10  Uros Bizjak  <ubizjak@gmail.com>
