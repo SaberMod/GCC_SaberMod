@@ -1,3 +1,245 @@
+2016-02-13  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2016-02-13  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/67260
+	* gcc.target/sh/torture/pr67260.c: New.
+
+2016-02-12  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-02-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69715
+	* gcc.dg/torture/pr69715.c: New testcase.
+
+	2016-02-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69579
+	* gcc.dg/setjmp-6.c: New testcase.
+
+	2016-02-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69574
+	* gcc.dg/torture/pr69574.c: New testcase.
+
+2016-02-11  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2015-02-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62217
+	* gcc.dg/tree-ssa/cunroll-11.c: New testcase.
+
+	2015-06-18  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2015-06-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66375
+	* gcc.dg/torture/pr66375.c: New testcase.
+
+	2015-06-23  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2015-06-09  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/66413
+	* gcc.dg/torture/pr66413.c: New testcase.
+
+	2015-07-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66794
+	* gcc.dg/torture/pr66794.c: New testcase.
+
+2016-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/59627
+	* g++.dg/gomp/pr59627.C: New test.
+
+	2016-01-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69432
+	* g++.dg/opt/pr69432.C: New test.
+
+	2016-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/67653
+	* c-c++-common/pr67653.c: New test.
+	* gcc.dg/torture/pr29119.c: Add dg-warning.
+
+	2016-01-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/68955
+	PR rtl-optimization/64557
+	* gcc.dg/torture/pr68955.c: New test.
+
+	2016-01-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/69214
+	* gcc.c-torture/compile/pr69214.c: New test.
+
+	2016-01-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/69128
+	* gfortran.dg/gomp/pr69128.f90: New test.
+
+	2016-01-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69015
+	* gcc.dg/pr69015.c: New test.
+
+	2015-12-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/68376
+	PR rtl-optimization/68670
+	* gcc.c-torture/execute/pr68376-2.c (f5, f6, f7, f8): New
+	tests.
+	(main): Call them.
+	* gcc.dg/pr68670-1.c: New test.
+	* gcc.dg/pr68670-2.c: New test.
+
+	PR rtl-optimization/68376
+	* gcc.c-torture/execute/pr68376-1.c: New test.
+	* gcc.c-torture/execute/pr68376-2.c: New test.
+
+	2015-12-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/68680
+	* gcc.target/i386/pr68680.c: New test.
+
+	2015-12-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/57580
+	* c-c++-common/cpp/pr57580.c: New test.
+	* c-c++-common/gomp/pr57580.c: New test.
+
+	2015-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/66432
+	* gcc.dg/debug/pr66432.c: New test.
+
+	2015-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/67770
+	* gcc.target/i386/pr67770.c: New test.
+
+2016-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-02-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69644
+	* gcc.dg/pr69644.c: New test.
+
+2016-02-02  Alan Modra  <amodra@gmail.com>
+
+	PR target/69548
+	* gcc.target/powerpc/pr69548.c: New test.
+
+2016-01-29  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/69355
+	* gcc.dg/tree-ssa/pr69355.c: New test.
+
+2016-01-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2016-01-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69551
+	* gcc.target/i386/pr69551.c: New test.
+
+2016-01-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/69459
+	* gcc.target/i386/pr69459.c: New test.
+
+2016-01-27  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.dg/and-1.c: Remove nand test for powerpc*-*-*.
+
+2016-01-27  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/autopar/pr69110.c: Fix pass number.
+
+2016-01-26  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69110
+	* gcc.dg/autopar/pr69110.c: New test.
+
+2016-01-25  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	PR tree-optimization/PR64091
+	2014-11-27  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/torture/pr64091.c: New testcase.
+
+2016-01-22  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2016-01-22  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/69403
+	* gcc.c-torture/execute/pr69403.c: New test.
+
+2016-01-21  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backported from mainline
+	2015-07-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/gpr2fprsavecfi.c: New test.
+
+2016-01-20  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2015-09-10  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/67439
+	* gcc.target/arm/pr67439_1.c: New test.
+
+2016-01-19  Sergei Trofimovich <siarheit@google.com>
+
+	Backport from mainline
+	PR other/60465
+	* gcc.target/ia64/pr60465-gprel64.c: New test.
+	* gcc.target/ia64/pr60465-gprel64-c37.c: New test.
+
+2016-01-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR testsuite/68820
+	* gcc.c-torture/execute/builtins/memops-asm.x: New file.
+	* gcc.c-torture/execute/builtins/strstr-asm.x: Ditto.
+	* gcc.c-torture/execute/builtins/strstr-asm.c: Remove dg-options.
+
+2016-01-14  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/68648
+	* gcc.dg/torture/pr68648.c: New test.
+
+2016-01-12  Jeff Law  <law@redhat.com>
+
+	PR target/63347
+	* gcc.target/m68k/pr63347.c: New test.
+
+2016-01-12  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Backport from mainline.
+	2015-12-09  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR rtl-optimization/67609
+	* gcc.dg/torture/pr67609.c: New.
+
+2016-01-11  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/66616
+	* g++.dg/ipa/pr66616.C: New test.
+
 2016-01-08  Martin Jambor  <mjambor@suse.cz>
 
 	Backport from mainline
