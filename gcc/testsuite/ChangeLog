@@ -1,3 +1,70 @@
+2016-02-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2012-02-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-cg.c: New test.
+
+2016-02-17  Bernd Schmidt  <bschmidt@redhat.com>
+
+	Backport from mainline
+	2016-02-12  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR c/69522
+	* gcc.dg/pr69522.c: New test.
+
+2016-02-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/atomic8.adb: New test.
+
+2016-02-16  Bernd Schmidt  <bschmidt@redhat.com>
+
+	Backport from mainline
+	2016-02-16  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR tree-optimization/69714
+	* gcc.dg/torture/pr69714.c: New test.
+
+2016-02-16  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/65932
+	* gcc.target/arm/wmul-1.c: Add -mtune=cortex-a9 to dg-options.
+	xfail the scan-assembler test.
+	* gcc.target/arm/wmul-2.c: Likewise.
+	* gcc.target/arm/wmul-3.c: Simplify test to generate a single smulbb.
+
+2016-02-16  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2015-10-21  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* gcc.dg/lto/simd-function_0.c: New test.
+
+2016-02-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from mainline
+	PR libgfortran/69668
+	* gfortran.dg/namelist_38.f90: Update test.
+	* gfortran.dg/namelist_84.f90: Update test.
+
+2016-02-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from mainline
+	PR libgfortran/69651
+	PR libgfortran/69668
+	* gfortran.dg/read_bang.f90: New test.
+	* gfortran.dg/read_bang4.f90: New test.
+	* gfortran.dg/namelist_87.f90: New test.
+	* gfortran.dg/namelist_88.f90: New test.
+
+2016-02-13  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2016-02-13  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/67260
+	* gcc.target/sh/torture/pr67260.c: New.
+
 2016-02-12  Tobias Burnus  <burnus@net-b.de>
 	    Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
 
@@ -114,7 +181,7 @@
 
 	* gcc.target/i386/avx512f-klogic-2.c: Adjust expectation.
 
-2016-02-09  Bernd Schmidt  <bernds@codesourcery.com>
+2016-02-09  Bernd Schmidt  <bschmidt@redhat.com>
 
 	PR middle-end/65702
 	* c-c++-common/pr67639.c: New test.

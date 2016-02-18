@@ -1,3 +1,92 @@
+2016-02-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-02-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (*altivec_lvxl_<mode>_internal): Output
+	correct instruction.
+
+2016-02-16  Bernd Schmidt  <bernds@codesourcery.com>
+
+	Backport from mainline
+	2016-02-15  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/69752
+	* ira.c (update_equiv_regs): When looking for more than a single SET,
+	also take other side effects into account.
+
+	Backport from mainline
+	2016-02-08  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/68730
+	* lra-remat.c (insn_to_cand_activation): New static variable.
+	(lra_remat): Allocate and free it.
+	(create_cand): New arg activation. Initialize a field in
+	insn_to_cand_activation if it is nonnull.
+	(create_cands): Pass the activation insn to create_cand when making
+	a candidate involving an output reload.  Reorganize code a little.
+	(do_remat): Keep track of active status of candidates in a separate
+	bitmap.
+
+	Backport from mainline
+	2016-02-16  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR tree-optimization/69714
+	* tree-ssa-math-opts.c (find_bswap_or_nop): Revert previous change.
+	Return NULL if we have irrelevant high bytes on BIG_ENDIAN.
+
+2016-02-16  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from trunk:
+	2016-02-04  Jim Wilson  <jim.wilson@linaro.org>
+
+	PR target/65932
+	PR target/67714
+	* config/arm/arm.h (PROMOTE_MODE): Don't set UNSIGNEDP for QImode and
+	HImode.
+
+2016-02-16  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	PR lto/67709
+	2016-02-16  Tom de Vries  <tom@codesourcery.com>
+
+	* omp-low.c (simd_clone_create): Remove call to
+	symtab->call_cgraph_insertion_hooks.
+
+2016-02-16  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2015-10-21  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* omp-low.c (simd_clone_create): Set in_other_partition
+	for created clones.
+
+2016-02-15  John David Anglin  <danglin@gcc.gnu.org>
+
+	Backport from mainline
+	* config/pa/pa.md (absqi2, absghi2, bswaphi2, bswapsi2, bswapdi2): New.
+
+2016-02-13  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2016-02-13  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/67260
+	* config/sh/sh.md (sibcall_value_pcrel): Replace =&k scratch reg with
+	fixed R1_REG scratch reg.
+
+2016-02-12  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	Backport from mainline
+	2016-02-11  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/64682
+	PR rtl-optimization/69567
+	PR rtl-optimization/69737
+	* combine.c (distribute_notes) <REG_DEAD>: If the register is set
+	in I2 as well, just lose it.
+
 2016-02-11  Richard Biener  <rguenther@suse.de>
 
 	Backport from mainline
