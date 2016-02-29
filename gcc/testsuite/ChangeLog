@@ -1,3 +1,145 @@
+2016-02-28  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/60126
+	* gfortran.dg/pr60126.f90: New test.
+
+2016-02-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2016-02-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR tree-optimization/69989
+	* gcc.dg/torture/pr69989.c: New test.
+
+2016-02-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/61156
+	* gfortran.dg/include_6.f90: Update test.
+
+2016-02-27  Jeff Law  <law@redhat.com>
+
+	Revert
+	2016-02-26  Richard Biener  <rguenther@suse.de>
+		    Jeff Law  <law@redhat.com>
+
+	Backport from mainline
+	2016-02-26  Richard Biener  <rguenther@suse.de>
+		    Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/69740
+	* gcc.c-torture/compile/pr69740-1.c: New test.
+	* gcc.c-torture/compile/pr69740-2.c: New test.
+
+2016-02-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/61156
+	* gfortran.dg/include_6.f90: Update test.
+
+2016-02-26  Richard Biener  <rguenther@suse.de>
+	    Jeff Law  <law@redhat.com>
+
+	Backport from mainline
+	2016-02-26  Richard Biener  <rguenther@suse.de>
+		    Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/69740
+	* gcc.c-torture/compile/pr69740-1.c: New test.
+	* gcc.c-torture/compile/pr69740-2.c: New test.
+
+2016-02-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	PR target/61397
+	2016-02-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p8vector-ldst.c: Adjust to test desired
+	functionality for both 32-bit and 64-bit.
+
+2016-02-25  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-02-23  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/md/movstr-2.c: Move and rename to ...
+	* gcc.target/s390/vector/stpcpy-1.c: ... this one.
+
+2016-02-25  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-02-23  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/md/movstr-1.c: Turn into compile test.
+
+2016-02-25  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/vector/int128-1.c: New test.
+
+2016-02-25  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/vector/vec-vcond-1.c: New test.
+
+2016-02-25  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/md/movstr-2.c: New test.
+
+2016-02-25  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-02-19  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR target/69625
+	* gcc.target/s390/pr69625.c: Add test case.
+
+2016-02-25  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-02-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69776
+	* gcc.dg/torture/pr69776.c: New testcase.
+
+	2016-02-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69776
+	* gcc.dg/torture/pr69776-2.c: New testcase.
+
+2016-02-24  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-02-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69719
+	* gcc.dg/torture/pr69719.c: New testcase.
+
+	2016-02-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69783
+	* gcc.dg/vect/pr69783.c: New testcase.
+
+2016-02-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backported from mainline
+	PR fortran/65996
+	* gfortran.dg/pr65996.f90: New test.
+
+2016-02-23  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/69666
+	* gcc.dg/tree-ssa/pr69666.c: New test.
+
 2016-02-21  Dominique d'Humieres  <dominiq@lps.ens.fr>
 
 	PR fortran/57365
