@@ -1,3 +1,12 @@
+2016-01-03  Matthias Klose  <doko@ubuntu.com>
+
+	* include/jvm.h (GCJ_CXX_ABI_VERSION): Freeze the ABI for releases
+	made from the gcc-5-branch.
+
+2015-12-04  Release Manager
+
+	* GCC 5.3.0 released.
+
 2015-07-16  Release Manager
 
 	* GCC 5.2.0 released.

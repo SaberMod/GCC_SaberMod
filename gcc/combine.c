@@ -7236,6 +7236,10 @@ expand_field_assignment (const_rtx x)
       if (len >= HOST_BITS_PER_WIDE_INT)
 	break;
 
+      /* Don't try to compute in too wide unsupported modes.  */
+      if (!targetm.scalar_mode_supported_p (compute_mode))
+	break;
+
       /* Now compute the equivalent expression.  Make a copy of INNER
 	 for the SET_DEST in case it is a MEM into which we will substitute;
 	 we don't want shared RTL in that case.  */
@@ -13790,10 +13794,10 @@ distribute_notes (rtx notes, rtx_insn *from_insn, rtx_insn *i3, rtx_insn *i2,
 		break;
 	      tem_insn = i3;
 	      /* If the new I2 sets the same register that is marked dead
-		 in the note, the note now should not be put on I2, as the
-		 note refers to a previous incarnation of the reg.  */
+		 in the note, we do not know where to put the note.
+		 Give up.  */
 	      if (i2 != 0 && reg_set_p (XEXP (note, 0), PATTERN (i2)))
-		tem_insn = i2;
+		break;
 	    }
 
 	  if (place == 0)

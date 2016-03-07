@@ -2329,7 +2329,7 @@ analyze_access_subtree (struct access *root, struct access *parent,
 
       if (covered_to < limit)
 	hole = true;
-      if (scalar)
+      if (scalar || !allow_replacements)
 	root->grp_total_scalarization = 0;
     }
 
@@ -3242,6 +3242,7 @@ sra_modify_assign (gimple stmt, gimple_stmt_iterator *gsi)
     }
   else if (racc
 	   && !racc->grp_unscalarized_data
+	   && !racc->grp_unscalarizable_region
 	   && TREE_CODE (lhs) == SSA_NAME
 	   && !access_has_replacements_p (racc))
     {
@@ -3405,7 +3406,8 @@ sra_modify_assign (gimple stmt, gimple_stmt_iterator *gsi)
       else
 	{
 	  if (access_has_children_p (racc)
-	      && !racc->grp_unscalarized_data)
+	      && !racc->grp_unscalarized_data
+	      && TREE_CODE (lhs) != SSA_NAME)
 	    {
 	      if (dump_file)
 		{

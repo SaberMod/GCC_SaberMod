@@ -1880,7 +1880,7 @@ base_alias_check (rtx x, rtx x_base, rtx y, rtx y_base,
 }
 
 /* Return TRUE if EXPR refers to a VALUE whose uid is greater than
-   that of V.  */
+   (or equal to) that of V.  */
 
 static bool
 refs_newer_value_p (const_rtx expr, rtx v)
@@ -1888,14 +1888,14 @@ refs_newer_value_p (const_rtx expr, rtx v)
   int minuid = CSELIB_VAL_PTR (v)->uid;
   subrtx_iterator::array_type array;
   FOR_EACH_SUBRTX (iter, array, expr, NONCONST)
-    if (GET_CODE (*iter) == VALUE && CSELIB_VAL_PTR (*iter)->uid > minuid)
+    if (GET_CODE (*iter) == VALUE && CSELIB_VAL_PTR (*iter)->uid >= minuid)
       return true;
   return false;
 }
 
 /* Convert the address X into something we can use.  This is done by returning
-   it unchanged unless it is a value; in the latter case we call cselib to get
-   a more useful rtx.  */
+   it unchanged unless it is a VALUE or VALUE +/- constant; for VALUE
+   we call cselib to get a more useful rtx.  */
 
 rtx
 get_addr (rtx x)
@@ -1904,7 +1904,23 @@ get_addr (rtx x)
   struct elt_loc_list *l;
 
   if (GET_CODE (x) != VALUE)
-    return x;
+    {
+      if ((GET_CODE (x) == PLUS || GET_CODE (x) == MINUS)
+	  && GET_CODE (XEXP (x, 0)) == VALUE
+	  && CONST_SCALAR_INT_P (XEXP (x, 1)))
+	{
+	  rtx op0 = get_addr (XEXP (x, 0));
+	  if (op0 != XEXP (x, 0))
+	    {
+	      if (GET_CODE (x) == PLUS
+		  && GET_CODE (XEXP (x, 1)) == CONST_INT)
+		return plus_constant (GET_MODE (x), op0, INTVAL (XEXP (x, 1)));
+	      return simplify_gen_binary (GET_CODE (x), GET_MODE (x),
+					  op0, XEXP (x, 1));
+	    }
+	}
+      return x;
+    }
   v = CSELIB_VAL_PTR (x);
   if (v)
     {
