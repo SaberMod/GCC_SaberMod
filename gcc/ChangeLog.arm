@@ -1,3 +1,10 @@
+2016-03-07  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* config/arm/arm-cores.def (cortex-r8): New.
+	* config/arm/arm-tables.opt (cortex-r8): Regenerate.
+	* config/arm/arm-tune.md: Likewise.
+	* gcc/doc/invoke.texi: Add cortex-r8 to list of cpu values.
+
 2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	* Makefile.in (with_multilib_list): New variables substituted by
