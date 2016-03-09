@@ -1,5 +1,5 @@
 /* Emit RTL for the GCC expander.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -57,6 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "rtl-iter.h"
 #include "stor-layout.h"
+#include "opts.h"
 
 struct target_rtl default_target_rtl;
 #if SWITCHABLE_TARGET
@@ -5239,7 +5240,8 @@ set_unique_reg_note (rtx insn, enum reg_note kind, rtx datum)
     {
     case REG_EQUAL:
     case REG_EQUIV:
-      if (!set_for_reg_notes (insn))
+      /* We need to support the REG_EQUAL on USE trick of find_reloads.  */
+      if (!set_for_reg_notes (insn) && GET_CODE (PATTERN (insn)) != USE)
 	return NULL_RTX;
 
       /* Don't add ASM_OPERAND REG_EQUAL/REG_EQUIV notes.
@@ -5893,6 +5895,13 @@ init_emit_once (void)
 #endif
 
   /* Create the unique rtx's for certain rtx codes and operand values.  */
+
+  /* Process stack-limiting command-line options.  */
+  if (opt_fstack_limit_symbol_arg != NULL)
+    stack_limit_rtx 
+      = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (opt_fstack_limit_symbol_arg));
+  if (opt_fstack_limit_register_no >= 0)
+    stack_limit_rtx = gen_rtx_REG (Pmode, opt_fstack_limit_register_no);
 
   /* Don't use gen_rtx_CONST_INT here since gen_rtx_CONST_INT in this case
      tries to use these variables.  */

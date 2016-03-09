@@ -1,5 +1,5 @@
 /* Deal with I/O statements & related stuff.
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -1890,13 +1890,16 @@ gfc_match_open (void)
 	  goto cleanup;
 	}
 
-      if (!(open->file || (open->status
-          && gfc_wide_strncasecmp (open->status->value.character.string,
-				   "scratch", 7) == 0)))
-	{
-	  gfc_error ("NEWUNIT specifier must have FILE= "
-		     "or STATUS='scratch' at %C");
-	  goto cleanup;
+      if (!open->file && open->status)
+        {
+	  if (open->status->expr_type == EXPR_CONSTANT
+	     && gfc_wide_strncasecmp (open->status->value.character.string,
+				       "scratch", 7) != 0)
+	   {
+	     gfc_error ("NEWUNIT specifier must have FILE= "
+			"or STATUS='scratch' at %C");
+	     goto cleanup;
+	   }
 	}
     }
   else if (!open->unit)

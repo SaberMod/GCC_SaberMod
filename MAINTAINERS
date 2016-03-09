@@ -75,7 +75,6 @@ m68k port (?)		Jeff Law		<law@redhat.com>
 m68k port		Andreas Schwab		<schwab@linux-m68k.org>
 m68k-motorola-sysv port	Philippe De Muyter	<phdm@macqel.be>
 mcore port		Nick Clifton		<nickc@redhat.com>
-mep port		DJ Delorie		<dj@redhat.com>
 microblaze		Michael Eager		<eager@eagercon.com>
 mips port		Catherine Moore		<clm@codesourcery.com>
 mips port		Eric Christopher	<echristo@gmail.com>
@@ -164,6 +163,7 @@ objective-c/c++		Iain Sandoe		<iain@codesourcery.com>
 libbacktrace		Ian Lance Taylor	<ian@airs.com>
 libcpp			Per Bothner		<per@bothner.com>
 libcpp			All C and C++ front end maintainers
+libcpp			David Malcolm		<dmalcolm@redhat.com>
 fp-bit			Ian Lance Taylor	<ian@airs.com>
 libdecnumber		Ben Elliston		<bje@gnu.org>
 libgcc			Ian Lance Taylor	<ian@airs.com>
@@ -209,6 +209,7 @@ fixincludes		Bruce Korb		<bkorb@gnu.org>
 *gimpl*			Jason Merrill		<jason@redhat.com>
 gcse.c			Jeff Law		<law@redhat.com>
 global opt framework	Jeff Law		<law@redhat.com>
+hsa			Martin Jambor		<mjambor@suse.cz>
 jump.c			David S. Miller		<davem@redhat.com>
 web pages		Gerald Pfeifer		<gerald@pfeifer.com>
 config.sub/config.guess	Ben Elliston		<config-patches@gnu.org>
@@ -216,6 +217,7 @@ basic block reordering	Jason Eckhardt		<jle@rice.edu>
 i18n			Philipp Thomas		<pth@suse.de>
 i18n			Joseph Myers		<joseph@codesourcery.com>
 diagnostic messages	Dodji Seketeli		<dodji@redhat.com>
+diagnostic messages	David Malcolm		<dmalcolm@redhat.com>
 build machinery (*.in)	Paolo Bonzini		<bonzini@gnu.org>
 build machinery (*.in)	DJ Delorie		<dj@redhat.com>
 build machinery (*.in)	Nathanael Nerode	<neroden@gcc.gnu.org>
@@ -377,6 +379,7 @@ Simon Dardis					<simon.dardis@imgtec.com>
 Bud Davis					<jmdavis@link.com>
 Chris Demetriou					<cgd@google.com>
 Sameera Deshpande				<sameera.deshpande@arm.com>
+Wilco Dijkstra					<wdijkstr@arm.com>
 Benoit Dupont de Dinechin			<benoit.dupont-de-dinechin@st.com>
 Michael Eager					<eager@eagercon.com>
 Bernd Edlinger					<bernd.edlinger@hotmail.de>
@@ -393,7 +396,7 @@ Changpeng Fang					<changpeng.fang@amd.com>
 Li Feng						<nemokingdom@gmail.com>
 Max Filippov					<jcmvbkbc@gmail.com>
 Thomas Fitzsimmons				<fitzsim@redhat.com>
-Alexander Fomin				<afomin.mailbox@gmail.com>
+Alexander Fomin					<afomin.mailbox@gmail.com>
 Brian Ford					<ford@vss.fsi.com>
 John Freeman					<jfreeman08@gmail.com>
 Nathan Froyd					<froydnj@gcc.gnu.org>
@@ -633,6 +636,7 @@ Yufeng Zhang					<yufeng.zhang@arm.com>
 Shujing Zhao					<pearly.zhao@oracle.com>
 Jon Ziegler					<jonz@apple.com>
 Roman Zippel					<zippel@linux-m68k.org>
+Claudiu Zissulescu				<claziss@synopsys.com>
 Josef Zlomek					<josef.zlomek@email.cz>
 
 			Bug database only accounts

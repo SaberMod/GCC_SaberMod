@@ -1,6 +1,6 @@
 ; Options for the language- and target-independent parts of the compiler.
 
-; Copyright (C) 2003-2015 Free Software Foundation, Inc.
+; Copyright (C) 2003-2016 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -238,6 +238,10 @@ Inserts call to __sanitizer_cov_trace_pc into every basic block.
 ; Flag whether a prefix has been added to dump_base_name
 Variable
 bool dump_base_name_prefixed = false
+
+; Flag whether HSA generation has been explicitely disabled
+Variable
+bool flag_disable_hsa = false
 
 ###
 Driver
@@ -593,6 +597,10 @@ Wfree-nonheap-object
 Common Var(warn_free_nonheap_object) Init(1) Warning
 Warn when attempting to free a non-heap object.
 
+Whsa
+Common Var(warn_hsa) Init(1) Warning
+Warn when a function cannot be expanded to HSAIL.
+
 Winline
 Common Var(warn_inline) Warning
 Warn when an inlined function cannot be inlined.
@@ -607,6 +615,10 @@ Common RejectNegative Joined Warning Undocumented Alias(Wlarger-than=)
 Wlarger-than=
 Common RejectNegative Joined UInteger Warning
 -Wlarger-than=<number>	Warn if an object is larger than <number> bytes.
+
+Wnonnull-compare
+Var(warn_nonnull_compare) Warning
+Warn if comparing pointer parameter with nonnull attribute with NULL.
 
 Wnull-dereference
 Common Var(warn_null_dereference) Warning
@@ -716,7 +728,7 @@ Common Var(warn_maybe_uninitialized) Warning EnabledBy(Wuninitialized)
 Warn about maybe uninitialized automatic variables.
 
 Wunreachable-code
-Common Ignore
+Common Ignore Warning
 Does nothing. Preserved for backward compatibility.
 
 Wunused
@@ -1226,7 +1238,7 @@ Perform early inlining.
 
 feliminate-dwarf2-dups
 Common Report Var(flag_eliminate_dwarf2_dups)
-Perform DWARF2 duplicate elimination.
+Perform DWARF duplicate elimination.
 
 fipa-sra
 Common Report Var(flag_ipa_sra) Init(0) Optimization
@@ -1371,6 +1383,10 @@ fhoist-adjacent-loads
 Common Report Var(flag_hoist_adjacent_loads) Optimization
 Enable hoisting adjacent loads to encourage generating conditional move
 instructions.
+
+fkeep-gc-roots-live
+Common Undocumented Report Var(flag_keep_gc_roots_live) Optimization
+; Always keep a pointer to a live memory block
 
 floop-parallelize-all
 Common Report Var(flag_loop_parallelize_all) Optimization
@@ -1909,7 +1925,7 @@ Common Var(common_deferred_options) Defer
 
 frandom-seed=
 Common Joined RejectNegative Var(common_deferred_options) Defer
--frandom-seed=<number>	Make compile reproducible using <number>.
+-frandom-seed=<string>	Make compile reproducible using <string>.
 
 ; This switch causes the command line that was used to create an
 ; object file to be recorded into the object file.  The exact format
@@ -1930,9 +1946,12 @@ Common Ignore
 Does nothing. Preserved for backward compatibility.
 
 flifetime-dse
-Common Report Var(flag_lifetime_dse) Init(1) Optimization
+Common Report Var(flag_lifetime_dse,2) Init(2) Optimization
 Tell DSE that the storage for a C++ object is dead when the constructor
 starts and when the destructor finishes.
+
+flifetime-dse=
+Common Joined RejectNegative UInteger Var(flag_lifetime_dse) Optimization
 
 flive-range-shrinkage
 Common Report Var(flag_live_range_shrinkage) Init(0) Optimization

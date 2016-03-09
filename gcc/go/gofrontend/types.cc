@@ -2307,7 +2307,10 @@ class Sort_methods
   bool
   operator()(const std::pair<std::string, const Method*>& m1,
 	     const std::pair<std::string, const Method*>& m2) const
-  { return m1.first < m2.first; }
+  {
+    return (Gogo::unpack_hidden_name(m1.first)
+	    < Gogo::unpack_hidden_name(m2.first));
+  }
 };
 
 // Return a composite literal for the type method table for this type.
@@ -2549,6 +2552,8 @@ bool
 Type::backend_type_size(Gogo* gogo, int64_t *psize)
 {
   if (!this->is_backend_type_size_known(gogo))
+    return false;
+  if (this->is_error_type())
     return false;
   Btype* bt = this->get_backend_placeholder(gogo);
   *psize = gogo->backend()->type_size(bt);
@@ -6453,7 +6458,7 @@ Array_type::slice_gc_symbol(Gogo* gogo, Expression_list** vals,
   (*vals)->push_back(Expression::make_integer_ul(opval, uintptr_type, bloc));
   (*vals)->push_back(*offset);
 
-  if (element_size != 0)
+  if (element_size != 0 && ok)
     (*vals)->push_back(Expression::make_gc_symbol(element_type));
   this->advance_gc_offset(offset);
 }
@@ -6488,7 +6493,7 @@ Array_type::array_gc_symbol(Gogo* gogo, Expression_list** vals,
   Type* element_type = this->element_type();
   if (bound < 1 || !element_type->has_pointer())
     this->advance_gc_offset(offset);
-  else if (bound == 1 || iwidth <= 4 * pwidth)
+  else if (ok && (bound == 1 || iwidth <= 4 * pwidth))
     {
       for (unsigned int i = 0; i < bound; ++i)
 	Type::gc_symbol(gogo, element_type, vals, offset, stack_size);
@@ -7682,7 +7687,8 @@ Interface_type::get_backend_methods(Gogo* gogo)
       mfields[i].location = loc;
 
       // Sanity check: the names should be sorted.
-      go_assert(p->name() > last_name);
+      go_assert(Gogo::unpack_hidden_name(p->name())
+		> Gogo::unpack_hidden_name(last_name));
       last_name = p->name();
     }
 
@@ -9626,13 +9632,14 @@ Type::build_stub_methods(Gogo* gogo, const Type* type, const Methods* methods,
 	package = NULL;
       else
 	package = type->named_type()->named_object()->package();
+      std::string stub_name = name + "$stub";
       Named_object* stub;
       if (package != NULL)
-	stub = Named_object::make_function_declaration(name, package,
+	stub = Named_object::make_function_declaration(stub_name, package,
 						       stub_type, location);
       else
 	{
-	  stub = gogo->start_function(name, stub_type, false,
+	  stub = gogo->start_function(stub_name, stub_type, false,
 				      fntype->location());
 	  Type::build_one_stub_method(gogo, m, buf, stub_params,
 				      fntype->is_varargs(), location);
@@ -10487,7 +10494,10 @@ struct Typed_identifier_list_sort
  public:
   bool
   operator()(const Typed_identifier& t1, const Typed_identifier& t2) const
-  { return t1.name() < t2.name(); }
+  {
+    return (Gogo::unpack_hidden_name(t1.name())
+	    < Gogo::unpack_hidden_name(t2.name()));
+  }
 };
 
 void

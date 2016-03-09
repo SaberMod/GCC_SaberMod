@@ -1,5 +1,5 @@
-/* Functions related to invoking methods and overloaded functions.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+/* Functions related to invoking -*- C++ -*- methods and overloaded functions.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
 
@@ -190,7 +190,6 @@ static struct z_candidate *add_function_candidate
 	 tree, int, tsubst_flags_t);
 static conversion *implicit_conversion (tree, tree, tree, bool, int,
 					tsubst_flags_t);
-static conversion *standard_conversion (tree, tree, tree, bool, int);
 static conversion *reference_binding (tree, tree, tree, bool, int,
 				      tsubst_flags_t);
 static conversion *build_conv (conversion_kind, tree, conversion *);
@@ -898,6 +897,8 @@ build_aggr_conv (tree type, tree ctor, int flags, tsubst_flags_t complain)
 
       if (i < CONSTRUCTOR_NELTS (ctor))
 	val = CONSTRUCTOR_ELT (ctor, i)->value;
+      else if (DECL_INITIAL (field))
+	val = get_nsdmi (field, /*ctor*/false);
       else if (TREE_CODE (ftype) == REFERENCE_TYPE)
 	/* Value-initialization of reference is ill-formed.  */
 	return NULL;
@@ -1080,7 +1081,7 @@ strip_top_quals (tree t)
 
 static conversion *
 standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
-		     int flags)
+		     int flags, tsubst_flags_t complain)
 {
   enum tree_code fcode, tcode;
   conversion *conv;
@@ -1110,7 +1111,7 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
       else if (TREE_CODE (to) == BOOLEAN_TYPE)
 	{
 	  /* Necessary for eg, TEMPLATE_ID_EXPRs (c++/50961).  */
-	  expr = resolve_nondeduced_context (expr);
+	  expr = resolve_nondeduced_context (expr, complain);
 	  from = TREE_TYPE (expr);
 	}
     }
@@ -1149,7 +1150,8 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	 the standard conversion sequence to perform componentwise
 	 conversion.  */
       conversion *part_conv = standard_conversion
-	(TREE_TYPE (to), TREE_TYPE (from), NULL_TREE, c_cast_p, flags);
+	(TREE_TYPE (to), TREE_TYPE (from), NULL_TREE, c_cast_p, flags,
+	 complain);
 
       if (part_conv)
 	{
@@ -1799,7 +1801,7 @@ implicit_conversion (tree to, tree from, tree expr, bool c_cast_p,
   if (TREE_CODE (to) == REFERENCE_TYPE)
     conv = reference_binding (to, from, expr, c_cast_p, flags, complain);
   else
-    conv = standard_conversion (to, from, expr, c_cast_p, flags);
+    conv = standard_conversion (to, from, expr, c_cast_p, flags, complain);
 
   if (conv)
     return conv;
@@ -1905,7 +1907,7 @@ add_candidate (struct z_candidate **candidates,
 /* Return the number of remaining arguments in the parameter list
    beginning with ARG.  */
 
-static int
+int
 remaining_arguments (tree arg)
 {
   int n;
@@ -3037,6 +3039,34 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
   if (len < skip_without_in_chrg)
     return NULL;
 
+  if (DECL_CONSTRUCTOR_P (tmpl) && nargs == 2
+      && same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (first_arg),
+						    TREE_TYPE ((*arglist)[0])))
+    {
+      /* 12.8/6 says, "A declaration of a constructor for a class X is
+	 ill-formed if its first parameter is of type (optionally cv-qualified)
+	 X and either there are no other parameters or else all other
+	 parameters have default arguments. A member function template is never
+	 instantiated to produce such a constructor signature."
+
+	 So if we're trying to copy an object of the containing class, don't
+	 consider a template constructor that has a first parameter type that
+	 is just a template parameter, as we would deduce a signature that we
+	 would then reject in the code below.  */
+      if (tree firstparm = FUNCTION_FIRST_USER_PARMTYPE (tmpl))
+	{
+	  firstparm = TREE_VALUE (firstparm);
+	  if (PACK_EXPANSION_P (firstparm))
+	    firstparm = PACK_EXPANSION_PATTERN (firstparm);
+	  if (TREE_CODE (firstparm) == TEMPLATE_TYPE_PARM)
+	    {
+	      gcc_assert (!explicit_targs);
+	      reason = invalid_copy_with_fn_template_rejection ();
+	      goto fail;
+	    }
+	}
+    }
+
   nargs_without_in_chrg = ((first_arg_without_in_chrg != NULL_TREE ? 1 : 0)
 			   + (len - skip_without_in_chrg));
   args_without_in_chrg = XALLOCAVEC (tree, nargs_without_in_chrg);
@@ -3075,34 +3105,15 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
       goto fail;
     }
 
-  /* In [class.copy]:
-
-       A member function template is never instantiated to perform the
-       copy of a class object to an object of its class type.
-
-     It's a little unclear what this means; the standard explicitly
-     does allow a template to be used to copy a class.  For example,
-     in:
-
-       struct A {
-	 A(A&);
-	 template <class T> A(const T&);
-       };
-       const A f ();
-       void g () { A a (f ()); }
-
-     the member template will be used to make the copy.  The section
-     quoted above appears in the paragraph that forbids constructors
-     whose only parameter is (a possibly cv-qualified variant of) the
-     class type, and a logical interpretation is that the intent was
-     to forbid the instantiation of member templates which would then
-     have that form.  */
   if (DECL_CONSTRUCTOR_P (fn) && nargs == 2)
     {
       tree arg_types = FUNCTION_FIRST_USER_PARMTYPE (fn);
       if (arg_types && same_type_p (TYPE_MAIN_VARIANT (TREE_VALUE (arg_types)),
 				    ctype))
 	{
+	  /* We're trying to produce a constructor with a prohibited signature,
+	     as discussed above; handle here any cases we didn't catch then,
+	     such as X(X<T>).  */
 	  reason = invalid_copy_with_fn_template_rejection ();
 	  goto fail;
 	}
@@ -6533,7 +6544,16 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
     case ck_rvalue:
       expr = decay_conversion (expr, complain);
       if (expr == error_mark_node)
-	return error_mark_node;
+	{
+	  if (complain)
+	    {
+	      maybe_print_user_conv_context (convs);
+	      if (fn)
+		inform (DECL_SOURCE_LOCATION (fn),
+			"  initializing argument %P of %qD", argnum, fn);
+	    }
+	  return error_mark_node;
+	}
 
       if (! MAYBE_CLASS_TYPE_P (totype))
 	return expr;
@@ -7152,6 +7172,9 @@ unsafe_copy_elision_p (tree target, tree exp)
       && resolves_to_fixed_type_p (target, NULL))
     return false;
   tree init = TARGET_EXPR_INITIAL (exp);
+  /* build_compound_expr pushes COMPOUND_EXPR inside TARGET_EXPR.  */
+  while (TREE_CODE (init) == COMPOUND_EXPR)
+    init = TREE_OPERAND (init, 1);
   return (TREE_CODE (init) == AGGR_INIT_EXPR
 	  && !AGGR_INIT_VIA_CTOR_P (init));
 }
@@ -7524,7 +7547,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       for (j = 0; j < nargs; j++)
 	fargs[j] = maybe_constant_value (argarray[j]);
 
-      check_function_arguments (TREE_TYPE (fn), nargs, fargs);
+      check_function_arguments (input_location, TREE_TYPE (fn), nargs, fargs);
     }
 
   /* Avoid actually calling copy constructors and copy assignment operators,
@@ -7734,7 +7757,7 @@ build_cxx_call (tree fn, int nargs, tree *argarray,
       /* We need to take care that values to BUILT_IN_NORMAL
          are reduced.  */
       for (i = 0; i < nargs; i++)
-	argarray[i] = maybe_constant_value (argarray[i]);
+	argarray[i] = fold_non_dependent_expr (argarray[i]);
 
       if (!check_builtin_function_arguments (fndecl, nargs, argarray))
 	return error_mark_node;

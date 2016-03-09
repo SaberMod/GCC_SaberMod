@@ -1,5 +1,5 @@
 /* Loop optimizations over tree-ssa.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -148,18 +148,13 @@ make_pass_tree_loop (gcc::context *ctxt)
 static bool
 gate_oacc_kernels (function *fn)
 {
-  if (flag_tree_parallelize_loops <= 1)
+  if (!flag_openacc)
     return false;
 
   tree oacc_function_attr = get_oacc_fn_attrib (fn->decl);
   if (oacc_function_attr == NULL_TREE)
     return false;
-
-  tree val = TREE_VALUE (oacc_function_attr);
-  while (val != NULL_TREE && TREE_VALUE (val) == NULL_TREE)
-    val = TREE_CHAIN (val);
-
-  if (val != NULL_TREE)
+  if (!oacc_fn_attrib_kernels_p (oacc_function_attr))
     return false;
 
   struct loop *loop;
@@ -235,10 +230,9 @@ public:
   virtual bool gate (function *)
   {
     return (optimize
-	    /* Don't bother doing anything if the program has errors.  */
-	    && !seen_error ()
 	    && flag_openacc
-	    && flag_tree_parallelize_loops > 1);
+	    /* Don't bother doing anything if the program has errors.  */
+	    && !seen_error ());
   }
 
 }; // class pass_ipa_oacc

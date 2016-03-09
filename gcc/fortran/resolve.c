@@ -1,5 +1,5 @@
 /* Perform type resolution on the various structures.
-   Copyright (C) 2001-2015 Free Software Foundation, Inc.
+   Copyright (C) 2001-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -2565,8 +2565,13 @@ generic:
      that possesses a matching interface.  14.1.2.4  */
   if (sym  && !intr && !gfc_is_intrinsic (sym, 0, expr->where))
     {
-      gfc_error ("There is no specific function for the generic %qs "
-		 "at %L", expr->symtree->n.sym->name, &expr->where);
+      if (gfc_init_expr_flag)
+	gfc_error ("Function %qs in initialization expression at %L "
+		   "must be an intrinsic function",
+		   expr->symtree->n.sym->name, &expr->where);
+      else
+	gfc_error ("There is no specific function for the generic %qs "
+		   "at %L", expr->symtree->n.sym->name, &expr->where);
       return false;
     }
 
@@ -4772,7 +4777,7 @@ fail:
 /* Given a variable expression node, compute the rank of the expression by
    examining the base symbol and any reference structures it may have.  */
 
-static void
+void
 expression_rank (gfc_expr *e)
 {
   gfc_ref *ref;
@@ -8148,16 +8153,19 @@ resolve_assoc_var (gfc_symbol* sym, bool resolve_target)
   if (target->rank != 0)
     {
       gfc_array_spec *as;
-      if (sym->ts.type != BT_CLASS && !sym->as)
+      /* The rank may be incorrectly guessed at parsing, therefore make sure
+	 it is corrected now.  */
+      if (sym->ts.type != BT_CLASS && (!sym->as || sym->assoc->rankguessed))
 	{
-	  as = gfc_get_array_spec ();
+	  if (!sym->as)
+	    sym->as = gfc_get_array_spec ();
+	  as = sym->as;
 	  as->rank = target->rank;
 	  as->type = AS_DEFERRED;
 	  as->corank = gfc_get_corank (target);
 	  sym->attr.dimension = 1;
 	  if (as->corank != 0)
 	    sym->attr.codimension = 1;
-	  sym->as = as;
 	}
     }
   else
@@ -14221,6 +14229,21 @@ resolve_symbol (gfc_symbol *sym)
       break;
 
     case FL_PROCEDURE:
+      if (sym->formal && !sym->formal_ns)
+	{
+	  /* Check that none of the arguments are a namelist.  */
+	  gfc_formal_arglist *formal = sym->formal;
+
+	  for (; formal; formal = formal->next)
+	    if (formal->sym && formal->sym->attr.flavor == FL_NAMELIST)
+	      {
+		gfc_error ("Namelist '%s' can not be an argument to "
+			   "subroutine or function at %L",
+			   formal->sym->name, &sym->declared_at);
+		return;
+	      }
+	}
+
       if (!resolve_fl_procedure (sym, mp_flag))
 	return;
       break;
@@ -15320,9 +15343,9 @@ check_uop_procedure (gfc_symbol *sym, locus where)
     }
 
   if (sym->ts.type == BT_CHARACTER
-      && !(sym->ts.u.cl && sym->ts.u.cl->length)
-      && !(sym->result && sym->result->ts.u.cl
-	   && sym->result->ts.u.cl->length))
+      && !((sym->ts.u.cl && sym->ts.u.cl->length) || sym->ts.deferred)
+      && !(sym->result && ((sym->result->ts.u.cl
+	   && sym->result->ts.u.cl->length) || sym->result->ts.deferred)))
     {
       gfc_error ("User operator procedure %qs at %L cannot be assumed "
 		 "character length", sym->name, &where);

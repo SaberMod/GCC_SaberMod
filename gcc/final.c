@@ -1,5 +1,5 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -43,6 +43,7 @@ along with GCC; see the file COPYING3.  If not see
    function_epilogue.  Those instructions never exist as rtl.  */
 
 #include "config.h"
+#define INCLUDE_ALGORITHM /* reverse */
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"

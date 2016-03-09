@@ -1,5 +1,5 @@
 ;;- Machine description for ARM for GNU compiler
-;;  Copyright (C) 1991-2015 Free Software Foundation, Inc.
+;;  Copyright (C) 1991-2016 Free Software Foundation, Inc.
 ;;  Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
 ;;  and Martin Simmons (@harleqn.co.uk).
 ;;  More major hacks by Richard Earnshaw (rearnsha@arm.com).
@@ -883,8 +883,8 @@
 
 (define_insn "*subsi3_carryin_const"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
-        (minus:SI (plus:SI (match_operand:SI 1 "reg_or_int_operand" "r")
-                           (match_operand:SI 2 "arm_not_operand" "K"))
+        (minus:SI (plus:SI (match_operand:SI 1 "s_register_operand" "r")
+                           (match_operand:SI 2 "arm_not_immediate_operand" "K"))
                   (ltu:SI (reg:CC_C CC_REGNUM) (const_int 0))))]
   "TARGET_32BIT"
   "sbc\\t%0, %1, #%B2"
@@ -7175,7 +7175,7 @@
 
 (define_insn_and_split "*mov_scc"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
-	(match_operator:SI 1 "arm_comparison_operator"
+	(match_operator:SI 1 "arm_comparison_operator_mode"
 	 [(match_operand 2 "cc_register" "") (const_int 0)]))]
   "TARGET_ARM"
   "#"   ; "mov%D1\\t%0, #0\;mov%d1\\t%0, #1"
@@ -7192,7 +7192,7 @@
 
 (define_insn_and_split "*mov_negscc"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
-	(neg:SI (match_operator:SI 1 "arm_comparison_operator"
+	(neg:SI (match_operator:SI 1 "arm_comparison_operator_mode"
 		 [(match_operand 2 "cc_register" "") (const_int 0)])))]
   "TARGET_ARM"
   "#"   ; "mov%D1\\t%0, #0\;mvn%d1\\t%0, #0"

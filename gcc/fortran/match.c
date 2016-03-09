@@ -1,5 +1,5 @@
 /* Matching subroutines in all sizes, shapes and colors.
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -876,6 +876,12 @@ gfc_match_iterator (gfc_iterator *iter, int init_flag)
   m = gfc_match_variable (&var, 0);
   if (m != MATCH_YES)
     return MATCH_NO;
+
+  if (var->symtree->n.sym->attr.dimension)
+    {
+      gfc_error ("Loop variable at %C cannot be an array");
+      goto cleanup;
+    }
 
   /* F2008, C617 & C565.  */
   if (var->symtree->n.sym->attr.codimension)

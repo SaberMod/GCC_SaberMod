@@ -1,5 +1,5 @@
 /* Vectorizer
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -333,6 +333,9 @@ typedef struct _loop_vec_info : public vec_info {
      loop version without if-conversion.  */
   struct loop *scalar_loop;
 
+  /* Mark loops having masked stores.  */
+  bool has_mask_store;
+
 } *loop_vec_info;
 
 /* Access Functions.  */
@@ -368,6 +371,7 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_PEELING_FOR_NITER(L)    (L)->peeling_for_niter
 #define LOOP_VINFO_NO_DATA_DEPENDENCIES(L) (L)->no_data_dependencies
 #define LOOP_VINFO_SCALAR_LOOP(L)	   (L)->scalar_loop
+#define LOOP_VINFO_HAS_MASK_STORE(L)       (L)->has_mask_store
 #define LOOP_VINFO_SCALAR_ITERATION_COST(L) (L)->scalar_cost_vec
 #define LOOP_VINFO_SINGLE_SCALAR_ITERATION_COST(L) (L)->single_scalar_iteration_cost
 
@@ -601,6 +605,8 @@ typedef struct _stmt_vec_info {
   /* For reduction loops, this is the type of reduction.  */
   enum vect_reduction_type v_reduc_type;
 
+  /* The number of scalar stmt references from active SLP instances.  */
+  unsigned int num_slp_uses;
 } *stmt_vec_info;
 
 /* Access Functions.  */
@@ -653,6 +659,7 @@ STMT_VINFO_BB_VINFO (stmt_vec_info stmt_vinfo)
 #define STMT_VINFO_LOOP_PHI_EVOLUTION_BASE_UNCHANGED(S) (S)->loop_phi_evolution_base_unchanged
 #define STMT_VINFO_LOOP_PHI_EVOLUTION_PART(S) (S)->loop_phi_evolution_part
 #define STMT_VINFO_MIN_NEG_DIST(S)	(S)->min_neg_dist
+#define STMT_VINFO_NUM_SLP_USES(S)	(S)->num_slp_uses
 
 #define GROUP_FIRST_ELEMENT(S)          (S)->first_element
 #define GROUP_NEXT_ELEMENT(S)           (S)->next_element
@@ -1010,6 +1017,7 @@ extern void vect_get_vec_defs (tree, tree, gimple *, vec<tree> *,
 			       vec<tree> *, slp_tree, int);
 extern tree vect_gen_perm_mask_any (tree, const unsigned char *);
 extern tree vect_gen_perm_mask_checked (tree, const unsigned char *);
+extern void optimize_mask_stores (struct loop*);
 
 /* In tree-vect-data-refs.c.  */
 extern bool vect_can_force_dr_alignment_p (const_tree, unsigned int);

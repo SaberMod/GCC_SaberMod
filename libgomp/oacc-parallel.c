@@ -1,4 +1,4 @@
-/* Copyright (C) 2013-2015 Free Software Foundation, Inc.
+/* Copyright (C) 2013-2016 Free Software Foundation, Inc.
 
    Contributed by Mentor Embedded.
 
@@ -102,6 +102,10 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
       fn (hostaddrs);
       return;
     }
+
+  /* Default: let the runtime choose.  */
+  for (i = 0; i != GOMP_DIM_MAX; i++)
+    dims[i] = 0;
 
   va_start (ap, kinds);
   /* TODO: This will need amending when device_type is implemented.  */
@@ -488,46 +492,6 @@ GOACC_wait (int async, int num_waits, ...)
     acc_wait_all ();
   else if (async == acc_async_noval)
     goacc_thread ()->dev->openacc.async_wait_all_async_func (acc_async_noval);
-}
-
-void
-GOACC_host_data (int device, size_t mapnum,
-		 void **hostaddrs, size_t *sizes, unsigned short *kinds)
-{
-  bool host_fallback = device == GOMP_DEVICE_HOST_FALLBACK;
-  struct target_mem_desc *tgt;
-
-#ifdef HAVE_INTTYPES_H
-  gomp_debug (0, "%s: mapnum=%"PRIu64", hostaddrs=%p, size=%p, kinds=%p\n",
-	      __FUNCTION__, (uint64_t) mapnum, hostaddrs, sizes, kinds);
-#else
-  gomp_debug (0, "%s: mapnum=%lu, hostaddrs=%p, sizes=%p, kinds=%p\n",
-	      __FUNCTION__, (unsigned long) mapnum, hostaddrs, sizes, kinds);
-#endif
-
-  goacc_lazy_initialize ();
-
-  struct goacc_thread *thr = goacc_thread ();
-  struct gomp_device_descr *acc_dev = thr->dev;
-
-  /* Host fallback or 'do nothing'.  */
-  if ((acc_dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
-      || host_fallback)
-    {
-      tgt = gomp_map_vars (NULL, 0, NULL, NULL, NULL, NULL, true,
-			   GOMP_MAP_VARS_OPENACC);
-      tgt->prev = thr->mapped_data;
-      thr->mapped_data = tgt;
-
-      return;
-    }
-
-  gomp_debug (0, "  %s: prepare mappings\n", __FUNCTION__);
-  tgt = gomp_map_vars (acc_dev, mapnum, hostaddrs, NULL, sizes, kinds, true,
-		       GOMP_MAP_VARS_OPENACC);
-  gomp_debug (0, "  %s: mappings prepared\n", __FUNCTION__);
-  tgt->prev = thr->mapped_data;
-  thr->mapped_data = tgt;
 }
 
 int

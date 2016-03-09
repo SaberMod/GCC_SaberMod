@@ -1,5 +1,5 @@
 /* Scanning of rtl for dataflow analysis.
-   Copyright (C) 2007-2015 Free Software Foundation, Inc.
+   Copyright (C) 2007-2016 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck (zadeck@naturalbridge.com).
 
 This file is part of GCC.
@@ -444,7 +444,7 @@ regstat_bb_compute_calls_crossed (unsigned int bb_index, bitmap live)
       struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
       unsigned int regno;
 
-      if (!INSN_P (insn))
+      if (!NONDEBUG_INSN_P (insn))
 	continue;
 
       /* Process the defs.  */

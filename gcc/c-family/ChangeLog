@@ -1,3 +1,190 @@
+2016-03-08  Jason Merrill  <jason@redhat.com>
+
+	* c-opts.c (set_std_cxx1z): Don't enable concepts.
+
+2016-03-04  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/68187
+	* c-indentation.c (get_visual_column): Move code to determine next
+	tab stop to...
+	(next_tab_stop): ...this new function.
+	(line_contains_hash_if): Delete function.
+	(detect_preprocessor_logic): Delete function.
+	(get_first_nws_vis_column): New function.
+	(detect_intervening_unindent): New function.
+	(should_warn_for_misleading_indentation): Replace call to
+	detect_preprocessor_logic with a call to
+	detect_intervening_unindent.
+
+2016-03-04  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/68187
+	* c-indentation.c (should_warn_for_misleading_indentation): When
+	suppressing warnings about cases where the guard and body are on
+	the same column, only use the first non-whitespace column in place
+	of the guard token column when dealing with "else" clauses.
+	When rejecting aligned BODY and NEXT, loosen the requirement
+	from equality with the first non-whitespace of guard to simply
+	that they not be indented relative to it.
+
+2016-03-04  Richard Biener  <rguenther@suse.de>
+
+	PR c++/70054
+	* c-common.c (strict_aliasing_warning): Use alias_set_subset_of
+	instead of alias_sets_conflict_p.
+
+2016-03-01  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/69795
+	* c-common.c (reject_gcc_builtin): Check for FUNCTION_DECL rather than
+	any DECL.
+
+2016-02-22  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/69780
+	* c-common.c (check_builtin_function_arguments): Validate and
+	reject invalid arguments to __builtin_alloca_with_align.
+
+2016-02-20  Mark Wielaard  <mjw@redhat.com>
+
+	PR c/28901
+	* c.opt (Wunused-const-variable): Turn into Alias for...
+	(Wunused-const-variable=): New option.
+
+2016-02-19  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/69865
+	* c-opts.c (c_common_post_options): Move call to set_std_cxx14 from
+	here...
+	(c_common_init_options): ...to here.
+	(set_std_cxx98): Initialize flag_isoc94 and flag_isoc99.
+
+2016-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69826
+	* c-pragma.c (c_pp_lookup_pragma): Handle PRAGMA_CILK_GRAINSIZE.
+	(init_pragma): Register PRAGMA_CILK_GRAINSIZE even for
+	flag_preprocess_only.
+
+2016-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/69835
+	* c.opt (Wnonnull-compare): Enable for -Wall.
+
+2016-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69797
+	* c-common.c (sync_resolve_size): Diagnose too few arguments
+	even when params is non-NULL empty vector.
+
+2016-02-08  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR target/60410
+	* c.opt (fshort-double): Remove.
+
+2016-02-05  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/69662
+	* c.opt (Warning options): Update -Wplacement-new to take
+	an optional argument.
+
+2016-02-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/69543
+	PR c/69558
+	* c-pragma.c (handle_pragma_diagnostic): Pass input_location
+	instead of loc to control_warning_option.
+
+2016-02-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c.opt (fopenacc-dim=): New option.
+
+2016-01-27  Ryan Burn  <contact@rnburn.com>
+
+	PR cilkplus/69267
+	* cilk.c (cilk_gimplify_call_params_in_spawned_fn): Change to use
+	gimplify_arg. Removed superfluous post_p argument.
+	* c-family.h (cilk_gimplify_call_params_in_spawned_fn): Removed
+	superfluous post_p argument.
+	* c-gimplify.c (c_gimplify_expr): Likewise.
+
+2016-01-26  David Malcolm  <dmalcolm@redhat.com>
+
+	PR other/69006
+	* c-opts.c (c_diagnostic_finalizer): Replace invocation of
+	pp_newline_and_flush with pp_flush.
+
+2016-01-20  Martin Sebor  <msebor@redhat.com>
+
+	PR c/69405
+	* c-common.c (sync_resolve_size): Avoid printing diagnostic about
+	an incompatible argument when the argument isn't a valid tree node.
+
+2016-01-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68767
+	* c-common.c (check_function_arguments_recurse): Fold the whole
+	COND_EXPR, not just the condition.
+
+2016-01-18  Tom de Vries  <tom@codesourcery.com>
+
+	* c-omp.c (c_oacc_split_loop_clauses): Don't copy OMP_CLAUSE_REDUCTION,
+	classify as loop clause.
+
+2016-01-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/68271
+	* c-pragma.c (c_register_pragma_1): Adjust comment to note that
+	C++ FE no longer has limit on number of pragmas.
+
+2015-01-14  Ryan Burn  <contact@rnburn.com>
+
+	PR c++/69048
+	* cilk.c (create_cilk_wrapper_body): Call fold_build_cleanup_point_expr
+	to add missing cleanup point.
+
+2016-01-14  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/68819
+	* c-indentation.c (get_visual_column): Add location_t param.
+	Handle the column number being zero by effectively disabling the
+	warning, with an "inform".
+	(should_warn_for_misleading_indentation): Add location_t argument
+	for all uses of get_visual_column.
+
+2016-01-10  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/69029
+	* c-indentation.c (should_warn_for_misleading_indentation):
+	Don't warn about do-while statements.
+
+2016-01-07  Martin Sebor  <msebor@redhat.com>
+
+	PR c/68966
+	* c-common.c (sync_resolve_size): Reject first argument when it's
+	a pointer to _Bool.
+
+2016-01-05  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/69122
+	* c-indentation.c (get_visual_column): Remove default argument.
+	(should_warn_for_misleading_indentation): For the multiline case,
+	update call to get_visual_column for next_stmt_exploc so that it
+	captures the location of the first non-whitespace character in the
+	relevant line.  Don't issue warnings if there is non-whitespace
+	before the next statement.
+
+2016-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+2015-12-21  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-common.c (binary_op_error): Convert first param from
+	location_t to rich_location * and use it when emitting an error.
+	* c-common.h (binary_op_error): Convert first param from
+	location_t to rich_location *.
+
 2015-12-16  David Malcolm  <dmalcolm@redhat.com>
 
 	* c-common.h (conflict_marker_get_final_tok_kind): New prototype.
@@ -5969,7 +6156,7 @@
 	* c-common.c: Include gt-c-family-c-common.h.
 	* c-pragma.c: Include gt-c-family-c-pragma.h.
 
-Copyright (C) 2010-2015 Free Software Foundation, Inc.
+Copyright (C) 2010-2016 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

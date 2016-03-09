@@ -1,5 +1,5 @@
 ;; Predicate definitions for S/390 and zSeries.
-;; Copyright (C) 2005-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2016 Free Software Foundation, Inc.
 ;; Contributed by Hartmut Penner (hpenner@de.ibm.com) and
 ;;                Ulrich Weigand (uweigand@de.ibm.com).
 ;;
@@ -115,6 +115,10 @@
   return true;
 })
 
+; An integer operand with the lowest order 6 bits all ones.
+(define_predicate "const_int_6bitset_operand"
+ (and (match_code "const_int")
+      (match_test "(INTVAL (op) & 63) == 63")))
 (define_predicate "nonzero_shift_count_operand"
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 1, GET_MODE_BITSIZE (mode) - 1)")))
@@ -122,10 +126,7 @@
 ;;  Return true if OP a valid operand for the LARL instruction.
 
 (define_predicate "larl_operand"
-; Note: Although CONST_INT and CONST_DOUBLE are not handled in this predicate,
-; at least one of them needs to appear or otherwise safe_predicate_mode will
-; assume that a VOIDmode LABEL_REF is not accepted either (see genrecog.c).
-  (match_code "label_ref, symbol_ref, const, const_int, const_double")
+  (match_code "label_ref, symbol_ref, const")
 {
   /* Allow labels and local symbols.  */
   if (GET_CODE (op) == LABEL_REF)

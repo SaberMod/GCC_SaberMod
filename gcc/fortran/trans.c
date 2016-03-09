@@ -1,5 +1,5 @@
 /* Code translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -335,10 +335,13 @@ gfc_build_array_ref (tree base, tree offset, tree decl, tree vptr)
      references.  */
   if (type && TREE_CODE (type) == ARRAY_TYPE
       && TYPE_MAXVAL (TYPE_DOMAIN (type)) != NULL_TREE
-      && TREE_CODE (TYPE_MAXVAL (TYPE_DOMAIN (type))) == VAR_DECL
+      && (TREE_CODE (TYPE_MAXVAL (TYPE_DOMAIN (type))) == VAR_DECL
+	  || TREE_CODE (TYPE_MAXVAL (TYPE_DOMAIN (type))) == INDIRECT_REF)
       && decl
-      && DECL_CONTEXT (TYPE_MAXVAL (TYPE_DOMAIN (type)))
-					== DECL_CONTEXT (decl))
+      && (TREE_CODE (TYPE_MAXVAL (TYPE_DOMAIN (type))) == INDIRECT_REF
+	  || TREE_CODE (decl) == FUNCTION_DECL
+	  || DECL_CONTEXT (TYPE_MAXVAL (TYPE_DOMAIN (type)))
+					== DECL_CONTEXT (decl)))
     span = TYPE_MAXVAL (TYPE_DOMAIN (type));
   else
     span = NULL_TREE;
@@ -354,7 +357,8 @@ gfc_build_array_ref (tree base, tree offset, tree decl, tree vptr)
      and reference the element with pointer arithmetic.  */
   if ((decl && (TREE_CODE (decl) == FIELD_DECL
 		|| TREE_CODE (decl) == VAR_DECL
-		|| TREE_CODE (decl) == PARM_DECL)
+		|| TREE_CODE (decl) == PARM_DECL
+		|| TREE_CODE (decl) == FUNCTION_DECL)
        && ((GFC_DECL_SUBREF_ARRAY_P (decl)
 	    && !integer_zerop (GFC_DECL_SPAN (decl)))
 	   || GFC_DECL_CLASS (decl)
@@ -816,7 +820,7 @@ gfc_allocate_allocatable (stmtblock_t * block, tree mem, tree size, tree token,
 	 the FE only passes the pointer around and leaves the actual
 	 representation to the library. Hence, we have to convert back to the
 	 number of elements.  */
-      if (lock_var)
+      if (lock_var || event_var)
 	size = fold_build2_loc (input_location, TRUNC_DIV_EXPR, size_type_node,
 				size, TYPE_SIZE_UNIT (ptr_type_node));
 

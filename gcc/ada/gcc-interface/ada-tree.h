@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2015, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2016, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -189,14 +189,12 @@ do {							 \
 
 /* True for types that implement a packed array and for original packed array
    types.  */
-#define TYPE_IMPLEMENTS_PACKED_ARRAY_P(NODE) \
-  ((TREE_CODE (NODE) == ARRAY_TYPE && TYPE_PACKED (NODE))		      \
-    || (TREE_CODE (NODE) == INTEGER_TYPE && TYPE_PACKED_ARRAY_TYPE_P (NODE))) \
+#define TYPE_IMPL_PACKED_ARRAY_P(NODE) \
+  ((TREE_CODE (NODE) == ARRAY_TYPE && TYPE_PACKED (NODE)) \
+   || (TREE_CODE (NODE) == INTEGER_TYPE && TYPE_PACKED_ARRAY_TYPE_P (NODE)))
 
 /* True for types that can hold a debug type.  */
-#define TYPE_CAN_HAVE_DEBUG_TYPE_P(NODE)  \
- (!TYPE_IMPLEMENTS_PACKED_ARRAY_P (NODE)  \
-  && TYPE_DEBUG_TYPE (NODE) != NULL_TREE)
+#define TYPE_CAN_HAVE_DEBUG_TYPE_P(NODE) (!TYPE_IMPL_PACKED_ARRAY_P (NODE))
 
 /* For an UNCONSTRAINED_ARRAY_TYPE, this is the record containing both the
    template and the object.
@@ -385,8 +383,8 @@ do {						   \
 #define SET_TYPE_DEBUG_TYPE(NODE, X) \
   SET_TYPE_LANG_SPECIFIC2 (NODE, X)
 
-/* For types with TYPE_IMPLEMENTS_PACKED_ARRAY_P, this is the original packed
-   array type.  Note that this predicate is trou for original packed array
+/* For types with TYPE_IMPL_PACKED_ARRAY_P, this is the original packed
+   array type.  Note that this predicate is true for original packed array
    types, so these cannot have a debug type.  */
 #define TYPE_ORIGINAL_PACKED_ARRAY(NODE) \
   GET_TYPE_LANG_SPECIFIC2 (NODE)
@@ -458,6 +456,10 @@ do {						   \
 /* Nonzero in a FIELD_DECL if it is invariant once set, for example if it is
    a discriminant of a discriminated type without default expression.  */
 #define DECL_INVARIANT_P(NODE) DECL_LANG_FLAG_4 (FIELD_DECL_CHECK (NODE))
+
+/* Nonzero in a VAR_DECL if it is a temporary created to hold the return
+   value of a function call or 'reference to a function call.  */
+#define DECL_RETURN_VALUE_P(NODE) DECL_LANG_FLAG_5 (VAR_DECL_CHECK (NODE))
 
 /* In a FIELD_DECL corresponding to a discriminant, contains the
    discriminant number.  */

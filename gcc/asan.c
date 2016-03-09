@@ -1,5 +1,5 @@
 /* AddressSanitizer, a fast memory error detector.
-   Copyright (C) 2012-2015 Free Software Foundation, Inc.
+   Copyright (C) 2012-2016 Free Software Foundation, Inc.
    Contributed by Kostya Serebryany <kcc@google.com>
 
 This file is part of GCC.
@@ -897,6 +897,16 @@ has_stmt_been_instrumented_p (gimple *stmt)
 	  return true;
 	}
     }
+  else if (is_gimple_call (stmt) && gimple_store_p (stmt))
+    {
+      asan_mem_ref r;
+      asan_mem_ref_init (&r, NULL, 1);
+
+      r.start = gimple_call_lhs (stmt);
+      r.access_size = int_size_in_bytes (TREE_TYPE (r.start));
+      return has_mem_ref_been_instrumented (&r);
+    }
+
   return false;
 }
 
@@ -2038,6 +2048,18 @@ maybe_instrument_call (gimple_stmt_iterator *iter)
       gimple_set_location (g, gimple_location (stmt));
       gsi_insert_before (iter, g, GSI_SAME_STMT);
     }
+
+  if (gimple_store_p (stmt))
+    {
+      tree ref_expr = gimple_call_lhs (stmt);
+      instrument_derefs (iter, ref_expr,
+			 gimple_location (stmt),
+			 /*is_store=*/true);
+
+      gsi_next (iter);
+      return true;
+    }
+
   return false;
 }
 
@@ -2370,6 +2392,8 @@ initialize_sanitizer_builtins (void)
   /* ECF_COLD missing */ ATTR_CONST_NORETURN_NOTHROW_LEAF_LIST
 #undef ATTR_PURE_NOTHROW_LEAF_LIST
 #define ATTR_PURE_NOTHROW_LEAF_LIST ECF_PURE | ATTR_NOTHROW_LEAF_LIST
+#undef DEF_BUILTIN_STUB
+#define DEF_BUILTIN_STUB(ENUM, NAME)
 #undef DEF_SANITIZER_BUILTIN
 #define DEF_SANITIZER_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
   decl = add_builtin_function ("__builtin_" NAME, TYPE, ENUM,		\
@@ -2389,6 +2413,7 @@ initialize_sanitizer_builtins (void)
 			   ATTR_PURE_NOTHROW_LEAF_LIST)
 
 #undef DEF_SANITIZER_BUILTIN
+#undef DEF_BUILTIN_STUB
 }
 
 /* Called via htab_traverse.  Count number of emitted

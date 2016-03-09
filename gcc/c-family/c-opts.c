@@ -1,5 +1,5 @@
 /* C/ObjC/C++ command line option handling.
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -169,7 +169,7 @@ c_diagnostic_finalizer (diagnostic_context *context,
      finalizer -- for tokens resulting from macro expansion.  */
   virt_loc_aware_diagnostic_finalizer (context, diagnostic);
   pp_destroy_prefix (context->printer);
-  pp_newline_and_flush (context->printer);
+  pp_flush (context->printer);
 }
 
 /* Common default settings for diagnostics.  */
@@ -245,6 +245,10 @@ c_common_init_options (unsigned int decoded_options_count,
 	    break;
 	  }
     }
+
+  /* Set C++ standard to C++14 if not specified on the command line.  */
+  if (c_dialect_cxx ())
+    set_std_cxx14 (/*ISO*/false);
 
   global_dc->colorize_source_p = true;
 }
@@ -801,10 +805,6 @@ c_common_post_options (const char **pfilename)
   if (!global_options_set.x_flag_tree_loop_distribute_patterns
       && flag_no_builtin)
     flag_tree_loop_distribute_patterns = 0;
-
-  /* Set C++ standard to C++14 if not specified on the command line.  */
-  if (c_dialect_cxx () && cxx_dialect == cxx_unset)
-    set_std_cxx14 (/*ISO*/false);
 
   /* -Woverlength-strings is off by default, but is enabled by -Wpedantic.
      It is never enabled in C++, as the minimum limit is not normative
@@ -1519,6 +1519,8 @@ set_std_cxx98 (int iso)
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
+  flag_isoc94 = 0;
+  flag_isoc99 = 0;
   cxx_dialect = cxx98;
   lang_hooks.name = "GNU C++98";
 }
@@ -1564,8 +1566,6 @@ set_std_cxx1z (int iso)
   /* C++11 includes the C99 standard library.  */
   flag_isoc94 = 1;
   flag_isoc99 = 1;
-  /* Enable concepts by default. */
-  flag_concepts = 1;
   flag_isoc11 = 1;
   cxx_dialect = cxx1z;
   lang_hooks.name = "GNU C++14"; /* Pretend C++14 till standarization.  */

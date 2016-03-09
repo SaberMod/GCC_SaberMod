@@ -1,5 +1,5 @@
 /* Map (unsigned int) keys to (source file, line, column) triples.
-   Copyright (C) 2001-2015 Free Software Foundation, Inc.
+   Copyright (C) 2001-2016 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -31,7 +31,16 @@ along with this program; see the file COPYING3.  If not see
    disabled).  */
 const unsigned int LINE_MAP_MAX_COLUMN_NUMBER = (1U << 12);
 
-/* Do not track column numbers if locations get higher than this.  */
+/* Do not pack ranges if locations get higher than this.
+   If you change this, update:
+     gcc.dg/plugin/location_overflow_plugin.c
+     gcc.dg/plugin/location-overflow-test-*.c.  */
+const source_location LINE_MAP_MAX_LOCATION_WITH_PACKED_RANGES = 0x50000000;
+
+/* Do not track column numbers if locations get higher than this.
+   If you change this, update:
+     gcc.dg/plugin/location_overflow_plugin.c
+     gcc.dg/plugin/location-overflow-test-*.c.  */
 const source_location LINE_MAP_MAX_LOCATION_WITH_COLS = 0x60000000;
 
 /* Highest possible source location encoded within an ordinary or
@@ -138,7 +147,7 @@ can_be_stored_compactly_p (struct line_maps *set,
   if (src_range.m_start < RESERVED_LOCATION_COUNT)
     return false;
 
-  if (locus >= LINE_MAP_MAX_LOCATION_WITH_COLS)
+  if (locus >= LINE_MAP_MAX_LOCATION_WITH_PACKED_RANGES)
     return false;
 
   /* All 3 locations must be within ordinary maps, typically, the same
@@ -175,7 +184,7 @@ get_combined_adhoc_loc (struct line_maps *set,
   /* Any ordinary locations ought to be "pure" at this point: no
      compressed ranges.  */
   linemap_assert (locus < RESERVED_LOCATION_COUNT
-		  || locus >= LINE_MAP_MAX_LOCATION_WITH_COLS
+		  || locus >= LINE_MAP_MAX_LOCATION_WITH_PACKED_RANGES
 		  || locus >= LINEMAPS_MACRO_LOWEST_LOCATION (set)
 		  || pure_location_p (set, locus));
 
@@ -196,10 +205,9 @@ get_combined_adhoc_loc (struct line_maps *set,
 	}
     }
 
-  /* We can also compactly store the reserved locations
+  /* We can also compactly store locations
      when locus == start == finish (and data is NULL).  */
-  if (locus < RESERVED_LOCATION_COUNT
-      && locus == src_range.m_start
+  if (locus == src_range.m_start
       && locus == src_range.m_finish
       && !data)
     return locus;
@@ -285,7 +293,7 @@ get_range_from_loc (struct line_maps *set,
   /* For ordinary maps, extract packed range.  */
   if (loc >= RESERVED_LOCATION_COUNT
       && loc < LINEMAPS_MACRO_LOWEST_LOCATION (set)
-      && loc <= LINE_MAP_MAX_LOCATION_WITH_COLS)
+      && loc <= LINE_MAP_MAX_LOCATION_WITH_PACKED_RANGES)
     {
       const line_map *map = linemap_lookup (set, loc);
       const line_map_ordinary *ordmap = linemap_check_ordinary (map);
@@ -716,6 +724,8 @@ linemap_line_start (struct line_maps *set, linenum_type to_line,
 	  && line_delta * map->m_column_and_range_bits > 1000)
       || (max_column_hint >= (1U << effective_column_bits))
       || (max_column_hint <= 80 && effective_column_bits >= 10)
+      || (highest > LINE_MAP_MAX_LOCATION_WITH_PACKED_RANGES
+	  && map->m_range_bits > 0)
       || (highest > LINE_MAP_MAX_LOCATION_WITH_COLS
 	  && (set->max_column_hint || highest >= LINE_MAP_MAX_SOURCE_LOCATION)))
     add_map = true;
@@ -740,7 +750,10 @@ linemap_line_start (struct line_maps *set, linenum_type to_line,
       else
 	{
 	  column_bits = 7;
-	  range_bits = set->default_range_bits;
+	  if (highest <= LINE_MAP_MAX_LOCATION_WITH_PACKED_RANGES)
+	    range_bits = set->default_range_bits;
+	  else
+	    range_bits = 0;
 	  while (max_column_hint >= (1U << column_bits))
 	    column_bits++;
 	  max_column_hint = 1U << column_bits;
@@ -750,7 +763,8 @@ linemap_line_start (struct line_maps *set, linenum_type to_line,
 	 single line we can sometimes just increase its column_bits instead. */
       if (line_delta < 0
 	  || last_line != ORDINARY_MAP_STARTING_LINE_NUMBER (map)
-	  || SOURCE_COLUMN (map, highest) >= (1U << column_bits))
+	  || SOURCE_COLUMN (map, highest) >= (1U << column_bits)
+	  || range_bits < map->m_range_bits)
 	map = linemap_check_ordinary
 	        (const_cast <line_map *>
 		  (linemap_add (set, LC_RENAME,
@@ -850,13 +864,13 @@ linemap_position_for_line_and_column (line_maps *set,
 }
 
 /* Encode and return a source_location starting from location LOC and
-   shifting it by OFFSET columns.  This function does not support
+   shifting it by COLUMN_OFFSET columns.  This function does not support
    virtual locations.  */
 
 source_location
 linemap_position_for_loc_and_offset (struct line_maps *set,
 				     source_location loc,
-				     unsigned int offset)
+				     unsigned int column_offset)
 {
   const line_map_ordinary * map = NULL;
 
@@ -868,7 +882,7 @@ linemap_position_for_loc_and_offset (struct line_maps *set,
       (!linemap_location_from_macro_expansion_p (set, loc)))
     return loc;
 
-  if (offset == 0
+  if (column_offset == 0
       /* Adding an offset to a reserved location (like
 	 UNKNOWN_LOCATION for the C/C++ FEs) does not really make
 	 sense.  So let's leave the location intact in that case.  */
@@ -880,7 +894,7 @@ linemap_position_for_loc_and_offset (struct line_maps *set,
   /* The new location (loc + offset) should be higher than the first
      location encoded by MAP.  This can fail if the line information
      is messed up because of line directives (see PR66415).  */
-  if (MAP_START_LOCATION (map) >= loc + offset)
+  if (MAP_START_LOCATION (map) >= loc + (column_offset << map->m_range_bits))
     return loc;
 
   linenum_type line = SOURCE_LINE (map, loc);
@@ -891,7 +905,8 @@ linemap_position_for_loc_and_offset (struct line_maps *set,
      the next line map of the set.  Otherwise, we try to encode the
      location in the next map.  */
   while (map != LINEMAPS_LAST_ORDINARY_MAP (set)
-	 && loc + offset >= MAP_START_LOCATION (&map[1]))
+	 && (loc + (column_offset << map->m_range_bits)
+	     >= MAP_START_LOCATION (&map[1])))
     {
       map = &map[1];
       /* If the next map starts in a higher line, we cannot encode the
@@ -900,12 +915,12 @@ linemap_position_for_loc_and_offset (struct line_maps *set,
 	return loc;
     }
 
-  offset += column;
-  if (linemap_assert_fails (offset < (1u << map->m_column_and_range_bits)))
+  column += column_offset;
+  if (linemap_assert_fails (column < (1u << map->m_column_and_range_bits)))
     return loc;
 
   source_location r = 
-    linemap_position_for_line_and_column (set, map, line, offset);
+    linemap_position_for_line_and_column (set, map, line, column);
   if (linemap_assert_fails (r <= set->highest_location)
       || linemap_assert_fails (map == linemap_lookup (set, r)))
     return loc;
@@ -1314,9 +1329,9 @@ linemap_compare_locations (struct line_maps *set,
   source_location l0 = pre, l1 = post;
 
   if (IS_ADHOC_LOC (l0))
-    l0 = set->location_adhoc_data_map.data[l0 & MAX_SOURCE_LOCATION].locus;
+    l0 = get_location_from_adhoc_loc (set, l0);
   if (IS_ADHOC_LOC (l1))
-    l1 = set->location_adhoc_data_map.data[l1 & MAX_SOURCE_LOCATION].locus;
+    l1 = get_location_from_adhoc_loc (set, l1);
 
   if (l0 == l1)
     return 0;
@@ -1350,6 +1365,11 @@ linemap_compare_locations (struct line_maps *set,
       i1 = l1 - MAP_START_LOCATION (map);
       return i1 - i0;
     }
+
+  if (IS_ADHOC_LOC (l0))
+    l0 = get_location_from_adhoc_loc (set, l0);
+  if (IS_ADHOC_LOC (l1))
+    l1 = get_location_from_adhoc_loc (set, l1);
 
   return l1 - l0;
 }
@@ -2022,13 +2042,22 @@ rich_location::lazily_expand_location ()
   return m_expanded_location;
 }
 
-/* Set the column of the primary location.  */
+/* Set the column of the primary location.  This can only be called for
+   rich_location instances for which the primary location has
+   caret==start==finish.  */
 
 void
 rich_location::override_column (int column)
 {
   lazily_expand_location ();
+  gcc_assert (m_ranges[0].m_show_caret_p);
+  gcc_assert (m_ranges[0].m_caret.column == m_expanded_location.column);
+  gcc_assert (m_ranges[0].m_start.column == m_expanded_location.column);
+  gcc_assert (m_ranges[0].m_finish.column == m_expanded_location.column);
   m_expanded_location.column = column;
+  m_ranges[0].m_caret.column = column;
+  m_ranges[0].m_start.column = column;
+  m_ranges[0].m_finish.column = column;
 }
 
 /* Add the given range.  */

@@ -1,5 +1,5 @@
 /* Integrated Register Allocator (IRA) entry point.
-   Copyright (C) 2006-2015 Free Software Foundation, Inc.
+   Copyright (C) 2006-2016 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -1868,6 +1868,7 @@ ira_setup_alts (rtx_insn *insn, HARD_REG_SET &alts)
 
 			case CT_ADDRESS:
 			case CT_MEMORY:
+			case CT_SPECIAL_MEMORY:
 			  goto op_success;
 
 			case CT_FIXED_FORM:
@@ -1888,10 +1889,11 @@ ira_setup_alts (rtx_insn *insn, HARD_REG_SET &alts)
 	}
       if (commutative < 0)
 	break;
-      if (curr_swapped)
-	break;
+      /* Swap forth and back to avoid changing recog_data.  */
       std::swap (recog_data.operand[commutative],
 		 recog_data.operand[commutative + 1]);
+      if (curr_swapped)
+	break;
     }
 }
 
@@ -3390,7 +3392,8 @@ update_equiv_regs (void)
 
 	  /* If this insn contains more (or less) than a single SET,
 	     only mark all destinations as having no known equivalence.  */
-	  if (set == NULL_RTX)
+	  if (set == NULL_RTX
+	      || side_effects_p (SET_SRC (set)))
 	    {
 	      note_stores (PATTERN (insn), no_equiv, NULL);
 	      continue;
@@ -5185,19 +5188,27 @@ ira (FILE *f)
   setup_reg_equiv ();
   setup_reg_equiv_init ();
 
+  bool update_regstat = false;
+
   if (optimize && rebuild_p)
     {
       timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
       if (purge_all_dead_edges ())
-	delete_unreachable_blocks ();
+	{
+	  delete_unreachable_blocks ();
+	  update_regstat = true;
+	}
       timevar_pop (TV_JUMP);
     }
 
   allocated_reg_info_size = max_reg_num ();
 
   if (delete_trivially_dead_insns (get_insns (), max_reg_num ()))
-    df_analyze ();
+    {
+      df_analyze ();
+      update_regstat = true;
+    }
 
   /* It is not worth to do such improvement when we use a simple
      allocation because of -O0 usage or because the function is too
@@ -5308,7 +5319,7 @@ ira (FILE *f)
     check_allocation ();
 #endif
 
-  if (max_regno != max_regno_before_ira)
+  if (update_regstat || max_regno != max_regno_before_ira)
     {
       regstat_free_n_sets_and_refs ();
       regstat_free_ri ();
@@ -5393,9 +5404,8 @@ do_reload (void)
     {
       df_set_flags (DF_NO_INSN_RESCAN);
       build_insn_chain ();
-      
-      need_dce = reload (get_insns (), ira_conflicts_p);
 
+      need_dce = reload (get_insns (), ira_conflicts_p);
     }
 
   timevar_pop (TV_RELOAD);
@@ -5471,6 +5481,20 @@ do_reload (void)
       error_at (DECL_SOURCE_LOCATION (current_function_decl),
                 "frame pointer required, but reserved");
       inform (DECL_SOURCE_LOCATION (decl), "for %qD", decl);
+    }
+
+  /* If we are doing generic stack checking, give a warning if this
+     function's frame size is larger than we expect.  */
+  if (flag_stack_check == GENERIC_STACK_CHECK)
+    {
+      HOST_WIDE_INT size = get_frame_size () + STACK_CHECK_FIXED_FRAME_SIZE;
+
+      for (int i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	if (df_regs_ever_live_p (i) && !fixed_regs[i] && call_used_regs[i])
+	  size += UNITS_PER_WORD;
+
+      if (size > STACK_CHECK_MAX_FRAME_SIZE)
+	warning (0, "frame size too large for reliable stack checking");
     }
 
   if (pic_offset_table_regno != INVALID_REGNUM)

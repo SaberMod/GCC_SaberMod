@@ -1,5 +1,5 @@
 /* Configuration file for ARM BPABI targets.
-   Copyright (C) 2004-2015 Free Software Foundation, Inc.
+   Copyright (C) 2004-2016 Free Software Foundation, Inc.
    Contributed by CodeSourcery, LLC   
 
    This file is part of GCC.
@@ -68,6 +68,7 @@
    |mcpu=cortex-a15.cortex-a7				\
    |mcpu=cortex-a17.cortex-a7				\
    |mcpu=marvell-pj4					\
+   |mcpu=cortex-a32					\
    |mcpu=cortex-a35					\
    |mcpu=cortex-a53					\
    |mcpu=cortex-a57					\

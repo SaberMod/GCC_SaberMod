@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for ARM.
-   Copyright (C) 1991-2015 Free Software Foundation, Inc.
+   Copyright (C) 1991-2016 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com)
@@ -252,6 +252,10 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 
 /* Nonzero if this chip supports ldrex and strex */
 #define TARGET_HAVE_LDREX        ((arm_arch6 && TARGET_ARM) || arm_arch7)
+
+/* Nonzero if this chip supports LPAE.  */
+#define TARGET_HAVE_LPAE						\
+  (arm_arch7 && ARM_FSET_HAS_CPU1 (insn_flags, FL_FOR_ARCH7VE))
 
 /* Nonzero if this chip supports ldrex{bh} and strex{bh}.  */
 #define TARGET_HAVE_LDREXBH ((arm_arch6k && TARGET_ARM) || arm_arch7)
@@ -540,16 +544,10 @@ extern int arm_arch_crc;
    type, but kept valid in the wider mode.  The signedness of the
    extension may differ from that of the type.  */
 
-/* It is far faster to zero extend chars than to sign extend them */
-
 #define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE)	\
   if (GET_MODE_CLASS (MODE) == MODE_INT		\
       && GET_MODE_SIZE (MODE) < 4)      	\
     {						\
-      if (MODE == QImode)			\
-	UNSIGNEDP = 1;				\
-      else if (MODE == HImode)			\
-	UNSIGNEDP = 1;				\
       (MODE) = SImode;				\
     }
 

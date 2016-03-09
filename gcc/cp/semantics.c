@@ -3,7 +3,7 @@
    building RTL.  These routines are used both during actual parsing
    and during the instantiation of template functions.
 
-   Copyright (C) 1998-2015 Free Software Foundation, Inc.
+   Copyright (C) 1998-2016 Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.
 
@@ -673,6 +673,9 @@ finish_expr_stmt (tree expr)
 
   if (expr != NULL_TREE)
     {
+      /* If we ran into a problem, make sure we complained.  */
+      gcc_assert (expr != error_mark_node || seen_error ());
+
       if (!processing_template_decl)
 	{
 	  if (warn_sequence_point)
@@ -1670,6 +1673,30 @@ force_paren_expr (tree expr)
   return expr;
 }
 
+/* If T is an id-expression obfuscated by force_paren_expr, undo the
+   obfuscation and return the underlying id-expression.  Otherwise
+   return T.  */
+
+tree
+maybe_undo_parenthesized_ref (tree t)
+{
+  if (cxx_dialect >= cxx14
+      && INDIRECT_REF_P (t)
+      && REF_PARENTHESIZED_P (t))
+    {
+      t = TREE_OPERAND (t, 0);
+      while (TREE_CODE (t) == NON_LVALUE_EXPR
+	     || TREE_CODE (t) == NOP_EXPR)
+	t = TREE_OPERAND (t, 0);
+
+      gcc_assert (TREE_CODE (t) == ADDR_EXPR
+		  || TREE_CODE (t) == STATIC_CAST_EXPR);
+      t = TREE_OPERAND (t, 0);
+    }
+
+  return t;
+}
+
 /* Finish a parenthesized expression EXPR.  */
 
 cp_expr
@@ -2253,6 +2280,10 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 
   gcc_assert (!TYPE_P (fn));
 
+  /* If FN may be a FUNCTION_DECL obfuscated by force_paren_expr, undo
+     it so that we can tell this is a call to a known function.  */
+  fn = maybe_undo_parenthesized_ref (fn);
+
   orig_fn = fn;
 
   if (processing_template_decl)
@@ -2270,6 +2301,7 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 	     related to CWG issues 515 and 1005.  */
 	  || (TREE_CODE (fn) != COMPONENT_REF
 	      && non_static_member_function_p (fn)
+	      && !DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (get_first_fn (fn))
 	      && current_class_ref
 	      && type_dependent_expression_p (current_class_ref)))
 	{
@@ -2348,8 +2380,16 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 	[class.access.base] says that we need to convert 'this' to B* as
 	part of the access, so we pass 'B' to maybe_dummy_object.  */
 
-      object = maybe_dummy_object (BINFO_TYPE (BASELINK_ACCESS_BINFO (fn)),
-				   NULL);
+      if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (get_first_fn (fn)))
+	{
+	  /* A constructor call always uses a dummy object.  (This constructor
+	     call which has the form A::A () is actually invalid and we are
+	     going to reject it later in build_new_method_call.)  */
+	  object = build_dummy_object (BINFO_TYPE (BASELINK_ACCESS_BINFO (fn)));
+	}
+      else
+	object = maybe_dummy_object (BINFO_TYPE (BASELINK_ACCESS_BINFO (fn)),
+				     NULL);
 
       if (processing_template_decl)
 	{
@@ -3231,27 +3271,7 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
   if (!mark_used (decl, complain) && !(complain & tf_error))
     return error_mark_node;
 
-  /* Core issue 696: "[At the July 2009 meeting] the CWG expressed
-     support for an approach in which a reference to a local
-     [constant] automatic variable in a nested class or lambda body
-     would enter the expression as an rvalue, which would reduce
-     the complexity of the problem"
-
-     FIXME update for final resolution of core issue 696.  */
-  if (decl_maybe_constant_var_p (decl))
-    {
-      if (processing_template_decl)
-	/* In a template, the constant value may not be in a usable
-	   form, so wait until instantiation time.  */
-	return decl;
-      else if (decl_constant_var_p (decl))
-	{
-	  tree t = maybe_constant_value (convert_from_reference (decl));
-	  if (TREE_CONSTANT (t))
-	    return t;
-	}
-    }
-
+  bool saw_generic_lambda = false;
   if (parsing_nsdmi ())
     containing_function = NULL_TREE;
   else
@@ -3264,6 +3284,9 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
       {
 	tree closure = DECL_CONTEXT (containing_function);
 	lambda_expr = CLASSTYPE_LAMBDA_EXPR (closure);
+
+	if (generic_lambda_fn_p (containing_function))
+	  saw_generic_lambda = true;
 
 	if (TYPE_CLASS_SCOPE_P (closure))
 	  /* A lambda in an NSDMI (c++/64496).  */
@@ -3280,6 +3303,35 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
 	containing_function
 	  = decl_function_context (containing_function);
       }
+
+  /* Core issue 696: "[At the July 2009 meeting] the CWG expressed
+     support for an approach in which a reference to a local
+     [constant] automatic variable in a nested class or lambda body
+     would enter the expression as an rvalue, which would reduce
+     the complexity of the problem"
+
+     FIXME update for final resolution of core issue 696.  */
+  if (decl_maybe_constant_var_p (decl))
+    {
+      if (processing_template_decl && !saw_generic_lambda)
+	/* In a non-generic lambda within a template, wait until instantiation
+	   time to decide whether to capture.  For a generic lambda, we can't
+	   wait until we instantiate the op() because the closure class is
+	   already defined at that point.  FIXME to get the semantics exactly
+	   right we need to partially-instantiate the lambda body so the only
+	   dependencies left are on the generic parameters themselves.  This
+	   probably means moving away from our current model of lambdas in
+	   templates (instantiating the closure type) to one based on creating
+	   the closure type when instantiating the lambda context.  That is
+	   probably also the way to handle lambdas within pack expansions.  */
+	return decl;
+      else if (decl_constant_var_p (decl))
+	{
+	  tree t = maybe_constant_value (convert_from_reference (decl));
+	  if (TREE_CONSTANT (t))
+	    return t;
+	}
+    }
 
   if (lambda_expr && VAR_P (decl)
       && DECL_ANON_UNION_VAR_P (decl))
@@ -4015,6 +4067,7 @@ simplify_aggr_init_expr (tree *tp)
 				    AGGR_INIT_EXPR_ARGP (aggr_init_expr));
   TREE_NOTHROW (call_expr) = TREE_NOTHROW (aggr_init_expr);
   CALL_EXPR_LIST_INIT_P (call_expr) = CALL_EXPR_LIST_INIT_P (aggr_init_expr);
+  CALL_FROM_THUNK_P (call_expr) = AGGR_INIT_FROM_THUNK_P (aggr_init_expr);
 
   if (style == ctor)
     {
@@ -4151,9 +4204,8 @@ expand_or_defer_fn_1 (tree fn)
       /* We don't want to process FN again, so pretend we've written
 	 it out, even though we haven't.  */
       TREE_ASM_WRITTEN (fn) = 1;
-      /* If this is an instantiation of a constexpr function, keep
-	 DECL_SAVED_TREE for explain_invalid_constexpr_fn.  */
-      if (!is_instantiation_of_constexpr (fn))
+      /* If this is a constexpr function, keep DECL_SAVED_TREE.  */
+      if (!DECL_DECLARED_CONSTEXPR_P (fn))
 	DECL_SAVED_TREE (fn) = NULL_TREE;
       return false;
     }
@@ -6642,6 +6694,14 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	      remove = true;
 	    }
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+		   && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FORCE_DEVICEPTR
+		   && !type_dependent_expression_p (t)
+		   && !POINTER_TYPE_P (TREE_TYPE (t)))
+	    {
+	      error ("%qD is not a pointer variable", t);
+	      remove = true;
+	    }
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 		   && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER)
 	    {
 	      if (bitmap_bit_p (&generic_head, DECL_UID (t))
@@ -6874,7 +6934,6 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	    }
 	  break;
 
-	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_IS_DEVICE_PTR:
 	case OMP_CLAUSE_USE_DEVICE_PTR:
 	  field_ok = allow_fields;
@@ -8686,7 +8745,7 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
 
   /* The type denoted by decltype(e) is defined as follows:  */
 
-  expr = resolve_nondeduced_context (expr);
+  expr = resolve_nondeduced_context (expr, complain);
 
   if (invalid_nonstatic_memfn_p (input_location, expr, complain))
     return error_mark_node;

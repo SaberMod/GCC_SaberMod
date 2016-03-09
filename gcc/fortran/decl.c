@@ -1,5 +1,5 @@
 /* Declaration statement matcher
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -1215,9 +1215,37 @@ build_sym (const char *name, gfc_charlen *cl, bool cl_deferred,
 {
   symbol_attribute attr;
   gfc_symbol *sym;
+  int upper;
 
   if (gfc_get_symbol (name, NULL, &sym))
     return false;
+
+  /* Check if the name has already been defined as a type.  The
+     first letter of the symtree will be in upper case then.  Of
+     course, this is only necessary if the upper case letter is
+     actually different.  */
+
+  upper = TOUPPER(name[0]);
+  if (upper != name[0])
+    {
+      char u_name[GFC_MAX_SYMBOL_LEN + 1];
+      gfc_symtree *st;
+      int nlen;
+
+      nlen = strlen(name);
+      gcc_assert (nlen <= GFC_MAX_SYMBOL_LEN);
+      strncpy (u_name, name, nlen + 1);
+      u_name[0] = upper;
+
+      st = gfc_find_symtree (gfc_current_ns->sym_root, u_name);
+
+      if (st != 0)
+	{
+	  gfc_error ("Symbol %qs at %C also declared as a type at %L", name,
+		     &st->n.sym->declared_at);
+	  return false;
+	}
+    }
 
   /* Start updating the symbol table.  Add basic type attribute if present.  */
   if (current_ts.type != BT_UNKNOWN
@@ -6327,6 +6355,7 @@ gfc_match_end (gfc_statement *st)
   gfc_namespace *parent_ns, *ns, *prev_ns;
   gfc_namespace **nsp;
   bool abreviated_modproc_decl;
+  bool got_matching_end = false;
 
   old_loc = gfc_current_locus;
   if (gfc_match ("end") != MATCH_YES)
@@ -6510,6 +6539,8 @@ gfc_match_end (gfc_statement *st)
 		 ? "END PROCEDURE" : gfc_ascii_statement(*st), &old_loc);
       goto cleanup;
     }
+  else
+    got_matching_end = true;
 
   old_loc = gfc_current_locus;
   /* If we're at the end, make sure a block name wasn't required.  */
@@ -6581,7 +6612,7 @@ cleanup:
   /* If we are missing an END BLOCK, we created a half-ready namespace.
      Remove it from the parent namespace's sibling list.  */
 
-  while (state == COMP_BLOCK)
+  while (state == COMP_BLOCK && !got_matching_end)
     {
       parent_ns = gfc_current_ns->parent;
 
@@ -6601,7 +6632,7 @@ cleanup:
 	  prev_ns = ns;
 	  ns = ns->sibling;
 	}
-  
+
       gfc_free_namespace (gfc_current_ns);
       gfc_current_ns = parent_ns;
       gfc_state_stack = gfc_state_stack->previous;

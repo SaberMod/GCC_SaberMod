@@ -1,5 +1,5 @@
 /* HOST_WIDE_INT definitions for the GNU compiler.
-   Copyright (C) 1998-2015 Free Software Foundation, Inc.
+   Copyright (C) 1998-2016 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -251,7 +251,7 @@ sext_hwi (HOST_WIDE_INT src, unsigned int prec)
 	 from unsigned to signed preserves bit pattern, and right shift of
 	 a signed value propagates the sign bit.
 	 We have to convert from signed to unsigned and back, because when left
-	 shifting signed values, any overflow is undefined behaviour.  */
+	 shifting signed values, any overflow is undefined behavior.  */
       gcc_checking_assert (prec < HOST_BITS_PER_WIDE_INT);
       int shift = HOST_BITS_PER_WIDE_INT - prec;
       return ((HOST_WIDE_INT) ((unsigned HOST_WIDE_INT) src << shift)) >> shift;

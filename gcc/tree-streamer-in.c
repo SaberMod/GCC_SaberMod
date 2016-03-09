@@ -1,6 +1,6 @@
 /* Routines for reading trees from a file stream.
 
-   Copyright (C) 2011-2015 Free Software Foundation, Inc.
+   Copyright (C) 2011-2016 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "ipa-chkp.h"
 #include "gomp-constants.h"
+#include "asan.h"
 
 
 /* Read a STRING_CST from the string table in DATA_IN using input
@@ -116,7 +117,10 @@ unpack_ts_base_value_fields (struct bitpack_d *bp, tree expr)
   TREE_ADDRESSABLE (expr) = (unsigned) bp_unpack_value (bp, 1);
   TREE_THIS_VOLATILE (expr) = (unsigned) bp_unpack_value (bp, 1);
   if (DECL_P (expr))
-    DECL_UNSIGNED (expr) = (unsigned) bp_unpack_value (bp, 1);
+    {
+      DECL_UNSIGNED (expr) = (unsigned) bp_unpack_value (bp, 1);
+      DECL_NAMELESS (expr) = (unsigned) bp_unpack_value (bp, 1);
+    }
   else if (TYPE_P (expr))
     TYPE_UNSIGNED (expr) = (unsigned) bp_unpack_value (bp, 1);
   else
@@ -1133,13 +1137,21 @@ streamer_get_builtin_tree (struct lto_input_block *ib, struct data_in *data_in)
 	fatal_error (input_location,
 		     "machine independent builtin code out of range");
       result = builtin_decl_explicit (fcode);
-      if (!result
-	  && fcode > BEGIN_CHKP_BUILTINS
-	  && fcode < END_CHKP_BUILTINS)
+      if (!result)
 	{
-	  fcode = (enum built_in_function) (fcode - BEGIN_CHKP_BUILTINS - 1);
-	  result = builtin_decl_explicit (fcode);
-	  result = chkp_maybe_clone_builtin_fndecl (result);
+	  if (fcode > BEGIN_CHKP_BUILTINS && fcode < END_CHKP_BUILTINS)
+	    {
+	      fcode = (enum built_in_function)
+		      (fcode - BEGIN_CHKP_BUILTINS - 1);
+	      result = builtin_decl_explicit (fcode);
+	      result = chkp_maybe_clone_builtin_fndecl (result);
+	    }
+	  else if (fcode > BEGIN_SANITIZER_BUILTINS
+		   && fcode < END_SANITIZER_BUILTINS)
+	    {
+	      initialize_sanitizer_builtins ();
+	      result = builtin_decl_explicit (fcode);
+	    }
 	}
       gcc_assert (result);
     }

@@ -1,5 +1,5 @@
 /* VMS specific, C compiler specific functions.
-   Copyright (C) 2011-2015 Free Software Foundation, Inc.
+   Copyright (C) 2011-2016 Free Software Foundation, Inc.
    Contributed by Tristan Gingold (gingold@adacore.com).
 
 This file is part of GCC.
@@ -151,7 +151,7 @@ vms_pragma_nomember_alignment (cpp_reader *pfile ATTRIBUTE_UNUSED)
    1) extern int name;
    2) int name;
    3) int name = 5;
-   See below for the behaviour as implemented by the native compiler.
+   See below for the behavior as implemented by the native compiler.
 */
 
 enum extern_model_kind

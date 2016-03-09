@@ -1,6 +1,6 @@
 /* Basic IPA utilities for type inheritance graph construction and
    devirtualization.
-   Copyright (C) 2013-2015 Free Software Foundation, Inc.
+   Copyright (C) 2013-2016 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -393,7 +393,7 @@ odr_vtable_hasher::hash (const odr_type_d *odr_type)
 
    When STRICT is true, we compare types by their names for purposes of
    ODR violation warnings.  When strict is false, we consider variants
-   equivalent, becuase it is all that matters for devirtualization machinery.
+   equivalent, because it is all that matters for devirtualization machinery.
 */
 
 bool
@@ -2246,7 +2246,7 @@ build_type_inheritance_graph (void)
     odr_vtable_hash = new odr_vtable_hash_type (23);
 
   /* We reconstruct the graph starting of types of all methods seen in the
-     the unit.  */
+     unit.  */
   FOR_EACH_SYMBOL (n)
     if (is_a <cgraph_node *> (n)
 	&& DECL_VIRTUAL_P (n->decl)
@@ -2327,6 +2327,17 @@ referenced_from_vtable_p (struct cgraph_node *node)
   return found;
 }
 
+/* Return if TARGET is cxa_pure_virtual.  */
+
+static bool
+is_cxa_pure_virtual_p (tree target)
+{
+  return target && TREE_CODE (TREE_TYPE (target)) != METHOD_TYPE
+	 && DECL_NAME (target)
+	 && !strcmp (IDENTIFIER_POINTER (DECL_NAME (target)),
+		     "__cxa_pure_virtual");
+}
+
 /* If TARGET has associated node, record it in the NODES array.
    CAN_REFER specify if program can refer to the target directly.
    if TARGET is unknown (NULL) or it can not be inserted (for example because
@@ -2341,11 +2352,12 @@ maybe_record_node (vec <cgraph_node *> &nodes,
 {
   struct cgraph_node *target_node, *alias_target;
   enum availability avail;
+  bool pure_virtual = is_cxa_pure_virtual_p (target);
 
-  /* cxa_pure_virtual and __builtin_unreachable do not need to be added into
+  /* __builtin_unreachable do not need to be added into
      list of targets; the runtime effect of calling them is undefined.
      Only "real" virtual methods should be accounted.  */
-  if (target && TREE_CODE (TREE_TYPE (target)) != METHOD_TYPE)
+  if (target && TREE_CODE (TREE_TYPE (target)) != METHOD_TYPE && !pure_virtual)
     return;
 
   if (!can_refer)
@@ -2388,6 +2400,7 @@ maybe_record_node (vec <cgraph_node *> &nodes,
      ??? Maybe it would make sense to be more aggressive for LTO even
      elsewhere.  */
   if (!flag_ltrans
+      && !pure_virtual
       && type_in_anonymous_namespace_p (DECL_CONTEXT (target))
       && (!target_node
           || !referenced_from_vtable_p (target_node)))
@@ -2401,6 +2414,20 @@ maybe_record_node (vec <cgraph_node *> &nodes,
     {
       gcc_assert (!target_node->global.inlined_to);
       gcc_assert (target_node->real_symbol_p ());
+      /* Only add pure virtual if it is the only possible target.  This way
+	 we will preserve the diagnostics about pure virtual called in many
+	 cases without disabling optimization in other.  */
+      if (pure_virtual)
+	{
+	  if (nodes.length ())
+	    return;
+	}
+      /* If we found a real target, take away cxa_pure_virtual.  */
+      else if (!pure_virtual && nodes.length () == 1
+	       && is_cxa_pure_virtual_p (nodes[0]->decl))
+	nodes.pop ();
+      if (pure_virtual && nodes.length ())
+	return;
       if (!inserted->add (target))
 	{
 	  cached_polymorphic_call_targets->add (target_node);
@@ -3154,6 +3181,7 @@ possible_polymorphic_call_targets (tree otr_type,
 		{
 		  if (complete
 		      && nodes.length () == 1
+		      && TREE_CODE (TREE_TYPE (nodes[0]->decl)) == METHOD_TYPE
 		      && warn_suggest_final_types
 		      && !outer_type->derived_types.length ())
 		    {
@@ -3328,6 +3356,9 @@ possible_polymorphic_call_target_p (tree otr_type,
           || fcode == BUILT_IN_TRAP))
     return true;
 
+  if (is_cxa_pure_virtual_p (n->decl))
+    return true;
+
   if (!odr_hash)
     return true;
   targets = possible_polymorphic_call_targets (otr_type, otr_token, ctx, &final);
@@ -3376,7 +3407,7 @@ update_type_inheritance_graph (void)
   free_polymorphic_call_targets_hash ();
   timevar_push (TV_IPA_INHERITANCE);
   /* We reconstruct the graph starting from types of all methods seen in the
-     the unit.  */
+     unit.  */
   FOR_EACH_FUNCTION (n)
     if (DECL_VIRTUAL_P (n->decl)
 	&& !n->definition

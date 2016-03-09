@@ -1,5 +1,5 @@
 /* Various declarations for language-independent pretty-print subroutines.
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -125,7 +125,11 @@ output_buffer_append_r (output_buffer *buff, const char *start, int length)
 {
   gcc_checking_assert (start);
   obstack_grow (buff->obstack, start, length);
-  buff->line_length += length;
+  for (int i = 0; i < length; i++)
+    if (start[i] == '\n')
+      buff->line_length = 0;
+    else
+      buff->line_length++;
 }
 
 /*  Return a pointer to the last character emitted in the

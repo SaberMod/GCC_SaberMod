@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -899,7 +899,8 @@ default_branch_target_register_class (void)
 
 reg_class_t
 default_ira_change_pseudo_allocno_class (int regno ATTRIBUTE_UNUSED,
-					 reg_class_t cl)
+					 reg_class_t cl,
+					 reg_class_t best_cl ATTRIBUTE_UNUSED)
 {
   return cl;
 }
@@ -1030,7 +1031,10 @@ tree default_mangle_decl_assembler_name (tree decl ATTRIBUTE_UNUSED,
 HOST_WIDE_INT
 default_vector_alignment (const_tree type)
 {
-  return tree_to_shwi (TYPE_SIZE (type));
+  HOST_WIDE_INT align = tree_to_shwi (TYPE_SIZE (type));
+  if (align > MAX_OFILE_ALIGNMENT)
+    align = MAX_OFILE_ALIGNMENT;
+  return align;
 }
 
 bool
@@ -1445,7 +1449,7 @@ default_register_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
 }
 
 /* For hooks which use the MOVE_RATIO macro, this gives the legacy default
-   behaviour.  SPEED_P is true if we are compiling for speed.  */
+   behavior.  SPEED_P is true if we are compiling for speed.  */
 
 unsigned int
 get_move_ratio (bool speed_p ATTRIBUTE_UNUSED)

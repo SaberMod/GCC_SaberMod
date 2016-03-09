@@ -1,5 +1,5 @@
 /* Implementation of -Wmisleading-indentation
-   Copyright (C) 2015 Free Software Foundation, Inc.
+   Copyright (C) 2015-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,6 +26,16 @@ along with GCC; see the file COPYING3.  If not see
 
 extern cpp_options *cpp_opts;
 
+/* Round up VIS_COLUMN to nearest tab stop. */
+
+static unsigned int
+next_tab_stop (unsigned int vis_column)
+{
+  const unsigned int tab_width = cpp_opts->tabstop;
+  vis_column = ((vis_column + tab_width) / tab_width) * tab_width;
+  return vis_column;
+}
+
 /* Convert libcpp's notion of a column (a 1-based char count) to
    the "visual column" (0-based column, respecting tabs), by reading the
    relevant line.
@@ -36,10 +46,30 @@ extern cpp_options *cpp_opts;
    on the line.  */
 
 static bool
-get_visual_column (expanded_location exploc,
+get_visual_column (expanded_location exploc, location_t loc,
 		   unsigned int *out,
-		   unsigned int *first_nws = NULL)
+		   unsigned int *first_nws)
 {
+  /* PR c++/68819: if the column number is zero, we presumably
+     had a location_t > LINE_MAP_MAX_LOCATION_WITH_COLS, and so
+     we have no column information.
+     Act as if no conversion was possible, triggering the
+     error-handling path in the caller.  */
+  if (!exploc.column)
+    {
+      static bool issued_note = false;
+      if (!issued_note)
+	{
+	  /* Notify the user the first time this happens.  */
+	  issued_note = true;
+	  inform (loc,
+		  "-Wmisleading-indentation is disabled from this point"
+		  " onwards, since column-tracking was disabled due to"
+		  " the size of the code/headers");
+	}
+      return false;
+    }
+
   int line_len;
   const char *line = location_get_source_line (exploc.file, exploc.line,
 					       &line_len);
@@ -57,11 +87,7 @@ get_visual_column (expanded_location exploc,
 	}
 
       if (ch == '\t')
-       {
-	 /* Round up to nearest tab stop. */
-	 const unsigned int tab_width = cpp_opts->tabstop;
-	 vis_column = ((vis_column + tab_width) / tab_width) * tab_width;
-       }
+	vis_column = next_tab_stop (vis_column);
       else
        vis_column++;
     }
@@ -73,54 +99,49 @@ get_visual_column (expanded_location exploc,
   return true;
 }
 
-/* Does the given source line appear to contain a #if directive?
-   (or #ifdef/#ifndef).  Ignore the possibility of it being inside a
-   comment, for simplicity.
-   Helper function for detect_preprocessor_logic.  */
+/* Attempt to determine the first non-whitespace character in line LINE_NUM
+   of source line FILE.
+
+   If this is possible, return true and write its "visual column" to
+   *FIRST_NWS.
+   Otherwise, return false, leaving *FIRST_NWS untouched.  */
 
 static bool
-line_contains_hash_if (const char *file, int line_num)
+get_first_nws_vis_column (const char *file, int line_num,
+			  unsigned int *first_nws)
 {
+  gcc_assert (first_nws);
+
   int line_len;
   const char *line = location_get_source_line (file, line_num, &line_len);
   if (!line)
     return false;
-
-  int idx;
-
-  /* Skip leading whitespace.  */
-  for (idx = 0; idx < line_len; idx++)
-    if (!ISSPACE (line[idx]))
-      break;
-  if (idx == line_len)
-    return false;
-
-  /* Require a '#' character.  */
-  if (line[idx] != '#')
-    return false;
-  idx++;
-
-  /* Skip whitespace.  */
-  while (idx < line_len)
+  unsigned int vis_column = 0;
+  for (int i = 1; i < line_len; i++)
     {
-      if (!ISSPACE (line[idx]))
-	break;
-      idx++;
+      unsigned char ch = line[i - 1];
+
+      if (!ISSPACE (ch))
+	{
+	  *first_nws = vis_column;
+	  return true;
+	}
+
+      if (ch == '\t')
+	vis_column = next_tab_stop (vis_column);
+      else
+	vis_column++;
     }
 
-  /* Match #if/#ifdef/#ifndef.  */
-  if (idx + 2 <= line_len)
-    if (line[idx] == 'i')
-      if (line[idx + 1] == 'f')
-	return true;
-
+  /* No non-whitespace characters found.  */
   return false;
 }
 
-
-/* Determine if there is preprocessor logic between
+/* Determine if there is an unindent/outdent between
    BODY_EXPLOC and NEXT_STMT_EXPLOC, to ensure that we don't
-   issue a warning for cases like this:
+   issue a warning for cases like the following:
+
+   (1) Preprocessor logic
 
 	if (flagA)
 	  foo ();
@@ -131,31 +152,47 @@ line_contains_hash_if (const char *file, int line_num)
 	  bar ();
 	  ^ NEXT_STMT_EXPLOC
 
-   despite "bar ();" being visually aligned below "foo ();" and
-   being (as far as the parser sees) the next token.
+   "bar ();" is visually aligned below "foo ();" and
+   is (as far as the parser sees) the next token, but
+   this isn't misleading to a human reader.
 
-   Return true if such logic is detected.  */
+   (2) Empty macro with bad indentation
+
+   In the following, the
+     "if (i > 0)"
+   is poorly indented, and ought to be on the same column as
+      "engine_ref_debug(e, 0, -1)"
+   However, it is not misleadingly indented, due to the presence
+   of that macro.
+
+      #define engine_ref_debug(X, Y, Z)
+
+      if (locked)
+        i = foo (0);
+      else
+        i = foo (1);
+      engine_ref_debug(e, 0, -1)
+        if (i > 0)
+        return 1;
+
+   Return true if such an unindent/outdent is detected.  */
 
 static bool
-detect_preprocessor_logic (expanded_location body_exploc,
-			   expanded_location next_stmt_exploc)
+detect_intervening_unindent (const char *file,
+			     int body_line,
+			     int next_stmt_line,
+			     unsigned int vis_column)
 {
-  gcc_assert (next_stmt_exploc.file == body_exploc.file);
-  gcc_assert (next_stmt_exploc.line > body_exploc.line);
+  gcc_assert (file);
+  gcc_assert (next_stmt_line > body_line);
 
-  if (next_stmt_exploc.line - body_exploc.line < 4)
-    return false;
-
-  /* Is there a #if/#ifdef/#ifndef directive somewhere in the lines
-     between the given locations?
-
-     This is something of a layering violation, but by necessity,
-     given the nature of what we're testing for.  For example,
-     in theory we could be fooled by a #if within a comment, but
-     it's unlikely to matter.  */
-  for (int line = body_exploc.line + 1; line < next_stmt_exploc.line; line++)
-    if (line_contains_hash_if (body_exploc.file, line))
-      return true;
+  for (int line = body_line + 1; line < next_stmt_line; line++)
+    {
+      unsigned int line_vis_column;
+      if (get_first_nws_vis_column (file, line, &line_vis_column))
+	if (line_vis_column < vis_column)
+	  return true;
+    }
 
   /* Not found.  */
   return false;
@@ -200,6 +237,12 @@ should_warn_for_misleading_indentation (const token_indent_info &guard_tinfo,
      is seen, and we check for the flag here.
   */
   if (line_table->seen_line_directive)
+    return false;
+
+  /* We can't usefully warn about do-while statements since the bodies of these
+     statements are always explicitly delimited at both ends, so control flow is
+     quite obvious.  */
+  if (guard_tinfo.keyword == RID_DO)
     return false;
 
   /* If the token following the body is a close brace or an "else"
@@ -291,7 +334,7 @@ should_warn_for_misleading_indentation (const token_indent_info &guard_tinfo,
 	  gcc_assert (guard_exploc.line == next_stmt_exploc.line);
 	  unsigned int guard_vis_column;
 	  unsigned int guard_line_first_nws;
-	  if (!get_visual_column (guard_exploc,
+	  if (!get_visual_column (guard_exploc, guard_loc,
 				  &guard_vis_column,
 				  &guard_line_first_nws))
 	    return false;
@@ -329,12 +372,20 @@ should_warn_for_misleading_indentation (const token_indent_info &guard_tinfo,
 	  ;
 	  foo ();
 	  ^ DON'T WARN HERE
+
+	#define emit
+	if (flag)
+	     foo ();
+	emit bar ();
+	     ^ DON'T WARN HERE
+
   */
   if (next_stmt_exploc.line > body_exploc.line)
     {
       /* Determine if GUARD_LOC and NEXT_STMT_LOC are aligned on the same
 	 "visual column"...  */
       unsigned int next_stmt_vis_column;
+      unsigned int next_stmt_line_first_nws;
       unsigned int body_vis_column;
       unsigned int body_line_first_nws;
       unsigned int guard_vis_column;
@@ -343,15 +394,28 @@ should_warn_for_misleading_indentation (const token_indent_info &guard_tinfo,
 	 the case for input files containing #line directives, and these
 	 are often for autogenerated sources (e.g. from .md files), where
 	 it's not clear that it's meaningful to look at indentation.  */
-      if (!get_visual_column (next_stmt_exploc, &next_stmt_vis_column))
+      if (!get_visual_column (next_stmt_exploc, next_stmt_loc,
+			      &next_stmt_vis_column,
+			      &next_stmt_line_first_nws))
 	return false;
-      if (!get_visual_column (body_exploc,
+      if (!get_visual_column (body_exploc, body_loc,
 			      &body_vis_column,
 			      &body_line_first_nws))
 	return false;
-      if (!get_visual_column (guard_exploc,
+      if (!get_visual_column (guard_exploc, guard_loc,
 			      &guard_vis_column,
 			      &guard_line_first_nws))
+	return false;
+
+      /* If the line where the next stmt starts has non-whitespace
+	 on it before the stmt, then don't warn:
+	  #define emit
+	  if (flag)
+	       foo ();
+	  emit bar ();
+	       ^ DON'T WARN HERE
+	 (PR c/69122).  */
+      if (next_stmt_line_first_nws < next_stmt_vis_column)
 	return false;
 
       if ((body_type != CPP_SEMICOLON
@@ -372,7 +436,8 @@ should_warn_for_misleading_indentation (const token_indent_info &guard_tinfo,
 	{
           /* Don't warn if they are aligned on the same column
 	     as the guard itself (suggesting autogenerated code that doesn't
-	     bother indenting at all).  We consider the column of the first
+	     bother indenting at all).
+	     For "else" clauses, we consider the column of the first
 	     non-whitespace character on the guard line instead of the column
 	     of the actual guard token itself because it is more sensible.
 	     Consider:
@@ -391,14 +456,17 @@ should_warn_for_misleading_indentation (const token_indent_info &guard_tinfo,
 	       foo (2);   // BODY
 	       foo (3);   // NEXT
 
-	     If we just used the column of the guard token, we would warn on
+	     If we just used the column of the "else" token, we would warn on
 	     the first example and not warn on the second.  But we want the
 	     exact opposite to happen: to not warn on the first example (which
 	     is probably autogenerated) and to warn on the second (whose
 	     indentation is misleading).  Using the column of the first
 	     non-whitespace character on the guard line makes that
 	     happen.  */
-	  if (guard_line_first_nws == body_vis_column)
+	  unsigned int guard_column = (guard_tinfo.keyword == RID_ELSE
+				       ? guard_line_first_nws
+				       : guard_vis_column);
+	  if (guard_column == body_vis_column)
 	    return false;
 
 	  /* We may have something like:
@@ -411,14 +479,16 @@ should_warn_for_misleading_indentation (const token_indent_info &guard_tinfo,
 	     foo (3);  // NEXT
 
 	     in which case the columns are not aligned but the code is not
-	     misleadingly indented.  If the column of the body is less than
-	     that of the guard line then don't warn.  */
-	  if (body_vis_column < guard_line_first_nws)
+	     misleadingly indented.  If the column of the body isn't indented
+	     more than the guard line then don't warn.  */
+	  if (body_vis_column <= guard_line_first_nws)
 	    return false;
 
-	  /* Don't warn if there is multiline preprocessor logic between
-	     the two statements. */
-	  if (detect_preprocessor_logic (body_exploc, next_stmt_exploc))
+	  /* Don't warn if there is an unindent between the two statements. */
+	  int vis_column = MIN (next_stmt_vis_column, body_vis_column);
+	  if (detect_intervening_unindent (body_exploc.file, body_exploc.line,
+					   next_stmt_exploc.line,
+					   vis_column))
 	    return false;
 
 	  /* Otherwise, they are visually aligned: issue a warning.  */

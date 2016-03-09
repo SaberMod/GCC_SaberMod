@@ -1,6 +1,6 @@
 /* Language specific subroutines used for code generation on IBM S/390
    and zSeries
-   Copyright (C) 2015 Free Software Foundation, Inc.
+   Copyright (C) 2015-2016 Free Software Foundation, Inc.
 
    Contributed by Andreas Krebbel (Andreas.Krebbel@de.ibm.com).
 
@@ -904,13 +904,14 @@ s390_resolve_overloaded_builtin (location_t loc,
 
   if (last_match_type == INT_MAX)
     {
-      error_at (loc, "invalid parameter combination for intrinsic");
+      error_at (loc, "invalid parameter combination for intrinsic %qs",
+		IDENTIFIER_POINTER (DECL_NAME (ob_fndecl)));
       return error_mark_node;
     }
   else if (num_matches > 1)
     {
-      error_at (loc, "ambiguous overload for intrinsic: %s\n",
-	     IDENTIFIER_POINTER (DECL_NAME (ob_fndecl)));
+      error_at (loc, "ambiguous overload for intrinsic %qs",
+		IDENTIFIER_POINTER (DECL_NAME (ob_fndecl)));
       return error_mark_node;
     }
 

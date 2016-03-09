@@ -1,5 +1,5 @@
 /* The Blackfin code generation auxiliary output file.
-   Copyright (C) 2005-2015 Free Software Foundation, Inc.
+   Copyright (C) 2005-2016 Free Software Foundation, Inc.
    Contributed by Analog Devices.
 
    This file is part of GCC.
@@ -4092,7 +4092,7 @@ reorder_var_tracking_notes (void)
 }
 
 /* On some silicon revisions, functions shorter than a certain number of cycles
-   can cause unpredictable behaviour.  Work around this by adding NOPs as
+   can cause unpredictable behavior.  Work around this by adding NOPs as
    needed.  */
 static void
 workaround_rts_anomaly (void)

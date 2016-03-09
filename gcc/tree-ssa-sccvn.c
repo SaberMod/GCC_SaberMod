@@ -1,5 +1,5 @@
 /* SCC value numbering for trees
-   Copyright (C) 2006-2015 Free Software Foundation, Inc.
+   Copyright (C) 2006-2016 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org>
 
 This file is part of GCC.
@@ -2230,11 +2230,12 @@ vn_reference_lookup_pieces (tree vuse, alias_set_type set, tree type,
    number if it exists in the hash table.  Return NULL_TREE if it does
    not exist in the hash table or if the result field of the structure
    was NULL..  VNRESULT will be filled in with the vn_reference_t
-   stored in the hashtable if one exists.  */
+   stored in the hashtable if one exists.  When TBAA_P is false assume
+   we are looking up a store and treat it as having alias-set zero.  */
 
 tree
 vn_reference_lookup (tree op, tree vuse, vn_lookup_kind kind,
-		     vn_reference_t *vnresult)
+		     vn_reference_t *vnresult, bool tbaa_p)
 {
   vec<vn_reference_op_s> operands;
   struct vn_reference_s vr1;
@@ -2248,7 +2249,7 @@ vn_reference_lookup (tree op, tree vuse, vn_lookup_kind kind,
   vr1.operands = operands
     = valueize_shared_reference_ops_from_ref (op, &valuezied_anything);
   vr1.type = TREE_TYPE (op);
-  vr1.set = get_alias_set (op);
+  vr1.set = tbaa_p ? get_alias_set (op) : 0;
   vr1.hashcode = vn_reference_compute_hash (&vr1);
   if ((cst = fully_constant_vn_reference_p (&vr1)))
     return cst;
@@ -2264,6 +2265,8 @@ vn_reference_lookup (tree op, tree vuse, vn_lookup_kind kind,
 	  || !ao_ref_init_from_vn_reference (&r, vr1.set, vr1.type,
 					     vr1.operands))
 	ao_ref_init (&r, op);
+      if (! tbaa_p)
+	r.ref_alias_set = r.base_alias_set = 0;
       vn_walk_kind = kind;
       wvnresult =
 	(vn_reference_t)walk_non_aliased_vuses (&r, vr1.vuse,
@@ -2969,6 +2972,87 @@ print_scc (FILE *out, vec<tree> scc)
   fprintf (out, "\n");
 }
 
+/* Return true if BB1 is dominated by BB2 taking into account edges
+   that are not executable.  */
+
+static bool
+dominated_by_p_w_unex (basic_block bb1, basic_block bb2)
+{
+  edge_iterator ei;
+  edge e;
+
+  if (dominated_by_p (CDI_DOMINATORS, bb1, bb2))
+    return true;
+
+  /* Before iterating we'd like to know if there exists a
+     (executable) path from bb2 to bb1 at all, if not we can
+     directly return false.  For now simply iterate once.  */
+
+  /* Iterate to the single executable bb1 predecessor.  */
+  if (EDGE_COUNT (bb1->preds) > 1)
+    {
+      edge prede = NULL;
+      FOR_EACH_EDGE (e, ei, bb1->preds)
+	if (e->flags & EDGE_EXECUTABLE)
+	  {
+	    if (prede)
+	      {
+		prede = NULL;
+		break;
+	      }
+	    prede = e;
+	  }
+      if (prede)
+	{
+	  bb1 = prede->src;
+
+	  /* Re-do the dominance check with changed bb1.  */
+	  if (dominated_by_p (CDI_DOMINATORS, bb1, bb2))
+	    return true;
+	}
+    }
+
+  /* Iterate to the single executable bb2 successor.  */
+  edge succe = NULL;
+  FOR_EACH_EDGE (e, ei, bb2->succs)
+    if (e->flags & EDGE_EXECUTABLE)
+      {
+	if (succe)
+	  {
+	    succe = NULL;
+	    break;
+	  }
+	succe = e;
+      }
+  if (succe)
+    {
+      /* Verify the reached block is only reached through succe.
+	 If there is only one edge we can spare us the dominator
+	 check and iterate directly.  */
+      if (EDGE_COUNT (succe->dest->preds) > 1)
+	{
+	  FOR_EACH_EDGE (e, ei, succe->dest->preds)
+	    if (e != succe
+		&& (e->flags & EDGE_EXECUTABLE))
+	      {
+		succe = NULL;
+		break;
+	      }
+	}
+      if (succe)
+	{
+	  bb2 = succe->dest;
+
+	  /* Re-do the dominance check with changed bb2.  */
+	  if (dominated_by_p (CDI_DOMINATORS, bb1, bb2))
+	    return true;
+	}
+    }
+
+  /* We could now iterate updating bb1 / bb2.  */
+  return false;
+}
+
 /* Set the value number of FROM to TO, return true if it has changed
    as a result.  */
 
@@ -3037,6 +3121,86 @@ set_ssa_val_to (tree from, tree to)
 	       == get_addr_base_and_unit_offset (TREE_OPERAND (to, 0), &toff))
 	   && coff == toff))
     {
+      /* If we equate two SSA names we have to make the side-band info
+         of the leader conservative (and remember whatever original value
+	 was present).  */
+      if (TREE_CODE (to) == SSA_NAME)
+	{
+	  if (INTEGRAL_TYPE_P (TREE_TYPE (to))
+	      && SSA_NAME_RANGE_INFO (to))
+	    {
+	      if (SSA_NAME_IS_DEFAULT_DEF (to)
+		  || dominated_by_p_w_unex
+			(gimple_bb (SSA_NAME_DEF_STMT (from)),
+			 gimple_bb (SSA_NAME_DEF_STMT (to))))
+		/* Keep the info from the dominator.  */
+		;
+	      else if (SSA_NAME_IS_DEFAULT_DEF (from)
+		       || dominated_by_p_w_unex
+			    (gimple_bb (SSA_NAME_DEF_STMT (to)),
+			     gimple_bb (SSA_NAME_DEF_STMT (from))))
+		{
+		  /* Save old info.  */
+		  if (! VN_INFO (to)->info.range_info)
+		    {
+		      VN_INFO (to)->info.range_info = SSA_NAME_RANGE_INFO (to);
+		      VN_INFO (to)->range_info_anti_range_p
+			= SSA_NAME_ANTI_RANGE_P (to);
+		    }
+		  /* Use that from the dominator.  */
+		  SSA_NAME_RANGE_INFO (to) = SSA_NAME_RANGE_INFO (from);
+		  SSA_NAME_ANTI_RANGE_P (to) = SSA_NAME_ANTI_RANGE_P (from);
+		}
+	      else
+		{
+		  /* Save old info.  */
+		  if (! VN_INFO (to)->info.range_info)
+		    {
+		      VN_INFO (to)->info.range_info = SSA_NAME_RANGE_INFO (to);
+		      VN_INFO (to)->range_info_anti_range_p
+			= SSA_NAME_ANTI_RANGE_P (to);
+		    }
+		  /* Rather than allocating memory and unioning the info
+		     just clear it.  */
+		  SSA_NAME_RANGE_INFO (to) = NULL;
+		}
+	    }
+	  else if (POINTER_TYPE_P (TREE_TYPE (to))
+		   && SSA_NAME_PTR_INFO (to))
+	    {
+	      if (SSA_NAME_IS_DEFAULT_DEF (to)
+		  || dominated_by_p_w_unex
+			(gimple_bb (SSA_NAME_DEF_STMT (from)),
+			 gimple_bb (SSA_NAME_DEF_STMT (to))))
+		/* Keep the info from the dominator.  */
+		;
+	      else if (SSA_NAME_IS_DEFAULT_DEF (from)
+		       || dominated_by_p_w_unex
+			    (gimple_bb (SSA_NAME_DEF_STMT (to)),
+			     gimple_bb (SSA_NAME_DEF_STMT (from))))
+		{
+		  /* Save old info.  */
+		  if (! VN_INFO (to)->info.ptr_info)
+		    VN_INFO (to)->info.ptr_info = SSA_NAME_PTR_INFO (to);
+		  /* Use that from the dominator.  */
+		  SSA_NAME_PTR_INFO (to) = SSA_NAME_PTR_INFO (from);
+		}
+	      else if (! SSA_NAME_PTR_INFO (from)
+		       /* Handle the case of trivially equivalent info.  */
+		       || memcmp (SSA_NAME_PTR_INFO (to),
+				  SSA_NAME_PTR_INFO (from),
+				  sizeof (ptr_info_def)) != 0)
+		{
+		  /* Save old info.  */
+		  if (! VN_INFO (to)->info.ptr_info)
+		    VN_INFO (to)->info.ptr_info = SSA_NAME_PTR_INFO (to);
+		  /* Rather than allocating memory and unioning the info
+		     just clear it.  */
+		  SSA_NAME_PTR_INFO (to) = NULL;
+		}
+	    }
+	}
+
       VN_INFO (from)->valnum = to;
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, " (changed)\n");
@@ -3189,7 +3353,7 @@ visit_reference_op_load (tree lhs, tree op, gimple *stmt)
   last_vuse = gimple_vuse (stmt);
   last_vuse_ptr = &last_vuse;
   result = vn_reference_lookup (op, gimple_vuse (stmt),
-				default_vn_walk_kind, NULL);
+				default_vn_walk_kind, NULL, true);
   last_vuse_ptr = NULL;
 
   /* We handle type-punning through unions by value-numbering based
@@ -3221,8 +3385,11 @@ visit_reference_op_load (tree lhs, tree op, gimple *stmt)
 	      gimple_seq stmts = NULL;
 	      result = maybe_push_res_to_seq (rcode, TREE_TYPE (op), ops,
 					      &stmts);
-	      gcc_assert (result && gimple_seq_singleton_p (stmts));
-	      new_stmt = gimple_seq_first_stmt (stmts);
+	      if (result)
+		{
+		  gcc_assert (gimple_seq_singleton_p (stmts));
+		  new_stmt = gimple_seq_first_stmt (stmts);
+		}
 	    }
 	  else
 	    /* The expression is already available.  */
@@ -3308,7 +3475,7 @@ visit_reference_op_store (tree lhs, tree op, gimple *stmt)
      Otherwise, the vdefs for the store are used when inserting into
      the table, since the store generates a new memory state.  */
 
-  result = vn_reference_lookup (lhs, vuse, VN_NOWALK, NULL);
+  result = vn_reference_lookup (lhs, vuse, VN_NOWALK, NULL, false);
 
   if (result)
     {
@@ -3323,7 +3490,7 @@ visit_reference_op_store (tree lhs, tree op, gimple *stmt)
       && default_vn_walk_kind == VN_WALK)
     {
       assign = build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, op);
-      vn_reference_lookup (assign, vuse, VN_NOWALK, &vnresult);
+      vn_reference_lookup (assign, vuse, VN_NOWALK, &vnresult, false);
       if (vnresult)
 	{
 	  VN_INFO (vdef)->use_processed = true;
@@ -4149,9 +4316,21 @@ free_scc_vn (void)
     {
       tree name = ssa_name (i);
       if (name
-	  && has_VN_INFO (name)
-	  && VN_INFO (name)->needs_insertion)
-	release_ssa_name (name);
+	  && has_VN_INFO (name))
+	{
+	  if (VN_INFO (name)->needs_insertion)
+	    release_ssa_name (name);
+	  else if (POINTER_TYPE_P (TREE_TYPE (name))
+		   && VN_INFO (name)->info.ptr_info)
+	    SSA_NAME_PTR_INFO (name) = VN_INFO (name)->info.ptr_info;
+	  else if (INTEGRAL_TYPE_P (TREE_TYPE (name))
+		   && VN_INFO (name)->info.range_info)
+	    {
+	      SSA_NAME_RANGE_INFO (name) = VN_INFO (name)->info.range_info;
+	      SSA_NAME_ANTI_RANGE_P (name)
+		= VN_INFO (name)->range_info_anti_range_p;
+	    }
+	}
     }
   obstack_free (&vn_ssa_aux_obstack, NULL);
   vn_ssa_aux_table.release ();

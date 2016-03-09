@@ -1,5 +1,5 @@
 /* Handle errors.
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Niels Kristian Bech Jensen
 
 This file is part of GCC.
@@ -1096,12 +1096,25 @@ gfc_diagnostic_starter (diagnostic_context *context,
       /* Fortran uses an empty line between locus and caret line.  */
       pp_newline (context->printer);
       diagnostic_show_locus (context, diagnostic);
-      pp_newline (context->printer);
       /* If the caret line was shown, the prefix does not contain the
 	 locus.  */
       pp_set_prefix (context->printer, kind_prefix);
     }
 }
+
+static void
+gfc_diagnostic_start_span (diagnostic_context *context,
+			   expanded_location exploc)
+{
+  char *locus_prefix;
+  locus_prefix = gfc_diagnostic_build_locus_prefix (context, exploc);
+  pp_verbatim (context->printer, locus_prefix);
+  free (locus_prefix);
+  pp_newline (context->printer);
+  /* Fortran uses an empty line between locus and caret line.  */
+  pp_newline (context->printer);
+}
+
 
 static void
 gfc_diagnostic_finalizer (diagnostic_context *context,
@@ -1226,6 +1239,7 @@ gfc_error (const char *gmsgid, va_list ap)
 {
   va_list argp;
   va_copy (argp, ap);
+  bool saved_abort_on_error = false;
 
   if (warnings_not_errors)
     {
@@ -1250,10 +1264,14 @@ gfc_error (const char *gmsgid, va_list ap)
 
   if (buffered_p)
     {
+      /* To prevent -dH from triggering an abort on a buffered error,
+	 save abort_on_error and restore it below.  */
+      saved_abort_on_error = global_dc->abort_on_error;
+      global_dc->abort_on_error = false;
       pp->buffer = pp_error_buffer;
       global_dc->fatal_errors = false;
       /* To prevent -fmax-errors= triggering, we decrease it before
-     report_diagnostic increases it.  */
+	 report_diagnostic increases it.  */
       --errorcount;
     }
 
@@ -1264,6 +1282,8 @@ gfc_error (const char *gmsgid, va_list ap)
     {
       pp->buffer = tmp_buffer;
       global_dc->fatal_errors = fatal_errors;
+      global_dc->abort_on_error = saved_abort_on_error;
+
     }
 
   va_end (argp);
@@ -1420,6 +1440,7 @@ void
 gfc_diagnostics_init (void)
 {
   diagnostic_starter (global_dc) = gfc_diagnostic_starter;
+  global_dc->start_span = gfc_diagnostic_start_span;
   diagnostic_finalizer (global_dc) = gfc_diagnostic_finalizer;
   diagnostic_format_decoder (global_dc) = gfc_format_decoder;
   global_dc->caret_chars[0] = '1';

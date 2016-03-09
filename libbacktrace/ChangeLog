@@ -1,3 +1,18 @@
+2016-03-02  Maxim Ostapenko  <m.ostapenko@partner.samsung.com>
+
+	* elf.c (backtrace_initialize): Properly initialize elf_fileline_fn to
+	avoid possible crash.
+	(elf_add): Don't set *fileline_fn to elf_nodebug value in case of
+	missing debug info anymore.
+
+2016-02-06  John David Anglin  <danglin@gcc.gnu.org>
+
+	* mmap.c (MAP_FAILED): Define if not defined.
+
+2016-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
 2015-12-18  Andris Pavenis  <andris.pavenis@iki.fi>
 
 	* configure.ac: Specify that DJGPP do not have mmap even when sys/mman.h exists
@@ -560,3 +575,9 @@
 2012-09-17  Ian Lance Taylor  <iant@google.com>
 
 	* Initial implementation.
+
+Copyright (C) 2012-2016 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

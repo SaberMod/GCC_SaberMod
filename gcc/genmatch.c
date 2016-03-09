@@ -1,7 +1,7 @@
 /* Generate pattern matching and transform code shared between
    GENERIC and GIMPLE folding code from match-and-simplify description.
 
-   Copyright (C) 2014-2015 Free Software Foundation, Inc.
+   Copyright (C) 2014-2016 Free Software Foundation, Inc.
    Contributed by Richard Biener <rguenther@suse.de>
    and Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
@@ -2615,7 +2615,7 @@ dt_node::gen_kids (FILE *f, int indent, bool gimple)
 		preds.safe_push (op);
 	      else
 		{
-		  if (gimple)
+		  if (gimple && !e->is_generic)
 		    gimple_exprs.safe_push (op);
 		  else
 		    generic_exprs.safe_push (op);

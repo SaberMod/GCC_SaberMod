@@ -1,5 +1,5 @@
 /* Top-level LTO routines.
-   Copyright (C) 2009-2015 Free Software Foundation, Inc.
+   Copyright (C) 2009-2016 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -2855,7 +2855,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   /* Read the symtab.  */
   input_symtab ();
 
-  input_offload_tables ();
+  input_offload_tables (!flag_ltrans);
 
   /* Store resolutions into the symbol table.  */
 

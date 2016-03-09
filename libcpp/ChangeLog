@@ -1,3 +1,93 @@
+2016-02-29  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/69985
+	(linemap_position_for_loc_and_offset): Rename param from "offset"
+	to "column_offset".  Right-shift the column_offset by m_range_bits
+	of the pertinent ordinary map whenever offsetting a
+	source_location.  For clarity, offset the column by the column
+	offset, rather than the other way around.
+
+2016-02-23  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/69126
+	PR preprocessor/69543
+	* line-map.c (linemap_compare_locations): At the function top,
+	replace inlined bodies of get_location_from_adhoc_loc with calls
+	to get_location_from_adhoc_loc.  Add a pair of calls to
+	get_location_from_adhoc_loc at the bottom of the function, to
+	avoid meaningless comparisons of ad-hoc and non-ad-hoc locations.
+
+2016-02-08  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/69664
+	* errors.c (cpp_diagnostic_with_line): Only call
+	rich_location::override_column if the column is non-zero.
+	* line-map.c (rich_location::override_column): Update columns
+	within m_ranges[0].  Add assertions to verify that doing so is
+	sane.
+
+2016-02-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69628
+	* charset.c (cpp_interpret_charconst): Clear *PCHARS_SEEN
+	and *UNSIGNEDP if bailing out early due to errors.
+
+2016-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR pch/68176
+	* files.c (_cpp_find_file): Set file->implicit_preinclude even if
+	included from file->implicit_preinclude header.
+
+	* directives.c (destringize_and_run): Adjust prototype.
+
+2016-01-27  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/69126
+	* directives.c (destringize_and_run): Add expansion_loc param; use
+	it when handling unexpanded pragmas to fixup the locations of the
+	synthesized tokens.
+	(_cpp_do__Pragma): Add expansion_loc param and use it when calling
+	destringize_and_run.
+	* internal.h (_cpp_do__Pragma): Add expansion_loc param.
+	* macro.c (builtin_macro): Pass expansion location of _Pragma to
+	_cpp_do__Pragma.
+
+2016-01-14  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/69177
+	* line-map.c (LINE_MAP_MAX_LOCATION_WITH_PACKED_RANGES): New
+	constant.
+	(LINE_MAP_MAX_LOCATION_WITH_COLS): Add note about unit tests
+	to comment.
+	(can_be_stored_compactly_p): Reduce threshold from
+	LINE_MAP_MAX_LOCATION_WITH_COLS to
+	LINE_MAP_MAX_LOCATION_WITH_PACKED_RANGES.
+	(get_combined_adhoc_loc): Likewise.
+	(get_range_from_loc): Likewise.
+	(linemap_line_start): Ensure that a new ordinary map is created
+	when transitioning from range-packing being enabled to disabled,
+	at the LINE_MAP_MAX_LOCATION_WITH_PACKED_RANGES threshold.  Set
+	range_bits to 0 for new ordinary maps when beyond this limit.
+	Prevent the "increase the column bits of a freshly created map"
+	optimization if the range bits has reduced.
+
+2016-01-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69145
+	* files.c (cpp_included_before): If IS_ADHOC_LOC (location), lookup
+	real location from the line_table.
+
+2016-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+2015-12-22  David Malcolm  <dmalcolm@redhat.com>
+
+	* line-map.c (get_combined_adhoc_loc): Remove condition
+	on locus < RESERVED_LOCATION_COUNT when considering
+	whether a caret == start == finish location can be
+	simply stored as the caret location.
+
 2015-12-07  David Malcolm  <dmalcolm@redhat.com>
 
 	* include/line-map.h (rich_location::set_range): Add line_maps *
@@ -4358,3 +4448,9 @@
 	* include/mkdeps.h: Moved from gcc.  Change header guard name.
 	* include/symtab.h: Moved from gcc/hashtable.h.  Change header
 	guard name.
+
+Copyright (C) 2004-2016 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

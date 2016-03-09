@@ -1,5 +1,5 @@
 /* SSA Dominator optimizations for trees
-   Copyright (C) 2001-2015 Free Software Foundation, Inc.
+   Copyright (C) 2001-2016 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-dom.h"
 #include "gimplify.h"
 #include "tree-cfgcleanup.h"
+#include "dbgcnt.h"
 
 /* This file implements optimizations on the dominator tree.  */
 
@@ -102,7 +103,8 @@ static struct opt_stats_d opt_stats;
 static edge optimize_stmt (basic_block, gimple_stmt_iterator,
 			   class const_and_copies *,
 			   class avail_exprs_stack *);
-static tree lookup_avail_expr (gimple *, bool, class avail_exprs_stack *);
+static tree lookup_avail_expr (gimple *, bool, class avail_exprs_stack *,
+			       bool = true);
 static void record_cond (cond_equivalence *, class avail_exprs_stack *);
 static void record_equality (tree, tree, class const_and_copies *);
 static void record_equivalences_from_phis (basic_block);
@@ -386,39 +388,39 @@ record_edge_info (basic_block bb)
 
           /* Special case comparing booleans against a constant as we
              know the value of OP0 on both arms of the branch.  i.e., we
-             can record an equivalence for OP0 rather than COND.  */
-          if ((code == EQ_EXPR || code == NE_EXPR)
-              && TREE_CODE (op0) == SSA_NAME
-              && TREE_CODE (TREE_TYPE (op0)) == BOOLEAN_TYPE
-              && is_gimple_min_invariant (op1))
+             can record an equivalence for OP0 rather than COND. 
+
+	     However, don't do this if the constant isn't zero or one.
+	     Such conditionals will get optimized more thoroughly during
+	     the domwalk.  */
+	  if ((code == EQ_EXPR || code == NE_EXPR)
+	      && TREE_CODE (op0) == SSA_NAME
+	      && ssa_name_has_boolean_range (op0)
+	      && is_gimple_min_invariant (op1)
+	      && (integer_zerop (op1) || integer_onep (op1)))
             {
+	      tree true_val = constant_boolean_node (true, TREE_TYPE (op0));
+	      tree false_val = constant_boolean_node (false, TREE_TYPE (op0));
+
               if (code == EQ_EXPR)
                 {
                   edge_info = allocate_edge_info (true_edge);
                   edge_info->lhs = op0;
-                  edge_info->rhs = (integer_zerop (op1)
-                                    ? boolean_false_node
-                                    : boolean_true_node);
+                  edge_info->rhs = (integer_zerop (op1) ? false_val : true_val);
 
                   edge_info = allocate_edge_info (false_edge);
                   edge_info->lhs = op0;
-                  edge_info->rhs = (integer_zerop (op1)
-                                    ? boolean_true_node
-                                    : boolean_false_node);
+                  edge_info->rhs = (integer_zerop (op1) ? true_val : false_val);
                 }
               else
                 {
                   edge_info = allocate_edge_info (true_edge);
                   edge_info->lhs = op0;
-                  edge_info->rhs = (integer_zerop (op1)
-                                    ? boolean_true_node
-                                    : boolean_false_node);
+                  edge_info->rhs = (integer_zerop (op1) ? true_val : false_val);
 
                   edge_info = allocate_edge_info (false_edge);
                   edge_info->lhs = op0;
-                  edge_info->rhs = (integer_zerop (op1)
-                                    ? boolean_false_node
-                                    : boolean_true_node);
+                  edge_info->rhs = (integer_zerop (op1) ? false_val : true_val);
                 }
             }
           else if (is_gimple_min_invariant (op0)
@@ -818,6 +820,74 @@ dom_valueize (tree t)
   return t;
 }
 
+/* We have just found an equivalence for LHS on an edge E.
+   Look backwards to other uses of LHS and see if we can derive
+   additional equivalences that are valid on edge E.  */
+static void
+back_propagate_equivalences (tree lhs, edge e,
+			     class const_and_copies *const_and_copies)
+{
+  use_operand_p use_p;
+  imm_use_iterator iter;
+  bitmap domby = NULL;
+  basic_block dest = e->dest;
+
+  /* Iterate over the uses of LHS to see if any dominate E->dest.
+     If so, they may create useful equivalences too.
+
+     ???  If the code gets re-organized to a worklist to catch more
+     indirect opportunities and it is made to handle PHIs then this
+     should only consider use_stmts in basic-blocks we have already visited.  */
+  FOR_EACH_IMM_USE_FAST (use_p, iter, lhs)
+    {
+      gimple *use_stmt = USE_STMT (use_p);
+
+      /* Often the use is in DEST, which we trivially know we can't use.
+	 This is cheaper than the dominator set tests below.  */
+      if (dest == gimple_bb (use_stmt))
+	continue;
+
+      /* Filter out statements that can never produce a useful
+	 equivalence.  */
+      tree lhs2 = gimple_get_lhs (use_stmt);
+      if (!lhs2 || TREE_CODE (lhs2) != SSA_NAME)
+	continue;
+
+      /* Profiling has shown the domination tests here can be fairly
+	 expensive.  We get significant improvements by building the
+	 set of blocks that dominate BB.  We can then just test
+	 for set membership below.
+
+	 We also initialize the set lazily since often the only uses
+	 are going to be in the same block as DEST.  */
+      if (!domby)
+	{
+	  domby = BITMAP_ALLOC (NULL);
+	  basic_block bb = get_immediate_dominator (CDI_DOMINATORS, dest);
+	  while (bb)
+	    {
+	      bitmap_set_bit (domby, bb->index);
+	      bb = get_immediate_dominator (CDI_DOMINATORS, bb);
+	    }
+	}
+
+      /* This tests if USE_STMT does not dominate DEST.  */
+      if (!bitmap_bit_p (domby, gimple_bb (use_stmt)->index))
+	continue;
+
+      /* At this point USE_STMT dominates DEST and may result in a
+	 useful equivalence.  Try to simplify its RHS to a constant
+	 or SSA_NAME.  */
+      tree res = gimple_fold_stmt_to_constant_1 (use_stmt, dom_valueize,
+						 no_follow_ssa_edges);
+      if (res && (TREE_CODE (res) == SSA_NAME || is_gimple_min_invariant (res)))
+	record_equality (lhs2, res, const_and_copies);
+    }
+
+  if (domby)
+    BITMAP_FREE (domby);
+}
+
 /* Record into CONST_AND_COPIES and AVAIL_EXPRS_STACK any equivalences implied
    by traversing edge E (which are cached in E->aux).
 
@@ -835,19 +905,32 @@ record_temporary_equivalences (edge e,
   if (edge_info)
     {
       cond_equivalence *eq;
-      tree lhs = edge_info->lhs;
-      tree rhs = edge_info->rhs;
+      /* If we have 0 = COND or 1 = COND equivalences, record them
+	 into our expression hash tables.  */
+      for (i = 0; edge_info->cond_equivalences.iterate (i, &eq); ++i)
+	record_cond (eq, avail_exprs_stack);
 
-      /* If we have a simple NAME = VALUE equivalence, record it.  */
-      if (lhs)
-	record_equality (lhs, rhs, const_and_copies);
+      tree lhs = edge_info->lhs;
+      if (!lhs || TREE_CODE (lhs) != SSA_NAME)
+	return;
+
+      /* Record the simple NAME = VALUE equivalence.  */
+      tree rhs = edge_info->rhs;
+      record_equality (lhs, rhs, const_and_copies);
+
+      /* We already recorded that LHS = RHS, with canonicalization,
+	 value chain following, etc.
+
+	 We also want to return RHS = LHS, but without any canonicalization
+	 or value chain following.  */
+      if (TREE_CODE (rhs) == SSA_NAME)
+	const_and_copies->record_const_or_copy_raw (rhs, lhs,
+						    SSA_NAME_VALUE (rhs));
 
       /* If LHS is an SSA_NAME and RHS is a constant integer and LHS was
 	 set via a widening type conversion, then we may be able to record
 	 additional equivalences.  */
-      if (lhs
-	  && TREE_CODE (lhs) == SSA_NAME
-	  && TREE_CODE (rhs) == INTEGER_CST)
+      if (TREE_CODE (rhs) == INTEGER_CST)
 	{
 	  gimple *defstmt = SSA_NAME_DEF_STMT (lhs);
 
@@ -874,45 +957,10 @@ record_temporary_equivalences (edge e,
 	    }
 	}
 
-      /* If LHS is an SSA_NAME with a new equivalency then try if
-         stmts with uses of that LHS that dominate the edge destination
-	 simplify and allow further equivalences to be recorded.  */
-      if (lhs && TREE_CODE (lhs) == SSA_NAME)
-	{
-	  use_operand_p use_p;
-	  imm_use_iterator iter;
-	  FOR_EACH_IMM_USE_FAST (use_p, iter, lhs)
-	    {
-	      gimple *use_stmt = USE_STMT (use_p);
-
-	      /* Only bother to record more equivalences for lhs that
-	         can be directly used by e->dest.
-		 ???  If the code gets re-organized to a worklist to
-		 catch more indirect opportunities and it is made to
-		 handle PHIs then this should only consider use_stmts
-		 in basic-blocks we have already visited.  */
-	      if (e->dest == gimple_bb (use_stmt)
-		  || !dominated_by_p (CDI_DOMINATORS,
-				      e->dest, gimple_bb (use_stmt)))
-		continue;
-	      tree lhs2 = gimple_get_lhs (use_stmt);
-	      if (lhs2 && TREE_CODE (lhs2) == SSA_NAME)
-		{
-		  tree res
-		    = gimple_fold_stmt_to_constant_1 (use_stmt, dom_valueize,
-						      no_follow_ssa_edges);
-		  if (res
-		      && (TREE_CODE (res) == SSA_NAME
-			  || is_gimple_min_invariant (res)))
-		    record_equality (lhs2, res, const_and_copies);
-		}
-	    }
-	}
-
-      /* If we have 0 = COND or 1 = COND equivalences, record them
-	 into our expression hash tables.  */
-      for (i = 0; edge_info->cond_equivalences.iterate (i, &eq); ++i)
-	record_cond (eq, avail_exprs_stack);
+      /* Any equivalence found for LHS may result in additional
+	 equivalences for other uses of LHS that we have already
+	 processed.  */
+      back_propagate_equivalences (lhs, e, const_and_copies);
     }
 }
 
@@ -933,9 +981,6 @@ dom_opt_dom_walker::thread_across_edge (edge e)
      current state.  */
   m_avail_exprs_stack->push_marker ();
   m_const_and_copies->push_marker ();
-
-  /* Traversing E may result in equivalences we can utilize.  */
-  record_temporary_equivalences (e, m_const_and_copies, m_avail_exprs_stack);
 
   /* With all the edge equivalences in the tables, go ahead and attempt
      to thread through E->dest.  */
@@ -1126,33 +1171,6 @@ record_cond (cond_equivalence *p,
     delete element;
 }
 
-/* Return the loop depth of the basic block of the defining statement of X.
-   This number should not be treated as absolutely correct because the loop
-   information may not be completely up-to-date when dom runs.  However, it
-   will be relatively correct, and as more passes are taught to keep loop info
-   up to date, the result will become more and more accurate.  */
-
-static int
-loop_depth_of_name (tree x)
-{
-  gimple *defstmt;
-  basic_block defbb;
-
-  /* If it's not an SSA_NAME, we have no clue where the definition is.  */
-  if (TREE_CODE (x) != SSA_NAME)
-    return 0;
-
-  /* Otherwise return the loop depth of the defining statement's bb.
-     Note that there may not actually be a bb for this statement, if the
-     ssa_name is live on entry.  */
-  defstmt = SSA_NAME_DEF_STMT (x);
-  defbb = gimple_bb (defstmt);
-  if (!defbb)
-    return 0;
-
-  return bb_loop_depth (defbb);
-}
-
 /* Similarly, but assume that X and Y are the two operands of an EQ_EXPR.
    This constrains the cases in which we may treat this as assignment.  */
 
@@ -1189,10 +1207,7 @@ record_equality (tree x, tree y, class const_and_copies *const_and_copies)
      long as we canonicalize on one value.  */
   if (is_gimple_min_invariant (y))
     ;
-  else if (is_gimple_min_invariant (x)
-	   /* ???  When threading over backedges the following is important
-	      for correctness.  See PR61757.  */
-	   || (loop_depth_of_name (x) < loop_depth_of_name (y)))
+  else if (is_gimple_min_invariant (x))
     prev_x = x, x = y, y = prev_x, prev_x = prev_y;
   else if (prev_x && is_gimple_min_invariant (prev_x))
     x = y, y = prev_x, prev_x = prev_y;
@@ -1323,8 +1338,6 @@ cprop_into_successor_phis (basic_block bb,
 	  new_val = SSA_NAME_VALUE (orig_val);
 	  if (new_val
 	      && new_val != orig_val
-	      && (TREE_CODE (new_val) == SSA_NAME
-		  || is_gimple_min_invariant (new_val))
 	      && may_propagate_copy (orig_val, new_val))
 	    propagate_value (orig_p, new_val);
 	}
@@ -1369,6 +1382,9 @@ dom_opt_dom_walker::before_dom_children (basic_block bb)
   /* Now prepare to process dominated blocks.  */
   record_edge_info (bb);
   cprop_into_successor_phis (bb, m_const_and_copies);
+  if (taken_edge && !dbg_cnt (dom_unreachable_edges))
+    return NULL;
+
   return taken_edge;
 }
 
@@ -1829,6 +1845,31 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si,
 	    }
 	}
 
+      if (gimple_code (stmt) == GIMPLE_COND)
+	{
+	  tree lhs = gimple_cond_lhs (stmt);
+	  tree rhs = gimple_cond_rhs (stmt);
+
+	  /* If the LHS has a range [0..1] and the RHS has a range ~[0..1],
+	     then this conditional is computable at compile time.  We can just
+	     shove either 0 or 1 into the LHS, mark the statement as modified
+	     and all the right things will just happen below.
+
+	     Note this would apply to any case where LHS has a range
+	     narrower than its type implies and RHS is outside that
+	     narrower range.  Future work.  */
+	  if (TREE_CODE (lhs) == SSA_NAME
+	      && ssa_name_has_boolean_range (lhs)
+	      && TREE_CODE (rhs) == INTEGER_CST
+	      && ! (integer_zerop (rhs) || integer_onep (rhs)))
+	    {
+	      gimple_cond_set_lhs (as_a <gcond *> (stmt),
+				   fold_convert (TREE_TYPE (lhs),
+						 integer_zero_node));
+	      gimple_set_modified (stmt, true);
+	    }
+	}
+
       update_stmt_if_modified (stmt);
       eliminate_redundant_computations (&si, const_and_copies,
 					avail_exprs_stack);
@@ -1853,7 +1894,8 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si,
 	  else
 	    new_stmt = gimple_build_assign (rhs, lhs);
 	  gimple_set_vuse (new_stmt, gimple_vuse (stmt));
-	  cached_lhs = lookup_avail_expr (new_stmt, false, avail_exprs_stack);
+	  cached_lhs = lookup_avail_expr (new_stmt, false, avail_exprs_stack,
+					  false);
 	  if (cached_lhs
 	      && rhs == cached_lhs)
 	    {
@@ -1957,7 +1999,7 @@ vuse_eq (ao_ref *, tree vuse1, unsigned int cnt, void *data)
 
 static tree
 lookup_avail_expr (gimple *stmt, bool insert,
-		   class avail_exprs_stack *avail_exprs_stack)
+		   class avail_exprs_stack *avail_exprs_stack, bool tbaa_p)
 {
   expr_hash_elt **slot;
   tree lhs;
@@ -2014,7 +2056,8 @@ lookup_avail_expr (gimple *stmt, bool insert,
       if (!(vuse1 && vuse2
 	    && gimple_assign_single_p (stmt)
 	    && TREE_CODE (gimple_assign_lhs (stmt)) == SSA_NAME
-	    && (ao_ref_init (&ref, gimple_assign_rhs1 (stmt)), true)
+	    && (ao_ref_init (&ref, gimple_assign_rhs1 (stmt)),
+		ref.base_alias_set = ref.ref_alias_set = tbaa_p ? -1 : 0, true)
 	    && walk_non_aliased_vuses (&ref, vuse2,
 				       vuse_eq, NULL, NULL, vuse1) != NULL))
 	{

@@ -1,5 +1,5 @@
 /* Target definitions for GCC for Intel 80386 running Solaris 2
-   Copyright (C) 1993-2015 Free Software Foundation, Inc.
+   Copyright (C) 1993-2016 Free Software Foundation, Inc.
    Contributed by Fred Fish (fnf@cygnus.com).
 
 This file is part of GCC.
@@ -20,6 +20,11 @@ along with GCC; see the file COPYING3.  If not see
 
 #define SUBTARGET_OPTIMIZATION_OPTIONS				\
   { OPT_LEVELS_1_PLUS, OPT_momit_leaf_frame_pointer, NULL, 1 }
+
+/* 32-bit Solaris/x86 only guarantees 4-byte stack alignment as required by
+   the i386 psABI, so realign it as necessary for SSE instructions.  */
+#undef STACK_REALIGN_DEFAULT
+#define STACK_REALIGN_DEFAULT (TARGET_64BIT ? 0 : 1)
 
 /* Old versions of the Solaris assembler can not handle the difference of
    labels in different sections, so force DW_EH_PE_datarel if so.  */

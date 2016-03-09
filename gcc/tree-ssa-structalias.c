@@ -1,5 +1,5 @@
 /* Tree based points-to analysis
-   Copyright (C) 2005-2015 Free Software Foundation, Inc.
+   Copyright (C) 2005-2016 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
    This file is part of GCC.
@@ -2943,6 +2943,14 @@ get_constraint_for_ssa_var (tree t, vec<ce_s> *results, bool address_p)
       if (node && node->alias && node->analyzed)
 	{
 	  node = node->ultimate_alias_target ();
+	  /* Canonicalize the PT uid of all aliases to the ultimate target.
+	     ???  Hopefully the set of aliases can't change in a way that
+	     changes the ultimate alias target.  */
+	  gcc_assert ((! DECL_PT_UID_SET_P (node->decl)
+		       || DECL_PT_UID (node->decl) == DECL_UID (node->decl))
+		      && (! DECL_PT_UID_SET_P (t)
+			  || DECL_PT_UID (t) == DECL_UID (node->decl)));
+	  DECL_PT_UID (t) = DECL_UID (node->decl);
 	  t = node->decl;
 	}
     }
@@ -4162,6 +4170,18 @@ find_func_aliases_for_call_arg (varinfo_t fi, unsigned index, tree arg)
     process_constraint (new_constraint (lhs, *rhsp));
 }
 
+/* Return true if FNDECL may be part of another lto partition.  */
+
+static bool
+fndecl_maybe_in_other_partition (tree fndecl)
+{
+  cgraph_node *fn_node = cgraph_node::get (fndecl);
+  if (fn_node == NULL)
+    return true;
+
+  return fn_node->in_other_partition;
+}
+
 /* Create constraints for the builtin call T.  Return true if the call
    was handled, otherwise false.  */
 
@@ -4537,6 +4557,10 @@ find_func_aliases_for_builtin_call (struct function *fn, gcall *t)
 	      tree fnarg = gimple_call_arg (t, fnpos);
 	      gcc_assert (TREE_CODE (fnarg) == ADDR_EXPR);
 	      tree fndecl = TREE_OPERAND (fnarg, 0);
+	      if (fndecl_maybe_in_other_partition (fndecl))
+		/* Fallthru to general call handling.  */
+		break;
+
 	      tree arg = gimple_call_arg (t, argpos);
 
 	      varinfo_t fi = get_vi_for_tree (fndecl);
@@ -5113,6 +5137,10 @@ find_func_clobbers (struct function *fn, gimple *origt)
 	      tree fnarg = gimple_call_arg (t, fnpos);
 	      gcc_assert (TREE_CODE (fnarg) == ADDR_EXPR);
 	      tree fndecl = TREE_OPERAND (fnarg, 0);
+	      if (fndecl_maybe_in_other_partition (fndecl))
+		/* Fallthru to general call handling.  */
+		break;
+
 	      varinfo_t cfi = get_vi_for_tree (fndecl);
 
 	      tree arg = gimple_call_arg (t, argpos);
@@ -5769,11 +5797,13 @@ check_for_overlaps (vec<fieldoff_s> fieldstack)
 
 /* Create a varinfo structure for NAME and DECL, and add it to VARMAP.
    This will also create any varinfo structures necessary for fields
-   of DECL.  DECL is a function parameter if HANDLE_PARAM is set.  */
+   of DECL.  DECL is a function parameter if HANDLE_PARAM is set.
+   HANDLED_STRUCT_TYPE is used to register struct types reached by following
+   restrict pointers.  This is needed to prevent infinite recursion.  */
 
 static varinfo_t
 create_variable_info_for_1 (tree decl, const char *name, bool add_id,
-			    bool handle_param)
+			    bool handle_param, bitmap handled_struct_type)
 {
   varinfo_t vi, newvi;
   tree decl_type = TREE_TYPE (decl);
@@ -5851,13 +5881,21 @@ create_variable_info_for_1 (tree decl, const char *name, bool add_id,
 	vi->only_restrict_pointers = 1;
       if (vi->only_restrict_pointers
 	  && !type_contains_placeholder_p (TREE_TYPE (decl_type))
-	  && handle_param)
+	  && handle_param
+	  && !bitmap_bit_p (handled_struct_type,
+			    TYPE_UID (TREE_TYPE (decl_type))))
 	{
 	  varinfo_t rvi;
 	  tree heapvar = build_fake_var_decl (TREE_TYPE (decl_type));
 	  DECL_EXTERNAL (heapvar) = 1;
+	  if (var_can_have_subvars (heapvar))
+	    bitmap_set_bit (handled_struct_type,
+			    TYPE_UID (TREE_TYPE (decl_type)));
 	  rvi = create_variable_info_for_1 (heapvar, "PARM_NOALIAS", true,
-					    true);
+					    true, handled_struct_type);
+	  if (var_can_have_subvars (heapvar))
+	    bitmap_clear_bit (handled_struct_type,
+			      TYPE_UID (TREE_TYPE (decl_type)));
 	  rvi->is_restrict_var = 1;
 	  insert_vi_for_tree (heapvar, rvi);
 	  make_constraint_from (vi, rvi->id);
@@ -5902,13 +5940,21 @@ create_variable_info_for_1 (tree decl, const char *name, bool add_id,
       newvi->only_restrict_pointers = fo->only_restrict_pointers;
       if (handle_param
 	  && newvi->only_restrict_pointers
-	  && !type_contains_placeholder_p (fo->restrict_pointed_type))
+	  && !type_contains_placeholder_p (fo->restrict_pointed_type)
+	  && !bitmap_bit_p (handled_struct_type,
+			    TYPE_UID (fo->restrict_pointed_type)))
 	{
 	  varinfo_t rvi;
 	  tree heapvar = build_fake_var_decl (fo->restrict_pointed_type);
 	  DECL_EXTERNAL (heapvar) = 1;
+	  if (var_can_have_subvars (heapvar))
+	    bitmap_set_bit (handled_struct_type,
+			    TYPE_UID (fo->restrict_pointed_type));
 	  rvi = create_variable_info_for_1 (heapvar, "PARM_NOALIAS", true,
-					    true);
+					    true, handled_struct_type);
+	  if (var_can_have_subvars (heapvar))
+	    bitmap_clear_bit (handled_struct_type,
+			      TYPE_UID (fo->restrict_pointed_type));
 	  rvi->is_restrict_var = 1;
 	  insert_vi_for_tree (heapvar, rvi);
 	  make_constraint_from (newvi, rvi->id);
@@ -5928,7 +5974,7 @@ create_variable_info_for_1 (tree decl, const char *name, bool add_id,
 static unsigned int
 create_variable_info_for (tree decl, const char *name, bool add_id)
 {
-  varinfo_t vi = create_variable_info_for_1 (decl, name, add_id, false);
+  varinfo_t vi = create_variable_info_for_1 (decl, name, add_id, false, NULL);
   unsigned int id = vi->id;
 
   insert_vi_for_tree (decl, vi);
@@ -6059,18 +6105,26 @@ static void
 intra_create_variable_infos (struct function *fn)
 {
   tree t;
+  bitmap handled_struct_type = NULL;
 
   /* For each incoming pointer argument arg, create the constraint ARG
      = NONLOCAL or a dummy variable if it is a restrict qualified
      passed-by-reference argument.  */
   for (t = DECL_ARGUMENTS (fn->decl); t; t = DECL_CHAIN (t))
     {
+      if (handled_struct_type == NULL)
+	handled_struct_type = BITMAP_ALLOC (NULL);
+
       varinfo_t p
-	= create_variable_info_for_1 (t, alias_get_name (t), false, true);
+	= create_variable_info_for_1 (t, alias_get_name (t), false, true,
+				      handled_struct_type);
       insert_vi_for_tree (t, p);
 
       make_param_constraints (p);
     }
+
+  if (handled_struct_type != NULL)
+    BITMAP_FREE (handled_struct_type);
 
   /* Add a constraint for a result decl that is passed by reference.  */
   if (DECL_RESULT (fn->decl)
@@ -7479,9 +7533,13 @@ ipa_pta_execute (void)
 	 address_taken bit for function foo._0, which would make it non-local.
 	 But for the purpose of ipa-pta, we can regard the run_on_threads call
 	 as a local call foo._0 (data),  so we ignore address_taken on nodes
-	 with parallelized_function set.  */
-      bool node_address_taken = (node->address_taken
-				 && !node->parallelized_function);
+	 with parallelized_function set.
+	 Note: this is only safe, if foo and foo._0 are in the same lto
+	 partition.  */
+      bool node_address_taken = ((node->parallelized_function
+				  && !node->used_from_other_partition)
+				 ? false
+				 : node->address_taken);
 
       /* For externally visible or attribute used annotated functions use
 	 local constraints for their arguments.
@@ -7650,12 +7708,19 @@ ipa_pta_execute (void)
 		continue;
 
 	      /* Handle direct calls to functions with body.  */
-	      if (gimple_call_builtin_p (stmt, BUILT_IN_GOMP_PARALLEL))
-		decl = TREE_OPERAND (gimple_call_arg (stmt, 0), 0);
-	      else if (gimple_call_builtin_p (stmt, BUILT_IN_GOACC_PARALLEL))
-		decl = TREE_OPERAND (gimple_call_arg (stmt, 1), 0);
-	      else
-		decl = gimple_call_fndecl (stmt);
+	      decl = gimple_call_fndecl (stmt);
+
+	      {
+		tree called_decl = NULL_TREE;
+		if (gimple_call_builtin_p (stmt, BUILT_IN_GOMP_PARALLEL))
+		  called_decl = TREE_OPERAND (gimple_call_arg (stmt, 0), 0);
+		else if (gimple_call_builtin_p (stmt, BUILT_IN_GOACC_PARALLEL))
+		  called_decl = TREE_OPERAND (gimple_call_arg (stmt, 1), 0);
+
+		if (called_decl != NULL_TREE
+		    && !fndecl_maybe_in_other_partition (called_decl))
+		  decl = called_decl;
+	      }
 
 	      if (decl
 		  && (fi = lookup_vi_for_tree (decl))

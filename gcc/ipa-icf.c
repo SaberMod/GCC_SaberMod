@@ -1,5 +1,5 @@
 /* Interprocedural Identical Code Folding pass
-   Copyright (C) 2014-2015 Free Software Foundation, Inc.
+   Copyright (C) 2014-2016 Free Software Foundation, Inc.
 
    Contributed by Jan Hubicka <hubicka@ucw.cz> and Martin Liska <mliska@suse.cz>
 
@@ -1305,6 +1305,7 @@ sem_function::merge (sem_item *alias_item)
 
       /* If all callers was redirected, do not produce wrapper.  */
       if (alias->can_remove_if_no_direct_calls_p ()
+	  && !DECL_VIRTUAL_P (alias->decl)
 	  && !alias->has_aliases_p ())
 	{
 	  create_wrapper = false;
@@ -2208,6 +2209,16 @@ sem_variable::merge (sem_item *alias_item)
 		 "adress of original and alias may be compared.\n\n");
       return false;
     }
+
+  if (DECL_ALIGN (original->decl) < DECL_ALIGN (alias->decl))
+    {
+      if (dump_file)
+	fprintf (dump_file, "Not unifying; "
+		 "original and alias have incompatible alignments\n\n");
+
+      return false;
+    }
+
   if (DECL_COMDAT_GROUP (original->decl) != DECL_COMDAT_GROUP (alias->decl))
     {
       if (dump_file)
@@ -3400,7 +3411,8 @@ sem_item_optimizer::merge_classes (unsigned int prev_class_count)
 
 	sem_item *source = c->members[0];
 
-	if (MAIN_NAME_P (DECL_NAME (source->decl)))
+	if (DECL_NAME (source->decl)
+	    && MAIN_NAME_P (DECL_NAME (source->decl)))
 	  /* If merge via wrappers, picking main as the target can be
 	     problematic.  */
 	  source = c->members[1];

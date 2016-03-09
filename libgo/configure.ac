@@ -11,7 +11,7 @@ AC_INIT(package-unused, version-unused,, libgo)
 AC_CONFIG_SRCDIR(Makefile.am)
 AC_CONFIG_HEADER(config.h)
 
-libtool_VERSION=8:0:0
+libtool_VERSION=9:0:0
 AC_SUBST(libtool_VERSION)
 
 AM_ENABLE_MULTILIB(, ..)
@@ -316,6 +316,7 @@ AM_CONDITIONAL(LIBGO_IS_MIPSO32, test $mips_abi = o32)
 AM_CONDITIONAL(LIBGO_IS_MIPSN32, test $mips_abi = n32)
 AM_CONDITIONAL(LIBGO_IS_MIPSN64, test $mips_abi = n64)
 AM_CONDITIONAL(LIBGO_IS_MIPSO64, test $mips_abi = o64)
+AM_CONDITIONAL(LIBGO_IS_MIPS64, test $mips_abi = n64 -o $mips_abi = o64)
 AM_CONDITIONAL(LIBGO_IS_PPC, test $is_ppc = yes)
 AM_CONDITIONAL(LIBGO_IS_PPC64, test $is_ppc64 = yes)
 AM_CONDITIONAL(LIBGO_IS_PPC64LE, test $is_ppc64le = yes)

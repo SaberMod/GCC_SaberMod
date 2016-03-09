@@ -1,6 +1,6 @@
 /* Tree lowering pass.  This pass converts the GENERIC functions-as-trees
    tree representation into the GIMPLE form.
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Major work done by Sebastian Pop <s.pop@laposte.net>,
    Diego Novillo <dnovillo@redhat.com> and Jason Merrill <jason@redhat.com>.
 
@@ -1436,14 +1436,22 @@ gimplify_decl_expr (tree *stmt_p, gimple_seq *seq_p)
   if ((TREE_CODE (decl) == TYPE_DECL
        || TREE_CODE (decl) == VAR_DECL)
       && !TYPE_SIZES_GIMPLIFIED (TREE_TYPE (decl)))
-    gimplify_type_sizes (TREE_TYPE (decl), seq_p);
+    {
+      gimplify_type_sizes (TREE_TYPE (decl), seq_p);
+      if (TREE_CODE (TREE_TYPE (decl)) == REFERENCE_TYPE)
+	gimplify_type_sizes (TREE_TYPE (TREE_TYPE (decl)), seq_p);
+    }
 
   /* ??? DECL_ORIGINAL_TYPE is streamed for LTO so it needs to be gimplified
      in case its size expressions contain problematic nodes like CALL_EXPR.  */
   if (TREE_CODE (decl) == TYPE_DECL
       && DECL_ORIGINAL_TYPE (decl)
       && !TYPE_SIZES_GIMPLIFIED (DECL_ORIGINAL_TYPE (decl)))
-    gimplify_type_sizes (DECL_ORIGINAL_TYPE (decl), seq_p);
+    {
+      gimplify_type_sizes (DECL_ORIGINAL_TYPE (decl), seq_p);
+      if (TREE_CODE (DECL_ORIGINAL_TYPE (decl)) == REFERENCE_TYPE)
+	gimplify_type_sizes (TREE_TYPE (DECL_ORIGINAL_TYPE (decl)), seq_p);
+    }
 
   if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
     {
@@ -3219,6 +3227,7 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
 				 &arm2);
   cond_stmt = gimple_build_cond (pred_code, arm1, arm2, label_true,
 				 label_false);
+  gimple_set_no_warning (cond_stmt, TREE_NO_WARNING (COND_EXPR_COND (expr)));
   gimplify_seq_add_stmt (&seq, cond_stmt);
   gimple_stmt_iterator gsi = gsi_last (seq);
   maybe_fold_stmt (&gsi);
@@ -4724,12 +4733,12 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  tree type = TREE_TYPE (call);
 	  tree ap = CALL_EXPR_ARG (call, 0);
 	  tree tag = CALL_EXPR_ARG (call, 1);
+	  tree aptag = CALL_EXPR_ARG (call, 2);
 	  tree newcall = build_call_expr_internal_loc (EXPR_LOCATION (call),
 						       IFN_VA_ARG, type,
 						       nargs + 1, ap, tag,
-						       vlasize);
-	  tree *call_p = &(TREE_OPERAND (*from_p, 0));
-	  *call_p = newcall;
+						       aptag, vlasize);
+	  TREE_OPERAND (*from_p, 0) = newcall;
 	}
     }
 
@@ -4828,7 +4837,8 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    }
 	}
       notice_special_calls (call_stmt);
-      if (!gimple_call_noreturn_p (call_stmt))
+      if (!gimple_call_noreturn_p (call_stmt)
+	  || TREE_ADDRESSABLE (TREE_TYPE (*to_p)))
 	gimple_call_set_lhs (call_stmt, *to_p);
       assign = call_stmt;
     }
@@ -5305,12 +5315,38 @@ gimplify_asm_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	    TREE_VALUE (link) = error_mark_node;
 	  tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
 				is_gimple_lvalue, fb_lvalue | fb_mayfail);
+	  if (tret != GS_ERROR)
+	    {
+	      /* Unlike output operands, memory inputs are not guaranteed
+		 to be lvalues by the FE, and while the expressions are
+		 marked addressable there, if it is e.g. a statement
+		 expression, temporaries in it might not end up being
+		 addressable.  They might be already used in the IL and thus
+		 it is too late to make them addressable now though.  */
+	      tree x = TREE_VALUE (link);
+	      while (handled_component_p (x))
+		x = TREE_OPERAND (x, 0);
+	      if (TREE_CODE (x) == MEM_REF
+		  && TREE_CODE (TREE_OPERAND (x, 0)) == ADDR_EXPR)
+		x = TREE_OPERAND (TREE_OPERAND (x, 0), 0);
+	      if ((TREE_CODE (x) == VAR_DECL
+		   || TREE_CODE (x) == PARM_DECL
+		   || TREE_CODE (x) == RESULT_DECL)
+		  && !TREE_ADDRESSABLE (x)
+		  && is_gimple_reg (x))
+		{
+		  warning_at (EXPR_LOC_OR_LOC (TREE_VALUE (link),
+					       input_location), 0,
+			      "memory input %d is not directly addressable",
+			      i);
+		  prepare_gimple_addressable (&TREE_VALUE (link), pre_p);
+		}
+	    }
 	  mark_addressable (TREE_VALUE (link));
 	  if (tret == GS_ERROR)
 	    {
-	      if (EXPR_HAS_LOCATION (TREE_VALUE (link)))
-	        input_location = EXPR_LOCATION (TREE_VALUE (link));
-	      error ("memory input %d is not directly addressable", i);
+	      error_at (EXPR_LOC_OR_LOC (TREE_VALUE (link), input_location),
+			"memory input %d is not directly addressable", i);
 	      ret = tret;
 	    }
 	}
@@ -5986,6 +6022,10 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl, unsigned flags)
 {
   const char *rkind;
   bool on_device = false;
+  tree type = TREE_TYPE (decl);
+
+  if (lang_hooks.decls.omp_privatize_by_reference (decl))
+    type = TREE_TYPE (type);
 
   if ((ctx->region_type & (ORT_ACC_PARALLEL | ORT_ACC_KERNELS)) != 0
       && is_global_var (decl)
@@ -6004,7 +6044,7 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl, unsigned flags)
       /* Scalars are default 'copy' under kernels, non-scalars are default
 	 'present_or_copy'.  */
       flags |= GOVD_MAP;
-      if (!AGGREGATE_TYPE_P (TREE_TYPE (decl)))
+      if (!AGGREGATE_TYPE_P (type))
 	flags |= GOVD_MAP_FORCE;
 
       rkind = "kernels";
@@ -6012,12 +6052,6 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl, unsigned flags)
 
     case ORT_ACC_PARALLEL:
       {
-	tree type = TREE_TYPE (decl);
-
-	if (TREE_CODE (type) == REFERENCE_TYPE
-	    || POINTER_TYPE_P (type))
-	  type = TREE_TYPE (type);
-
 	if (on_device || AGGREGATE_TYPE_P (type))
 	  /* Aggregates default to 'present_or_copy'.  */
 	  flags |= GOVD_MAP;
@@ -6063,9 +6097,9 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
   if (ctx->region_type == ORT_NONE)
     return lang_hooks.decls.omp_disregard_value_expr (decl, false);
 
-  /* Threadprivate variables are predetermined.  */
   if (is_global_var (decl))
     {
+      /* Threadprivate variables are predetermined.  */
       if (DECL_THREAD_LOCAL_P (decl))
 	return omp_notice_threadprivate_variable (ctx, decl, NULL_TREE);
 
@@ -6075,6 +6109,30 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 
 	  if (value && DECL_P (value) && DECL_THREAD_LOCAL_P (value))
 	    return omp_notice_threadprivate_variable (ctx, decl, value);
+	}
+
+      if (gimplify_omp_ctxp->outer_context == NULL
+	  && VAR_P (decl)
+	  && get_oacc_fn_attrib (current_function_decl))
+	{
+	  location_t loc = DECL_SOURCE_LOCATION (decl);
+
+	  if (lookup_attribute ("omp declare target link",
+				DECL_ATTRIBUTES (decl)))
+	    {
+	      error_at (loc,
+			"%qE with %<link%> clause used in %<routine%> function",
+			DECL_NAME (decl));
+	      return false;
+	    }
+	  else if (!lookup_attribute ("omp declare target",
+				      DECL_ATTRIBUTES (decl)))
+	    {
+	      error_at (loc,
+			"%qE requires a %<declare%> directive for use "
+			"in a %<routine%> function", DECL_NAME (decl));
+	      return false;
+	    }
 	}
     }
 
@@ -6214,16 +6272,30 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 
   if ((n->value & (GOVD_SEEN | GOVD_LOCAL)) == 0
       && (flags & (GOVD_SEEN | GOVD_LOCAL)) == GOVD_SEEN
-      && DECL_SIZE (decl)
-      && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
+      && DECL_SIZE (decl))
     {
-      splay_tree_node n2;
-      tree t = DECL_VALUE_EXPR (decl);
-      gcc_assert (TREE_CODE (t) == INDIRECT_REF);
-      t = TREE_OPERAND (t, 0);
-      gcc_assert (DECL_P (t));
-      n2 = splay_tree_lookup (ctx->variables, (splay_tree_key) t);
-      n2->value |= GOVD_SEEN;
+      if (TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
+	{
+	  splay_tree_node n2;
+	  tree t = DECL_VALUE_EXPR (decl);
+	  gcc_assert (TREE_CODE (t) == INDIRECT_REF);
+	  t = TREE_OPERAND (t, 0);
+	  gcc_assert (DECL_P (t));
+	  n2 = splay_tree_lookup (ctx->variables, (splay_tree_key) t);
+	  n2->value |= GOVD_SEEN;
+	}
+      else if (lang_hooks.decls.omp_privatize_by_reference (decl)
+	       && TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (decl)))
+	       && (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (decl))))
+		   != INTEGER_CST))
+	{
+	  splay_tree_node n2;
+	  tree t = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (decl)));
+	  gcc_assert (DECL_P (t));
+	  n2 = splay_tree_lookup (ctx->variables, (splay_tree_key) t);
+	  if (n2)
+	    n2->value |= GOVD_SEEN;
+	}
     }
 
   shared = ((flags | n->value) & GOVD_SHARED) != 0;
@@ -7139,7 +7211,6 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	    }
 	  goto do_notice;
 
-	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_USE_DEVICE_PTR:
 	  flags = GOVD_FIRSTPRIVATE | GOVD_EXPLICIT;
 	  goto do_add;
@@ -8051,7 +8122,6 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, gimple_seq body, tree *list_p,
 	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_WAIT:
 	case OMP_CLAUSE_DEVICE_RESIDENT:
-	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_NUM_GANGS:
 	case OMP_CLAUSE_NUM_WORKERS:
@@ -9739,7 +9809,7 @@ gimplify_transaction (tree *expr_p, gimple_seq *pre_p)
   body_stmt = gimplify_and_return_first (TRANSACTION_EXPR_BODY (expr), &body);
   pop_gimplify_context (body_stmt);
 
-  trans_stmt = gimple_build_transaction (body, NULL);
+  trans_stmt = gimple_build_transaction (body);
   if (TRANSACTION_EXPR_OUTER (expr))
     subcode = GTMA_IS_OUTER;
   else if (TRANSACTION_EXPR_RELAXED (expr))
@@ -11503,7 +11573,7 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p,
   tree promoted_type, have_va_type;
   tree valist = TREE_OPERAND (*expr_p, 0);
   tree type = TREE_TYPE (*expr_p);
-  tree t, tag;
+  tree t, tag, aptag;
   location_t loc = EXPR_LOCATION (*expr_p);
 
   /* Verify that valist is of the proper type.  */
@@ -11525,24 +11595,28 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p,
     {
       static bool gave_help;
       bool warned;
+      /* Use the expansion point to handle cases such as passing bool (defined
+	 in a system header) through `...'.  */
+      source_location xloc
+	= expansion_point_location_if_in_system_header (loc);
 
       /* Unfortunately, this is merely undefined, rather than a constraint
 	 violation, so we cannot make this an error.  If this call is never
 	 executed, the program is still strictly conforming.  */
-      warned = warning_at (loc, 0,
-	  		   "%qT is promoted to %qT when passed through %<...%>",
+      warned = warning_at (xloc, 0,
+			   "%qT is promoted to %qT when passed through %<...%>",
 			   type, promoted_type);
       if (!gave_help && warned)
 	{
 	  gave_help = true;
-	  inform (loc, "(so you should pass %qT not %qT to %<va_arg%>)",
+	  inform (xloc, "(so you should pass %qT not %qT to %<va_arg%>)",
 		  promoted_type, type);
 	}
 
       /* We can, however, treat "undefined" any way we please.
 	 Call abort to encourage the user to fix the program.  */
       if (warned)
-	inform (loc, "if this code is reached, the program will abort");
+	inform (xloc, "if this code is reached, the program will abort");
       /* Before the abort, allow the evaluation of the va_list
 	 expression to exit or longjmp.  */
       gimplify_and_add (valist, pre_p);
@@ -11557,7 +11631,10 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p,
     }
 
   tag = build_int_cst (build_pointer_type (type), 0);
-  *expr_p = build_call_expr_internal_loc (loc, IFN_VA_ARG, type, 2, valist, tag);
+  aptag = build_int_cst (TREE_TYPE (valist), 0);
+
+  *expr_p = build_call_expr_internal_loc (loc, IFN_VA_ARG, type, 3,
+					  valist, tag, aptag);
 
   /* Clear the tentatively set PROP_gimple_lva, to indicate that IFN_VA_ARG
      needs to be expanded.  */

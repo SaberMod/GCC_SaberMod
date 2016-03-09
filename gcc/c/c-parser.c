@@ -1,5 +1,5 @@
 /* Parser for C and Objective-C.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
    Parser actions based on the old Bison parser; structure somewhat
    influenced by and fragments based on the C++ parser.
@@ -58,6 +58,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-indentation.h"
 #include "gimple-expr.h"
 #include "context.h"
+
+/* We need to walk over decls with incomplete struct/union/enum types
+   after parsing the whole translation unit.
+   In finish_decl(), if the decl is static, has incomplete
+   struct/union/enum type, it is appeneded to incomplete_record_decls.
+   In c_parser_translation_unit(), we iterate over incomplete_record_decls
+   and report error if any of the decls are still incomplete.  */ 
+
+vec<tree> incomplete_record_decls = vNULL;
 
 void
 set_c_expr_source_range (c_expr *expr,
@@ -1284,7 +1293,8 @@ static tree c_parser_simple_asm_expr (c_parser *);
 static tree c_parser_attributes (c_parser *);
 static struct c_type_name *c_parser_type_name (c_parser *);
 static struct c_expr c_parser_initializer (c_parser *);
-static struct c_expr c_parser_braced_init (c_parser *, tree, bool);
+static struct c_expr c_parser_braced_init (c_parser *, tree, bool,
+					   struct obstack *);
 static void c_parser_initelt (c_parser *, struct obstack *);
 static void c_parser_initval (c_parser *, struct c_expr *,
 			      struct obstack *);
@@ -1421,6 +1431,12 @@ c_parser_translation_unit (c_parser *parser)
 	}
       while (c_parser_next_token_is_not (parser, CPP_EOF));
     }
+
+  unsigned int i;
+  tree decl;
+  FOR_EACH_VEC_ELT (incomplete_record_decls, i, decl)
+    if (DECL_SIZE (decl) == NULL_TREE && TREE_TYPE (decl) != error_mark_node)
+      error ("storage size of %q+D isn%'t known", decl);
 }
 
 /* Parse an external declaration (C90 6.7, C99 6.9).
@@ -4289,7 +4305,7 @@ static struct c_expr
 c_parser_initializer (c_parser *parser)
 {
   if (c_parser_next_token_is (parser, CPP_OPEN_BRACE))
-    return c_parser_braced_init (parser, NULL_TREE, false);
+    return c_parser_braced_init (parser, NULL_TREE, false, NULL);
   else
     {
       struct c_expr ret;
@@ -4309,7 +4325,8 @@ c_parser_initializer (c_parser *parser)
    top-level initializer in a declaration.  */
 
 static struct c_expr
-c_parser_braced_init (c_parser *parser, tree type, bool nested_p)
+c_parser_braced_init (c_parser *parser, tree type, bool nested_p,
+		      struct obstack *outer_obstack)
 {
   struct c_expr ret;
   struct obstack braced_init_obstack;
@@ -4318,7 +4335,10 @@ c_parser_braced_init (c_parser *parser, tree type, bool nested_p)
   gcc_assert (c_parser_next_token_is (parser, CPP_OPEN_BRACE));
   c_parser_consume_token (parser);
   if (nested_p)
-    push_init_level (brace_loc, 0, &braced_init_obstack);
+    {
+      finish_implicit_inits (brace_loc, outer_obstack);
+      push_init_level (brace_loc, 0, &braced_init_obstack);
+    }
   else
     really_start_incremental_init (type);
   if (c_parser_next_token_is (parser, CPP_CLOSE_BRACE))
@@ -4576,7 +4596,8 @@ c_parser_initval (c_parser *parser, struct c_expr *after,
   location_t loc = c_parser_peek_token (parser)->location;
 
   if (c_parser_next_token_is (parser, CPP_OPEN_BRACE) && !after)
-    init = c_parser_braced_init (parser, NULL_TREE, true);
+    init = c_parser_braced_init (parser, NULL_TREE, true,
+				 braced_init_obstack);
   else
     {
       init = c_parser_expr_no_commas (parser, after);
@@ -5862,13 +5883,30 @@ c_parser_for_statement (c_parser *parser, bool ivdep)
   if (c_parser_next_token_is (parser, CPP_NAME))
     {
       c_token *token = c_parser_peek_token (parser);
-      tree decl = lookup_name (token->value);
-      if (decl == NULL_TREE || VAR_P (decl))
-	/* If DECL is null, we don't know what this token might be.  Treat
-	   it as an ID for better diagnostics; we'll error later on.  */
-	token->id_kind = C_ID_ID;
-      else if (TREE_CODE (decl) == TYPE_DECL)
-	token->id_kind = C_ID_TYPENAME;
+
+      if (token->id_kind != C_ID_CLASSNAME)
+	{
+	  tree decl = lookup_name (token->value);
+
+	  token->id_kind = C_ID_ID;
+	  if (decl)
+	    {
+	      if (TREE_CODE (decl) == TYPE_DECL)
+		token->id_kind = C_ID_TYPENAME;
+	    }
+	  else if (c_dialect_objc ())
+	    {
+	      tree objc_interface_decl = objc_is_class_name (token->value);
+	      /* Objective-C class names are in the same namespace as
+		 variables and typedefs, and hence are shadowed by local
+		 declarations.  */
+	      if (objc_interface_decl)
+		{
+		  token->value = objc_interface_decl;
+		  token->id_kind = C_ID_CLASSNAME;
+		}
+	    }
+	}
     }
 
   token_indent_info next_tinfo
@@ -6759,14 +6797,18 @@ c_parser_unary_expression (c_parser *parser)
       mark_exp_read (op.value);
       return parser_build_unary_op (op_loc, ADDR_EXPR, op);
     case CPP_MULT:
-      c_parser_consume_token (parser);
-      exp_loc = c_parser_peek_token (parser)->location;
-      op = c_parser_cast_expression (parser, NULL);
-      finish = op.get_finish ();
-      op = convert_lvalue_to_rvalue (exp_loc, op, true, true);
-      ret.value = build_indirect_ref (op_loc, op.value, RO_UNARY_STAR);
-      set_c_expr_source_range (&ret, op_loc, finish);
-      return ret;
+      {
+	c_parser_consume_token (parser);
+	exp_loc = c_parser_peek_token (parser)->location;
+	op = c_parser_cast_expression (parser, NULL);
+	finish = op.get_finish ();
+	op = convert_lvalue_to_rvalue (exp_loc, op, true, true);
+	location_t combined_loc = make_location (op_loc, op_loc, finish);
+	ret.value = build_indirect_ref (combined_loc, op.value, RO_UNARY_STAR);
+	ret.src_range.m_start = op_loc;
+	ret.src_range.m_finish = finish;
+	return ret;
+      }
     case CPP_PLUS:
       if (!c_dialect_objc () && !in_system_header_at (input_location))
 	warning_at (op_loc,
@@ -7982,8 +8024,8 @@ c_parser_postfix_expression (c_parser *parser)
 	    {
 	      error_at (loc, "-fcilkplus must be enabled to use "
 			"%<_Cilk_spawn%>");
-	      expr = c_parser_postfix_expression (parser);
-	      expr.value = error_mark_node;	      
+	      expr = c_parser_cast_expression (parser, NULL);
+	      expr.value = error_mark_node;
 	    }
 	  else if (c_parser_peek_token (parser)->keyword == RID_CILK_SPAWN)
 	    {
@@ -7992,14 +8034,14 @@ c_parser_postfix_expression (c_parser *parser)
 	      /* Now flush out all the _Cilk_spawns.  */
 	      while (c_parser_peek_token (parser)->keyword == RID_CILK_SPAWN)
 		c_parser_consume_token (parser);
-	      expr = c_parser_postfix_expression (parser);
+	      expr = c_parser_cast_expression (parser, NULL);
 	    }
 	  else
 	    {
-	      expr = c_parser_postfix_expression (parser);
+	      expr = c_parser_cast_expression (parser, NULL);
 	      expr.value = build_cilk_spawn (loc, expr.value);
 	    }
-	  break; 
+	  break;
 	default:
 	  c_parser_error (parser, "expected expression");
 	  expr.value = error_mark_node;
@@ -8061,7 +8103,7 @@ c_parser_postfix_expression_after_paren_type (c_parser *parser,
       error_at (type_loc, "compound literal has variable size");
       type = error_mark_node;
     }
-  init = c_parser_braced_init (parser, type, false);
+  init = c_parser_braced_init (parser, type, false, NULL);
   finish_init ();
   maybe_warn_string_init (type_loc, type, init);
 
@@ -10738,7 +10780,7 @@ c_parser_oacc_data_clause_deviceptr (c_parser *parser, tree list)
 	 c_parser_omp_var_list_parens() should construct a list of
 	 locations to go along with the var list.  */
 
-      if (!VAR_P (v))
+      if (!VAR_P (v) && TREE_CODE (v) != PARM_DECL)
 	error_at (loc, "%qD is not a variable", v);
       else if (TREE_TYPE (v) == error_mark_node)
 	;
@@ -11395,7 +11437,10 @@ c_parser_omp_clause_defaultmap (c_parser *parser, tree list)
   return list;
 }
 
-/* OpenMP 4.5:
+/* OpenACC 2.0:
+   use_device ( variable-list )
+
+   OpenMP 4.5:
    use_device_ptr ( variable-list ) */
 
 static tree
@@ -11728,15 +11773,6 @@ c_parser_oacc_clause_tile (c_parser *parser, tree list)
   OMP_CLAUSE_TILE_LIST (c) = tile;
   OMP_CLAUSE_CHAIN (c) = list;
   return c;
-}
-
-/* OpenACC 2.0:
-   use_device ( variable-list ) */
-
-static tree
-c_parser_oacc_clause_use_device (c_parser *parser, tree list)
-{
-  return c_parser_omp_var_list_parens (parser, OMP_CLAUSE_USE_DEVICE, list);
 }
 
 /* OpenACC:
@@ -13058,7 +13094,7 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  c_name = "tile";
 	  break;
 	case PRAGMA_OACC_CLAUSE_USE_DEVICE:
-	  clauses = c_parser_oacc_clause_use_device (parser, clauses);
+	  clauses = c_parser_omp_clause_use_device_ptr (parser, clauses);
 	  c_name = "use_device";
 	  break;
 	case PRAGMA_OACC_CLAUSE_VECTOR:
@@ -13601,10 +13637,7 @@ c_parser_oacc_declare (c_parser *parser)
 		    {
 		      g->have_offload = true;
 		      if (is_a <varpool_node *> (node))
-			{
-			  vec_safe_push (offload_vars, decl);
-			  node->force_output = 1;
-			}
+			vec_safe_push (offload_vars, decl);
 		    }
 		}
 	    }
@@ -16486,10 +16519,7 @@ c_parser_omp_declare_target (c_parser *parser)
 		{
 		  g->have_offload = true;
 		  if (is_a <varpool_node *> (node))
-		    {
-		      vec_safe_push (offload_vars, t);
-		      node->force_output = 1;
-		    }
+		    vec_safe_push (offload_vars, t);
 		}
 	    }
 	}

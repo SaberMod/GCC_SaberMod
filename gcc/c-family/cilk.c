@@ -1,6 +1,6 @@
 /* This file is part of the Intel(R) Cilk(TM) Plus support
    This file contains the CilkPlus Intrinsics
-   Copyright (C) 2013-2015 Free Software Foundation, Inc.
+   Copyright (C) 2013-2016 Free Software Foundation, Inc.
    Contributed by Balaji V. Iyer <balaji.v.iyer@intel.com>,
    Intel Corporation
 
@@ -592,6 +592,11 @@ create_cilk_wrapper_body (tree stmt, struct wrapper_data *wd)
   for (p = wd->parms; p; p = TREE_CHAIN (p))
     DECL_CONTEXT (p) = fndecl;
 
+  /* The statement containing the spawn expression might create temporaries with
+     destructors defined; if so we need to add a CLEANUP_POINT_EXPR to ensure
+     the expression is properly gimplified.  */
+  stmt = fold_build_cleanup_point_expr (void_type_node, stmt);
+
   gcc_assert (!DECL_SAVED_TREE (fndecl));
   cilk_install_body_with_frame_cleanup (fndecl, stmt, (void *) wd);
   gcc_assert (DECL_SAVED_TREE (fndecl));
@@ -774,8 +779,7 @@ create_cilk_wrapper (tree exp, tree *args_out)
    gimple sequences from the caller of gimplify_cilk_spawn.  */
 
 void
-cilk_gimplify_call_params_in_spawned_fn (tree *expr_p, gimple_seq *pre_p,
-					 gimple_seq *post_p)
+cilk_gimplify_call_params_in_spawned_fn (tree *expr_p, gimple_seq *pre_p)
 {
   int ii = 0;
   tree *fix_parm_expr = expr_p;
@@ -792,8 +796,8 @@ cilk_gimplify_call_params_in_spawned_fn (tree *expr_p, gimple_seq *pre_p,
 
   if (TREE_CODE (*fix_parm_expr) == CALL_EXPR)
     for (ii = 0; ii < call_expr_nargs (*fix_parm_expr); ii++)
-      gimplify_expr (&CALL_EXPR_ARG (*fix_parm_expr, ii), pre_p, post_p,
-		     is_gimple_reg, fb_rvalue);
+      gimplify_arg (&CALL_EXPR_ARG (*fix_parm_expr, ii), pre_p,
+		    EXPR_LOCATION (*fix_parm_expr));
 }
 
 

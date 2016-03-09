@@ -1,5 +1,5 @@
 ;; Predicate definitions for POWER and PowerPC.
-;; Copyright (C) 2005-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2016 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -375,18 +375,17 @@
 
 ;; Return 1 if op is a general purpose register that is an even register
 ;; which suitable for a load/store quad operation
+;; Subregs are not allowed here because when they are combine can
+;; create (subreg:PTI (reg:TI pseudo)) which will cause reload to
+;; think the innermost reg needs reloading, in TImode instead of
+;; PTImode.  So reload will choose a reg in TImode which has no
+;; requirement that the reg be even.
 (define_predicate "quad_int_reg_operand"
-  (match_operand 0 "register_operand")
+  (match_code "reg")
 {
   HOST_WIDE_INT r;
 
   if (!TARGET_QUAD_MEMORY && !TARGET_QUAD_MEMORY_ATOMIC)
-    return 0;
-
-  if (GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
-
-  if (!REG_P (op))
     return 0;
 
   r = REGNO (op);

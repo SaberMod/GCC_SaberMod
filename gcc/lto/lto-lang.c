@@ -1,5 +1,5 @@
 /* Language-dependent hooks for LTO.
-   Copyright (C) 2009-2015 Free Software Foundation, Inc.
+   Copyright (C) 2009-2016 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -1246,7 +1246,7 @@ lto_init (void)
   flag_generate_lto = (flag_wpa != NULL);
 
   /* Create the basic integer types.  */
-  build_common_tree_nodes (flag_signed_char, flag_short_double);
+  build_common_tree_nodes (flag_signed_char);
 
   /* The global tree for the main identifier is filled in by
      language-specific front-end initialization that is not run in the

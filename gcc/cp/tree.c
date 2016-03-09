@@ -1,5 +1,5 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -184,6 +184,12 @@ lvalue_kind (const_tree ref)
 				    : TREE_OPERAND (ref, 0));
       op2_lvalue_kind = lvalue_kind (TREE_OPERAND (ref, 2));
       break;
+
+    case MODOP_EXPR:
+      /* We expect to see unlowered MODOP_EXPRs only during
+	 template processing.  */
+      gcc_assert (processing_template_decl);
+      return clk_ordinary;
 
     case MODIFY_EXPR:
     case TYPEID_EXPR:
@@ -458,14 +464,22 @@ build_aggr_init_expr (tree type, tree init)
     {
       slot = build_local_temp (type);
 
-      if (TREE_CODE(init) == CALL_EXPR)
-	rval = build_aggr_init_array (void_type_node, fn, slot,
-				      call_expr_nargs (init),
-				      CALL_EXPR_ARGP (init));
+      if (TREE_CODE (init) == CALL_EXPR)
+	{
+	  rval = build_aggr_init_array (void_type_node, fn, slot,
+					call_expr_nargs (init),
+					CALL_EXPR_ARGP (init));
+	  AGGR_INIT_FROM_THUNK_P (rval)
+	    = CALL_FROM_THUNK_P (init);
+	}
       else
-	rval = build_aggr_init_array (void_type_node, fn, slot,
-				      aggr_init_expr_nargs (init),
-				      AGGR_INIT_EXPR_ARGP (init));
+	{
+	  rval = build_aggr_init_array (void_type_node, fn, slot,
+					aggr_init_expr_nargs (init),
+					AGGR_INIT_EXPR_ARGP (init));
+	  AGGR_INIT_FROM_THUNK_P (rval)
+	    = AGGR_INIT_FROM_THUNK_P (init);
+	}
       TREE_SIDE_EFFECTS (rval) = 1;
       AGGR_INIT_VIA_CTOR_P (rval) = is_ctor;
       TREE_NOTHROW (rval) = TREE_NOTHROW (init);
@@ -1308,7 +1322,22 @@ strip_typedefs (tree t, bool *remove_attributes)
     case FUNCTION_TYPE:
     case METHOD_TYPE:
       {
-	tree arg_types = NULL, arg_node, arg_type;
+	tree arg_types = NULL, arg_node, arg_node2, arg_type;
+	bool changed;
+
+	/* Because we stomp on TREE_PURPOSE of TYPE_ARG_TYPES in many places
+	   around the compiler (e.g. cp_parser_late_parsing_default_args), we
+	   can't expect that re-hashing a function type will find a previous
+	   equivalent type, so try to reuse the input type if nothing has
+	   changed.  If the type is itself a variant, that will change.  */
+	bool is_variant = typedef_variant_p (t);
+	if (remove_attributes
+	    && (TYPE_ATTRIBUTES (t) || TYPE_USER_ALIGN (t)))
+	  is_variant = true;
+
+	type = strip_typedefs (TREE_TYPE (t), remove_attributes);
+	changed = type != TREE_TYPE (t) || is_variant;
+
 	for (arg_node = TYPE_ARG_TYPES (t);
 	     arg_node;
 	     arg_node = TREE_CHAIN (arg_node))
@@ -1318,10 +1347,26 @@ strip_typedefs (tree t, bool *remove_attributes)
 	    arg_type = strip_typedefs (TREE_VALUE (arg_node),
 				       remove_attributes);
 	    gcc_assert (arg_type);
+	    if (arg_type == TREE_VALUE (arg_node) && !changed)
+	      continue;
 
-	    arg_types =
-	      tree_cons (TREE_PURPOSE (arg_node), arg_type, arg_types);
+	    if (!changed)
+	      {
+		changed = true;
+		for (arg_node2 = TYPE_ARG_TYPES (t);
+		     arg_node2 != arg_node;
+		     arg_node2 = TREE_CHAIN (arg_node2))
+		  arg_types
+		    = tree_cons (TREE_PURPOSE (arg_node2),
+				 TREE_VALUE (arg_node2), arg_types);
+	      }
+
+	    arg_types
+	      = tree_cons (TREE_PURPOSE (arg_node), arg_type, arg_types);
 	  }
+
+	if (!changed)
+	  return t;
 
 	if (arg_types)
 	  arg_types = nreverse (arg_types);
@@ -1331,7 +1376,6 @@ strip_typedefs (tree t, bool *remove_attributes)
 	if (arg_node)
 	  arg_types = chainon (arg_types, void_list_node);
 
-	type = strip_typedefs (TREE_TYPE (t), remove_attributes);
 	if (TREE_CODE (t) == METHOD_TYPE)
 	  {
 	    tree class_type = TREE_TYPE (TREE_VALUE (arg_types));
@@ -1393,6 +1437,9 @@ strip_typedefs (tree t, bool *remove_attributes)
 	result = make_typename_type (strip_typedefs (TYPE_CONTEXT (t),
 						     remove_attributes),
 				     fullname, typename_type, tf_none);
+	/* Handle 'typedef typename A::N N;'  */
+	if (typedef_variant_p (result))
+	  result = TYPE_MAIN_VARIANT (DECL_ORIGINAL_TYPE (TYPE_NAME (result)));
       }
       break;
     case DECLTYPE_TYPE:
@@ -1411,7 +1458,15 @@ strip_typedefs (tree t, bool *remove_attributes)
     }
 
   if (!result)
-      result = TYPE_MAIN_VARIANT (t);
+    {
+      if (typedef_variant_p (t))
+	/* Explicitly get the underlying type, as TYPE_MAIN_VARIANT doesn't
+	   strip typedefs with attributes.  */
+	result = TYPE_MAIN_VARIANT (DECL_ORIGINAL_TYPE (TYPE_NAME (t)));
+      else
+	result = TYPE_MAIN_VARIANT (t);
+    }
+  gcc_assert (!typedef_variant_p (result));
   if (TYPE_USER_ALIGN (t) != TYPE_USER_ALIGN (result)
       || TYPE_ALIGN (t) != TYPE_ALIGN (result))
     {
@@ -2550,8 +2605,21 @@ build_ctor_subob_ref (tree index, tree type, tree obj)
     obj = build_class_member_access_expr (obj, index, NULL_TREE,
 					  /*reference*/false, tf_none);
   if (obj)
-    gcc_assert (same_type_ignoring_top_level_qualifiers_p (type,
-							   TREE_TYPE (obj)));
+    {
+      tree objtype = TREE_TYPE (obj);
+      if (TREE_CODE (objtype) == ARRAY_TYPE && !TYPE_DOMAIN (objtype))
+	{
+	  /* When the destination object refers to a flexible array member
+	     verify that it matches the type of the source object except
+	     for its domain and qualifiers.  */
+	  gcc_assert (comptypes (TYPE_MAIN_VARIANT (type),
+	  			 TYPE_MAIN_VARIANT (objtype),
+	  			 COMPARE_REDECLARATION));
+	}
+      else
+	gcc_assert (same_type_ignoring_top_level_qualifiers_p (type, objtype));
+    }
+
   return obj;
 }
 
@@ -2741,7 +2809,6 @@ build_min_non_dep_call_vec (tree non_dep, tree fn, vec<tree, va_gc> *argvec)
     non_dep = TREE_OPERAND (non_dep, 0);
   TREE_TYPE (t) = TREE_TYPE (non_dep);
   TREE_SIDE_EFFECTS (t) = TREE_SIDE_EFFECTS (non_dep);
-  KOENIG_LOOKUP_P (t) = KOENIG_LOOKUP_P (non_dep);
   return convert_from_reference (t);
 }
 
@@ -2803,6 +2870,11 @@ build_min_non_dep_op_overload (enum tree_code op,
   va_end (p);
   call = build_min_non_dep_call_vec (non_dep, fn, args);
   release_tree_vector (args);
+
+  tree call_expr = call;
+  if (REFERENCE_REF_P (call_expr))
+    call_expr = TREE_OPERAND (call_expr, 0);
+  KOENIG_LOOKUP_P (call_expr) = KOENIG_LOOKUP_P (non_dep);
 
   return call;
 }

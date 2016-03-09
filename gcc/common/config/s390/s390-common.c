@@ -1,5 +1,5 @@
 /* Common hooks for IBM S/390 and zSeries.
-   Copyright (C) 1999-2015 Free Software Foundation, Inc.
+   Copyright (C) 1999-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -105,6 +105,17 @@ s390_handle_option (struct gcc_options *opts ATTRIBUTE_UNUSED,
     }
 }
 
+/* -fsplit-stack uses a field in the TCB, available with glibc-2.23.
+   We don't verify it, since earlier versions just have padding at
+   its place, which works just as well.  */
+
+static bool
+s390_supports_split_stack (bool report ATTRIBUTE_UNUSED,
+			   struct gcc_options *opts ATTRIBUTE_UNUSED)
+{
+  return true;
+}
+
 #undef TARGET_DEFAULT_TARGET_FLAGS
 #define TARGET_DEFAULT_TARGET_FLAGS (TARGET_DEFAULT)
 
@@ -116,5 +127,8 @@ s390_handle_option (struct gcc_options *opts ATTRIBUTE_UNUSED,
 
 #undef TARGET_OPTION_INIT_STRUCT
 #define TARGET_OPTION_INIT_STRUCT s390_option_init_struct
+
+#undef TARGET_SUPPORTS_SPLIT_STACK
+#define TARGET_SUPPORTS_SPLIT_STACK s390_supports_split_stack
 
 struct gcc_targetm_common targetm_common = TARGETM_COMMON_INITIALIZER;

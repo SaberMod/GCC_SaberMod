@@ -1,5 +1,5 @@
 /* Register Transfer Language (RTL) definitions for GCC
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2931,6 +2931,7 @@ extern void set_insn_deleted (rtx);
 
 extern rtx single_set_2 (const rtx_insn *, const_rtx);
 extern bool contains_symbol_ref_p (const_rtx);
+extern bool contains_symbolic_reference_p (const_rtx);
 
 /* Handle the cheap and common cases inline for performance.  */
 
@@ -3591,7 +3592,7 @@ extern void init_lower_subreg (void);
 
 /* In gcse.c */
 extern bool can_copy_p (machine_mode);
-extern bool can_assign_to_reg_without_clobbers_p (rtx);
+extern bool can_assign_to_reg_without_clobbers_p (rtx, machine_mode);
 extern rtx fis_get_condition (rtx_insn *);
 
 /* In ira.c */

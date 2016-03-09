@@ -2,7 +2,7 @@
    by the C-based front ends.  The structure of gimplified, or
    language-independent, trees is dictated by the grammar described in this
    file.
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Lowering of expressions contributed by Sebastian Pop <s.pop@laposte.net>
    Re-written to support lowering of whole function trees, documentation
    and miscellaneous cleanups by Diego Novillo <dnovillo@redhat.com>
@@ -277,7 +277,7 @@ c_gimplify_expr (tree *expr_p, gimple_seq *pre_p ATTRIBUTE_UNUSED,
 
       if (!seen_error ())
 	{
-	  cilk_gimplify_call_params_in_spawned_fn (expr_p, pre_p, post_p);
+	  cilk_gimplify_call_params_in_spawned_fn (expr_p, pre_p);
 	  return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
 	}
       return GS_ERROR;
@@ -292,7 +292,7 @@ c_gimplify_expr (tree *expr_p, gimple_seq *pre_p ATTRIBUTE_UNUSED,
 	     it is supposed to be.  */
 	  && !seen_error ())
 	{
-	  cilk_gimplify_call_params_in_spawned_fn (expr_p, pre_p, post_p);
+	  cilk_gimplify_call_params_in_spawned_fn (expr_p, pre_p);
 	  return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
 	}
 

@@ -1,7 +1,7 @@
 /* This file is part of the Intel(R) Cilk(TM) Plus support
    It contains routines to handle Array Notation expression
    handling routines in the C++ Compiler.
-   Copyright (C) 2013-2015 Free Software Foundation, Inc.
+   Copyright (C) 2013-2016 Free Software Foundation, Inc.
    Contributed by Balaji V. Iyer <balaji.v.iyer@intel.com>,
                   Intel Corporation
 
@@ -807,8 +807,8 @@ cp_expand_cond_array_notations (tree orig_stmt)
       if (!find_rank (EXPR_LOCATION (cond), cond, cond, true, &cond_rank)
 	  || !find_rank (EXPR_LOCATION (yes_expr), yes_expr, yes_expr, true,
 			 &yes_rank)
-	  || find_rank (EXPR_LOCATION (no_expr), no_expr, no_expr, true,
-			&no_rank))
+	  || !find_rank (EXPR_LOCATION (no_expr), no_expr, no_expr, true,
+			 &no_rank))
 	return error_mark_node;
       /* If the condition has a zero rank, then handle array notations in body
 	 separately.  */

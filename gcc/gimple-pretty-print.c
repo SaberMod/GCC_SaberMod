@@ -1,5 +1,5 @@
 /* Pretty formatting of GIMPLE statements and expressions.
-   Copyright (C) 2001-2015 Free Software Foundation, Inc.
+   Copyright (C) 2001-2016 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com> and
    Diego Novillo <dnovillo@google.com>
 
@@ -1187,6 +1187,9 @@ dump_gimple_omp_for (pretty_printer *buffer, gomp_for *gs, int spc, int flags)
 	case GF_OMP_FOR_KIND_CILKSIMD:
 	  pp_string (buffer, "#pragma simd");
 	  break;
+	case GF_OMP_FOR_KIND_GRID_LOOP:
+	  pp_string (buffer, "#pragma omp for grid_loop");
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
@@ -1494,6 +1497,9 @@ dump_gimple_omp_block (pretty_printer *buffer, gimple *gs, int spc, int flags)
 	case GIMPLE_OMP_SECTION:
 	  pp_string (buffer, "#pragma omp section");
 	  break;
+	case GIMPLE_OMP_GRID_BODY:
+	  pp_string (buffer, "#pragma omp gridified body");
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
@@ -1607,8 +1613,11 @@ dump_gimple_transaction (pretty_printer *buffer, gtransaction *gs,
   if (flags & TDF_RAW)
     {
       dump_gimple_fmt (buffer, spc, flags,
-		       "%G [SUBCODE=%x,LABEL=%T] <%+BODY <%S> >",
-		       gs, subcode, gimple_transaction_label (gs),
+		       "%G [SUBCODE=%x,NORM=%T,UNINST=%T,OVER=%T] "
+		       "<%+BODY <%S> >",
+		       gs, subcode, gimple_transaction_label_norm (gs),
+		       gimple_transaction_label_uninst (gs),
+		       gimple_transaction_label_over (gs),
 		       gimple_transaction_body (gs));
     }
   else
@@ -1621,13 +1630,35 @@ dump_gimple_transaction (pretty_printer *buffer, gtransaction *gs,
 	pp_string (buffer, "__transaction_atomic");
       subcode &= ~GTMA_DECLARATION_MASK;
 
-      if (subcode || gimple_transaction_label (gs))
+      if (gimple_transaction_body (gs))
+	{
+	  newline_and_indent (buffer, spc + 2);
+	  pp_left_brace (buffer);
+	  pp_newline (buffer);
+	  dump_gimple_seq (buffer, gimple_transaction_body (gs),
+			   spc + 4, flags);
+	  newline_and_indent (buffer, spc + 2);
+	  pp_right_brace (buffer);
+	}
+      else
 	{
 	  pp_string (buffer, "  //");
-	  if (gimple_transaction_label (gs))
+	  if (gimple_transaction_label_norm (gs))
 	    {
-	      pp_string (buffer, " LABEL=");
-	      dump_generic_node (buffer, gimple_transaction_label (gs),
+	      pp_string (buffer, " NORM=");
+	      dump_generic_node (buffer, gimple_transaction_label_norm (gs),
+				 spc, flags, false);
+	    }
+	  if (gimple_transaction_label_uninst (gs))
+	    {
+	      pp_string (buffer, " UNINST=");
+	      dump_generic_node (buffer, gimple_transaction_label_uninst (gs),
+				 spc, flags, false);
+	    }
+	  if (gimple_transaction_label_over (gs))
+	    {
+	      pp_string (buffer, " OVER=");
+	      dump_generic_node (buffer, gimple_transaction_label_over (gs),
 				 spc, flags, false);
 	    }
 	  if (subcode)
@@ -1667,17 +1698,6 @@ dump_gimple_transaction (pretty_printer *buffer, gtransaction *gs,
 		pp_printf (buffer, "0x%x ", subcode);
 	      pp_right_bracket (buffer);
 	    }
-	}
-
-      if (!gimple_seq_empty_p (gimple_transaction_body (gs)))
-	{
-	  newline_and_indent (buffer, spc + 2);
-	  pp_left_brace (buffer);
-	  pp_newline (buffer);
-	  dump_gimple_seq (buffer, gimple_transaction_body (gs),
-			   spc + 4, flags);
-	  newline_and_indent (buffer, spc + 2);
-	  pp_right_brace (buffer);
 	}
     }
 }
@@ -2287,6 +2307,7 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple *gs, int spc, int flags)
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_TASKGROUP:
     case GIMPLE_OMP_SECTION:
+    case GIMPLE_OMP_GRID_BODY:
       dump_gimple_omp_block (buffer, gs, spc, flags);
       break;
 

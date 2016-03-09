@@ -1,3 +1,53 @@
+2016-03-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* lto-symtab.h (lto_symtab_prevail_decl): Fix spelling
+	- becuase -> because.
+
+2016-02-15  Tom de Vries  <tom@codesourcery.com>
+
+	PR lto/69655
+	* lto.c (read_cgraph_and_symbols): Call input_offload_tables with
+	argument.
+
+2016-01-27  Martin Liska  <mliska@suse.cz>
+
+	* lto-partition.c (add_symbol_to_partition_1): Remove usage
+	of hsa_summaries.
+
+2016-01-19  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/69136
+	* lto-symtab.c (lto_symtab_prevailing_virtual_decl): Abstract
+	decls have no assemblernames.
+
+2016-01-19  Martin Liska  <mliska@suse.cz>
+            Martin Jambor  <mjambor@suse.cz>
+
+	* lto-partition.c: Include "hsa.h"
+	(add_symbol_to_partition_1): Put hsa implementations into the
+	same partition as host implementations.
+
+2016-01-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/69003
+	* lto-partition.c (rename_statics): Fix pasto.
+
+2016-01-18  Richard Biener  <rguenther@suse.de>
+
+	PR lto/69337
+	* lto-symtab.c (lto_symtab_merge): Return early for mismatched
+	function vs. variable.
+
+2016-01-12  Richard Biener  <rguenther@suse.de>
+
+	PR lto/69077
+	* lto-symtab.c (lto_symtab_prevailing_virtual_decl): Properly
+	merge TREE_ADDRESSABLE and DECL_POSSIBLY_INLINED flags.
+
+2016-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
 2015-12-10  Jan Hubicka  <hubicka@ucw.cz>
 
 	PR lto/68878
@@ -5417,4 +5467,9 @@
 	* Make-lang.in: Likewise.
 	* lto-tree.h: Likewise.
 	* lto-lang.c: Likewise.
+
+Copyright (C) 2006-2016 Free Software Foundation, Inc.
 
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

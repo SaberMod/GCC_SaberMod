@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390.
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
 
    Contributed by Hartmut Penner (hpenner@de.ibm.com)
 
@@ -42,6 +42,7 @@ extern bool s390_handle_option (struct gcc_options *opts ATTRIBUTE_UNUSED,
 extern HOST_WIDE_INT s390_initial_elimination_offset (int, int);
 extern void s390_emit_prologue (void);
 extern void s390_emit_epilogue (bool);
+extern void s390_expand_split_stack_prologue (void);
 extern bool s390_can_use_simple_return_insn (void);
 extern bool s390_can_use_return_insn (void);
 extern void s390_function_profiler (FILE *, int);
@@ -108,6 +109,7 @@ extern bool s390_expand_movmem (rtx, rtx, rtx);
 extern void s390_expand_setmem (rtx, rtx, rtx);
 extern bool s390_expand_cmpmem (rtx, rtx, rtx, rtx);
 extern void s390_expand_vec_strlen (rtx, rtx, rtx);
+extern void s390_expand_vec_movstr (rtx, rtx, rtx);
 extern bool s390_expand_addcc (enum rtx_code, rtx, rtx, rtx, rtx, rtx);
 extern bool s390_expand_insv (rtx, rtx, rtx, rtx);
 extern void s390_expand_cs_hqi (machine_mode, rtx, rtx, rtx,

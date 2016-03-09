@@ -1,3 +1,23 @@
+/* A memory statistics tracking infrastructure.
+   Copyright (C) 2015-2016 Free Software Foundation, Inc.
+   Contributed by Martin Liska  <mliska@suse.cz>
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3, or (at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
 #ifndef GCC_MEM_STATS_H
 #define GCC_MEM_STATS_H
 
@@ -170,10 +190,11 @@ struct mem_usage
   {
     char *location_string = loc->to_string ();
 
-    fprintf (stderr, "%-48s %10li:%5.1f%%%10li%10li:%5.1f%%%10s\n",
-	     location_string,
-	     (long)m_allocated, get_percent (m_allocated, total.m_allocated),
-	     (long)m_peak, (long)m_times,
+    fprintf (stderr, "%-48s %10" PRIu64 ":%5.1f%%"
+	     "%10" PRIu64 "%10" PRIu64 ":%5.1f%%%10s\n",
+	     location_string, (uint64_t)m_allocated,
+	     get_percent (m_allocated, total.m_allocated),
+	     (uint64_t)m_peak, (uint64_t)m_times,
 	     get_percent (m_times, total.m_times), loc->m_ggc ? "ggc" : "heap");
 
     free (location_string);
@@ -184,8 +205,8 @@ struct mem_usage
   dump_footer () const
   {
     print_dash_line ();
-    fprintf (stderr, "%s%54li%27li\n", "Total", (long)m_allocated,
-	     (long)m_times);
+    fprintf (stderr, "%s%54" PRIu64 "%27" PRIu64 "\n", "Total",
+	     (uint64_t)m_allocated, (uint64_t)m_times);
     print_dash_line ();
   }
 
@@ -200,7 +221,9 @@ struct mem_usage
   static inline void
   print_dash_line (size_t count = 140)
   {
-    fprintf (stderr, "%s\n", std::string (count, '-').c_str ());
+    while (count--)
+      fputc ('-', stderr);
+    fputc ('\n', stderr);
   }
 
   /* Dump header with NAME.  */

@@ -1,5 +1,5 @@
 /* Tree-based target query functions relating to optabs
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -246,26 +246,6 @@ optab_for_tree_code (enum tree_code code, const_tree type,
     }
 }
 
-/* Given optab UNOPTAB that reduces a vector to a scalar, find instead the old
-   optab that produces a vector with the reduction result in one element,
-   for a tree with type TYPE.  */
-
-optab
-scalar_reduc_to_vector (optab unoptab, const_tree type)
-{
-  switch (unoptab)
-    {
-    case reduc_plus_scal_optab:
-      return TYPE_UNSIGNED (type) ? reduc_uplus_optab : reduc_splus_optab;
-
-    case reduc_smin_scal_optab: return reduc_smin_optab;
-    case reduc_umin_scal_optab: return reduc_umin_optab;
-    case reduc_smax_scal_optab: return reduc_smax_optab;
-    case reduc_umax_scal_optab: return reduc_umax_optab;
-    default: return unknown_optab;
-    }
-}
-
 /* Function supportable_convert_operation
 
    Check whether an operation represented by the code CODE is a
@@ -342,9 +322,11 @@ expand_vec_cond_expr_p (tree value_type, tree cmp_op_type)
 {
   machine_mode value_mode = TYPE_MODE (value_type);
   machine_mode cmp_op_mode = TYPE_MODE (cmp_op_type);
-  if (VECTOR_BOOLEAN_TYPE_P (cmp_op_type))
-    return get_vcond_mask_icode (TYPE_MODE (value_type),
-				 TYPE_MODE (cmp_op_type)) != CODE_FOR_nothing;
+  if (VECTOR_BOOLEAN_TYPE_P (cmp_op_type)
+      && get_vcond_mask_icode (TYPE_MODE (value_type),
+			       TYPE_MODE (cmp_op_type)) != CODE_FOR_nothing)
+    return true;
+
   if (GET_MODE_SIZE (value_mode) != GET_MODE_SIZE (cmp_op_mode)
       || GET_MODE_NUNITS (value_mode) != GET_MODE_NUNITS (cmp_op_mode)
       || get_vcond_icode (TYPE_MODE (value_type), TYPE_MODE (cmp_op_type),

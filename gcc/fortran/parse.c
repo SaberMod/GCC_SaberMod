@@ -1,5 +1,5 @@
 /* Main parser.
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -4098,6 +4098,7 @@ parse_associate (void)
 	  int dim, rank = 0;
 	  if (array_ref)
 	    {
+	      a->rankguessed = 1;
 	      /* Count the dimension, that have a non-scalar extend.  */
 	      for (dim = 0; dim < array_ref->dimen; ++dim)
 		if (array_ref->dimen_type[dim] != DIMEN_ELEMENT

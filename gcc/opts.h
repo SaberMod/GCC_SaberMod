@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -296,6 +296,10 @@ struct cl_option_handlers
   struct cl_option_handler_func handlers[3];
 };
 
+/* Hold command-line options associated with stack limitation.  */
+extern const char *opt_fstack_limit_symbol_arg;
+extern int opt_fstack_limit_register_no;
+
 /* Input file names.  */
 
 extern const char **in_fnames;
@@ -372,6 +376,8 @@ extern void control_warning_option (unsigned int opt_index, int kind,
 extern char *write_langs (unsigned int mask);
 extern void print_ignored_options (void);
 extern void handle_common_deferred_options (void);
+unsigned int parse_sanitizer_options (const char *, location_t, int,
+				      unsigned int, int, bool);
 extern bool common_handle_option (struct gcc_options *opts,
 				  struct gcc_options *opts_set,
 				  const struct cl_decoded_option *decoded,
@@ -402,4 +408,15 @@ extern void set_struct_debug_option (struct gcc_options *opts,
 				     const char *value);
 extern bool opt_enum_arg_to_value (size_t opt_index, const char *arg,
 				   int *value, unsigned int lang_mask);
+
+extern const struct sanitizer_opts_s
+{
+  const char *const name;
+  unsigned int flag;
+  size_t len;
+} sanitizer_opts[];
+
+extern void add_misspelling_candidates (auto_vec<char *> *candidates,
+					const char *base_option);
+
 #endif

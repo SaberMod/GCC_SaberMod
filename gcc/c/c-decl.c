@@ -1,5 +1,5 @@
 /* Process declarations and variables for C compiler.
-   Copyright (C) 1988-2015 Free Software Foundation, Inc.
+   Copyright (C) 1988-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -4743,7 +4743,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
 	      struct c_binding *b_ext = I_SYMBOL_BINDING (DECL_NAME (decl));
 	      while (b_ext && !B_IN_EXTERNAL_SCOPE (b_ext))
 		b_ext = b_ext->shadowed;
-	      if (b_ext)
+	      if (b_ext && TREE_CODE (decl) == TREE_CODE (b_ext->decl))
 		{
 		  if (b_ext->u.type && comptypes (b_ext->u.type, type))
 		    b_ext->u.type = composite_type (b_ext->u.type, type);
@@ -4790,6 +4790,12 @@ finish_decl (tree decl, location_t init_loc, tree init,
 	   error ("storage size of %q+D isn%'t known", decl);
 	   TREE_TYPE (decl) = error_mark_node;
 	 }
+
+      if ((RECORD_OR_UNION_TYPE_P (TREE_TYPE (decl))
+	  || TREE_CODE (TREE_TYPE (decl)) == ENUMERAL_TYPE)
+	  && DECL_SIZE (decl) == NULL_TREE
+	  && TREE_STATIC (decl))
+	incomplete_record_decls.safe_push (decl);
 
       if (is_global_var (decl) && DECL_SIZE (decl) != 0)
 	{
@@ -5951,6 +5957,18 @@ grokdeclarator (const struct c_declarator *declarator,
 	      {
 		error_at (loc, "array type has incomplete element type %qT",
 			  type);
+		/* See if we can be more helpful.  */
+		if (TREE_CODE (type) == ARRAY_TYPE)
+		  {
+		    if (name)
+		      inform (loc, "declaration of %qE as multidimensional "
+			      "array must have bounds for all dimensions "
+			      "except the first", name);
+		    else
+		      inform (loc, "declaration of multidimensional array "
+			      "must have bounds for all dimensions except "
+			      "the first");
+		  }
 		type = error_mark_node;
 	      }
 	    else
@@ -7032,25 +7050,28 @@ get_parm_info (bool ellipsis, tree expr)
 	  vec_safe_push (tags, tag);
 	  break;
 
+	case FUNCTION_DECL:
+	  /*  FUNCTION_DECLs appear when there is an implicit function
+	      declaration in the parameter list.  */
+	  gcc_assert (b->nested);
+	  goto set_shadowed;
+
 	case CONST_DECL:
 	case TYPE_DECL:
-	case FUNCTION_DECL:
 	  /* CONST_DECLs appear here when we have an embedded enum,
 	     and TYPE_DECLs appear here when we have an embedded struct
 	     or union.  No warnings for this - we already warned about the
-	     type itself.  FUNCTION_DECLs appear when there is an implicit
-	     function declaration in the parameter list.  */
+	     type itself.  */
 
 	  /* When we reinsert this decl in the function body, we need
 	     to reconstruct whether it was marked as nested.  */
-	  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL
-		      ? b->nested
-		      : !b->nested);
+	  gcc_assert (!b->nested);
 	  DECL_CHAIN (decl) = others;
 	  others = decl;
 	  /* fall through */
 
 	case ERROR_MARK:
+	set_shadowed:
 	  /* error_mark_node appears here when we have an undeclared
 	     variable.  Just throw it away.  */
 	  if (b->id)
@@ -7824,6 +7845,14 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
       }
   }
 
+  /* Note: C_TYPE_INCOMPLETE_VARS overloads TYPE_VFIELD which is used
+     in dwarf2out via rest_of_decl_compilation below and means
+     something totally different.  Since we will be clearing
+     C_TYPE_INCOMPLETE_VARS shortly after we iterate through them,
+     clear it ahead of time and avoid problems in dwarf2out.  Ideally,
+     C_TYPE_INCOMPLETE_VARS should use some language specific
+     node.  */
+  tree incomplete_vars = C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t));
   for (x = TYPE_MAIN_VARIANT (t); x; x = TYPE_NEXT_VARIANT (x))
     {
       TYPE_FIELDS (x) = TYPE_FIELDS (t);
@@ -7831,6 +7860,7 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
       C_TYPE_FIELDS_READONLY (x) = C_TYPE_FIELDS_READONLY (t);
       C_TYPE_FIELDS_VOLATILE (x) = C_TYPE_FIELDS_VOLATILE (t);
       C_TYPE_VARIABLE_SIZE (x) = C_TYPE_VARIABLE_SIZE (t);
+      C_TYPE_INCOMPLETE_VARS (x) = NULL_TREE;
     }
 
   /* If this was supposed to be a transparent union, but we can't
@@ -7844,17 +7874,7 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
     }
 
   /* If this structure or union completes the type of any previous
-     variable declaration, lay it out and output its rtl.
-
-     Note: C_TYPE_INCOMPLETE_VARS overloads TYPE_VFIELD which is used
-     in dwarf2out via rest_of_decl_compilation below and means
-     something totally different.  Since we will be clearing
-     C_TYPE_INCOMPLETE_VARS shortly after we iterate through them,
-     clear it ahead of time and avoid problems in dwarf2out.  Ideally,
-     C_TYPE_INCOMPLETE_VARS should use some language specific
-     node.  */
-  tree incomplete_vars = C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t));
-  C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t)) = 0;
+     variable declaration, lay it out and output its rtl.  */
   for (x = incomplete_vars; x; x = TREE_CHAIN (x))
     {
       tree decl = TREE_VALUE (x);
@@ -8020,7 +8040,24 @@ finish_enum (tree enumtype, tree values, tree attributes)
   precision = MAX (tree_int_cst_min_precision (minnode, sign),
 		   tree_int_cst_min_precision (maxnode, sign));
 
-  if (TYPE_PACKED (enumtype) || precision > TYPE_PRECISION (integer_type_node))
+  /* If the precision of the type was specified with an attribute and it
+     was too small, give an error.  Otherwise, use it.  */
+  if (TYPE_PRECISION (enumtype) && lookup_attribute ("mode", attributes))
+    {
+      if (precision > TYPE_PRECISION (enumtype))
+	{
+	  TYPE_PRECISION (enumtype) = 0;
+	  error ("specified mode too small for enumeral values");
+	}
+      else
+	precision = TYPE_PRECISION (enumtype);
+    }
+  else
+    TYPE_PRECISION (enumtype) = 0;
+
+  if (TYPE_PACKED (enumtype)
+      || precision > TYPE_PRECISION (integer_type_node)
+      || TYPE_PRECISION (enumtype))
     {
       tem = c_common_type_for_size (precision, sign == UNSIGNED ? 1 : 0);
       if (tem == NULL)
@@ -8037,17 +8074,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
   TYPE_UNSIGNED (enumtype) = TYPE_UNSIGNED (tem);
   TYPE_ALIGN (enumtype) = TYPE_ALIGN (tem);
   TYPE_SIZE (enumtype) = 0;
-
-  /* If the precision of the type was specified with an attribute and it
-     was too small, give an error.  Otherwise, use it.  */
-  if (TYPE_PRECISION (enumtype)
-      && lookup_attribute ("mode", attributes))
-    {
-      if (precision > TYPE_PRECISION (enumtype))
-	error ("specified mode too small for enumeral values");
-    }
-  else
-    TYPE_PRECISION (enumtype) = TYPE_PRECISION (tem);
+  TYPE_PRECISION (enumtype) = TYPE_PRECISION (tem);
 
   layout_type (enumtype);
 
@@ -9436,38 +9463,12 @@ struct c_declspecs *
 build_null_declspecs (void)
 {
   struct c_declspecs *ret = XOBNEW (&parser_obstack, struct c_declspecs);
-  memset (&ret->locations, 0, cdw_number_of_elements);
-  ret->type = 0;
-  ret->expr = 0;
-  ret->decl_attr = 0;
-  ret->attrs = 0;
+  memset (ret, 0, sizeof *ret);
   ret->align_log = -1;
   ret->typespec_word = cts_none;
   ret->storage_class = csc_none;
   ret->expr_const_operands = true;
-  ret->declspecs_seen_p = false;
   ret->typespec_kind = ctsk_none;
-  ret->non_sc_seen_p = false;
-  ret->typedef_p = false;
-  ret->explicit_signed_p = false;
-  ret->deprecated_p = false;
-  ret->default_int_p = false;
-  ret->long_p = false;
-  ret->long_long_p = false;
-  ret->short_p = false;
-  ret->signed_p = false;
-  ret->unsigned_p = false;
-  ret->complex_p = false;
-  ret->inline_p = false;
-  ret->noreturn_p = false;
-  ret->thread_p = false;
-  ret->thread_gnu_p = false;
-  ret->const_p = false;
-  ret->volatile_p = false;
-  ret->atomic_p = false;
-  ret->restrict_p = false;
-  ret->saturating_p = false;
-  ret->alignas_p = false;
   ret->address_space = ADDR_SPACE_GENERIC;
   return ret;
 }
@@ -10723,11 +10724,22 @@ c_write_global_declarations_1 (tree globals)
       if (TREE_CODE (decl) == FUNCTION_DECL
 	  && DECL_INITIAL (decl) == 0
 	  && DECL_EXTERNAL (decl)
-	  && !TREE_PUBLIC (decl)
-	  && C_DECL_USED (decl))
+	  && !TREE_PUBLIC (decl))
 	{
-	  pedwarn (input_location, 0, "%q+F used but never defined", decl);
-	  TREE_NO_WARNING (decl) = 1;
+	  if (C_DECL_USED (decl))
+	    {
+	      pedwarn (input_location, 0, "%q+F used but never defined", decl);
+	      TREE_NO_WARNING (decl) = 1;
+	    }
+	  /* For -Wunused-function warn about unused static prototypes.  */
+	  else if (warn_unused_function
+		   && ! DECL_ARTIFICIAL (decl)
+		   && ! TREE_NO_WARNING (decl))
+	    {
+	      warning (OPT_Wunused_function,
+		       "%q+F declared %<static%> but never defined", decl);
+	      TREE_NO_WARNING (decl) = 1;
+	    }
 	}
 
       wrapup_global_declaration_1 (decl);

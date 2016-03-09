@@ -1,5 +1,5 @@
 /* Miscellaneous SSA utility functions.
-   Copyright (C) 2001-2015 Free Software Foundation, Inc.
+   Copyright (C) 2001-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1436,7 +1436,8 @@ execute_update_addresses_taken (void)
               tree lhs = gimple_get_lhs (stmt);
               if (lhs
 		  && TREE_CODE (lhs) != SSA_NAME
-		  && non_rewritable_lvalue_p (lhs))
+		  && ((code == GIMPLE_CALL && ! DECL_P (lhs))
+		      || non_rewritable_lvalue_p (lhs)))
 		{
 		  decl = get_base_address (lhs);
 		  if (DECL_P (decl))

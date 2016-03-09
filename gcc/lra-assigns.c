@@ -1,5 +1,5 @@
 /* Assign reload pseudos.
-   Copyright (C) 2010-2015 Free Software Foundation, Inc.
+   Copyright (C) 2010-2016 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -1620,7 +1620,12 @@ lra_assign (void)
   timevar_pop (TV_LRA_ASSIGN);
   if (former_reload_pseudo_spill_p)
     lra_assignment_iter_after_spill++;
-  if (lra_assignment_iter_after_spill > LRA_MAX_ASSIGNMENT_ITERATION_NUMBER)
+  /* This is conditional on flag_checking because valid code can take
+     more than this maximum number of iteration, but at the same time
+     the test can uncover errors in machine descriptions.  */
+  if (flag_checking
+      && (lra_assignment_iter_after_spill
+	  > LRA_MAX_ASSIGNMENT_ITERATION_NUMBER))
     internal_error
       ("Maximum number of LRA assignment passes is achieved (%d)\n",
        LRA_MAX_ASSIGNMENT_ITERATION_NUMBER);

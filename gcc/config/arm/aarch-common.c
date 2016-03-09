@@ -1,7 +1,7 @@
 /* Dependency checks for instruction scheduling, shared between ARM and
    AARCH64.
 
-   Copyright (C) 1991-2015 Free Software Foundation, Inc.
+   Copyright (C) 1991-2016 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -58,8 +58,11 @@ aarch_crypto_can_dual_issue (rtx_insn *producer_insn, rtx_insn *consumer_insn)
   {
     unsigned int regno = REGNO (SET_DEST (producer_set));
 
-    return REGNO (SET_DEST (consumer_set)) == regno
-           && REGNO (XVECEXP (consumer_src, 0, 0)) == regno;
+    /* Before reload the registers are virtual, so the destination of
+       consumer_set doesn't need to match.  */
+
+    return (REGNO (SET_DEST (consumer_set)) == regno || !reload_completed)
+	    && REGNO (XVECEXP (consumer_src, 0, 0)) == regno;
   }
 
   return 0;

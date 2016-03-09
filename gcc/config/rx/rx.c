@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on Renesas RX processors.
-   Copyright (C) 2008-2015 Free Software Foundation, Inc.
+   Copyright (C) 2008-2016 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -2884,7 +2884,7 @@ rx_file_start (void)
 static bool
 rx_is_ms_bitfield_layout (const_tree record_type ATTRIBUTE_UNUSED)
 {
-  /* The packed attribute overrides the MS behaviour.  */
+  /* The packed attribute overrides the MS behavior.  */
   return ! TYPE_PACKED (record_type);
 }
 

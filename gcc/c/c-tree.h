@@ -1,5 +1,5 @@
 /* Definitions for C parsing and type checking.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -625,6 +625,7 @@ extern void maybe_warn_string_init (location_t, tree, struct c_expr);
 extern void start_init (tree, tree, int);
 extern void finish_init (void);
 extern void really_start_incremental_init (tree);
+extern void finish_implicit_inits (location_t, struct obstack *);
 extern void push_init_level (location_t, int, struct obstack *);
 extern struct c_expr pop_init_level (location_t, int, struct obstack *);
 extern void set_init_index (location_t, tree, tree, struct obstack *);
@@ -730,5 +731,7 @@ set_c_expr_source_range (c_expr *expr,
 
 /* In c-fold.c */
 extern tree decl_constant_value_for_optimization (tree);
+
+extern vec<tree> incomplete_record_decls;
 
 #endif /* ! GCC_C_TREE_H */

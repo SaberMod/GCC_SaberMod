@@ -1,5 +1,5 @@
 # libgcc host-specific configuration file.
-# Copyright (C) 1997-2015 Free Software Foundation, Inc.
+# Copyright (C) 1997-2016 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -327,7 +327,7 @@ i[34567]86-*-mingw* | x86_64-*-mingw*)
 esac
 
 case ${host} in
-aarch64*-*-elf)
+aarch64*-*-elf | aarch64*-*-rtems*)
 	extra_parts="$extra_parts crtbegin.o crtend.o crti.o crtn.o"
 	extra_parts="$extra_parts crtfastmath.o"
 	tmake_file="${tmake_file} ${cpu_type}/t-aarch64"
@@ -583,7 +583,7 @@ i[34567]86-*-elfiamcu)
 i[34567]86-*-elf*)
 	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
 	;;
-x86_64-*-elf*)
+x86_64-*-elf* | x86_64-*-rtems*)
 	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
 	;;
 i[34567]86-*-dragonfly*)
@@ -1069,6 +1069,15 @@ powerpc*-*-linux*)
 		exit 1
 		;;
 	esac
+
+	if test $libgcc_cv_powerpc_float128 = yes; then
+		tmake_file="${tmake_file} rs6000/t-float128"
+	fi
+
+	if test $libgcc_cv_powerpc_float128_hw = yes; then
+		tmake_file="${tmake_file} rs6000/t-float128-hw"
+	fi
+
 	extra_parts="$extra_parts ecrti.o ecrtn.o ncrti.o ncrtn.o"
 	md_unwind_header=rs6000/linux-unwind.h
 	;;
@@ -1111,11 +1120,11 @@ rx-*-elf)
 	tm_file="$tm_file rx/rx-abi.h rx/rx-lib.h"
 	;;
 s390-*-linux*)
-	tmake_file="${tmake_file} s390/t-crtstuff s390/t-linux s390/32/t-floattodi"
+	tmake_file="${tmake_file} s390/t-crtstuff s390/t-linux s390/32/t-floattodi t-stack s390/t-stack-s390"
 	md_unwind_header=s390/linux-unwind.h
 	;;
 s390x-*-linux*)
-	tmake_file="${tmake_file} s390/t-crtstuff s390/t-linux"
+	tmake_file="${tmake_file} s390/t-crtstuff s390/t-linux t-stack s390/t-stack-s390"
 	if test "${host_address}" = 32; then
 	   tmake_file="${tmake_file} s390/32/t-floattodi"
 	fi
@@ -1274,7 +1283,10 @@ tic6x-*-elf)
 	unwind_header=config/c6x/unwind-c6x.h
 	;;
 tilegx*-*-linux*)
-	tmake_file="${tmake_file} tilegx/t-crtstuff t-softfp-sfdf tilegx/t-softfp t-softfp tilegx/t-tilegx"
+	if test "${host_address}" = 64; then
+		tmake_file="${tmake_file} tilegx/t-softfp"
+	fi
+	tmake_file="${tmake_file} tilegx/t-crtstuff t-softfp-sfdf t-softfp tilegx/t-tilegx"
 	md_unwind_header=tilepro/linux-unwind.h
         ;;
 tilepro*-*-linux*)

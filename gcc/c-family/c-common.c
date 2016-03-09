@@ -1,5 +1,5 @@
 /* Subroutines shared by all languages that are variants of C.
-   Copyright (C) 1992-2015 Free Software Foundation, Inc.
+   Copyright (C) 1992-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -394,7 +394,6 @@ static tree handle_bnd_variable_size_attribute (tree *, tree, tree, int, bool *)
 static tree handle_bnd_legacy (tree *, tree, tree, int, bool *);
 static tree handle_bnd_instrument (tree *, tree, tree, int, bool *);
 
-static void check_function_nonnull (tree, int, tree *);
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
 static bool nonnull_check_p (tree, unsigned HOST_WIDE_INT);
 static bool get_nonnull_operand (tree, unsigned HOST_WIDE_INT *);
@@ -1569,7 +1568,7 @@ strict_aliasing_warning (tree otype, tree type, tree expr)
           alias_set_type set2 = get_alias_set (TREE_TYPE (type));
 
           if (set1 != set2 && set2 != 0
-	      && (set1 == 0 || !alias_sets_conflict_p (set1, set2)))
+	      && (set1 == 0 || !alias_set_subset_of (set2, set1)))
 	    {
 	      warning (OPT_Wstrict_aliasing, "dereferencing type-punned "
 		       "pointer will break strict-aliasing rules");
@@ -3795,10 +3794,21 @@ c_register_builtin_type (tree type, const char* name)
 
 /* Print an error message for invalid operands to arith operation
    CODE with TYPE0 for operand 0, and TYPE1 for operand 1.
-   LOCATION is the location of the message.  */
+   RICHLOC is a rich location for the message, containing either
+   three separate locations for each of the operator and operands
+
+      lhs op rhs
+      ~~~ ^~ ~~~
+
+   (C FE), or one location ranging over all over them
+
+      lhs op rhs
+      ~~~~^~~~~~
+
+   (C++ FE).  */
 
 void
-binary_op_error (location_t location, enum tree_code code,
+binary_op_error (rich_location *richloc, enum tree_code code,
 		 tree type0, tree type1)
 {
   const char *opname;
@@ -3850,9 +3860,9 @@ binary_op_error (location_t location, enum tree_code code,
     default:
       gcc_unreachable ();
     }
-  error_at (location,
-	    "invalid operands to binary %s (have %qT and %qT)", opname,
-	    type0, type1);
+  error_at_rich_loc (richloc,
+		     "invalid operands to binary %s (have %qT and %qT)",
+		     opname, type0, type1);
 }
 
 /* Given an expression as a tree, return its original type.  Do this
@@ -5227,7 +5237,7 @@ c_common_nodes_and_builtins (void)
   tree va_list_arg_type_node;
   int i;
 
-  build_common_tree_nodes (flag_signed_char, flag_short_double);
+  build_common_tree_nodes (flag_signed_char);
 
   /* Define `int' and `char' first so that dbx will output them first.  */
   record_builtin_type (RID_INT, NULL, integer_type_node);
@@ -9086,11 +9096,10 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 
 /* Check the argument list of a function call for null in argument slots
    that are marked as requiring a non-null pointer argument.  The NARGS
-   arguments are passed in the array ARGARRAY.
-*/
+   arguments are passed in the array ARGARRAY.  */
 
 static void
-check_function_nonnull (tree attrs, int nargs, tree *argarray)
+check_function_nonnull (location_t loc, tree attrs, int nargs, tree *argarray)
 {
   tree a;
   int i;
@@ -9110,7 +9119,7 @@ check_function_nonnull (tree attrs, int nargs, tree *argarray)
 
   if (a != NULL_TREE)
     for (i = 0; i < nargs; i++)
-      check_function_arguments_recurse (check_nonnull_arg, NULL, argarray[i],
+      check_function_arguments_recurse (check_nonnull_arg, &loc, argarray[i],
 					i + 1);
   else
     {
@@ -9126,7 +9135,7 @@ check_function_nonnull (tree attrs, int nargs, tree *argarray)
 	    }
 
 	  if (a != NULL_TREE)
-	    check_function_arguments_recurse (check_nonnull_arg, NULL,
+	    check_function_arguments_recurse (check_nonnull_arg, &loc,
 					      argarray[i], i + 1);
 	}
     }
@@ -9212,9 +9221,10 @@ nonnull_check_p (tree args, unsigned HOST_WIDE_INT param_num)
    via check_function_arguments_recurse.  */
 
 static void
-check_nonnull_arg (void * ARG_UNUSED (ctx), tree param,
-		   unsigned HOST_WIDE_INT param_num)
+check_nonnull_arg (void *ctx, tree param, unsigned HOST_WIDE_INT param_num)
 {
+  location_t *ploc = (location_t *) ctx;
+
   /* Just skip checking the argument if it's not a pointer.  This can
      happen if the "nonnull" attribute was given without an operand
      list (which means to check every pointer argument).  */
@@ -9223,8 +9233,8 @@ check_nonnull_arg (void * ARG_UNUSED (ctx), tree param,
     return;
 
   if (integer_zerop (param))
-    warning (OPT_Wnonnull, "null argument where non-null required "
-	     "(argument %lu)", (unsigned long) param_num);
+    warning_at (*ploc, OPT_Wnonnull, "null argument where non-null required "
+		"(argument %lu)", (unsigned long) param_num);
 }
 
 /* Helper for nonnull attribute handling; fetch the operand number
@@ -9667,15 +9677,17 @@ handle_designated_init_attribute (tree *node, tree name, tree, int,
 
 
 /* Check for valid arguments being passed to a function with FNTYPE.
-   There are NARGS arguments in the array ARGARRAY.  */
+   There are NARGS arguments in the array ARGARRAY.  LOC should be used for
+   diagnostics.  */
 void
-check_function_arguments (const_tree fntype, int nargs, tree *argarray)
+check_function_arguments (location_t loc, const_tree fntype, int nargs,
+			  tree *argarray)
 {
   /* Check for null being passed in a pointer argument that must be
      non-null.  We also need to do this if format checking is enabled.  */
 
   if (warn_nonnull)
-    check_function_nonnull (TYPE_ATTRIBUTES (fntype), nargs, argarray);
+    check_function_nonnull (loc, TYPE_ATTRIBUTES (fntype), nargs, argarray);
 
   /* Check for errors in format strings.  */
 
@@ -9753,15 +9765,19 @@ check_function_arguments_recurse (void (*callback)
 
   if (TREE_CODE (param) == COND_EXPR)
     {
-      tree cond = fold_for_warn (TREE_OPERAND (param, 0));
-      /* Check both halves of the conditional expression.  */
-      if (!integer_zerop (cond))
-	check_function_arguments_recurse (callback, ctx,
-					  TREE_OPERAND (param, 1), param_num);
-      if (!integer_nonzerop (cond))
-	check_function_arguments_recurse (callback, ctx,
-					  TREE_OPERAND (param, 2), param_num);
-      return;
+      /* Simplify to avoid warning for an impossible case.  */
+      param = fold_for_warn (param);
+      if (TREE_CODE (param) == COND_EXPR)
+	{
+	  /* Check both halves of the conditional expression.  */
+	  check_function_arguments_recurse (callback, ctx,
+					    TREE_OPERAND (param, 1),
+					    param_num);
+	  check_function_arguments_recurse (callback, ctx,
+					    TREE_OPERAND (param, 2),
+					    param_num);
+	  return;
+	}
     }
 
   (*callback) (ctx, param, param_num);
@@ -9802,6 +9818,33 @@ check_builtin_function_arguments (tree fndecl, int nargs, tree *args)
 
   switch (DECL_FUNCTION_CODE (fndecl))
     {
+    case BUILT_IN_ALLOCA_WITH_ALIGN:
+      {
+	/* Get the requested alignment (in bits) if it's a constant
+	   integer expression.  */
+	unsigned HOST_WIDE_INT align
+	  = tree_fits_uhwi_p (args[1]) ? tree_to_uhwi (args[1]) : 0;
+
+	/* Determine if the requested alignment is a power of 2.  */
+	if ((align & (align - 1)))
+	  align = 0;
+
+	/* The maximum alignment in bits corresponding to the same
+	   maximum in bytes enforced in check_user_alignment().  */
+	unsigned maxalign = (UINT_MAX >> 1) + 1;
+  
+	/* Reject invalid alignments.  */
+	if (align < BITS_PER_UNIT || maxalign < align)
+	  {
+	    error_at (EXPR_LOC_OR_LOC (args[1], input_location),
+		      "second argument to function %qE must be a constant "
+		      "integer power of 2 between %qi and %qu bits",
+		      fndecl, BITS_PER_UNIT, maxalign);
+	    return false;
+	  }
+      return true;
+      }
+
     case BUILT_IN_CONSTANT_P:
       return builtin_function_validate_nargs (fndecl, nargs, 1);
 
@@ -10646,21 +10689,26 @@ builtin_type_for_size (int size, bool unsignedp)
 /* A helper function for resolve_overloaded_builtin in resolving the
    overloaded __sync_ builtins.  Returns a positive power of 2 if the
    first operand of PARAMS is a pointer to a supported data type.
-   Returns 0 if an error is encountered.  */
+   Returns 0 if an error is encountered.
+   FETCH is true when FUNCTION is one of the _FETCH_OP_ or _OP_FETCH_
+   built-ins.  */
 
 static int
-sync_resolve_size (tree function, vec<tree, va_gc> *params)
+sync_resolve_size (tree function, vec<tree, va_gc> *params, bool fetch)
 {
+  /* Type of the argument.  */
+  tree argtype;
+  /* Type the argument points to.  */
   tree type;
   int size;
 
-  if (!params)
+  if (vec_safe_is_empty (params))
     {
       error ("too few arguments to function %qE", function);
       return 0;
     }
 
-  type = TREE_TYPE ((*params)[0]);
+  argtype = type = TREE_TYPE ((*params)[0]);
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
       /* Force array-to-pointer decay for C++.  */
@@ -10675,12 +10723,19 @@ sync_resolve_size (tree function, vec<tree, va_gc> *params)
   if (!INTEGRAL_TYPE_P (type) && !POINTER_TYPE_P (type))
     goto incompatible;
 
+  if (fetch && TREE_CODE (type) == BOOLEAN_TYPE)
+    goto incompatible;
+
   size = tree_to_uhwi (TYPE_SIZE_UNIT (type));
   if (size == 1 || size == 2 || size == 4 || size == 8 || size == 16)
     return size;
 
  incompatible:
-  error ("incompatible type for argument %d of %qE", 1, function);
+  /* Issue the diagnostic only if the argument is valid, otherwise
+     it would be redundant at best and could be misleading.  */
+  if (argtype != error_mark_node)
+    error ("operand type %qT is incompatible with argument %d of %qE",
+	   argtype, 1, function);
   return 0;
 }
 
@@ -11239,6 +11294,11 @@ resolve_overloaded_builtin (location_t loc, tree function,
 			    vec<tree, va_gc> *params)
 {
   enum built_in_function orig_code = DECL_FUNCTION_CODE (function);
+
+  /* Is function one of the _FETCH_OP_ or _OP_FETCH_ built-ins?
+     Those are not valid to call with a pointer to _Bool (or C++ bool)
+     and so must be rejected.  */
+  bool fetch_op = true;
   bool orig_format = true;
   tree new_return = NULL_TREE;
 
@@ -11314,6 +11374,10 @@ resolve_overloaded_builtin (location_t loc, tree function,
     case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_N:
     case BUILT_IN_ATOMIC_LOAD_N:
     case BUILT_IN_ATOMIC_STORE_N:
+      {
+	fetch_op = false;
+	/* Fallthrough to further processing.  */
+      }
     case BUILT_IN_ATOMIC_ADD_FETCH_N:
     case BUILT_IN_ATOMIC_SUB_FETCH_N:
     case BUILT_IN_ATOMIC_AND_FETCH_N:
@@ -11347,7 +11411,16 @@ resolve_overloaded_builtin (location_t loc, tree function,
     case BUILT_IN_SYNC_LOCK_TEST_AND_SET_N:
     case BUILT_IN_SYNC_LOCK_RELEASE_N:
       {
-	int n = sync_resolve_size (function, params);
+	/* The following are not _FETCH_OPs and must be accepted with
+	   pointers to _Bool (or C++ bool).  */
+	if (fetch_op)
+	  fetch_op =
+	    (orig_code != BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_N
+	     && orig_code != BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_N
+	     && orig_code != BUILT_IN_SYNC_LOCK_TEST_AND_SET_N
+	     && orig_code != BUILT_IN_SYNC_LOCK_RELEASE_N);
+
+	int n = sync_resolve_size (function, params, fetch_op);
 	tree new_function, first_param, result;
 	enum built_in_function fncode;
 
@@ -12565,7 +12638,7 @@ reject_gcc_builtin (const_tree expr, location_t loc /* = UNKNOWN_LOCATION */)
 
   if (TREE_TYPE (expr)
       && TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE
-      && DECL_P (expr)
+      && TREE_CODE (expr) == FUNCTION_DECL
       /* The intersection of DECL_BUILT_IN and DECL_IS_BUILTIN avoids
 	 false positives for user-declared built-ins such as abs or
 	 strlen, and for C++ operators new and delete.

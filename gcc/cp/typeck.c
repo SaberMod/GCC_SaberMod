@@ -1,5 +1,5 @@
 /* Build expressions with type checking for C++ compiler.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -1909,11 +1909,10 @@ unlowered_expr_type (const_tree exp)
 
 /* Perform the conversions in [expr] that apply when an lvalue appears
    in an rvalue context: the lvalue-to-rvalue, array-to-pointer, and
-   function-to-pointer conversions.  In addition, manifest constants
-   are replaced by their values, and bitfield references are converted
-   to their declared types. Note that this function does not perform the
-   lvalue-to-rvalue conversion for class types. If you need that conversion
-   to for class types, then you probably need to use force_rvalue.
+   function-to-pointer conversions.  In addition, bitfield references are
+   converted to their declared types. Note that this function does not perform
+   the lvalue-to-rvalue conversion for class types. If you need that conversion
+   for class types, then you probably need to use force_rvalue.
 
    Although the returned value is being used as an rvalue, this
    function does not wrap the returned expression in a
@@ -1933,9 +1932,7 @@ decay_conversion (tree exp,
   if (type == error_mark_node)
     return error_mark_node;
 
-  exp = mark_rvalue_use (exp, loc, reject_builtin);
-
-  exp = resolve_nondeduced_context (exp);
+  exp = resolve_nondeduced_context (exp, complain);
   if (type_unknown_p (exp))
     {
       if (complain & tf_error)
@@ -1962,11 +1959,18 @@ decay_conversion (tree exp,
   if (invalid_nonstatic_memfn_p (loc, exp, complain))
     return error_mark_node;
   if (code == FUNCTION_TYPE || is_overloaded_fn (exp))
-    return cp_build_addr_expr (exp, complain);
+    {
+      exp = mark_lvalue_use (exp);
+      if (reject_builtin && reject_gcc_builtin (exp, loc))
+	return error_mark_node;
+      return cp_build_addr_expr (exp, complain);
+    }
   if (code == ARRAY_TYPE)
     {
       tree adr;
       tree ptrtype;
+
+      exp = mark_lvalue_use (exp);
 
       if (INDIRECT_REF_P (exp))
 	return build_nop (build_pointer_type (TREE_TYPE (type)),
@@ -2013,6 +2017,9 @@ decay_conversion (tree exp,
       return cp_convert (ptrtype, adr, complain);
     }
 
+  /* Otherwise, it's the lvalue-to-rvalue conversion.  */
+  exp = mark_rvalue_use (exp, loc, reject_builtin);
+
   /* If a bitfield is used in a context where integral promotion
      applies, then the caller is expected to have used
      default_conversion.  That function promotes bitfields correctly
@@ -2031,6 +2038,9 @@ decay_conversion (tree exp,
   type = TREE_TYPE (exp);
   if (!CLASS_TYPE_P (type) && cv_qualified_p (type))
     exp = build_nop (cv_unqualified (type), exp);
+
+  if (!complete_type_or_maybe_complain (type, exp, complain))
+    return error_mark_node;
 
   return exp;
 }
@@ -2591,7 +2601,15 @@ check_template_keyword (tree decl)
   if (TREE_CODE (decl) != TEMPLATE_DECL
       && TREE_CODE (decl) != TEMPLATE_ID_EXPR)
     {
-      if (!is_overloaded_fn (decl))
+      if (VAR_P (decl))
+	{
+	  if (DECL_USE_TEMPLATE (decl)
+	      && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (decl)))
+	    ;
+	  else
+	    permerror (input_location, "%qD is not a template", decl);
+	}
+      else if (!is_overloaded_fn (decl))
 	permerror (input_location, "%qD is not a template", decl);
       else
 	{
@@ -3598,7 +3616,7 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
 
   /* Check for errors in format strings and inappropriately
      null parameters.  */
-  check_function_arguments (fntype, nargs, argarray);
+  check_function_arguments (input_location, fntype, nargs, argarray);
 
   ret = build_cxx_call (function, nargs, argarray, complain);
 
@@ -4477,9 +4495,12 @@ cp_build_binary_op (location_t location,
 	warning (OPT_Wfloat_equal,
 		 "comparing floating point with == or != is unsafe");
       if ((complain & tf_warning)
-	  && ((TREE_CODE (orig_op0) == STRING_CST && !integer_zerop (op1))
-	      || (TREE_CODE (orig_op1) == STRING_CST && !integer_zerop (op0))))
-	warning (OPT_Waddress, "comparison with string literal results in unspecified behaviour");
+	  && ((TREE_CODE (orig_op0) == STRING_CST
+	       && !integer_zerop (cp_fully_fold (op1)))
+	      || (TREE_CODE (orig_op1) == STRING_CST
+		  && !integer_zerop (cp_fully_fold (op0)))))
+	warning (OPT_Waddress, "comparison with string literal results "
+			       "in unspecified behavior");
 
       build_type = boolean_type_node;
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE
@@ -4493,11 +4514,6 @@ cp_build_binary_op (location_t location,
 	       || (code0 == POINTER_TYPE
 		   && TYPE_PTR_P (type1) && integer_zerop (op1)))
 	{
-	  if (warn_nonnull
-	      && TREE_CODE (op0) == PARM_DECL && nonnull_arg_p (op0))
-	    warning_at (location, OPT_Wnonnull,
-			"nonnull argument %qD compared to NULL", op0);
-
 	  if (TYPE_PTR_P (type1))
 	    result_type = composite_pointer_type (type0, type1, op0, op1,
 						  CPO_COMPARISON, complain);
@@ -4537,11 +4553,6 @@ cp_build_binary_op (location_t location,
 	       || (code1 == POINTER_TYPE
 		   && TYPE_PTR_P (type0) && integer_zerop (op0)))
 	{
-	  if (warn_nonnull
-	      && TREE_CODE (op1) == PARM_DECL && nonnull_arg_p (op1))
-	    warning_at (location, OPT_Wnonnull,
-			"nonnull argument %qD compared to NULL", op1);
-
 	  if (TYPE_PTR_P (type0))
 	    result_type = composite_pointer_type (type0, type1, op0, op1,
 						  CPO_COMPARISON, complain);
@@ -4780,7 +4791,8 @@ cp_build_binary_op (location_t location,
 	  || TREE_CODE (orig_op1) == STRING_CST)
 	{
 	  if (complain & tf_warning)
-	    warning (OPT_Waddress, "comparison with string literal results in unspecified behaviour");
+	    warning (OPT_Waddress, "comparison with string literal results "
+				   "in unspecified behavior");
 	}
 
       if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE)
@@ -4811,6 +4823,20 @@ cp_build_binary_op (location_t location,
 			  type0, type1);
 		}
 	      return error_mark_node;
+	    }
+
+	  /* It's not precisely specified how the usual arithmetic
+	     conversions apply to the vector types.  Here, we use
+	     the unsigned type if one of the operands is signed and
+	     the other one is unsigned.  */
+	  if (TYPE_UNSIGNED (type0) != TYPE_UNSIGNED (type1))
+	    {
+	      if (!TYPE_UNSIGNED (type0))
+		op0 = build1 (VIEW_CONVERT_EXPR, type1, op0);
+	      else
+		op1 = build1 (VIEW_CONVERT_EXPR, type0, op1);
+	      warning_at (location, OPT_Wsign_compare, "comparison between "
+			  "types %qT and %qT", type0, type1);
 	    }
 
 	  /* Always construct signed integer vector type.  */
@@ -4908,7 +4934,13 @@ cp_build_binary_op (location_t location,
 	      || !vector_types_compatible_elements_p (type0, type1))
 	    {
 	      if (complain & tf_error)
-		binary_op_error (location, code, type0, type1);
+		{
+		  /* "location" already embeds the locations of the
+		     operands, so we don't need to add them separately
+		     to richloc.  */
+		  rich_location richloc (line_table, location);
+		  binary_op_error (&richloc, code, type0, type1);
+		}
 	      return error_mark_node;
 	    }
 	  arithmetic_types_p = 1;
@@ -4931,8 +4963,9 @@ cp_build_binary_op (location_t location,
   if (!result_type)
     {
       if (complain & tf_error)
-	error ("invalid operands of types %qT and %qT to binary %qO",
-	       TREE_TYPE (orig_op0), TREE_TYPE (orig_op1), code);
+	error_at (location,
+		  "invalid operands of types %qT and %qT to binary %qO",
+		  TREE_TYPE (orig_op0), TREE_TYPE (orig_op1), code);
       return error_mark_node;
     }
 
@@ -6671,11 +6704,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 	  tree lref = cp_build_reference_type (TREE_TYPE (type), false);
 	  result = (perform_direct_initialization_if_possible
 		    (lref, expr, c_cast_p, complain));
-	  result = cp_fold_convert (type, result);
-	  /* Make sure we don't fold back down to a named rvalue reference,
-	     because that would be an lvalue.  */
-	  if (DECL_P (result))
-	    result = build1 (NON_LVALUE_EXPR, type, result);
+	  result = build1 (NON_LVALUE_EXPR, type, result);
 	  return convert_from_reference (result);
 	}
       else
@@ -8884,17 +8913,7 @@ check_return_expr (tree retval, bool *no_warning)
 
       /* If we had an id-expression obfuscated by force_paren_expr, we need
 	 to undo it so we can try to treat it as an rvalue below.  */
-      if (cxx_dialect >= cxx14
-	  && INDIRECT_REF_P (retval)
-	  && REF_PARENTHESIZED_P (retval))
-	{
-	  retval = TREE_OPERAND (retval, 0);
-	  while (TREE_CODE (retval) == NON_LVALUE_EXPR
-		 || TREE_CODE (retval) == NOP_EXPR)
-	    retval = TREE_OPERAND (retval, 0);
-	  gcc_assert (TREE_CODE (retval) == ADDR_EXPR);
-	  retval = TREE_OPERAND (retval, 0);
-	}
+      retval = maybe_undo_parenthesized_ref (retval);
 
       /* Under C++11 [12.8/32 class.copy], a returned lvalue is sometimes
 	 treated as an rvalue for the purposes of overload resolution to

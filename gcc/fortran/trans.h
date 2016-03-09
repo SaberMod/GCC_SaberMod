@@ -1,5 +1,5 @@
 /* Header for code translation functions
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -210,6 +210,10 @@ typedef struct gfc_ss_info
 	 this is the symbol of the corresponding dummy argument.  */
       gfc_symbol *dummy_arg;
       tree value;
+      /* Tells that the scalar is a reference to a variable that might
+	 be present on the lhs, so that we should evaluate the value
+	 itself before the loop, not just the reference.  */
+      unsigned needs_temporary:1;
     }
     scalar;
 
@@ -464,6 +468,7 @@ bool gfc_conv_ieee_arithmetic_function (gfc_se *, gfc_expr *);
 tree gfc_save_fp_state (stmtblock_t *);
 void gfc_restore_fp_state (stmtblock_t *, tree);
 
+bool gfc_expr_is_variable (gfc_expr *);
 
 /* Does an intrinsic map directly to an external library call
    This is true for array-returning intrinsics, unless
@@ -1039,7 +1044,9 @@ extern const char gfc_msg_wrong_return[];
 					   construct is not workshared.  */
 #define OMPWS_SCALARIZER_WS	4	/* Set if scalarizer should attempt
 					   to create parallel loops.  */
-#define OMPWS_NOWAIT		8	/* Use NOWAIT on OMP_FOR.  */
+#define OMPWS_SCALARIZER_BODY	8	/* Set if handling body of potential
+					   parallel loop.  */
+#define OMPWS_NOWAIT		16	/* Use NOWAIT on OMP_FOR.  */
 extern int ompws_flags;
 
 #endif /* GFC_TRANS_H */

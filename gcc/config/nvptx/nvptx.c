@@ -1,5 +1,5 @@
 /* Target code for NVPTX.
-   Copyright (C) 2014-2015 Free Software Foundation, Inc.
+   Copyright (C) 2014-2016 Free Software Foundation, Inc.
    Contributed by Bernd Schmidt <bernds@codesourcery.com>
 
    This file is part of GCC.
@@ -600,7 +600,7 @@ write_arg_mode (std::stringstream &s, int for_reg, int argno,
    is true, if this is a prototyped function, rather than an old-style
    C declaration.  Returns the next argument number to use.
 
-   The promotion behaviour here must match the regular GCC function
+   The promotion behavior here must match the regular GCC function
    parameter marshalling machinery.  */
 
 static int
@@ -652,7 +652,7 @@ write_return_mode (std::stringstream &s, bool for_proto, machine_mode mode)
 
 /* Process a function return TYPE to emit a PTX return as a prototype
    or function prologue declaration.  Returns true if return is via an
-   additional pointer parameter.  The promotion behaviour here must
+   additional pointer parameter.  The promotion behavior here must
    match the regular GCC function return mashalling.  */
 
 static bool
@@ -1306,6 +1306,20 @@ nvptx_gen_shuffle (rtx dst, rtx src, rtx idx, nvptx_shuffle_kind kind)
 	end_sequence ();
       }
       break;
+    case QImode:
+    case HImode:
+      {
+	rtx tmp = gen_reg_rtx (SImode);
+
+	start_sequence ();
+	emit_insn (gen_rtx_SET (tmp, gen_rtx_fmt_e (ZERO_EXTEND, SImode, src)));
+	emit_insn (nvptx_gen_shuffle (tmp, tmp, idx, kind));
+	emit_insn (gen_rtx_SET (dst, gen_rtx_fmt_e (TRUNCATE, GET_MODE (dst),
+						    tmp)));
+	res = get_insns ();
+	end_sequence ();
+      }
+      break;
       
     default:
       gcc_unreachable ();
@@ -1412,31 +1426,6 @@ nvptx_gen_wcast (rtx reg, propagate_mask pm, unsigned rep, wcast_data_t *data)
       break;
     }
   return res;
-}
-
-/* When loading an operand ORIG_OP, verify whether an address space
-   conversion to generic is required, and if so, perform it.  Check
-   for SYMBOL_REFs and record them if needed.  Return either the
-   original operand, or the converted one.  */
-
-rtx
-nvptx_maybe_convert_symbolic_operand (rtx op)
-{
-  if (GET_MODE (op) != Pmode)
-    return op;
-
-  rtx sym = op;
-  if (GET_CODE (sym) == CONST)
-    sym = XEXP (sym, 0);
-  if (GET_CODE (sym) == PLUS)
-    sym = XEXP (sym, 0);
-
-  if (GET_CODE (sym) != SYMBOL_REF)
-    return op;
-
-  nvptx_maybe_record_fnsym (sym);
-
-  return op;
 }
 
 /* Returns true if X is a valid address for use in a memory reference.  */
@@ -1645,7 +1634,7 @@ nvptx_assemble_decl_begin (FILE *file, const char *name, const char *section,
   elt_size &= -elt_size; /* Extract LSB set.  */
 
   init_frag.size = elt_size;
-  /* Avoid undefined shift behaviour by using '2'.  */
+  /* Avoid undefined shift behavior by using '2'.  */
   init_frag.mask = ((unsigned HOST_WIDE_INT)2
 		    << (elt_size * BITS_PER_UNIT - 1)) - 1;
   init_frag.val = 0;
@@ -1743,6 +1732,11 @@ nvptx_globalize_label (FILE *, const char *)
 static void
 nvptx_assemble_undefined_decl (FILE *file, const char *name, const_tree decl)
 {
+  /* The middle end can place constant pool decls into the varpool as
+     undefined.  Until that is fixed, catch the problem here.  */
+  if (DECL_IN_CONSTANT_POOL (decl))
+    return;
+
   write_var_marker (file, false, TREE_PUBLIC (decl), name);
 
   fprintf (file, "\t.extern ");
@@ -1767,9 +1761,12 @@ nvptx_output_mov_insn (rtx dst, rtx src)
   rtx sym = src;
   if (GET_CODE (sym) == CONST)
     sym = XEXP (XEXP (sym, 0), 0);
-  if (SYMBOL_REF_P (sym)
-      && SYMBOL_DATA_AREA (sym) != DATA_AREA_GENERIC)
-    return "%.\tcvta%D1%t0\t%0, %1;";
+  if (SYMBOL_REF_P (sym))
+    {
+      if (SYMBOL_DATA_AREA (sym) != DATA_AREA_GENERIC)
+	return "%.\tcvta%D1%t0\t%0, %1;";
+      nvptx_maybe_record_fnsym (sym);
+    }
 
   if (src_inner == dst_inner)
     return "%.\tmov%t0\t%0, %1;";
@@ -1830,14 +1827,14 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
     {
       rtx t = XEXP (XVECEXP (pat, 0, argno), 0);
       machine_mode mode = GET_MODE (t);
+      const char *ptx_type = nvptx_ptx_type_from_mode (mode, false);
 
       /* Mode splitting has already been done.  */
-      fprintf (asm_out_file, "\t\t.param%s %%out_arg%d%s;\n",
-	       nvptx_ptx_type_from_mode (mode, false), argno,
-	       mode == QImode || mode == HImode ? "[1]" : "");
-      fprintf (asm_out_file, "\t\tst.param%s [%%out_arg%d], %%r%d;\n",
-	       nvptx_ptx_type_from_mode (mode, false), argno,
-	       REGNO (t));
+      fprintf (asm_out_file, "\t\t.param%s %%out_arg%d;\n"
+	       "\t\tst.param%s [%%out_arg%d], ",
+	       ptx_type, argno, ptx_type, argno);
+      output_reg (asm_out_file, REGNO (t), VOIDmode);
+      fprintf (asm_out_file, ";\n");
     }
 
   fprintf (asm_out_file, "\t\tcall ");
@@ -2048,28 +2045,20 @@ nvptx_print_operand (FILE *file, rtx x, int code)
 	    fputs (".ne", file);
 	  break;
 	case LE:
+	case LEU:
 	  fputs (".le", file);
 	  break;
 	case GE:
+	case GEU:
 	  fputs (".ge", file);
 	  break;
 	case LT:
+	case LTU:
 	  fputs (".lt", file);
 	  break;
 	case GT:
-	  fputs (".gt", file);
-	  break;
-	case LEU:
-	  fputs (".ls", file);
-	  break;
-	case GEU:
-	  fputs (".hs", file);
-	  break;
-	case LTU:
-	  fputs (".lo", file);
-	  break;
 	case GTU:
-	  fputs (".hi", file);
+	  fputs (".gt", file);
 	  break;
 	case LTGT:
 	  fputs (".ne", file);
@@ -3359,9 +3348,7 @@ nvptx_wpropagate (bool pre_p, basic_block block, rtx_insn *insn)
   if (data.offset)
     {
       /* Stuff was emitted, initialize the base pointer now.  */
-      rtx init = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, worker_bcast_sym),
-				 UNSPEC_TO_GENERIC);
-      init = gen_rtx_SET (data.base, init);
+      rtx init = gen_rtx_SET (data.base, worker_bcast_sym);
       emit_insn_after (init, insn);
 
       if (worker_bcast_size < data.offset)
@@ -4141,10 +4128,12 @@ nvptx_expand_builtin (tree exp, rtx target, rtx ARG_UNUSED (subtarget),
 /* Define dimension sizes for known hardware.  */
 #define PTX_VECTOR_LENGTH 32
 #define PTX_WORKER_LENGTH 32
+#define PTX_GANG_DEFAULT  32
 
 /* Validate compute dimensions of an OpenACC offload or routine, fill
    in non-unity defaults.  FN_LEVEL indicates the level at which a
-   routine might spawn a loop.  It is negative for non-routines.  */
+   routine might spawn a loop.  It is negative for non-routines.  If
+   DECL is null, we are validating the default dimensions.  */
 
 static bool
 nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
@@ -4152,11 +4141,12 @@ nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
   bool changed = false;
 
   /* The vector size must be 32, unless this is a SEQ routine.  */
-  if (fn_level <= GOMP_DIM_VECTOR
+  if (fn_level <= GOMP_DIM_VECTOR && fn_level >= -1
+      && dims[GOMP_DIM_VECTOR] >= 0
       && dims[GOMP_DIM_VECTOR] != PTX_VECTOR_LENGTH)
     {
-      if (dims[GOMP_DIM_VECTOR] >= 0 && fn_level < 0)
-	warning_at (DECL_SOURCE_LOCATION (decl), 0,
+      if (fn_level < 0 && dims[GOMP_DIM_VECTOR] >= 0)
+	warning_at (decl ? DECL_SOURCE_LOCATION (decl) : UNKNOWN_LOCATION, 0,
 		    dims[GOMP_DIM_VECTOR]
 		    ? "using vector_length (%d), ignoring %d"
 		    : "using vector_length (%d), ignoring runtime setting",
@@ -4168,10 +4158,20 @@ nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
   /* Check the num workers is not too large.  */
   if (dims[GOMP_DIM_WORKER] > PTX_WORKER_LENGTH)
     {
-      warning_at (DECL_SOURCE_LOCATION (decl), 0,
+      warning_at (decl ? DECL_SOURCE_LOCATION (decl) : UNKNOWN_LOCATION, 0,
 		  "using num_workers (%d), ignoring %d",
 		  PTX_WORKER_LENGTH, dims[GOMP_DIM_WORKER]);
       dims[GOMP_DIM_WORKER] = PTX_WORKER_LENGTH;
+      changed = true;
+    }
+
+  if (!decl)
+    {
+      dims[GOMP_DIM_VECTOR] = PTX_VECTOR_LENGTH;
+      if (dims[GOMP_DIM_WORKER] < 0)
+	dims[GOMP_DIM_WORKER] = PTX_WORKER_LENGTH;
+      if (dims[GOMP_DIM_GANG] < 0)
+	dims[GOMP_DIM_GANG] = PTX_GANG_DEFAULT;
       changed = true;
     }
 

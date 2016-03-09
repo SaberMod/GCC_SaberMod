@@ -1,5 +1,5 @@
 /* Optimize by combining instructions for GNU compiler.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1454,15 +1454,21 @@ combine_instructions (rtx_insn *f, unsigned int nregs)
 		  && ! unmentioned_reg_p (note, SET_SRC (set))
 		  && (GET_MODE (note) == VOIDmode
 		      ? SCALAR_INT_MODE_P (GET_MODE (SET_DEST (set)))
-		      : GET_MODE (SET_DEST (set)) == GET_MODE (note)))
+		      : (GET_MODE (SET_DEST (set)) == GET_MODE (note)
+			 && (GET_CODE (SET_DEST (set)) != ZERO_EXTRACT
+			     || (GET_MODE (XEXP (SET_DEST (set), 0))
+				 == GET_MODE (note))))))
 		{
 		  /* Temporarily replace the set's source with the
 		     contents of the REG_EQUAL note.  The insn will
 		     be deleted or recognized by try_combine.  */
-		  rtx orig = SET_SRC (set);
+		  rtx orig_src = SET_SRC (set);
+		  rtx orig_dest = SET_DEST (set);
+		  if (GET_CODE (SET_DEST (set)) == ZERO_EXTRACT)
+		    SET_DEST (set) = XEXP (SET_DEST (set), 0);
 		  SET_SRC (set) = note;
 		  i2mod = temp;
-		  i2mod_old_rhs = copy_rtx (orig);
+		  i2mod_old_rhs = copy_rtx (orig_src);
 		  i2mod_new_rhs = copy_rtx (note);
 		  next = try_combine (insn, i2mod, NULL, NULL,
 				      &new_direct_jump_p,
@@ -1473,7 +1479,8 @@ combine_instructions (rtx_insn *f, unsigned int nregs)
 		      statistics_counter_event (cfun, "insn-with-note combine", 1);
 		      goto retry;
 		    }
-		  SET_SRC (set) = orig;
+		  SET_SRC (set) = orig_src;
+		  SET_DEST (set) = orig_dest;
 		}
 	    }
 
@@ -5895,6 +5902,13 @@ combine_simplify_rtx (rtx x, machine_mode op0_mode, int in_dest,
 			  || XEXP (temp, 1) != XEXP (x, 0)))))
 	    return temp;
 	}
+
+      /* Canonicalize x + x into x << 1.  */
+      if (GET_MODE_CLASS (mode) == MODE_INT
+	  && rtx_equal_p (XEXP (x, 0), XEXP (x, 1))
+	  && !side_effects_p (XEXP (x, 0)))
+	return simplify_gen_binary (ASHIFT, mode, XEXP (x, 0), const1_rtx);
+
       break;
 
     case MINUS:
@@ -7240,6 +7254,10 @@ expand_field_assignment (const_rtx x)
       if (len >= HOST_BITS_PER_WIDE_INT)
 	break;
 
+      /* Don't try to compute in too wide unsupported modes.  */
+      if (!targetm.scalar_mode_supported_p (compute_mode))
+	break;
+
       /* Now compute the equivalent expression.  Make a copy of INNER
 	 for the SET_DEST in case it is a MEM into which we will substitute;
 	 we don't want shared RTL in that case.  */
@@ -7869,11 +7887,25 @@ make_compound_operation (rtx x, enum rtx_code in_code)
 	       && GET_CODE (SUBREG_REG (XEXP (x, 0))) == LSHIFTRT
 	       && (i = exact_log2 (UINTVAL (XEXP (x, 1)) + 1)) >= 0)
 	{
-	  new_rtx = make_compound_operation (XEXP (SUBREG_REG (XEXP (x, 0)), 0),
-					 next_code);
-	  new_rtx = make_extraction (GET_MODE (SUBREG_REG (XEXP (x, 0))), new_rtx, 0,
-				 XEXP (SUBREG_REG (XEXP (x, 0)), 1), i, 1,
-				 0, in_code == COMPARE);
+	  rtx inner_x0 = SUBREG_REG (XEXP (x, 0));
+	  machine_mode inner_mode = GET_MODE (inner_x0);
+	  new_rtx = make_compound_operation (XEXP (inner_x0, 0), next_code);
+	  new_rtx = make_extraction (inner_mode, new_rtx, 0,
+				     XEXP (inner_x0, 1),
+				     i, 1, 0, in_code == COMPARE);
+
+	  if (new_rtx)
+	    {
+	      /* If we narrowed the mode when dropping the subreg, then
+		 we must zero-extend to keep the semantics of the AND.  */
+	      if (GET_MODE_SIZE (inner_mode) >= GET_MODE_SIZE (mode))
+		;
+	      else if (SCALAR_INT_MODE_P (inner_mode))
+		new_rtx = simplify_gen_unary (ZERO_EXTEND, mode,
+					      new_rtx, inner_mode);
+	      else
+		new_rtx = NULL;
+	    }
 
 	  /* If that didn't give anything, see if the AND simplifies on
 	     its own.  */
@@ -11437,10 +11469,10 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
   /* Try a few ways of applying the same transformation to both operands.  */
   while (1)
     {
-#if !WORD_REGISTER_OPERATIONS
       /* The test below this one won't handle SIGN_EXTENDs on these machines,
 	 so check specially.  */
-      if (code != GTU && code != GEU && code != LTU && code != LEU
+      if (!WORD_REGISTER_OPERATIONS
+	  && code != GTU && code != GEU && code != LTU && code != LEU
 	  && GET_CODE (op0) == ASHIFTRT && GET_CODE (op1) == ASHIFTRT
 	  && GET_CODE (XEXP (op0, 0)) == ASHIFT
 	  && GET_CODE (XEXP (op1, 0)) == ASHIFT
@@ -11460,7 +11492,6 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 	  op0 = SUBREG_REG (XEXP (XEXP (op0, 0), 0));
 	  op1 = SUBREG_REG (XEXP (XEXP (op1, 0), 0));
 	}
-#endif
 
       /* If both operands are the same constant shift, see if we can ignore the
 	 shift.  We can if the shift is a rotate or if the bits shifted out of
@@ -13888,10 +13919,10 @@ distribute_notes (rtx notes, rtx_insn *from_insn, rtx_insn *i3, rtx_insn *i2,
 		break;
 	      tem_insn = i3;
 	      /* If the new I2 sets the same register that is marked dead
-		 in the note, the note now should not be put on I2, as the
-		 note refers to a previous incarnation of the reg.  */
+		 in the note, we do not know where to put the note.
+		 Give up.  */
 	      if (i2 != 0 && reg_set_p (XEXP (note, 0), PATTERN (i2)))
-		tem_insn = i2;
+		break;
 	    }
 
 	  if (place == 0)

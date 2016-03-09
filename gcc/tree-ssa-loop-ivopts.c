@@ -1,5 +1,5 @@
 /* Induction variable optimizations.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2815,6 +2815,16 @@ add_candidate_1 (struct ivopts_data *data,
   struct iv_cand *cand = NULL;
   tree type, orig_type;
 
+  /* -fkeep-gc-roots-live means that we have to keep a real pointer
+     live, but the ivopts code may replace a real pointer with one
+     pointing before or after the memory block that is then adjusted
+     into the memory block during the loop.  FIXME: It would likely be
+     better to actually force the pointer live and still use ivopts;
+     for example, it would be enough to write the pointer into memory
+     and keep it there until after the loop.  */
+  if (flag_keep_gc_roots_live && POINTER_TYPE_P (TREE_TYPE (base)))
+    return NULL;
+
   /* For non-original variables, make sure their values are computed in a type
      that does not invoke undefined behavior on overflows (since in general,
      we cannot prove that these induction variables are non-wrapping).  */
@@ -3083,8 +3093,11 @@ add_iv_candidate_for_biv (struct ivopts_data *data, struct iv *iv)
 	  cand = add_candidate_1 (data,
 				  iv->base, iv->step, true, IP_ORIGINAL, NULL,
 				  SSA_NAME_DEF_STMT (def));
-	  cand->var_before = iv->ssa_name;
-	  cand->var_after = def;
+	  if (cand)
+	    {
+	      cand->var_before = iv->ssa_name;
+	      cand->var_after = def;
+	    }
 	}
       else
 	gcc_assert (gimple_bb (phi) == data->current_loop->header);
@@ -3728,7 +3741,19 @@ get_computation_aff (struct loop *loop,
       var = fold_convert (uutype, var);
     }
 
-  if (!constant_multiple_of (ustep, cstep, &rat))
+  /* Ratio is 1 when computing the value of biv cand by itself.
+     We can't rely on constant_multiple_of in this case because the
+     use is created after the original biv is selected.  The call
+     could fail because of inconsistent fold behavior.  See PR68021
+     for more information.  */
+  if (cand->pos == IP_ORIGINAL && cand->incremented_at == use->stmt)
+    {
+      gcc_assert (is_gimple_assign (use->stmt));
+      gcc_assert (use->iv->ssa_name == cand->var_after);
+      gcc_assert (gimple_assign_lhs (use->stmt) == cand->var_after);
+      rat = 1;
+    }
+  else if (!constant_multiple_of (ustep, cstep, &rat))
     return false;
 
   /* In case both UBASE and CBASE are shortened to UUTYPE from some common
@@ -4234,7 +4259,7 @@ get_address_cost (bool symbol_present, bool var_present,
 }
 
  /* Calculate the SPEED or size cost of shiftadd EXPR in MODE.  MULT is the
-    the EXPR operand holding the shift.  COST0 and COST1 are the costs for
+    EXPR operand holding the shift.  COST0 and COST1 are the costs for
     calculating the operands of EXPR.  Returns true if successful, and returns
     the cost in COST.  */
 

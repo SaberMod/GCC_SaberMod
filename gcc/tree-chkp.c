@@ -1,5 +1,5 @@
 /* Pointer Bounds Checker insrumentation pass.
-   Copyright (C) 2014-2015 Free Software Foundation, Inc.
+   Copyright (C) 2014-2016 Free Software Foundation, Inc.
    Contributed by Ilya Enkovich (ilya.enkovich@intel.com)
 
 This file is part of GCC.
@@ -895,7 +895,7 @@ chkp_mark_invalid_bounds_walker (tree const &bounds,
 static void
 chkp_finish_incomplete_bounds (void)
 {
-  bool found_valid;
+  bool found_valid = true;
 
   while (found_valid)
     {

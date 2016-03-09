@@ -1,5 +1,5 @@
 /* Find near-matches for strings and identifiers.
-   Copyright (C) 2015 Free Software Foundation, Inc.
+   Copyright (C) 2015-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -30,6 +30,10 @@ levenshtein_distance (const char *s, int len_s,
 
 extern edit_distance_t
 levenshtein_distance (const char *s, const char *t);
+
+extern const char *
+find_closest_string (const char *target,
+		     const auto_vec<const char *> *candidates);
 
 /* spellcheck-tree.c  */
 

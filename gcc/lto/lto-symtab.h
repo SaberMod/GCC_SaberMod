@@ -1,5 +1,5 @@
 /* LTO symbol table merging.
-   Copyright (C) 2009-2015 Free Software Foundation, Inc.
+   Copyright (C) 2009-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,7 +25,7 @@ extern tree lto_symtab_prevailing_virtual_decl (tree decl);
 /* Mark DECL to be previailed by PREVAILING.
    Use DECL_ABSTRACT_ORIGIN and DECL_CHAIN as special markers; those do not
    disturb debug_tree and diagnostics.
-   We are safe to modify them as we wish, becuase the declarations disappear
+   We are safe to modify them as we wish, because the declarations disappear
    from the IL after the merging.  */
 
 inline void

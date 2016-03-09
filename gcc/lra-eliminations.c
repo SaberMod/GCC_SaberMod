@@ -1,5 +1,5 @@
 /* Code for RTL register eliminations.
-   Copyright (C) 2010-2015 Free Software Foundation, Inc.
+   Copyright (C) 2010-2016 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -295,10 +295,18 @@ move_plus_up (rtx x)
   subreg_reg_mode = GET_MODE (subreg_reg);
   if (GET_CODE (x) == SUBREG && GET_CODE (subreg_reg) == PLUS
       && GET_MODE_SIZE (x_mode) <= GET_MODE_SIZE (subreg_reg_mode)
-      && CONSTANT_P (XEXP (subreg_reg, 1)))
-    return gen_rtx_PLUS (x_mode, lowpart_subreg (x_mode, subreg_reg,
-						 subreg_reg_mode),
-			 XEXP (subreg_reg, 1));
+      && CONSTANT_P (XEXP (subreg_reg, 1))
+      && GET_MODE_CLASS (x_mode) == MODE_INT
+      && GET_MODE_CLASS (subreg_reg_mode) == MODE_INT)
+    {
+      rtx cst = simplify_subreg (x_mode, XEXP (subreg_reg, 1), subreg_reg_mode,
+				 subreg_lowpart_offset (x_mode,
+							subreg_reg_mode));
+      if (cst && CONSTANT_P (cst))
+	return gen_rtx_PLUS (x_mode, lowpart_subreg (x_mode,
+						     XEXP (subreg_reg, 0),
+						     subreg_reg_mode), cst);
+    }
   return x;
 }
 

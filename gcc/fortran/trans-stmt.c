@@ -1,5 +1,5 @@
 /* Statement translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -1437,7 +1437,7 @@ gfc_trans_critical (gfc_code *code)
 			  tree_cons (NULL_TREE, tmp, NULL_TREE),
 			  NULL_TREE);
       ASM_VOLATILE_P (tmp) = 1;
-  
+
       gfc_add_expr_to_block (&block, tmp);
     }
 
@@ -1569,7 +1569,9 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
       if (sym->attr.subref_array_pointer)
 	{
 	  gcc_assert (e->expr_type == EXPR_VARIABLE);
-	  tmp = e->symtree->n.sym->backend_decl;
+	  tmp = e->symtree->n.sym->ts.type == BT_CLASS
+	      ? gfc_class_data_get (e->symtree->n.sym->backend_decl)
+	      : e->symtree->n.sym->backend_decl;
 	  tmp = gfc_get_element_type (TREE_TYPE (tmp));
 	  tmp = fold_convert (gfc_array_index_type, size_in_bytes (tmp));
 	  gfc_add_modify (&se.pre, GFC_DECL_SPAN(desc), tmp);
@@ -5057,10 +5059,15 @@ gfc_trans_where_3 (gfc_code * cblock, gfc_code * eblock)
   gfc_loopinfo loop;
   gfc_ss *edss = 0;
   gfc_ss *esss = 0;
+  bool maybe_workshare = false;
 
   /* Allow the scalarizer to workshare simple where loops.  */
-  if (ompws_flags & OMPWS_WORKSHARE_FLAG)
-    ompws_flags |= OMPWS_SCALARIZER_WS;
+  if ((ompws_flags & (OMPWS_WORKSHARE_FLAG | OMPWS_SCALARIZER_BODY))
+      == OMPWS_WORKSHARE_FLAG)
+    {
+      maybe_workshare = true;
+      ompws_flags |= OMPWS_SCALARIZER_WS | OMPWS_SCALARIZER_BODY;
+    }
 
   cond = cblock->expr1;
   tdst = cblock->next->expr1;
@@ -5160,6 +5167,8 @@ gfc_trans_where_3 (gfc_code * cblock, gfc_code * eblock)
   gfc_add_expr_to_block (&body, tmp);
   gfc_add_block_to_block (&body, &cse.post);
 
+  if (maybe_workshare)
+    ompws_flags &= ~OMPWS_SCALARIZER_BODY;
   gfc_trans_scalarizing_loops (&loop, &body);
   gfc_add_block_to_block (&block, &loop.pre);
   gfc_add_block_to_block (&block, &loop.post);
@@ -5291,7 +5300,6 @@ gfc_trans_allocate (gfc_code * code)
   tree label_finish;
   tree memsz;
   tree al_vptr, al_len;
-  tree def_str_len = NULL_TREE;
   /* If an expr3 is present, then store the tree for accessing its
      _vptr, and _len components in the variables, respectively.  The
      element size, i.e. _vptr%size, is stored in expr3_esize.  Any of
@@ -5352,7 +5360,8 @@ gfc_trans_allocate (gfc_code * code)
      expression.  */
   if (code->expr3)
     {
-      bool vtab_needed = false, temp_var_needed = false;
+      bool vtab_needed = false, temp_var_needed = false,
+	  is_coarray = gfc_is_coarray (code->expr3);
 
       /* Figure whether we need the vtab from expr3.  */
       for (al = code->ext.alloc.list; !vtab_needed && al != NULL;
@@ -5377,7 +5386,20 @@ gfc_trans_allocate (gfc_code * code)
 	      if (code->ext.alloc.arr_spec_from_expr3 || code->expr3->rank != 0)
 		gfc_conv_expr_descriptor (&se, code->expr3);
 	      else
-		gfc_conv_expr_reference (&se, code->expr3);
+		{
+		  gfc_conv_expr_reference (&se, code->expr3);
+
+		  /* gfc_conv_expr_reference wraps POINTER_PLUS_EXPR in a
+		     NOP_EXPR, which prevents gfortran from getting the vptr
+		     from the source=-expression.  Remove the NOP_EXPR and go
+		     with the POINTER_PLUS_EXPR in this case.  */
+		  if (code->expr3->ts.type == BT_CLASS
+		      && TREE_CODE (se.expr) == NOP_EXPR
+		      && (TREE_CODE (TREE_OPERAND (se.expr, 0))
+							    == POINTER_PLUS_EXPR
+			  || is_coarray))
+		    se.expr = TREE_OPERAND (se.expr, 0);
+		}
 	      /* Create a temp variable only for component refs to prevent
 		 having to go through the full deref-chain each time and to
 		 simplfy computation of array properties.  */
@@ -5416,7 +5438,7 @@ gfc_trans_allocate (gfc_code * code)
       if (se.expr != NULL_TREE && temp_var_needed)
 	{
 	  tree var, desc;
-	  tmp = GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (se.expr)) ?
+	  tmp = GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (se.expr)) || is_coarray ?
 		se.expr
 	      : build_fold_indirect_ref_loc (input_location, se.expr);
 
@@ -5429,7 +5451,7 @@ gfc_trans_allocate (gfc_code * code)
 	    {
 	      /* When an array_ref was in expr3, then the descriptor is the
 		 first operand.  */
-	      if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (tmp)))
+	      if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (tmp)) || is_coarray)
 		{
 		  desc = TREE_OPERAND (tmp, 0);
 		}
@@ -5441,11 +5463,12 @@ gfc_trans_allocate (gfc_code * code)
 	      e3_is = E3_DESC;
 	    }
 	  else
-	    desc = se.expr;
+	    desc = !is_coarray ? se.expr
+			       : TREE_OPERAND (TREE_OPERAND (se.expr, 0), 0);
 	  /* We need a regular (non-UID) symbol here, therefore give a
 	     prefix.  */
 	  var = gfc_create_var (TREE_TYPE (tmp), "source");
-	  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (tmp)))
+	  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (tmp)) || is_coarray)
 	    {
 	      gfc_allocate_lang_decl (var);
 	      GFC_DECL_SAVED_DESCRIPTOR (var) = desc;
@@ -5494,7 +5517,6 @@ gfc_trans_allocate (gfc_code * code)
 	     expr3 may be a temporary array declaration, therefore check for
 	     GFC_CLASS_TYPE_P before trying to get the _vptr component.  */
 	  if (tmp != NULL_TREE
-	      && TREE_CODE (tmp) != POINTER_PLUS_EXPR
 	      && (e3_is == E3_DESC
 		  || (GFC_CLASS_TYPE_P (TREE_TYPE (tmp))
 		      && (VAR_P (tmp) || !code->expr3->ref))
@@ -5669,7 +5691,6 @@ gfc_trans_allocate (gfc_code * code)
 	  expr3_esize = fold_build2_loc (input_location, MULT_EXPR,
 					 TREE_TYPE (se_sz.expr),
 					 tmp, se_sz.expr);
-	  def_str_len = gfc_evaluate_now (se_sz.expr, &block);
 	}
     }
 
@@ -5721,16 +5742,6 @@ gfc_trans_allocate (gfc_code * code)
 
       se.want_pointer = 1;
       se.descriptor_only = 1;
-
-      if (expr->ts.type == BT_CHARACTER
-	  && expr->ts.deferred
-	  && TREE_CODE (expr->ts.u.cl->backend_decl) == VAR_DECL
-	  && def_str_len != NULL_TREE)
-	{
-	  tmp = expr->ts.u.cl->backend_decl;
-	  gfc_add_modify (&block, tmp,
-			  fold_convert (TREE_TYPE (tmp), def_str_len));
-	}
 
       gfc_conv_expr (&se, expr);
       if (expr->ts.type == BT_CHARACTER && expr->ts.deferred)
@@ -5867,6 +5878,20 @@ gfc_trans_allocate (gfc_code * code)
 	      gfc_add_modify (&block, al_len,
 			      fold_convert (TREE_TYPE (al_len), expr3_len));
 	      /* Prevent setting the length twice.  */
+	      al_len_needs_set = false;
+	    }
+	  else if (expr->ts.type == BT_CHARACTER && al_len != NULL_TREE
+		   && code->ext.alloc.ts.u.cl->length)
+	    {
+	      /* Cover the cases where a string length is explicitly
+		 specified by a type spec for deferred length character
+		 arrays or unlimited polymorphic objects without a
+		 source= or mold= expression.  */
+	      gfc_init_se (&se_sz, NULL);
+	      gfc_conv_expr (&se_sz, code->ext.alloc.ts.u.cl->length);
+	      gfc_add_modify (&block, al_len,
+			      fold_convert (TREE_TYPE (al_len),
+					    se_sz.expr));
 	      al_len_needs_set = false;
 	    }
 	}

@@ -1,5 +1,5 @@
 /* Prototypes for exported functions defined in arm.c and pe.c
-   Copyright (C) 1999-2015 Free Software Foundation, Inc.
+   Copyright (C) 1999-2016 Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rearnsha@arm.com)
    Minor hacks by Nick Clifton (nickc@cygnus.com)
 
@@ -89,7 +89,6 @@ extern void neon_expand_vector_init (rtx, rtx);
 extern void neon_lane_bounds (rtx, HOST_WIDE_INT, HOST_WIDE_INT, const_tree);
 extern void neon_const_bounds (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
 extern HOST_WIDE_INT neon_element_bits (machine_mode);
-extern void neon_reinterpret (rtx, rtx);
 extern void neon_emit_pair_result_insn (machine_mode,
 					rtx (*) (rtx, rtx, rtx, rtx),
 					rtx, rtx, rtx);
@@ -213,7 +212,6 @@ extern void arm_mark_dllimport (tree);
 extern bool arm_change_mode_p (tree);
 #endif
 
-extern void arm_init_neon_builtins (void);
 extern tree arm_valid_target_attribute_tree (tree, struct gcc_options *,
 					     struct gcc_options *);
 extern void arm_pr_long_calls (struct cpp_reader *);
@@ -302,8 +300,9 @@ struct tune_params
   enum fuse_ops
   {
     FUSE_NOTHING   = 0,
-    FUSE_MOVW_MOVT = 1 << 0
-  } fusible_ops: 1;
+    FUSE_MOVW_MOVT = 1 << 0,
+    FUSE_AES_AESMC = 1 << 1
+  } fusible_ops: 2;
   /* Depth of scheduling queue to check for L2 autoprefetcher.  */
   enum {SCHED_AUTOPREF_OFF, SCHED_AUTOPREF_RANK, SCHED_AUTOPREF_FULL}
     sched_autopref: 2;
@@ -333,6 +332,7 @@ extern bool arm_autoinc_modes_ok_p (machine_mode, enum arm_auto_incmodes);
 extern void arm_emit_eabi_attribute (const char *, int, int);
 
 extern void arm_reset_previous_fndecl (void);
+extern void save_restore_target_globals (tree);
 
 /* Defined in gcc/common/config/arm-common.c.  */
 extern const char *arm_rewrite_selected_cpu (const char *name);

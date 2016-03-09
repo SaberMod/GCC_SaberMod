@@ -1,5 +1,5 @@
 /* Data References Analysis and Manipulation Utilities for Vectorization.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
    and Ira Rosen <irar@il.ibm.com>
 
@@ -1495,7 +1495,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
                  size (vector size / 8).  Vectorization factor will 8.  If both
                  access are misaligned by 3, the first one needs one scalar
                  iteration to be aligned, and the second one needs 5.  But the
-                 the first one will be aligned also by peeling 5 scalar
+		 first one will be aligned also by peeling 5 scalar
                  iterations, and in that case both accesses will be aligned.
                  Hence, except for the immediate peeling amount, we also want
                  to try to add full vector size, while we don't exceed
@@ -1826,7 +1826,16 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
              misalignment of DR_i must be set to unknown.  */
 	  FOR_EACH_VEC_ELT (datarefs, i, dr)
 	    if (dr != dr0)
-	      vect_update_misalignment_for_peel (dr, dr0, npeel);
+	      {
+		/* Strided accesses perform only component accesses, alignment
+		   is irrelevant for them.  */
+		stmt_info = vinfo_for_stmt (DR_STMT (dr));
+		if (STMT_VINFO_STRIDED_P (stmt_info)
+		    && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
+		  continue;
+
+		vect_update_misalignment_for_peel (dr, dr0, npeel);
+	      }
 
           LOOP_VINFO_UNALIGNED_DR (loop_vinfo) = dr0;
           if (npeel)
@@ -3021,7 +3030,7 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
   comp_alias_ddrs.qsort (comp_dr_with_seg_len_pair);
 
   /* Third, we scan the sorted dr pairs and check if we can combine
-     alias checks of two neighbouring dr pairs.  */
+     alias checks of two neighboring dr pairs.  */
   for (size_t i = 1; i < comp_alias_ddrs.length (); ++i)
     {
       /* Deal with two ddrs (dr_a1, dr_b1) and (dr_a2, dr_b2).  */
@@ -3072,10 +3081,38 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	      || !tree_fits_shwi_p (dr_a2->offset))
 	    continue;
 
-	  HOST_WIDE_INT diff = (tree_to_shwi (dr_a2->offset)
-				- tree_to_shwi (dr_a1->offset));
+	  /* Make sure dr_a1 starts left of dr_a2.  */
+	  if (tree_int_cst_lt (dr_a2->offset, dr_a1->offset))
+	    std::swap (*dr_a1, *dr_a2);
+
+	  unsigned HOST_WIDE_INT diff
+	    = tree_to_shwi (dr_a2->offset) - tree_to_shwi (dr_a1->offset);
 
 
+	  bool do_remove = false;
+
+	  /* If the left segment does not extend beyond the start of the
+	     right segment the new segment length is that of the right
+	     plus the segment distance.  */
+	  if (tree_fits_uhwi_p (dr_a1->seg_len)
+	      && compare_tree_int (dr_a1->seg_len, diff) <= 0)
+	    {
+	      dr_a1->seg_len = size_binop (PLUS_EXPR, dr_a2->seg_len,
+					   size_int (diff));
+	      do_remove = true;
+	    }
+	  /* Generally the new segment length is the maximum of the
+	     left segment size and the right segment size plus the distance.
+	     ???  We can also build tree MAX_EXPR here but it's not clear this
+	     is profitable.  */
+	  else if (tree_fits_uhwi_p (dr_a1->seg_len)
+		   && tree_fits_uhwi_p (dr_a2->seg_len))
+	    {
+	      unsigned HOST_WIDE_INT seg_len_a1 = tree_to_uhwi (dr_a1->seg_len);
+	      unsigned HOST_WIDE_INT seg_len_a2 = tree_to_uhwi (dr_a2->seg_len);
+	      dr_a1->seg_len = size_int (MAX (seg_len_a1, diff + seg_len_a2));
+	      do_remove = true;
+	    }
 	  /* Now we check if the following condition is satisfied:
 
 	     DIFF - SEGMENT_LENGTH_A < SEGMENT_LENGTH_B
@@ -3088,38 +3125,39 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	     one above:
 
 	     1: DIFF <= MIN_SEG_LEN_B
-	     2: DIFF - SEGMENT_LENGTH_A < MIN_SEG_LEN_B
+	     2: DIFF - SEGMENT_LENGTH_A < MIN_SEG_LEN_B  */
+	  else
+	    {
+	      unsigned HOST_WIDE_INT min_seg_len_b
+		= (tree_fits_uhwi_p (dr_b1->seg_len)
+		   ? tree_to_uhwi (dr_b1->seg_len)
+		   : vect_factor);
 
-	     */
+	      if (diff <= min_seg_len_b
+		  || (tree_fits_uhwi_p (dr_a1->seg_len)
+		      && diff - tree_to_uhwi (dr_a1->seg_len) < min_seg_len_b))
+		{
+		  dr_a1->seg_len = size_binop (PLUS_EXPR,
+					       dr_a2->seg_len, size_int (diff));
+		  do_remove = true;
+		}
+	    }
 
-	  HOST_WIDE_INT  min_seg_len_b = (tree_fits_shwi_p (dr_b1->seg_len)
-					  ? tree_to_shwi (dr_b1->seg_len)
-					  : vect_factor);
-
-	  if (diff <= min_seg_len_b
-	      || (tree_fits_shwi_p (dr_a1->seg_len)
-		  && diff - tree_to_shwi (dr_a1->seg_len) < min_seg_len_b))
+	  if (do_remove)
 	    {
 	      if (dump_enabled_p ())
 		{
 		  dump_printf_loc (MSG_NOTE, vect_location,
 				   "merging ranges for ");
-		  dump_generic_expr (MSG_NOTE, TDF_SLIM,
-				     DR_REF (dr_a1->dr));
+		  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a1->dr));
 		  dump_printf (MSG_NOTE,  ", ");
-		  dump_generic_expr (MSG_NOTE, TDF_SLIM,
-				     DR_REF (dr_b1->dr));
+		  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b1->dr));
 		  dump_printf (MSG_NOTE,  " and ");
-		  dump_generic_expr (MSG_NOTE, TDF_SLIM,
-				     DR_REF (dr_a2->dr));
+		  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a2->dr));
 		  dump_printf (MSG_NOTE,  ", ");
-		  dump_generic_expr (MSG_NOTE, TDF_SLIM,
-				     DR_REF (dr_b2->dr));
+		  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b2->dr));
 		  dump_printf (MSG_NOTE, "\n");
 		}
-
-	      dr_a1->seg_len = size_binop (PLUS_EXPR,
-					   dr_a2->seg_len, size_int (diff));
 	      comp_alias_ddrs.ordered_remove (i--);
 	    }
 	}

@@ -1,5 +1,5 @@
 /* Array translation routines
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -2464,10 +2464,12 @@ gfc_scalar_elemental_arg_saved_as_reference (gfc_ss_info * ss_info)
     return true;
 
   /* If the expression is a data reference of aggregate type,
+     and the data reference is not used on the left hand side,
      avoid a copy by saving a reference to the content.  */
-  if (ss_info->expr->expr_type == EXPR_VARIABLE
+  if (!ss_info->data.scalar.needs_temporary
       && (ss_info->expr->ts.type == BT_DERIVED
-	  || ss_info->expr->ts.type == BT_CLASS))
+	  || ss_info->expr->ts.type == BT_CLASS)
+      && gfc_expr_is_variable (ss_info->expr))
     return true;
 
   /* Otherwise the expression is evaluated to a temporary variable before the
@@ -3165,7 +3167,8 @@ gfc_conv_scalarized_array_ref (gfc_se * se, gfc_array_ref * ar)
 			     index, info->offset);
 
   if (expr && (is_subref_array (expr)
-	       || (expr->ts.deferred && expr->expr_type == EXPR_VARIABLE)))
+	       || (expr->ts.deferred && (expr->expr_type == EXPR_VARIABLE
+					 || expr->expr_type == EXPR_FUNCTION))))
     decl = expr->symtree->n.sym->backend_decl;
 
   tmp = build_fold_indirect_ref_loc (input_location, info->data);
@@ -3601,7 +3604,8 @@ gfc_trans_scalarized_loop_end (gfc_loopinfo * loop, int n,
   tree init;
   tree incr;
 
-  if ((ompws_flags & (OMPWS_WORKSHARE_FLAG | OMPWS_SCALARIZER_WS))
+  if ((ompws_flags & (OMPWS_WORKSHARE_FLAG | OMPWS_SCALARIZER_WS
+		      | OMPWS_SCALARIZER_BODY))
       == (OMPWS_WORKSHARE_FLAG | OMPWS_SCALARIZER_WS)
       && n == loop->dimen - 1)
     {
@@ -3821,10 +3825,10 @@ evaluate_bound (stmtblock_t *block, tree *bounds, gfc_expr ** values,
       gfc_add_block_to_block (block, &se.pre);
       *output = se.expr;
     }
-  else if (deferred)
+  else if (deferred && GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (desc)))
     {
       /* The gfc_conv_array_lbound () routine returns a constant zero for
-	 deferred length arrays, which in the scalarizer wrecks havoc, when
+	 deferred length arrays, which in the scalarizer wreaks havoc, when
 	 copying to a (newly allocated) one-based array.
 	 Keep returning the actual result in sync for both bounds.  */
       *output = lbound ? gfc_conv_descriptor_lbound_get (desc,
@@ -4459,6 +4463,7 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
   gfc_ss *ss;
   gfc_ref *lref;
   gfc_ref *rref;
+  gfc_ss_info *ss_info;
   gfc_expr *dest_expr;
   gfc_expr *ss_expr;
   int nDepend = 0;
@@ -4469,15 +4474,16 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
 
   for (ss = rss; ss != gfc_ss_terminator; ss = ss->next)
     {
-      ss_expr = ss->info->expr;
+      ss_info = ss->info;
+      ss_expr = ss_info->expr;
 
-      if (ss->info->array_outer_dependency)
+      if (ss_info->array_outer_dependency)
 	{
 	  nDepend = 1;
 	  break;
 	}
 
-      if (ss->info->type != GFC_SS_SECTION)
+      if (ss_info->type != GFC_SS_SECTION)
 	{
 	  if (flag_realloc_lhs
 	      && dest_expr != ss_expr
@@ -4491,6 +4497,10 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
 	      && ss_expr->expr_type == EXPR_VARIABLE)
 
 	    nDepend = gfc_check_dependency (dest_expr, ss_expr, false);
+
+	  if (ss_info->type == GFC_SS_REFERENCE
+	      && gfc_check_dependency (dest_expr, ss_expr, false))
+	    ss_info->data.scalar.needs_temporary = 1;
 
 	  continue;
 	}
@@ -5037,7 +5047,7 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 		     gfc_expr ** lower, gfc_expr ** upper, stmtblock_t * pblock,
 		     stmtblock_t * descriptor_block, tree * overflow,
 		     tree expr3_elem_size, tree *nelems, gfc_expr *expr3,
-		     tree expr3_desc, bool e3_is_array_constr)
+		     tree expr3_desc, bool e3_is_array_constr, gfc_expr *expr)
 {
   tree type;
   tree tmp;
@@ -5062,8 +5072,19 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
   offset = gfc_index_zero_node;
 
   /* Set the dtype.  */
-  tmp = gfc_conv_descriptor_dtype (descriptor);
-  gfc_add_modify (descriptor_block, tmp, gfc_get_dtype (type));
+  if (expr->ts.type == BT_CHARACTER && expr->ts.deferred
+      && TREE_CODE (expr->ts.u.cl->backend_decl) == VAR_DECL)
+    {
+      type = gfc_typenode_for_spec (&expr->ts);
+      tmp = gfc_conv_descriptor_dtype (descriptor);
+      gfc_add_modify (descriptor_block, tmp,
+		      gfc_get_dtype_rank_type (rank, type));
+    }
+  else
+    {
+      tmp = gfc_conv_descriptor_dtype (descriptor);
+      gfc_add_modify (descriptor_block, tmp, gfc_get_dtype (type));
+    }
 
   or_expr = boolean_false_node;
 
@@ -5380,17 +5401,8 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   if (!retrieve_last_ref (&ref, &prev_ref))
     return false;
 
-  if (ref->u.ar.type == AR_FULL && expr3 != NULL)
-    {
-      /* F08:C633: Array shape from expr3.  */
-      ref = expr3->ref;
-
-      /* Find the last reference in the chain.  */
-      if (!retrieve_last_ref (&ref, &prev_ref))
-	return false;
-      alloc_w_e3_arr_spec = true;
-    }
-
+  /* Take the allocatable and coarray properties solely from the expr-ref's
+     attributes and not from source=-expression.  */
   if (!prev_ref)
     {
       allocatable = expr->symtree->n.sym->attr.allocatable;
@@ -5406,6 +5418,17 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 
   if (!dimension)
     gcc_assert (coarray);
+
+  if (ref->u.ar.type == AR_FULL && expr3 != NULL)
+    {
+      /* F08:C633: Array shape from expr3.  */
+      ref = expr3->ref;
+
+      /* Find the last reference in the chain.  */
+      if (!retrieve_last_ref (&ref, &prev_ref))
+	return false;
+      alloc_w_e3_arr_spec = true;
+    }
 
   /* Figure out the size of the array.  */
   switch (ref->u.ar.type)
@@ -5442,10 +5465,11 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   gfc_init_block (&set_descriptor_block);
   size = gfc_array_init_size (se->expr, alloc_w_e3_arr_spec ? expr->rank
 							   : ref->u.ar.as->rank,
-			      ref->u.ar.as->corank, &offset, lower, upper,
+			      coarray ? ref->u.ar.as->corank : 0,
+			      &offset, lower, upper,
 			      &se->pre, &set_descriptor_block, &overflow,
 			      expr3_elem_size, nelems, expr3, e3_arr_desc,
-			      e3_is_array_constr);
+			      e3_is_array_constr, expr);
 
   if (dimension)
     {
@@ -7113,7 +7137,7 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 				    gfc_array_index_type,
 				    stride, info->stride[n]);
 
-	  if (se->direct_byref
+	  if ((se->direct_byref || se->use_offset)
 	      && ((info->ref && info->ref->u.ar.type != AR_FULL)
 		  || (expr->expr_type == EXPR_ARRAY && se->use_offset)))
 	    {

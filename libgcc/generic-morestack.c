@@ -1,5 +1,5 @@
 /* Library support for -fsplit-stack.  */
-/* Copyright (C) 2009-2015 Free Software Foundation, Inc.
+/* Copyright (C) 2009-2016 Free Software Foundation, Inc.
    Contributed by Ian Lance Taylor <iant@google.com>.
 
 This file is part of GCC.
@@ -939,6 +939,10 @@ __splitstack_find (void *segment_arg, void *sp, size_t *len,
 #elif defined (__i386__)
       nsp -= 6 * sizeof (void *);
 #elif defined __powerpc64__
+#elif defined __s390x__
+      nsp -= 2 * 160;
+#elif defined __s390__
+      nsp -= 2 * 96;
 #else
 #error "unrecognized target"
 #endif

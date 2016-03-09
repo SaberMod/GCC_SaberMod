@@ -1,5 +1,5 @@
 /* Functions to support a pool of allocatable objects.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@cgsoftware.com>
 
 This file is part of GCC.
@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 
 ALLOC_POOL_ID_TYPE last_id;
 mem_alloc_description<pool_usage> pool_allocator_usage;
+bool after_memory_report = false;
 
 /* Output per-alloc_pool memory usage statistics.  */
 void

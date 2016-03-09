@@ -1,5 +1,5 @@
 /* Interprocedural constant propagation
-   Copyright (C) 2005-2015 Free Software Foundation, Inc.
+   Copyright (C) 2005-2016 Free Software Foundation, Inc.
 
    Contributed by Razya Ladelsky <RAZYA@il.ibm.com> and Martin Jambor
    <mjambor@suse.cz>
@@ -2518,7 +2518,8 @@ estimate_local_effects (struct cgraph_node *node)
   known_aggs_ptrs = agg_jmp_p_vec_for_t_vec (known_aggs);
   int devirt_bonus = devirtualization_time_bonus (node, known_csts,
 					   known_contexts, known_aggs_ptrs);
-  if (always_const || devirt_bonus || removable_params_cost)
+  if (always_const || devirt_bonus
+      || (removable_params_cost && node->local.can_change_signature))
     {
       struct caller_statistics stats;
       inline_hints hints;

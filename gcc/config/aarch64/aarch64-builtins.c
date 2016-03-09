@@ -1,5 +1,5 @@
 /* Builtins' description for AArch64 SIMD architecture.
-   Copyright (C) 2011-2015 Free Software Foundation, Inc.
+   Copyright (C) 2011-2016 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -118,6 +118,10 @@ static enum aarch64_type_qualifiers
 aarch64_types_unopu_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_unsigned, qualifier_unsigned };
 #define TYPES_UNOPU (aarch64_types_unopu_qualifiers)
+static enum aarch64_type_qualifiers
+aarch64_types_unopus_qualifiers[SIMD_MAX_BUILTIN_ARGS]
+  = { qualifier_unsigned, qualifier_none };
+#define TYPES_UNOPUS (aarch64_types_unopus_qualifiers)
 static enum aarch64_type_qualifiers
 aarch64_types_binop_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_none, qualifier_none, qualifier_maybe_immediate };
@@ -610,14 +614,16 @@ aarch64_init_simd_builtin_types (void)
       enum machine_mode mode = aarch64_simd_types[i].mode;
 
       if (aarch64_simd_types[i].itype == NULL)
-	aarch64_simd_types[i].itype =
-	  build_distinct_type_copy
-	    (build_vector_type (eltype, GET_MODE_NUNITS (mode)));
+	{
+	  aarch64_simd_types[i].itype
+	    = build_distinct_type_copy
+	      (build_vector_type (eltype, GET_MODE_NUNITS (mode)));
+	  SET_TYPE_STRUCTURAL_EQUALITY (aarch64_simd_types[i].itype);
+	}
 
       tdecl = add_builtin_type (aarch64_simd_types[i].name,
 				aarch64_simd_types[i].itype);
       TYPE_NAME (aarch64_simd_types[i].itype) = tdecl;
-      SET_TYPE_STRUCTURAL_EQUALITY (aarch64_simd_types[i].itype);
     }
 
 #define AARCH64_BUILD_SIGNED_TYPE(mode)  \

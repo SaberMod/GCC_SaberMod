@@ -1,5 +1,5 @@
 /* Character scanner.
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -336,7 +336,7 @@ add_path_to_list (gfc_directorylist **list, const char *path,
     }
   else if (!S_ISDIR (st.st_mode))
     {
-      gfc_warning_now (0, "%qs is not a directory", path);
+      gfc_fatal_error ("%qs is not a directory", path);
       return;
     }
 

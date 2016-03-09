@@ -1,7 +1,7 @@
 /* Write and read the cgraph to the memory mapped representation of a
    .o file.
 
-   Copyright (C) 2009-2015 Free Software Foundation, Inc.
+   Copyright (C) 2009-2016 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -1885,7 +1885,7 @@ input_symtab (void)
    target code, and store them into OFFLOAD_FUNCS and OFFLOAD_VARS.  */
 
 void
-input_offload_tables (void)
+input_offload_tables (bool do_force_output)
 {
   struct lto_file_decl_data **file_data_vec = lto_get_file_decl_data ();
   struct lto_file_decl_data *file_data;
@@ -1911,6 +1911,12 @@ input_offload_tables (void)
 	      tree fn_decl
 		= lto_file_decl_data_get_fn_decl (file_data, decl_index);
 	      vec_safe_push (offload_funcs, fn_decl);
+
+	      /* Prevent IPA from removing fn_decl as unreachable, since there
+		 may be no refs from the parent function to child_fn in offload
+		 LTO mode.  */
+	      if (do_force_output)
+		cgraph_node::get (fn_decl)->mark_force_output ();
 	    }
 	  else if (tag == LTO_symtab_variable)
 	    {
@@ -1918,6 +1924,11 @@ input_offload_tables (void)
 	      tree var_decl
 		= lto_file_decl_data_get_var_decl (file_data, decl_index);
 	      vec_safe_push (offload_vars, var_decl);
+
+	      /* Prevent IPA from removing var_decl as unused, since there
+		 may be no refs to var_decl in offload LTO mode.  */
+	      if (do_force_output)
+		varpool_node::get (var_decl)->force_output = 1;
 	    }
 	  else
 	    fatal_error (input_location,

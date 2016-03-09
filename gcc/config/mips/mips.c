@@ -1,5 +1,5 @@
 /* Subroutines used for MIPS code generation.
-   Copyright (C) 1989-2015 Free Software Foundation, Inc.
+   Copyright (C) 1989-2016 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky, lich@inria.inria.fr.
    Changes by Michael Meissner, meissner@osf.org.
    64-bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -8006,9 +8006,18 @@ mask_low_and_shift_p (machine_mode mode, rtx mask, rtx shift, int maxlen)
 bool
 and_operands_ok (machine_mode mode, rtx op1, rtx op2)
 {
-  return (memory_operand (op1, mode)
-	  ? and_load_operand (op2, mode)
-	  : and_reg_operand (op2, mode));
+
+  if (memory_operand (op1, mode))
+    {
+      if (TARGET_MIPS16) {
+	struct mips_address_info addr;
+	if (!mips_classify_address (&addr, op1, mode, false))
+	  return false;
+      }
+      return and_load_operand (op2, mode);
+    }
+  else
+    return and_reg_operand (op2, mode);
 }
 
 /* The canonical form of a mask-low-and-shift-left operation is
@@ -10321,6 +10330,10 @@ mips_compute_frame_info (void)
   HOST_WIDE_INT offset, size;
   unsigned int regno, i;
 
+  /* Skip re-computing the frame info after reload completed.  */
+  if (reload_completed)
+    return;
+
   /* Set this function's interrupt properties.  */
   if (mips_interrupt_type_p (TREE_TYPE (current_function_decl)))
     {
@@ -10346,8 +10359,6 @@ mips_compute_frame_info (void)
   frame = &cfun->machine->frame;
   memset (frame, 0, sizeof (*frame));
   size = get_frame_size ();
-
-  cfun->machine->global_pointer = mips_global_pointer ();
 
   /* The first two blocks contain the outgoing argument area and the $gp save
      slot.  This area isn't needed in leaf functions.  We can also skip it
@@ -10375,6 +10386,26 @@ mips_compute_frame_info (void)
       frame->args_size = crtl->outgoing_args_size;
       frame->cprestore_size = MIPS_GP_SAVE_AREA_SIZE;
     }
+
+  /* MIPS16 code offsets the frame pointer by the size of the outgoing
+     arguments.  This tends to increase the chances of using unextended
+     instructions for local variables and incoming arguments.  */
+  if (TARGET_MIPS16)
+    frame->hard_frame_pointer_offset = frame->args_size;
+
+  /* PR 69129 / 69012: Beware of a possible race condition.  mips_global_pointer
+     might call mips_cfun_has_inflexible_gp_ref_p which in turn can call
+     mips_find_gp_ref which will iterate over the current insn sequence.
+     If any of these insns use the cprestore_save_slot_operand or
+     cprestore_load_slot_operand predicates in order to be recognised then
+     they will call mips_cprestore_address_p which calls
+     mips_get_cprestore_base_and_offset which expects the frame information
+     to be filled in...  In fact mips_get_cprestore_base_and_offset only
+     needs the args_size and hard_frame_pointer_offset fields to be filled
+     in, which is why the global_pointer field is initialised here and not
+     earlier.  */
+  cfun->machine->global_pointer = mips_global_pointer ();
+
   offset = frame->args_size + frame->cprestore_size;
 
   /* Move above the local variables.  */
@@ -10520,12 +10551,6 @@ mips_compute_frame_info (void)
     frame->acc_save_offset = frame->acc_sp_offset - offset;
   if (frame->num_cop0_regs > 0)
     frame->cop0_save_offset = frame->cop0_sp_offset - offset;
-
-  /* MIPS16 code offsets the frame pointer by the size of the outgoing
-     arguments.  This tends to increase the chances of using unextended
-     instructions for local variables and incoming arguments.  */
-  if (TARGET_MIPS16)
-    frame->hard_frame_pointer_offset = frame->args_size;
 }
 
 /* Return the style of GP load sequence that is being used for the
@@ -13494,7 +13519,7 @@ mips_process_sync_loop (rtx_insn *insn, rtx *operands)
   /* When using branch likely (-mfix-r10000), the delay slot instruction
      will be annulled on false.  The normal delay slot instructions
      calculate the overall result of the atomic operation and must not
-     be annulled.  To ensure this behaviour unconditionally use a NOP
+     be annulled.  To ensure this behavior unconditionally use a NOP
      in the delay slot for the branch likely case.  */
 
   if (TARGET_CB_MAYBE)
@@ -13687,9 +13712,17 @@ mips_output_division (const char *division, rtx *operands)
 	}
       else
 	{
-	  output_asm_insn ("%(bne\t%2,%.,1f", operands);
-	  output_asm_insn (s, operands);
-	  s = "break\t7%)\n1:";
+	  if (flag_delayed_branch)
+	    {
+	      output_asm_insn ("%(bne\t%2,%.,1f", operands);
+	      output_asm_insn (s, operands);
+	      s = "break\t7%)\n1:";
+	    }
+	  else
+	    {
+	      output_asm_insn (s, operands);
+	      s = "bne\t%2,%.,1f\n\tnop\n\tbreak\t7\n1:";
+	    }
 	}
     }
   return s;
@@ -19088,7 +19121,7 @@ void mips_function_profiler (FILE *file)
 }
 
 /* Implement TARGET_SHIFT_TRUNCATION_MASK.  We want to keep the default
-   behaviour of TARGET_SHIFT_TRUNCATION_MASK for non-vector modes even
+   behavior of TARGET_SHIFT_TRUNCATION_MASK for non-vector modes even
    when TARGET_LOONGSON_VECTORS is true.  */
 
 static unsigned HOST_WIDE_INT
@@ -19883,7 +19916,8 @@ mips_lra_p (void)
 /* Implement TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS.  */
 
 static reg_class_t
-mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
+mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class,
+				      reg_class_t best_class ATTRIBUTE_UNUSED)
 {
   /* LRA will allocate an FPR for an integer mode pseudo instead of spilling
      to memory if an FPR is present in the allocno class.  It is rare that

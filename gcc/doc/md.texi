@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2015 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2016 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -3102,8 +3102,8 @@ Any VSX register if the -mvsx option was used or NO_REGS.
 
 When using any of the register constraints (@code{wa}, @code{wd},
 @code{wf}, @code{wg}, @code{wh}, @code{wi}, @code{wj}, @code{wk},
-@code{wl}, @code{wm}, @code{wp}, @code{wq}, @code{ws}, @code{wt},
-@code{wu}, @code{wv}, @code{ww}, or @code{wy})
+@code{wl}, @code{wm}, @code{wo}, @code{wp}, @code{wq}, @code{ws},
+@code{wt}, @code{wu}, @code{wv}, @code{ww}, or @code{wy})
 that take VSX registers, you must use @code{%x<n>} in the template so
 that the correct register is used.  Otherwise the register number
 output in the assembly file will be incorrect if an Altivec register
@@ -3174,6 +3174,9 @@ VSX register if direct move instructions are enabled, or NO_REGS.
 
 @item wn
 No register (NO_REGS).
+
+@item wo
+VSX register to use for ISA 3.0 vector instructions, or NO_REGS.
 
 @item wp
 VSX register to use for IEEE 128-bit floating point TFmode, or NO_REGS.
@@ -4097,7 +4100,7 @@ Integer constant in the range 0 @dots{} 127, for 128-bit shifts.
 Standard 80387 floating point constant.
 
 @item C
-Standard SSE floating point constant.
+SSE constant zero operand.
 
 @item e
 32-bit signed integer constant, or a symbolic reference known
@@ -4416,6 +4419,20 @@ memory address of this type.  If @samp{Q} is defined with
 memory operand, because @code{reload} knows it can simply copy the
 memory address into a base register if required.  This is analogous to
 the way an @samp{o} constraint can handle any memory operand.
+
+The syntax and semantics are otherwise identical to
+@code{define_constraint}.
+@end deffn
+
+@deffn {MD Expression} define_special_memory_constraint name docstring exp
+Use this expression for constraints that match a subset of all memory
+operands: that is, @code{reload} can not make them match by reloading
+the address as it is described for @code{define_memory_constraint} or
+such address reload is undesirable with the performance point of view.
+
+For example, @code{define_special_memory_constraint} can be useful if
+specifically aligned memory is necessary or desirable for some insn
+operand.
 
 The syntax and semantics are otherwise identical to
 @code{define_constraint}.
@@ -5004,33 +5021,6 @@ raised and a quiet @code{NaN} is returned.
 All operands have mode @var{m}, which is a scalar or vector
 floating-point mode.  These patterns are not allowed to @code{FAIL}.
 
-@cindex @code{reduc_smin_@var{m}} instruction pattern
-@cindex @code{reduc_smax_@var{m}} instruction pattern
-@item @samp{reduc_smin_@var{m}}, @samp{reduc_smax_@var{m}}
-Find the signed minimum/maximum of the elements of a vector. The vector is
-operand 1, and the result is stored in the least significant bits of
-operand 0 (also a vector). The output and input vector should have the same
-modes. These are legacy optabs, and platforms should prefer to implement
-@samp{reduc_smin_scal_@var{m}} and @samp{reduc_smax_scal_@var{m}}.
-
-@cindex @code{reduc_umin_@var{m}} instruction pattern
-@cindex @code{reduc_umax_@var{m}} instruction pattern
-@item @samp{reduc_umin_@var{m}}, @samp{reduc_umax_@var{m}}
-Find the unsigned minimum/maximum of the elements of a vector. The vector is
-operand 1, and the result is stored in the least significant bits of
-operand 0 (also a vector). The output and input vector should have the same
-modes. These are legacy optabs, and platforms should prefer to implement
-@samp{reduc_umin_scal_@var{m}} and @samp{reduc_umax_scal_@var{m}}.
-
-@cindex @code{reduc_splus_@var{m}} instruction pattern
-@cindex @code{reduc_uplus_@var{m}} instruction pattern
-@item @samp{reduc_splus_@var{m}}, @samp{reduc_uplus_@var{m}}
-Compute the sum of the signed/unsigned elements of a vector. The vector is
-operand 1, and the result is stored in the least significant bits of operand 0
-(also a vector). The output and input vector should have the same modes.
-These are legacy optabs, and platforms should prefer to implement
-@samp{reduc_plus_scal_@var{m}}.
-
 @cindex @code{reduc_smin_scal_@var{m}} instruction pattern
 @cindex @code{reduc_smax_scal_@var{m}} instruction pattern
 @item @samp{reduc_smin_scal_@var{m}}, @samp{reduc_smax_scal_@var{m}}
@@ -5293,7 +5283,9 @@ Arithmetic-shift operand 1 left by a number of bits specified by operand
 2, and store the result in operand 0.  Here @var{m} is the mode of
 operand 0 and operand 1; operand 2's mode is specified by the
 instruction pattern, and the compiler will convert the operand to that
-mode before generating the instruction.  The meaning of out-of-range shift
+mode before generating the instruction.  The shift or rotate expander
+or instruction pattern should explicitly specify the mode of the operand 2,
+it should never be @code{VOIDmode}.  The meaning of out-of-range shift
 counts can optionally be specified by @code{TARGET_SHIFT_TRUNCATION_MASK}.
 @xref{TARGET_SHIFT_TRUNCATION_MASK}.  Operand 2 is always a scalar type.
 
@@ -9436,7 +9428,7 @@ nondeterministic treatment means trying all alternatives, some of them
 may be rejected by reservations in the subsequent insns.
 
 @item
-@dfn{collapse-ndfa} modifies the behaviour of the generator when
+@dfn{collapse-ndfa} modifies the behavior of the generator when
 producing an automaton.  An additional state transition to collapse a
 nondeterministic @acronym{NDFA} state to a deterministic @acronym{DFA}
 state is generated.  It can be triggered by passing @code{const0_rtx} to

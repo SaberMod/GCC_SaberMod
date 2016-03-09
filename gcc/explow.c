@@ -1,5 +1,5 @@
 /* Subroutines for manipulating rtx's in semantically interesting ways.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -875,7 +875,7 @@ promote_ssa_mode (const_tree name, int *punsignedp)
 
 
 
-/* Controls the behaviour of {anti_,}adjust_stack.  */
+/* Controls the behavior of {anti_,}adjust_stack.  */
 static bool suppress_reg_args_size;
 
 /* A helper for adjust_stack and anti_adjust_stack.  */

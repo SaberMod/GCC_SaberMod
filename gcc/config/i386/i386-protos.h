@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC for IA-32.
-   Copyright (C) 1988-2015 Free Software Foundation, Inc.
+   Copyright (C) 1988-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -332,4 +332,3 @@ struct ix86_first_cycle_multipass_data_
 
 const addr_space_t ADDR_SPACE_SEG_FS = 1;
 const addr_space_t ADDR_SPACE_SEG_GS = 2;
-const addr_space_t ADDR_SPACE_SEG_TLS = 3;

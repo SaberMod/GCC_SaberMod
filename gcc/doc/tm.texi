@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2015 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2016 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -2853,15 +2853,15 @@ value that the middle-end intended.
 
 @end defmac
 
-@deftypefn {Target Hook} reg_class_t TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS (int, @var{reg_class_t})
+@deftypefn {Target Hook} reg_class_t TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS (int, @var{reg_class_t}, @var{reg_class_t})
 A target hook which can change allocno class for given pseudo from
-  allocno class calculated by IRA.
+  allocno and best class calculated by IRA.
   
   The default version of this target hook always returns given class.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_LRA_P (void)
-A target hook which returns true if we use LRA instead of reload pass.  It means that LRA was ported to the target.    The default version of this target hook returns always false.
+A target hook which returns true if we use LRA instead of reload pass.    The default version of this target hook returns always false, but new  ports should use LRA.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_REGISTER_PRIORITY (int)
@@ -4422,7 +4422,7 @@ saving and restoring an arbitrary return value.
 Normally, when a function returns a structure by memory, the address
 is passed as an invisible pointer argument, but the compiler also
 arranges to return the address from the function like it would a normal
-pointer return value.  Define this to true if that behaviour is
+pointer return value.  Define this to true if that behavior is
 undesirable on your target.
 @end deftypevr
 
@@ -5728,14 +5728,6 @@ This hook should complete calculations of the cost of vectorizing a loop or basi
 This hook should release @var{data} and any related data structures allocated by TARGET_VECTORIZE_INIT_COST.  The default releases the accumulator.
 @end deftypefn
 
-@deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_TM_LOAD (tree)
-This hook should return the built-in decl needed to load a vector of the given type within a transaction.
-@end deftypefn
-
-@deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_TM_STORE (tree)
-This hook should return the built-in decl needed to store a vector of the given type within a transaction.
-@end deftypefn
-
 @deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_GATHER (const_tree @var{mem_vectype}, const_tree @var{index_type}, int @var{scale})
 Target builtin that implements vector gather operation.  @var{mem_vectype}
 is the vector type of the load and @var{index_type} is scalar type of
@@ -5775,11 +5767,12 @@ to use it.
 @deftypefn {Target Hook} bool TARGET_GOACC_VALIDATE_DIMS (tree @var{decl}, int *@var{dims}, int @var{fn_level})
 This hook should check the launch dimensions provided for an OpenACC
 compute region, or routine.  Defaulted values are represented as -1
-and non-constant values as 0. The @var{fn_level} is negative for the
+and non-constant values as 0.  The @var{fn_level} is negative for the
 function corresponding to the compute region.  For a routine is is the
-outermost level at which partitioned execution may be spawned.  It
-should fill in anything that needs to default to non-unity and verify
-non-defaults.  Diagnostics should be issued as appropriate.  Return
+outermost level at which partitioned execution may be spawned.  The hook
+should verify non-default values.  If DECL is NULL, global defaults
+are being validated and unspecified defaults should be filled in.
+Diagnostics should be issued as appropriate.  Return
 true, if changes have been made.  You must override this hook to
 provide dimensions larger than 1.
 @end deftypefn
@@ -11378,27 +11371,27 @@ modes and they have different conditional execution capability, such as ARM.
 
 @deftypefn {Target Hook} rtx TARGET_GEN_CCMP_FIRST (rtx *@var{prep_seq}, rtx *@var{gen_seq}, int @var{code}, tree @var{op0}, tree @var{op1})
 This function prepares to emit a comparison insn for the first compare in a
- sequence of conditional comparisions.  It returns a appropriate @code{CC}
- for passing to @code{gen_ccmp_next} or @code{cbranch_optab}.  The insns to
- prepare the compare are saved in @var{prep_seq} and the compare insns are
- saved in @var{gen_seq}.  They will be emitted when all the compares in the
- the conditional comparision are generated without error.  @var{code} is
- the @code{rtx_code} of the compare for @var{op0} and @var{op1}.
+ sequence of conditional comparisions.  It returns an appropriate comparison
+ with @code{CC} for passing to @code{gen_ccmp_next} or @code{cbranch_optab}.
+ The insns to prepare the compare are saved in @var{prep_seq} and the compare
+ insns are saved in @var{gen_seq}.  They will be emitted when all the
+ compares in the the conditional comparision are generated without error.
+ @var{code} is the @code{rtx_code} of the compare for @var{op0} and @var{op1}.
 @end deftypefn
 
 @deftypefn {Target Hook} rtx TARGET_GEN_CCMP_NEXT (rtx *@var{prep_seq}, rtx *@var{gen_seq}, rtx @var{prev}, int @var{cmp_code}, tree @var{op0}, tree @var{op1}, int @var{bit_code})
-This function prepare to emit a conditional comparison within a sequence of
- conditional comparisons.  It returns a appropriate @code{CC} for passing to
- @code{gen_ccmp_next} or @code{cbranch_optab}.  The insns to prepare the
- compare are saved in @var{prep_seq} and the compare insns are saved in
- @var{gen_seq}.  They will be emitted when all the compares in the conditional
- comparision are generated without error.  The @var{prev} expression is the
- result of a prior call to @code{gen_ccmp_first} or @code{gen_ccmp_next}.  It
- may return @code{NULL} if the combination of @var{prev} and this comparison is
- not supported, otherwise the result must be appropriate for passing to
- @code{gen_ccmp_next} or @code{cbranch_optab}.  @var{code} is the
- @code{rtx_code} of the compare for @var{op0} and @var{op1}.  @var{bit_code}
- is @code{AND} or @code{IOR}, which is the op on the two compares.
+This function prepares to emit a conditional comparison within a sequence
+ of conditional comparisons.  It returns an appropriate comparison with
+ @code{CC} for passing to @code{gen_ccmp_next} or @code{cbranch_optab}.
+ The insns to prepare the compare are saved in @var{prep_seq} and the compare
+ insns are saved in @var{gen_seq}.  They will be emitted when all the
+ compares in the conditional comparision are generated without error.  The
+ @var{prev} expression is the result of a prior call to @code{gen_ccmp_first}
+ or @code{gen_ccmp_next}.  It may return @code{NULL} if the combination of
+ @var{prev} and this comparison is not supported, otherwise the result must
+ be appropriate for passing to @code{gen_ccmp_next} or @code{cbranch_optab}.
+ @var{code} is the @code{rtx_code} of the compare for @var{op0} and @var{op1}.
+ @var{bit_code} is @code{AND} or @code{IOR}, which is the op on the compares.
 @end deftypefn
 
 @deftypefn {Target Hook} unsigned TARGET_LOOP_UNROLL_ADJUST (unsigned @var{nunroll}, struct loop *@var{loop})

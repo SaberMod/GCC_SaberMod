@@ -1,5 +1,5 @@
 /* Language-independent diagnostic subroutines for the GNU Compiler Collection
-   Copyright (C) 1999-2015 Free Software Foundation, Inc.
+   Copyright (C) 1999-2016 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
 This file is part of GCC.
@@ -158,6 +158,7 @@ diagnostic_initialize (diagnostic_context *context, int n_opts)
   context->max_errors = 0;
   context->internal_error = NULL;
   diagnostic_starter (context) = default_diagnostic_starter;
+  context->start_span = default_diagnostic_start_span_fn;
   diagnostic_finalizer (context) = default_diagnostic_finalizer;
   context->option_enabled = NULL;
   context->option_state = NULL;
@@ -274,8 +275,34 @@ diagnostic_get_color_for_kind (diagnostic_t kind)
   return diagnostic_kind_color[kind];
 }
 
-/* Return a malloc'd string describing a location.  The caller is
-   responsible for freeing the memory.  */
+/* Return a malloc'd string describing a location e.g. "foo.c:42:10".
+   The caller is responsible for freeing the memory.  */
+
+static char *
+diagnostic_get_location_text (diagnostic_context *context,
+			      expanded_location s)
+{
+  pretty_printer *pp = context->printer;
+  const char *locus_cs = colorize_start (pp_show_color (pp), "locus");
+  const char *locus_ce = colorize_stop (pp_show_color (pp));
+
+  if (s.file == NULL)
+    return build_message_string ("%s%s:%s", locus_cs, progname, locus_ce);
+
+  if (!strcmp (s.file, N_("<built-in>")))
+    return build_message_string ("%s%s:%s", locus_cs, s.file, locus_ce);
+
+  if (context->show_column)
+    return build_message_string ("%s%s:%d:%d:%s", locus_cs, s.file, s.line,
+				 s.column, locus_ce);
+  else
+    return build_message_string ("%s%s:%d:%s", locus_cs, s.file, s.line,
+				 locus_ce);
+}
+
+/* Return a malloc'd string describing a location and the severity of the
+   diagnostic, e.g. "foo.c:42:10: error: ".  The caller is responsible for
+   freeing the memory.  */
 char *
 diagnostic_build_prefix (diagnostic_context *context,
 			 const diagnostic_info *diagnostic)
@@ -290,7 +317,6 @@ diagnostic_build_prefix (diagnostic_context *context,
 
   const char *text = _(diagnostic_kind_text[diagnostic->kind]);
   const char *text_cs = "", *text_ce = "";
-  const char *locus_cs, *locus_ce;
   pretty_printer *pp = context->printer;
 
   if (diagnostic_kind_color[diagnostic->kind])
@@ -299,22 +325,14 @@ diagnostic_build_prefix (diagnostic_context *context,
 				diagnostic_kind_color[diagnostic->kind]);
       text_ce = colorize_stop (pp_show_color (pp));
     }
-  locus_cs = colorize_start (pp_show_color (pp), "locus");
-  locus_ce = colorize_stop (pp_show_color (pp));
 
   expanded_location s = diagnostic_expand_location (diagnostic);
-  return
-    (s.file == NULL
-     ? build_message_string ("%s%s:%s %s%s%s", locus_cs, progname, locus_ce,
-			     text_cs, text, text_ce)
-     : !strcmp (s.file, N_("<built-in>"))
-     ? build_message_string ("%s%s:%s %s%s%s", locus_cs, s.file, locus_ce,
-			     text_cs, text, text_ce)
-     : context->show_column
-     ? build_message_string ("%s%s:%d:%d:%s %s%s%s", locus_cs, s.file, s.line,
-			     s.column, locus_ce, text_cs, text, text_ce)
-     : build_message_string ("%s%s:%d:%s %s%s%s", locus_cs, s.file, s.line,
-			     locus_ce, text_cs, text, text_ce));
+  char *location_text = diagnostic_get_location_text (context, s);
+
+  char *result = build_message_string ("%s %s%s%s", location_text,
+				       text_cs, text, text_ce);
+  free (location_text);
+  return result;
 }
 
 /* Functions at which to stop the backtrace print.  It's not
@@ -541,12 +559,22 @@ default_diagnostic_starter (diagnostic_context *context,
 }
 
 void
+default_diagnostic_start_span_fn (diagnostic_context *context,
+				  expanded_location exploc)
+{
+  pp_set_prefix (context->printer,
+		 diagnostic_get_location_text (context, exploc));
+  pp_string (context->printer, "");
+  pp_newline (context->printer);
+}
+
+void
 default_diagnostic_finalizer (diagnostic_context *context,
 			      diagnostic_info *diagnostic)
 {
   diagnostic_show_locus (context, diagnostic);
   pp_destroy_prefix (context->printer);
-  pp_newline_and_flush (context->printer);
+  pp_flush (context->printer);
 }
 
 /* Interface to specify diagnostic kind overrides.  Returns the
@@ -879,37 +907,6 @@ diagnostic_append_note (diagnostic_context *context,
   saved_prefix = pp_get_prefix (context->printer);
   pp_set_prefix (context->printer,
                  diagnostic_build_prefix (context, &diagnostic));
-  pp_newline (context->printer);
-  pp_format (context->printer, &diagnostic.message);
-  pp_output_formatted_text (context->printer);
-  pp_destroy_prefix (context->printer);
-  pp_set_prefix (context->printer, saved_prefix);
-  diagnostic_show_locus (context, &diagnostic);
-  va_end (ap);
-}
-
-/* Same as diagnostic_append_note, but at RICHLOC. */
-
-void
-diagnostic_append_note_at_rich_loc (diagnostic_context *context,
-				    rich_location *richloc,
-				    const char * gmsgid, ...)
-{
-  diagnostic_info diagnostic;
-  va_list ap;
-  const char *saved_prefix;
-
-  va_start (ap, gmsgid);
-  diagnostic_set_info (&diagnostic, gmsgid, &ap, richloc, DK_NOTE);
-  if (context->inhibit_notes_p)
-    {
-      va_end (ap);
-      return;
-    }
-  saved_prefix = pp_get_prefix (context->printer);
-  pp_set_prefix (context->printer,
-                 diagnostic_build_prefix (context, &diagnostic));
-  pp_newline (context->printer);
   pp_format (context->printer, &diagnostic.message);
   pp_output_formatted_text (context->printer);
   pp_destroy_prefix (context->printer);

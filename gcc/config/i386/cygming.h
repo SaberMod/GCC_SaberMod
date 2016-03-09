@@ -1,6 +1,6 @@
 /* Operating system specific defines to be used when targeting GCC for
    hosting on Windows32, using a Unix style C library and tools.
-   Copyright (C) 1995-2015 Free Software Foundation, Inc.
+   Copyright (C) 1995-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -38,6 +38,11 @@ along with GCC; see the file COPYING3.  If not see
    Force the use of different mechanisms to allocate aligned local data.  */
 #undef MAX_STACK_ALIGNMENT
 #define MAX_STACK_ALIGNMENT  (TARGET_SEH ? 128 : MAX_OFILE_ALIGNMENT)
+
+/* 32-bit Windows aligns the stack on a 4-byte boundary but SSE instructions
+   may require 16-byte alignment.  */
+#undef STACK_REALIGN_DEFAULT
+#define STACK_REALIGN_DEFAULT TARGET_SSE
 
 /* Support hooks for SEH.  */
 #undef  TARGET_ASM_UNWIND_EMIT
@@ -432,6 +437,7 @@ do {						\
       fputc ('\n', (FILE));           \
     }                                 \
   while (0)
+
 #endif /* HAVE_GAS_WEAK */
 
 /* FIXME: SUPPORTS_WEAK && TARGET_HAVE_NAMED_SECTIONS is true,

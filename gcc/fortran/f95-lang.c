@@ -1,5 +1,5 @@
 /* gfortran backend interface
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook.
 
 This file is part of GCC.
@@ -491,9 +491,8 @@ gfc_init_decl_processing (void)
   global_binding_level = current_binding_level;
 
   /* Build common tree nodes. char_type_node is unsigned because we
-     only use it for actual characters, not for INTEGER(1). Also, we
-     want double_type_node to actually have double precision.  */
-  build_common_tree_nodes (false, false);
+     only use it for actual characters, not for INTEGER(1).  */
+  build_common_tree_nodes (false);
 
   void_list_node = build_tree_list (NULL_TREE, void_type_node);
 

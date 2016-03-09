@@ -1,5 +1,5 @@
 /* Graphite polyhedral representation.
-   Copyright (C) 2009-2015 Free Software Foundation, Inc.
+   Copyright (C) 2009-2016 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <sebastian.pop@amd.com> and
    Tobias Grosser <grosser@fim.uni-passau.de>.
 
@@ -212,7 +212,6 @@ struct poly_dr
 
 void new_poly_dr (poly_bb_p, gimple *, enum poly_dr_type,
 		  isl_map *, isl_set *);
-void free_poly_dr (poly_dr_p);
 void debug_pdr (poly_dr_p);
 void print_pdr (FILE *, poly_dr_p);
 
@@ -271,10 +270,9 @@ struct poly_bb
      The number of variables in the DOMAIN may change and is not
      related to the number of loops in the original code.  */
   isl_set *domain;
-
-  /* The data references we access.  */
-  vec<poly_dr_p> drs;
-
+#ifdef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
+  isl_set *iterators;
+#else
   /* The original scattering.  */
   isl_map *schedule;
 
@@ -283,9 +281,10 @@ struct poly_bb
 
   /* A copy of the transformed scattering.  */
   isl_map *saved;
+#endif
 
-  /* True when this PBB contains only a reduction statement.  */
-  bool is_reduction;
+  /* The data references we access.  */
+  vec<poly_dr_p> drs;
 
   /* The last basic block generated for this pbb.  */
   basic_block new_bb;
@@ -294,11 +293,8 @@ struct poly_bb
 #define PBB_BLACK_BOX(PBB) ((gimple_poly_bb_p) PBB->black_box)
 #define PBB_SCOP(PBB) (PBB->scop)
 #define PBB_DRS(PBB) (PBB->drs)
-#define PBB_IS_REDUCTION(PBB) (PBB->is_reduction)
 
 extern poly_bb_p new_poly_bb (scop_p, gimple_poly_bb_p);
-extern void free_poly_bb (poly_bb_p);
-extern void debug_loop_vec (poly_bb_p);
 extern void print_pbb_domain (FILE *, poly_bb_p);
 extern void print_pbb (FILE *, poly_bb_p);
 extern void print_scop_context (FILE *, scop_p);
@@ -320,18 +316,19 @@ extern void print_isl_map (FILE *, isl_map *);
 extern void print_isl_union_map (FILE *, isl_union_map *);
 extern void print_isl_aff (FILE *, isl_aff *);
 extern void print_isl_constraint (FILE *, isl_constraint *);
+extern void print_isl_schedule (FILE *, isl_schedule *);
+extern void debug_isl_schedule (isl_schedule *);
+extern void print_isl_ast (FILE *, isl_ast_node *);
+extern void debug_isl_ast (isl_ast_node *);
 extern void debug_isl_set (isl_set *);
 extern void debug_isl_map (isl_map *);
 extern void debug_isl_union_map (isl_union_map *);
 extern void debug_isl_aff (isl_aff *);
 extern void debug_isl_constraint (isl_constraint *);
-extern int scop_do_interchange (scop_p);
-extern int scop_do_strip_mine (scop_p, int);
-extern bool scop_do_block (scop_p);
-extern bool flatten_all_loops (scop_p);
-extern bool optimize_isl (scop_p);
-extern void pbb_number_of_iterations_at_time (poly_bb_p, graphite_dim_t, mpz_t);
 extern void debug_gmp_value (mpz_t);
+extern void debug_scop_pbb (scop_p scop, int i);
+extern void print_schedule_ast (FILE *, __isl_keep isl_schedule *, scop_p);
+extern void debug_schedule_ast (__isl_keep isl_schedule *, scop_p);
 
 /* The basic block of the PBB.  */
 
@@ -431,8 +428,16 @@ struct scop
   /* The context used internally by isl.  */
   isl_ctx *isl_context;
 
+#ifdef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
+  /* SCoP original schedule.  */
+  isl_schedule *original_schedule;
+
+  /* SCoP transformed schedule.  */
+  isl_schedule *transformed_schedule;
+#else
   /* SCoP final schedule.  */
   isl_schedule *schedule;
+#endif
 
   /* The data dependence relation among the data references in this scop.  */
   isl_union_map *dependence;
@@ -442,10 +447,6 @@ extern scop_p new_scop (edge, edge);
 extern void free_scop (scop_p);
 extern gimple_poly_bb_p new_gimple_poly_bb (basic_block, vec<data_reference_p>,
 					    vec<scalar_use>, vec<tree>);
-extern void free_gimple_poly_bb (gimple_poly_bb_p);
-extern void print_generated_program (FILE *, scop_p);
-extern void debug_generated_program (scop_p);
-extern int unify_scattering_dimensions (scop_p);
 extern bool apply_poly_transforms (scop_p);
 
 /* Set the region of SCOP to REGION.  */
@@ -472,8 +473,11 @@ scop_set_nb_params (scop_p scop, graphite_dim_t nb_params)
   scop->nb_params = nb_params;
 }
 
-isl_union_map *
-scop_get_dependences (scop_p scop);
+#ifdef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
+extern void scop_get_dependences (scop_p scop);
+#else
+extern isl_union_map *scop_get_dependences (scop_p scop);
+#endif
 
 bool
 carries_deps (__isl_keep isl_union_map *schedule,
@@ -482,9 +486,9 @@ carries_deps (__isl_keep isl_union_map *schedule,
 
 extern bool build_poly_scop (scop_p);
 extern bool graphite_regenerate_ast_isl (scop_p);
-
 extern void build_scops (vec<scop_p> *);
 extern void dot_all_sese (FILE *, vec<sese_l> &);
 extern void dot_sese (sese_l &);
 extern void dot_cfg ();
+
 #endif

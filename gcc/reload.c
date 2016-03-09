@@ -1,5 +1,5 @@
 /* Search an insn for pseudo regs that must be in hard regs and are not.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -3471,6 +3471,23 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 			offmemok = 1;
 			break;
 
+		      case CT_SPECIAL_MEMORY:
+			if (force_reload)
+			  break;
+			if (constraint_satisfied_p (operand, cn))
+			  win = 1;
+			/* Likewise if the address will be reloaded because
+			   reg_equiv_address is nonzero.  For reg_equiv_mem
+			   we have to check.  */
+			else if (REG_P (operand)
+				 && REGNO (operand) >= FIRST_PSEUDO_REGISTER
+				 && reg_renumber[REGNO (operand)] < 0
+				 && reg_equiv_mem (REGNO (operand)) != 0
+				 && (constraint_satisfied_p
+				     (reg_equiv_mem (REGNO (operand)), cn)))
+			  win = 1;
+			break;
+
 		      case CT_ADDRESS:
 			if (constraint_satisfied_p (operand, cn))
 			  win = 1;
@@ -5817,14 +5834,16 @@ find_reloads_address_1 (machine_mode mode, addr_space_t as,
 			   ? XEXP (x, 0)
 			   : reg_equiv_mem (regno));
 	      enum insn_code icode = optab_handler (add_optab, GET_MODE (x));
-	      if (insn && NONJUMP_INSN_P (insn) && equiv
-		  && memory_operand (equiv, GET_MODE (equiv))
+	      if (insn && NONJUMP_INSN_P (insn)
 #if HAVE_cc0
 		  && ! sets_cc0_p (PATTERN (insn))
 #endif
-		  && ! (icode != CODE_FOR_nothing
-			&& insn_operand_matches (icode, 0, equiv)
-			&& insn_operand_matches (icode, 1, equiv))
+		  && (regno < FIRST_PSEUDO_REGISTER
+		      || (equiv
+			  && memory_operand (equiv, GET_MODE (equiv))
+			  && ! (icode != CODE_FOR_nothing
+				&& insn_operand_matches (icode, 0, equiv)
+				&& insn_operand_matches (icode, 1, equiv))))
 		  /* Using RELOAD_OTHER means we emit this and the reload we
 		     made earlier in the wrong order.  */
 		  && !reloaded_inner_of_autoinc)

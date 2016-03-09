@@ -225,6 +225,7 @@ HOST_EXPORTS = \
 	GMPINC="$(HOST_GMPINC)"; export GMPINC; \
 	ISLLIBS="$(HOST_ISLLIBS)"; export ISLLIBS; \
 	ISLINC="$(HOST_ISLINC)"; export ISLINC; \
+	ISLVER="$(HOST_ISLVER)"; export ISLVER; \
 	LIBELFLIBS="$(HOST_LIBELFLIBS)"; export LIBELFLIBS; \
 	LIBELFINC="$(HOST_LIBELFINC)"; export LIBELFINC; \
 	XGCC_FLAGS_FOR_TARGET="$(XGCC_FLAGS_FOR_TARGET)"; export XGCC_FLAGS_FOR_TARGET; \
@@ -318,6 +319,7 @@ HOST_GMPINC = @gmpinc@
 # Where to find isl
 HOST_ISLLIBS = @isllibs@
 HOST_ISLINC = @islinc@
+HOST_ISLVER = @islver@
 
 # Where to find libelf
 HOST_LIBELFLIBS = @libelflibs@
@@ -590,7 +592,8 @@ BASE_FLAGS_TO_PASS =[+ FOR flags_to_pass +][+ IF optional +] \
 	$(CXX_FOR_TARGET_FLAG_TO_PASS) \
 	"TFLAGS=$(TFLAGS)" \
 	"CONFIG_SHELL=$(SHELL)" \
-	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" 
+	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" \
+	$(if $(LSAN_OPTIONS),"LSAN_OPTIONS=$(LSAN_OPTIONS)")
 
 # We leave this in just in case, but it is not needed anymore.
 RECURSE_FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS)

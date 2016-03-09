@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC for IA-32.
-   Copyright (C) 1988-2015 Free Software Foundation, Inc.
+   Copyright (C) 1988-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -158,6 +158,9 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_CLWB_P(x)	TARGET_ISA_CLWB_P(x)
 #define TARGET_MWAITX	TARGET_ISA_MWAITX
 #define TARGET_MWAITX_P(x)	TARGET_ISA_MWAITX_P(x)
+#define TARGET_PKU	TARGET_ISA_PKU
+#define TARGET_PKU_P(x)	TARGET_ISA_PKU_P(x)
+
 
 #define TARGET_LP64	TARGET_ABI_64
 #define TARGET_LP64_P(x)	TARGET_ABI_64_P(x)
@@ -496,6 +499,8 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
     ix86_tune_features[X86_TUNE_ADJUST_UNROLL]
 #define TARGET_AVOID_FALSE_DEP_FOR_BMI \
 	ix86_tune_features[X86_TUNE_AVOID_FALSE_DEP_FOR_BMI]
+#define TARGET_ONE_IF_CONV_INSN \
+	ix86_tune_features[X86_TUNE_ONE_IF_CONV_INSN]
 
 /* Feature tests against the various architecture variations.  */
 enum ix86_arch_indices {
@@ -688,8 +693,11 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    only SSE, rounding is correct; when using both SSE and the FPU,
    the rounding precision is indeterminate, since either may be chosen
    apparently at random.  */
-#define TARGET_FLT_EVAL_METHOD \
-  (TARGET_MIX_SSE_I387 ? -1 : TARGET_SSE_MATH ? 0 : 2)
+#define TARGET_FLT_EVAL_METHOD						\
+  (TARGET_80387								\
+   ? (TARGET_MIX_SSE_I387 ? -1						\
+      : (TARGET_SSE_MATH ? (TARGET_SSE2 ? 0 : -1) : 2))			\
+   : 0)
 
 /* Whether to allow x87 floating-point arithmetic on MODE (one of
    SFmode, DFmode and XFmode) in the current excess precision
@@ -1613,7 +1621,7 @@ enum reg_class
    function prologue should increase the stack frame size by this amount.  
 
    In 32bit mode enabling argument accumulation results in about 5% code size
-   growth becuase move instructions are less compact than push.  In 64bit
+   growth because move instructions are less compact than push.  In 64bit
    mode the difference is less drastic but visible.  
 
    FIXME: Unlike earlier implementations, the size of unwind info seems to
@@ -2486,6 +2494,10 @@ struct GTY(()) machine_function {
      expander to determine the style used.  */
   BOOL_BITFIELD use_fast_prologue_epilogue : 1;
 
+  /* Nonzero if the current function calls pc thunk and
+     must not use the red zone.  */
+  BOOL_BITFIELD pc_thunk_call_expanded : 1;
+
   /* If true, the current function needs the default PIC register, not
      an alternate register (on x86) and must not use the red zone (on
      x86_64), even if it's a leaf function.  We don't want the
@@ -2525,6 +2537,7 @@ struct GTY(()) machine_function {
 #define ix86_varargs_fpr_size (cfun->machine->varargs_fpr_size)
 #define ix86_optimize_mode_switching (cfun->machine->optimize_mode_switching)
 #define ix86_current_function_needs_cld (cfun->machine->needs_cld)
+#define ix86_pc_thunk_call_expanded (cfun->machine->pc_thunk_call_expanded)
 #define ix86_tls_descriptor_calls_expanded_in_cfun \
   (cfun->machine->tls_descriptor_call_expanded_p)
 /* Since tls_descriptor_call_expanded is not cleared, even if all TLS

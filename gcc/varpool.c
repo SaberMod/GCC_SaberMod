@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -158,7 +158,6 @@ varpool_node::get_create (tree decl)
 	  g->have_offload = true;
 	  if (!in_lto_p)
 	    vec_safe_push (offload_vars, decl);
-	  node->force_output = 1;
 	}
     }
 
@@ -587,9 +586,7 @@ varpool_node::assemble_decl (void)
       /* After the parser has generated debugging information, augment
 	 this information with any new location/etc information that may
 	 have become available after the compilation proper.  */
-      timevar_start (TV_PHASE_DBGINFO);
       debug_hooks->late_global_decl (decl);
-      timevar_stop (TV_PHASE_DBGINFO);
       return true;
     }
 

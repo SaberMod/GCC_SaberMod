@@ -1,4 +1,4 @@
-/* Copyright (C) 2012-2015 Free Software Foundation, Inc.
+/* Copyright (C) 2012-2016 Free Software Foundation, Inc.
    Contributed by Torvald Riegel <triegel@redhat.com>.
 
    This file is part of the GNU Transactional Memory Library (libitm).
@@ -513,6 +513,21 @@ public:
     if (!tx->writelog.size())
       {
         tx->readlog.clear();
+        // We still need to ensure privatization safety, unfortunately.  While
+        // we cannot have privatized anything by ourselves (because we are not
+        // an update transaction), we can have observed the commits of
+        // another update transaction that privatized something.  Because any
+        // commit happens before ensuring privatization, our snapshot and
+        // commit can thus have happened before ensuring privatization safety
+        // for this commit/snapshot time.  Therefore, before we can return to
+        // nontransactional code that might use the privatized data, we must
+        // ensure privatization safety for our snapshot time.
+        // This still seems to be better than not allowing use of the
+        // snapshot time before privatization safety has been ensured because
+        // we at least can run transactions such as this one, and in the
+        // meantime the transaction producing this commit time might have
+        // finished ensuring privatization safety for it.
+        priv_time = tx->shared_state.load(memory_order_relaxed);
         return true;
       }
 
@@ -602,6 +617,24 @@ public:
     // We're done, clear the logs.
     tx->writelog.clear();
     tx->readlog.clear();
+  }
+
+  virtual bool snapshot_most_recent()
+  {
+    // This is the same code as in extend() except that we do not restart
+    // on failure but simply return the result, and that we don't validate
+    // if our snapshot is already most recent.
+    gtm_thread* tx = gtm_thr();
+    gtm_word snapshot = o_ml_mg.time.load(memory_order_acquire);
+    if (snapshot == tx->shared_state.load(memory_order_relaxed))
+      return true;
+    if (!validate(tx))
+      return false;
+
+    // Update our public snapshot time.  Necessary so that we do not prevent
+    // other transactions from ensuring privatization safety.
+    tx->shared_state.store(snapshot, memory_order_release);
+    return true;
   }
 
   virtual bool supports(unsigned number_of_threads)

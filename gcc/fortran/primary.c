@@ -1,5 +1,5 @@
 /* Primary expression subroutines
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -1552,6 +1552,12 @@ match_actual_arg (gfc_expr **result)
 
 	  sym = symtree->n.sym;
 	  gfc_set_sym_referenced (sym);
+	  if (sym->attr.flavor == FL_NAMELIST)
+	    {
+	      gfc_error ("Namelist '%s' can not be an argument at %L",
+	      sym->name, &where);
+	      break;
+	    }
 	  if (sym->attr.flavor != FL_PROCEDURE
 	      && sym->attr.flavor != FL_UNKNOWN)
 	    break;
@@ -2194,7 +2200,7 @@ check_substring:
 symbol_attribute
 gfc_variable_attr (gfc_expr *expr, gfc_typespec *ts)
 {
-  int dimension, codimension, pointer, allocatable, target, n;
+  int dimension, codimension, pointer, allocatable, target;
   symbol_attribute attr;
   gfc_ref *ref;
   gfc_symbol *sym;
@@ -2253,22 +2259,9 @@ gfc_variable_attr (gfc_expr *expr, gfc_typespec *ts)
 	  case AR_UNKNOWN:
 	    /* If any of start, end or stride is not integer, there will
 	       already have been an error issued.  */
-	    for (n = 0; n < ref->u.ar.as->rank; n++)
-	      {
-		int errors;
-		gfc_get_errors (NULL, &errors);
-		if (((ref->u.ar.start[n]
-		      && ref->u.ar.start[n]->ts.type == BT_UNKNOWN)
-		     ||
-		     (ref->u.ar.end[n]
-		      && ref->u.ar.end[n]->ts.type == BT_UNKNOWN)
-		     ||
-		     (ref->u.ar.stride[n]
-		      && ref->u.ar.stride[n]->ts.type == BT_UNKNOWN))
-		    && errors > 0)
-		  break;
-	      }
-	    if (n == ref->u.ar.as->rank)
+	    int errors;
+	    gfc_get_errors (NULL, &errors);
+	    if (errors == 0)
 	      gfc_internal_error ("gfc_variable_attr(): Bad array reference");
 	  }
 
@@ -3230,6 +3223,10 @@ gfc_match_rvalue (gfc_expr **result)
 	}
 
       m = gfc_match_actual_arglist (0, &e->value.function.actual);
+      break;
+
+    case FL_NAMELIST:
+      m = MATCH_ERROR;
       break;
 
     default:

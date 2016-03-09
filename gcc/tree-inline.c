@@ -1,5 +1,5 @@
 /* Tree inlining.
-   Copyright (C) 2001-2015 Free Software Foundation, Inc.
+   Copyright (C) 2001-2016 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -340,8 +340,17 @@ remap_decl (tree decl, copy_body_data *id)
       return decl;
     }
 
-  /* If we didn't already have an equivalent for this declaration,
-     create one now.  */
+  /* When remapping a type within copy_gimple_seq_and_replace_locals, all
+     necessary DECLs have already been remapped and we do not want to duplicate
+     a decl coming from outside of the sequence we are copying.  */
+  if (!n
+      && id->prevent_decl_creation_for_types
+      && id->remapping_type_depth > 0
+      && (VAR_P (decl) || TREE_CODE (decl) == PARM_DECL))
+    return decl;
+
+  /* If we didn't already have an equivalent for this declaration, create one
+     now.  */
   if (!n)
     {
       /* Make a copy of the variable or label.  */
@@ -1257,7 +1266,12 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 	  /* Handle the case where we substituted an INDIRECT_REF
 	     into the operand of the ADDR_EXPR.  */
 	  if (TREE_CODE (TREE_OPERAND (*tp, 0)) == INDIRECT_REF)
-	    *tp = TREE_OPERAND (TREE_OPERAND (*tp, 0), 0);
+	    {
+	      tree t = TREE_OPERAND (TREE_OPERAND (*tp, 0), 0);
+	      if (TREE_TYPE (t) != TREE_TYPE (*tp))
+		t = fold_convert (remap_type (TREE_TYPE (*tp), id), t);
+	      *tp = t;
+	    }
 	  else
 	    recompute_tree_invariant_for_addr_expr (*tp);
 
@@ -1518,13 +1532,15 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
 	    gtransaction *new_trans_stmt;
 	    s1 = remap_gimple_seq (gimple_transaction_body (old_trans_stmt),
 				   id);
-	    copy = new_trans_stmt
-	      = gimple_build_transaction (
-		  s1,
-		  gimple_transaction_label (old_trans_stmt));
-	    gimple_transaction_set_subcode (
-              new_trans_stmt,
+	    copy = new_trans_stmt = gimple_build_transaction (s1);
+	    gimple_transaction_set_subcode (new_trans_stmt,
 	      gimple_transaction_subcode (old_trans_stmt));
+	    gimple_transaction_set_label_norm (new_trans_stmt,
+	      gimple_transaction_label_norm (old_trans_stmt));
+	    gimple_transaction_set_label_uninst (new_trans_stmt,
+	      gimple_transaction_label_uninst (old_trans_stmt));
+	    gimple_transaction_set_label_over (new_trans_stmt,
+	      gimple_transaction_label_over (old_trans_stmt));
 	  }
 	  break;
 
@@ -4419,7 +4435,7 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
 
       if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn))
           /* For extern inline functions that get redefined we always
-	     silently ignored always_inline flag. Better behaviour would
+	     silently ignored always_inline flag. Better behavior would
 	     be to be able to keep both bodies and use extern inline body
 	     for inlining, but we can't do that because frontends overwrite
 	     the body.  */
@@ -5223,8 +5239,19 @@ replace_locals_stmt (gimple_stmt_iterator *gsip,
       /* This will remap a lot of the same decls again, but this should be
 	 harmless.  */
       if (gimple_bind_vars (stmt))
-	gimple_bind_set_vars (stmt, remap_decls (gimple_bind_vars (stmt),
-						 NULL, id));
+	{
+	  tree old_var, decls = gimple_bind_vars (stmt);
+
+	  for (old_var = decls; old_var; old_var = DECL_CHAIN (old_var))
+	    if (!can_be_nonlocal (old_var, id)
+		&& ! variably_modified_type_p (TREE_TYPE (old_var), id->src_fn))
+	      remap_decl (old_var, id);
+
+	  gcc_checking_assert (!id->prevent_decl_creation_for_types);
+	  id->prevent_decl_creation_for_types = true;
+	  gimple_bind_set_vars (stmt, remap_decls (decls, NULL, id));
+	  id->prevent_decl_creation_for_types = false;
+	}
     }
 
   /* Keep iterating.  */

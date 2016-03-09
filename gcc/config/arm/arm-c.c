@@ -1,4 +1,4 @@
-/* Copyright (C) 2007-2015 Free Software Foundation, Inc.
+/* Copyright (C) 2007-2016 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -23,6 +23,7 @@
 #include "c-family/c-common.h"
 #include "tm_p.h"
 #include "c-family/c-pragma.h"
+#include "stringpool.h"
 
 /* Output C specific EABI object attributes.  These can not be done in
    arm.c because they require information from the C frontend.  */
@@ -163,7 +164,7 @@ arm_cpu_builtins (struct cpp_reader* pfile)
   if (arm_arch_iwmmxt2)
     builtin_define ("__IWMMXT2__");
   /* ARMv6KZ was originally identified as the misspelled __ARM_ARCH_6ZK__.  To
-     preserve the existing behaviour, the misspelled feature macro must still be
+     preserve the existing behavior, the misspelled feature macro must still be
      defined.  */
   if (arm_arch6kz)
     builtin_define ("__ARM_ARCH_6ZK__");
@@ -194,10 +195,11 @@ arm_cpu_cpp_builtins (struct cpp_reader * pfile)
 /* Hook to validate the current #pragma GCC target and set the arch custom
    mode state.  If ARGS is NULL, then POP_TARGET is used to reset
    the options.  */
+
 static bool
 arm_pragma_target_parse (tree args, tree pop_target)
 {
-  tree prev_tree = build_target_option_node (&global_options);
+  tree prev_tree = target_option_current_node;
   tree cur_tree;
   struct cl_target_option *prev_opt;
   struct cl_target_option *cur_opt;
@@ -218,14 +220,16 @@ arm_pragma_target_parse (tree args, tree pop_target)
 				    TREE_TARGET_OPTION (prev_tree));
 	  return false;
 	}
+
+      /* handle_pragma_pop_options and handle_pragma_reset_options will set
+       target_option_current_node, but not handle_pragma_target.  */
+      target_option_current_node = cur_tree;
     }
 
-  target_option_current_node = cur_tree;
-  arm_reset_previous_fndecl ();
-
-  /* Figure out the previous mode.  */
-  prev_opt  = TREE_TARGET_OPTION (prev_tree);
-  cur_opt   = TREE_TARGET_OPTION (cur_tree);
+  /* Update macros if target_node changes. The global state will be restored
+     by arm_set_current_function.  */
+  prev_opt = TREE_TARGET_OPTION (prev_tree);
+  cur_opt  = TREE_TARGET_OPTION (cur_tree);
 
   gcc_assert (prev_opt);
   gcc_assert (cur_opt);
@@ -237,21 +241,38 @@ arm_pragma_target_parse (tree args, tree pop_target)
 	 compiler predefined macros.  */
       cpp_options *cpp_opts = cpp_get_options (parse_in);
       unsigned char saved_warn_unused_macros = cpp_opts->warn_unused_macros;
-      unsigned char saved_warn_builtin_macro_redefined
-	= cpp_opts->warn_builtin_macro_redefined;
 
       cpp_opts->warn_unused_macros = 0;
-      cpp_opts->warn_builtin_macro_redefined = 0;
 
       /* Update macros.  */
       gcc_assert (cur_opt->x_target_flags == target_flags);
-      /* This one can be redefined by the pragma without warning.  */
-      cpp_undef (parse_in, "__ARM_FP");
+
+      /* Don't warn for macros that have context sensitive values depending on
+	 other attributes.
+	 See warn_of_redefinition, reset after cpp_create_definition.  */
+      tree acond_macro = get_identifier ("__ARM_NEON_FP");
+      C_CPP_HASHNODE (acond_macro)->flags |= NODE_CONDITIONAL ;
+
+      acond_macro = get_identifier ("__ARM_FP");
+      C_CPP_HASHNODE (acond_macro)->flags |= NODE_CONDITIONAL;
+
+      acond_macro = get_identifier ("__ARM_FEATURE_LDREX");
+      C_CPP_HASHNODE (acond_macro)->flags |= NODE_CONDITIONAL;
 
       arm_cpu_builtins (parse_in);
 
-      cpp_opts->warn_builtin_macro_redefined = saved_warn_builtin_macro_redefined;
       cpp_opts->warn_unused_macros = saved_warn_unused_macros;
+
+      /* Make sure that target_reinit is called for next function, since
+	 TREE_TARGET_OPTION might change with the #pragma even if there is
+	 no target attribute attached to the function.  */
+      arm_reset_previous_fndecl ();
+
+      /* If going to the default mode, we restore the initial states.
+	 if cur_tree is a new target, states will be saved/restored on a per
+	 function basis in arm_set_current_function.  */
+      if (cur_tree == target_option_default_node)
+	save_restore_target_globals (cur_tree);
     }
 
   return true;

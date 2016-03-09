@@ -1,5 +1,5 @@
 /* Driver of optimization process
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -917,6 +917,7 @@ walk_polymorphic_call_targets (hash_set<void *> *reachable_call_targets,
 static void
 check_global_declaration (symtab_node *snode)
 {
+  const char *decl_file;
   tree decl = snode->decl;
 
   /* Warn about any function declared static but not defined.  We don't
@@ -942,7 +943,12 @@ check_global_declaration (symtab_node *snode)
   /* Warn about static fns or vars defined but not used.  */
   if (((warn_unused_function && TREE_CODE (decl) == FUNCTION_DECL)
        || (((warn_unused_variable && ! TREE_READONLY (decl))
-	    || (warn_unused_const_variable && TREE_READONLY (decl)))
+	    || (warn_unused_const_variable > 0 && TREE_READONLY (decl)
+		&& (warn_unused_const_variable == 2
+		    || (main_input_filename != NULL
+			&& (decl_file = DECL_SOURCE_FILE (decl)) != NULL
+			&& filename_cmp (main_input_filename,
+					 decl_file) == 0))))
 	   && TREE_CODE (decl) == VAR_DECL))
       && ! DECL_IN_SYSTEM_HEADER (decl)
       && ! snode->referred_to_p (/*include_self=*/false)
@@ -971,7 +977,7 @@ check_global_declaration (symtab_node *snode)
 		(TREE_CODE (decl) == FUNCTION_DECL)
 		? OPT_Wunused_function
 		: (TREE_READONLY (decl)
-		   ? OPT_Wunused_const_variable
+		   ? OPT_Wunused_const_variable_
 		   : OPT_Wunused_variable),
 		"%qD defined but not used", decl);
 }
@@ -1664,7 +1670,9 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       greturn *ret;
       bool alias_is_noreturn = TREE_THIS_VOLATILE (alias);
 
-      if (in_lto_p)
+      /* We may be called from expand_thunk that releses body except for
+	 DECL_ARGUMENTS.  In this case force_gimple_thunk is true.  */
+      if (in_lto_p && !force_gimple_thunk)
 	get_untransformed_body ();
       a = DECL_ARGUMENTS (thunk_fndecl);
 
@@ -1699,7 +1707,8 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       bsi = gsi_start_bb (bb);
 
       /* Build call to the function being thunked.  */
-      if (!VOID_TYPE_P (restype) && !alias_is_noreturn)
+      if (!VOID_TYPE_P (restype)
+	  && (!alias_is_noreturn || TREE_ADDRESSABLE (restype)))
 	{
 	  if (DECL_BY_REFERENCE (resdecl))
 	    {
@@ -1766,7 +1775,7 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
 	      || DECL_BY_REFERENCE (resdecl)))
         gimple_call_set_return_slot_opt (call, true);
 
-      if (restmp && !alias_is_noreturn)
+      if (restmp)
 	{
           gimple_call_set_lhs (call, restmp);
 	  gcc_assert (useless_type_conversion_p (TREE_TYPE (restmp),

@@ -1,5 +1,5 @@
 /* Reload pseudo regs into hard regs for insns that require hard regs.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1257,28 +1257,6 @@ reload (rtx_insn *first, int global)
 	      }
 	  }
       }
-
-  /* If we are doing generic stack checking, give a warning if this
-     function's frame size is larger than we expect.  */
-  if (flag_stack_check == GENERIC_STACK_CHECK)
-    {
-      HOST_WIDE_INT size = get_frame_size () + STACK_CHECK_FIXED_FRAME_SIZE;
-      static int verbose_warned = 0;
-
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (df_regs_ever_live_p (i) && ! fixed_regs[i] && call_used_regs[i])
-	  size += UNITS_PER_WORD;
-
-      if (size > STACK_CHECK_MAX_FRAME_SIZE)
-	{
-	  warning (0, "frame size too large for reliable stack checking");
-	  if (! verbose_warned)
-	    {
-	      warning (0, "try reducing the number of local variables");
-	      verbose_warned = 1;
-	    }
-	}
-    }
 
   free (temp_pseudo_reg_arr);
 

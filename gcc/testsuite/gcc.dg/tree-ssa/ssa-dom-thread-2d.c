@@ -1,4 +1,4 @@
-/* { dg-do compile } */ 
+/* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-vrp1-stats -fdump-tree-dom2-stats" } */
 
 void foo();
@@ -13,6 +13,9 @@ void dont_thread_2 (int first)
 
   do
     {
+      bla ();
+      bla ();
+      bla ();
       if (first)
 	foo ();
       else

@@ -1,6 +1,6 @@
 // -*- C++ -*- C forwarding header.
 
-// Copyright (C) 1997-2015 Free Software Foundation, Inc.
+// Copyright (C) 1997-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -41,7 +41,9 @@
 #include <bits/c++config.h>
 #include <bits/cpp_type_traits.h>
 #include <ext/type_traits.h>
-#include <math.h>
+#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS
+#include_next <math.h>
+#undef _GLIBCXX_INCLUDE_NEXT_C_HEADERS
 
 #ifndef _GLIBCXX_CMATH
 #define _GLIBCXX_CMATH 1
@@ -72,6 +74,8 @@
 #undef tan
 #undef tanh
 
+extern "C++"
+{
 namespace std _GLIBCXX_VISIBILITY(default)
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
@@ -606,9 +610,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   isinf(float __x)
   { return __builtin_isinf(__x); }
 
+#if _GLIBCXX_HAVE_OBSOLETE_ISINF \
+  && !_GLIBCXX_NO_OBSOLETE_ISINF_ISNAN_DYNAMIC
+  using ::isinf;
+#else
   constexpr bool
   isinf(double __x)
   { return __builtin_isinf(__x); }
+#endif
 
   constexpr bool
   isinf(long double __x)
@@ -626,9 +635,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   isnan(float __x)
   { return __builtin_isnan(__x); }
 
+#if _GLIBCXX_HAVE_OBSOLETE_ISNAN \
+  && !_GLIBCXX_NO_OBSOLETE_ISINF_ISNAN_DYNAMIC
+  using ::isnan;
+#else
   constexpr bool
   isnan(double __x)
   { return __builtin_isnan(__x); }
+#endif
 
   constexpr bool
   isnan(long double __x)
@@ -1775,5 +1789,11 @@ _GLIBCXX_END_NAMESPACE_VERSION
 #endif // _GLIBCXX_USE_C99_MATH_TR1
 
 #endif // C++11
+
+#if __STDCPP_WANT_MATH_SPEC_FUNCS__ == 1
+#  include <bits/specfun.h>
+#endif
+
+} // extern "C++"
 
 #endif

@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -2220,7 +2220,7 @@ cgraph_node::get_availability (void)
     avail = AVAIL_AVAILABLE;
   /* Inline functions are safe to be analyzed even if their symbol can
      be overwritten at runtime.  It is not meaningful to enforce any sane
-     behaviour on replacing inline function by different body.  */
+     behavior on replacing inline function by different body.  */
   else if (DECL_DECLARED_INLINE_P (decl))
     avail = AVAIL_AVAILABLE;
 
@@ -2784,7 +2784,7 @@ cgraph_edge::verify_corresponds_to_fndecl (tree decl)
   node = node->ultimate_alias_target ();
 
   /* Optimizers can redirect unreachable calls or calls triggering undefined
-     behaviour to builtin_unreachable.  */
+     behavior to builtin_unreachable.  */
   if (DECL_BUILT_IN_CLASS (callee->decl) == BUILT_IN_NORMAL
       && DECL_FUNCTION_CODE (callee->decl) == BUILT_IN_UNREACHABLE)
     return false;
@@ -3305,10 +3305,12 @@ cgraph_node::get_untransformed_body (void)
   size_t len;
   tree decl = this->decl;
 
-  if (DECL_RESULT (decl))
+  /* Check if body is already there.  Either we have gimple body or
+     the function is thunk and in that case we set DECL_ARGUMENTS.  */
+  if (DECL_ARGUMENTS (decl) || gimple_has_body_p (decl))
     return false;
 
-  gcc_assert (in_lto_p);
+  gcc_assert (in_lto_p && !DECL_RESULT (decl));
 
   timevar_push (TV_IPA_LTO_GIMPLE_IN);
 
@@ -3354,7 +3356,7 @@ cgraph_node::get_body (void)
   updated = get_untransformed_body ();
 
   /* Getting transformed body makes no sense for inline clones;
-     we should never use this on real clones becuase they are materialized
+     we should never use this on real clones because they are materialized
      early.
      TODO: Materializing clones here will likely lead to smaller LTRANS
      footprint. */

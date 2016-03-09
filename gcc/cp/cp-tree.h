@@ -1,5 +1,5 @@
 /* Definitions for C++ parsing and type checking.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -107,6 +107,7 @@ operator == (const cp_expr &lhs, tree rhs)
 /* Usage of TREE_LANG_FLAG_?:
    0: IDENTIFIER_MARKED (IDENTIFIER_NODEs)
       NEW_EXPR_USE_GLOBAL (in NEW_EXPR).
+      COND_EXPR_IS_VEC_DELETE (in COND_EXPR).
       DELETE_EXPR_USE_GLOBAL (in DELETE_EXPR).
       COMPOUND_EXPR_OVERLOADED (in COMPOUND_EXPR).
       CLEANUP_P (in TRY_BLOCK)
@@ -403,6 +404,9 @@ typedef struct ptrmem_cst * ptrmem_cst_t;
 /* Nonzero if this statement-expression does not have an associated scope.  */
 #define STMT_EXPR_NO_SCOPE(NODE) \
    TREE_LANG_FLAG_0 (STMT_EXPR_CHECK (NODE))
+
+#define COND_EXPR_IS_VEC_DELETE(NODE) \
+  TREE_LANG_FLAG_0 (COND_EXPR_CHECK (NODE))
 
 /* Returns nonzero iff TYPE1 and TYPE2 are the same type, in the usual
    sense of `same'.  */
@@ -3393,7 +3397,7 @@ extern void decl_shadowed_for_var_insert (tree, tree);
   TREE_LANG_FLAG_0 (STRING_CST_CHECK (NODE))
 
 /* Indicates whether a COMPONENT_REF has been parenthesized, or an
-   INDIRECT_REF comes from parenthesizing a VAR_DECL.  Currently only set
+   INDIRECT_REF comes from parenthesizing a _DECL.  Currently only set
    some of the time in C++14 mode.  */
 
 #define REF_PARENTHESIZED_P(NODE) \
@@ -3408,6 +3412,11 @@ extern void decl_shadowed_for_var_insert (tree, tree);
    the object.  */
 #define AGGR_INIT_ZERO_FIRST(NODE) \
   TREE_LANG_FLAG_2 (AGGR_INIT_EXPR_CHECK (NODE))
+
+/* Nonzero means that the call is the jump from a thunk to the
+   thunked-to function.  */
+#define AGGR_INIT_FROM_THUNK_P(NODE) \
+  (AGGR_INIT_EXPR_CHECK (NODE)->base.protected_flag)
 
 /* AGGR_INIT_EXPR accessors.  These are equivalent to the CALL_EXPR
    accessors, except for AGGR_INIT_EXPR_SLOT (which takes the place of
@@ -5019,10 +5028,12 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, TYPENAME_FLAG };
 #define CONV_PRIVATE	 16
 /* #define CONV_NONCONVERTING 32 */
 #define CONV_FORCE_TEMP  64
+#define CONV_FOLD	 128
 #define CONV_OLD_CONVERT (CONV_IMPLICIT | CONV_STATIC | CONV_CONST \
 			  | CONV_REINTERPRET)
 #define CONV_C_CAST      (CONV_IMPLICIT | CONV_STATIC | CONV_CONST \
 			  | CONV_REINTERPRET | CONV_PRIVATE | CONV_FORCE_TEMP)
+#define CONV_BACKEND_CONVERT (CONV_OLD_CONVERT | CONV_FOLD)
 
 /* Used by build_expr_type_conversion to indicate which types are
    acceptable as arguments to the expression under consideration.  */
@@ -5610,6 +5621,7 @@ extern tree make_temporary_var_for_ref_to_temp	(tree, tree);
 extern bool type_has_extended_temps		(tree);
 extern tree strip_top_quals			(tree);
 extern bool reference_related_p			(tree, tree);
+extern int remaining_arguments			(tree);
 extern tree perform_implicit_conversion		(tree, tree, tsubst_flags_t);
 extern tree perform_implicit_conversion_flags	(tree, tree, tsubst_flags_t, int);
 extern tree build_integral_nontype_arg_conv	(tree, tree, tsubst_flags_t);
@@ -5788,7 +5800,7 @@ extern bool grok_op_properties			(tree, bool);
 extern tree xref_tag				(enum tag_types, tree, tag_scope, bool);
 extern tree xref_tag_from_type			(tree, tree, tag_scope);
 extern bool xref_basetypes			(tree, tree);
-extern tree start_enum				(tree, tree, tree, bool, bool *);
+extern tree start_enum				(tree, tree, tree, tree, bool, bool *);
 extern void finish_enum_value_list		(tree);
 extern void finish_enum				(tree);
 extern void build_enumerator			(tree, tree, tree, tree, location_t);
@@ -6011,6 +6023,7 @@ extern tree make_thunk				(tree, bool, tree, tree);
 extern void finish_thunk			(tree);
 extern void use_thunk				(tree, bool);
 extern bool trivial_fn_p			(tree);
+extern tree forward_parm			(tree);
 extern bool is_trivially_xible			(enum tree_code, tree, tree);
 extern tree get_defaulted_eh_spec		(tree);
 extern tree unevaluated_noexcept_spec		(void);
@@ -6158,6 +6171,7 @@ extern bool reregister_specialization		(tree, tree, tree);
 extern tree instantiate_non_dependent_expr	(tree);
 extern tree instantiate_non_dependent_expr_sfinae (tree, tsubst_flags_t);
 extern tree instantiate_non_dependent_expr_internal (tree, tsubst_flags_t);
+extern tree instantiate_non_dependent_or_null   (tree);
 extern bool variable_template_specialization_p  (tree);
 extern bool alias_type_or_template_p            (tree);
 extern bool alias_template_specialization_p     (const_tree);
@@ -6177,7 +6191,7 @@ extern tree get_template_parms_at_level (tree, int);
 extern tree get_template_innermost_arguments	(const_tree);
 extern tree get_template_argument_pack_elems	(const_tree);
 extern tree get_function_template_decl		(const_tree);
-extern tree resolve_nondeduced_context		(tree);
+extern tree resolve_nondeduced_context		(tree, tsubst_flags_t);
 extern hashval_t iterative_hash_template_arg (tree arg, hashval_t val);
 extern tree coerce_template_parms               (tree, tree, tree);
 extern tree coerce_template_parms               (tree, tree, tree, tsubst_flags_t);
@@ -6356,6 +6370,7 @@ extern tree finish_label_stmt			(tree);
 extern void finish_label_decl			(tree);
 extern cp_expr finish_parenthesized_expr	(cp_expr);
 extern tree force_paren_expr			(tree);
+extern tree maybe_undo_parenthesized_ref	(tree);
 extern tree finish_non_static_data_member       (tree, tree, tree);
 extern tree begin_stmt_expr			(void);
 extern tree finish_stmt_expr_expr		(tree, tree);
@@ -6473,6 +6488,7 @@ extern tree maybe_resolve_dummy			(tree, bool);
 extern tree current_nonlambda_function		(void);
 extern tree nonlambda_method_basetype		(void);
 extern tree current_nonlambda_scope		(void);
+extern bool generic_lambda_fn_p			(tree);
 extern void maybe_add_lambda_conv_op            (tree);
 extern bool is_lambda_ignored_entity            (tree);
 
@@ -6817,6 +6833,7 @@ extern bool cxx_omp_privatize_by_reference	(const_tree);
 extern bool cxx_omp_disregard_value_expr	(tree, bool);
 extern void cp_fold_function			(tree);
 extern tree cp_fully_fold			(tree);
+extern void clear_fold_cache			(void);
 
 /* in name-lookup.c */
 extern void suggest_alternatives_for            (location_t, tree);
@@ -6917,6 +6934,7 @@ extern bool var_in_constexpr_fn                 (tree);
 extern void explain_invalid_constexpr_fn        (tree);
 extern vec<tree> cx_error_context               (void);
 extern tree fold_sizeof_expr			(tree);
+extern void clear_cv_and_fold_caches		(void);
 
 /* In c-family/cilk.c */
 extern bool cilk_valid_spawn                    (tree);
@@ -6926,6 +6944,7 @@ extern void cp_ubsan_maybe_instrument_member_call (tree);
 extern void cp_ubsan_instrument_member_accesses (tree *);
 extern tree cp_ubsan_maybe_instrument_downcast	(location_t, tree, tree, tree);
 extern tree cp_ubsan_maybe_instrument_cast_to_vbase (location_t, tree, tree);
+extern void cp_ubsan_maybe_initialize_vtbl_ptrs (tree);
 
 /* -- end of C++ */
 

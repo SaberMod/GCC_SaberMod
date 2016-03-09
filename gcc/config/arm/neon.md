@@ -1,5 +1,5 @@
 ;; ARM NEON coprocessor Machine Description
-;; Copyright (C) 2006-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2006-2016 Free Software Foundation, Inc.
 ;; Written by CodeSourcery.
 ;;
 ;; This file is part of GCC.
@@ -134,6 +134,36 @@
     {
       if (!REG_P (operands[0]))
 	operands[1] = force_reg (<MODE>mode, operands[1]);
+    }
+})
+
+(define_expand "movv4hf"
+  [(set (match_operand:V4HF 0 "s_register_operand")
+	(match_operand:V4HF 1 "s_register_operand"))]
+  "TARGET_NEON && TARGET_FP16"
+{
+  /* We need to use force_reg to avoid CANNOT_CHANGE_MODE_CLASS
+     causing an ICE on big-endian because it cannot extract subregs in
+     this case.  */
+  if (can_create_pseudo_p ())
+    {
+      if (!REG_P (operands[0]))
+	operands[1] = force_reg (V4HFmode, operands[1]);
+    }
+})
+
+(define_expand "movv8hf"
+  [(set (match_operand:V8HF 0 "")
+	(match_operand:V8HF 1 ""))]
+  "TARGET_NEON && TARGET_FP16"
+{ 
+  /* We need to use force_reg to avoid CANNOT_CHANGE_MODE_CLASS
+     causing an ICE on big-endian because it cannot extract subregs in
+     this case.  */
+  if (can_create_pseudo_p ())
+    {
+      if (!REG_P (operands[0]))
+	operands[1] = force_reg (V8HFmode, operands[1]);
     }
 })
 
@@ -299,11 +329,11 @@
   [(set_attr "type" "neon_load1_1reg<q>")])
 
 (define_insn "vec_set<mode>_internal"
-  [(set (match_operand:VD 0 "s_register_operand" "=w,w")
-        (vec_merge:VD
-          (vec_duplicate:VD
+  [(set (match_operand:VD_LANE 0 "s_register_operand" "=w,w")
+        (vec_merge:VD_LANE
+          (vec_duplicate:VD_LANE
             (match_operand:<V_elem> 1 "nonimmediate_operand" "Um,r"))
-          (match_operand:VD 3 "s_register_operand" "0,0")
+          (match_operand:VD_LANE 3 "s_register_operand" "0,0")
           (match_operand:SI 2 "immediate_operand" "i,i")))]
   "TARGET_NEON"
 {
@@ -385,7 +415,7 @@
 (define_insn "vec_extract<mode>"
   [(set (match_operand:<V_elem> 0 "nonimmediate_operand" "=Um,r")
         (vec_select:<V_elem>
-          (match_operand:VD 1 "s_register_operand" "w,w")
+          (match_operand:VD_LANE 1 "s_register_operand" "w,w")
           (parallel [(match_operand:SI 2 "immediate_operand" "i,i")])))]
   "TARGET_NEON"
 {
@@ -1806,7 +1836,7 @@
 ; particular, denormal values are flushed to zero.  This means that GCC cannot
 ; use those instructions for autovectorization, etc. unless
 ; -funsafe-math-optimizations is in effect (in which case flush-to-zero
-; behaviour is permissible).  Intrinsic operations (provided by the arm_neon.h
+; behavior is permissible).  Intrinsic operations (provided by the arm_neon.h
 ; header) must work in either case: if -funsafe-math-optimizations is given,
 ; intrinsics expand to "canonical" RTL where possible, otherwise intrinsics
 ; expand to unspecs (which may potentially limit the extent to which they might
@@ -2366,6 +2396,17 @@
   [(set_attr "type" "neon_fp_minmax_s<q>")]
 )
 
+;; Vector forms for the IEEE-754 fmax()/fmin() functions
+(define_insn "<fmaxmin><mode>3"
+  [(set (match_operand:VCVTF 0 "s_register_operand" "=w")
+	(unspec:VCVTF [(match_operand:VCVTF 1 "s_register_operand" "w")
+		       (match_operand:VCVTF 2 "s_register_operand" "w")]
+		       VMAXMINFNM))]
+  "TARGET_NEON && TARGET_FPU_ARMV8"
+  "<fmaxmin_op>.<V_s_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2"
+  [(set_attr "type" "neon_fp_minmax_s<q>")]
+)
+
 (define_expand "neon_vpadd<mode>"
   [(match_operand:VD 0 "s_register_operand" "=w")
    (match_operand:VD 1 "s_register_operand" "w")
@@ -2816,6 +2857,22 @@ if (BYTES_BIG_ENDIAN)
   "TARGET_NEON"
   "vdup.<V_sz_elem>\t%<V_reg>0, %1"
   [(set_attr "type" "neon_from_gp<q>")]
+)
+
+(define_insn "neon_vdup_nv4hf"
+  [(set (match_operand:V4HF 0 "s_register_operand" "=w")
+        (vec_duplicate:V4HF (match_operand:HF 1 "s_register_operand" "r")))]
+  "TARGET_NEON"
+  "vdup.16\t%P0, %1"
+  [(set_attr "type" "neon_from_gp")]
+)
+
+(define_insn "neon_vdup_nv8hf"
+  [(set (match_operand:V8HF 0 "s_register_operand" "=w")
+        (vec_duplicate:V8HF (match_operand:HF 1 "s_register_operand" "r")))]
+  "TARGET_NEON"
+  "vdup.16\t%q0, %1"
+  [(set_attr "type" "neon_from_gp_q")]
 )
 
 (define_insn "neon_vdup_n<mode>"
@@ -4183,106 +4240,6 @@ if (BYTES_BIG_ENDIAN)
   [(set_attr "type" "neon_zip<q>")]
 )
 
-(define_expand "neon_vreinterpretv8qi<mode>"
-  [(match_operand:V8QI 0 "s_register_operand" "")
-   (match_operand:VD_RE 1 "s_register_operand" "")]
-  "TARGET_NEON"
-{
-  neon_reinterpret (operands[0], operands[1]);
-  DONE;
-})
-
-(define_expand "neon_vreinterpretv4hi<mode>"
-  [(match_operand:V4HI 0 "s_register_operand" "")
-   (match_operand:VD_RE 1 "s_register_operand" "")]
-  "TARGET_NEON"
-{
-  neon_reinterpret (operands[0], operands[1]);
-  DONE;
-})
-
-(define_expand "neon_vreinterpretv2si<mode>"
-  [(match_operand:V2SI 0 "s_register_operand" "")
-   (match_operand:VD_RE 1 "s_register_operand" "")]
-  "TARGET_NEON"
-{
-  neon_reinterpret (operands[0], operands[1]);
-  DONE;
-})
-
-(define_expand "neon_vreinterpretv2sf<mode>"
-  [(match_operand:V2SF 0 "s_register_operand" "")
-   (match_operand:VD_RE 1 "s_register_operand" "")]
-  "TARGET_NEON"
-{
-  neon_reinterpret (operands[0], operands[1]);
-  DONE;
-})
-
-(define_expand "neon_vreinterpretdi<mode>"
-  [(match_operand:DI 0 "s_register_operand" "")
-   (match_operand:VD_RE 1 "s_register_operand" "")]
-  "TARGET_NEON"
-{
-  neon_reinterpret (operands[0], operands[1]);
-  DONE;
-})
-
-(define_expand "neon_vreinterpretti<mode>"
-  [(match_operand:TI 0 "s_register_operand" "")
-   (match_operand:VQXMOV 1 "s_register_operand" "")]
-  "TARGET_NEON"
-{
-  neon_reinterpret (operands[0], operands[1]);
-  DONE;
-})
-
-
-(define_expand "neon_vreinterpretv16qi<mode>"
-  [(match_operand:V16QI 0 "s_register_operand" "")
-   (match_operand:VQXMOV 1 "s_register_operand" "")]
-  "TARGET_NEON"
-{
-  neon_reinterpret (operands[0], operands[1]);
-  DONE;
-})
-
-(define_expand "neon_vreinterpretv8hi<mode>"
-  [(match_operand:V8HI 0 "s_register_operand" "")
-   (match_operand:VQXMOV 1 "s_register_operand" "")]
-  "TARGET_NEON"
-{
-  neon_reinterpret (operands[0], operands[1]);
-  DONE;
-})
-
-(define_expand "neon_vreinterpretv4si<mode>"
-  [(match_operand:V4SI 0 "s_register_operand" "")
-   (match_operand:VQXMOV 1 "s_register_operand" "")]
-  "TARGET_NEON"
-{
-  neon_reinterpret (operands[0], operands[1]);
-  DONE;
-})
-
-(define_expand "neon_vreinterpretv4sf<mode>"
-  [(match_operand:V4SF 0 "s_register_operand" "")
-   (match_operand:VQXMOV 1 "s_register_operand" "")]
-  "TARGET_NEON"
-{
-  neon_reinterpret (operands[0], operands[1]);
-  DONE;
-})
-
-(define_expand "neon_vreinterpretv2di<mode>"
-  [(match_operand:V2DI 0 "s_register_operand" "")
-   (match_operand:VQXMOV 1 "s_register_operand" "")]
-  "TARGET_NEON"
-{
-  neon_reinterpret (operands[0], operands[1]);
-  DONE;
-})
-
 (define_expand "vec_load_lanes<mode><mode>"
   [(set (match_operand:VDQX 0 "s_register_operand")
         (unspec:VDQX [(match_operand:VDQX 1 "neon_struct_operand")]
@@ -4350,8 +4307,8 @@ if (BYTES_BIG_ENDIAN)
 )
 
 (define_insn "neon_vld1_dup<mode>"
-  [(set (match_operand:VD 0 "s_register_operand" "=w")
-        (vec_duplicate:VD (match_operand:<V_elem> 1 "neon_struct_operand" "Um")))]
+  [(set (match_operand:VD_LANE 0 "s_register_operand" "=w")
+        (vec_duplicate:VD_LANE (match_operand:<V_elem> 1 "neon_struct_operand" "Um")))]
   "TARGET_NEON"
   "vld1.<V_sz_elem>\t{%P0[]}, %A1"
   [(set_attr "type" "neon_load1_all_lanes<q>")]
@@ -4367,8 +4324,8 @@ if (BYTES_BIG_ENDIAN)
 )
 
 (define_insn "neon_vld1_dup<mode>"
-  [(set (match_operand:VQ 0 "s_register_operand" "=w")
-        (vec_duplicate:VQ (match_operand:<V_elem> 1 "neon_struct_operand" "Um")))]
+  [(set (match_operand:VQ2 0 "s_register_operand" "=w")
+        (vec_duplicate:VQ2 (match_operand:<V_elem> 1 "neon_struct_operand" "Um")))]
   "TARGET_NEON"
 {
   return "vld1.<V_sz_elem>\t{%e0[], %f0[]}, %A1";

@@ -1,5 +1,5 @@
 /* Expands front end tree to back end RTL for GCC.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -955,6 +955,10 @@ assign_temp (tree type_or_decl, int memory_required,
 #ifdef PROMOTE_MODE
   unsignedp = TYPE_UNSIGNED (type);
 #endif
+
+  /* Allocating temporaries of TREE_ADDRESSABLE type must be done in the front
+     end.  See also create_tmp_var for the gimplification-time check.  */
+  gcc_assert (!TREE_ADDRESSABLE (type) && COMPLETE_TYPE_P (type));
 
   if (mode == BLKmode || memory_required)
     {

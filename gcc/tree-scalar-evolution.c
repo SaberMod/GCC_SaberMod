@@ -1,5 +1,5 @@
 /* Scalar evolution detector.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -1522,6 +1522,34 @@ analyze_evolution_in_loop (gphi *loop_phi_node,
   return evolution_function;
 }
 
+/* Looks to see if VAR is a copy of a constant (via straightforward assignments
+   or degenerate phi's).  If so, returns the constant; else, returns VAR.  */
+
+static tree
+follow_copies_to_constant (tree var)
+{
+  tree res = var;
+  while (TREE_CODE (res) == SSA_NAME)
+    {
+      gimple *def = SSA_NAME_DEF_STMT (res);
+      if (gphi *phi = dyn_cast <gphi *> (def))
+	{
+	  if (tree rhs = degenerate_phi_result (phi))
+	    res = rhs;
+	  else
+	    break;
+	}
+      else if (gimple_assign_single_p (def))
+	/* Will exit loop if not an SSA_NAME.  */
+	res = gimple_assign_rhs1 (def);
+      else
+	break;
+    }
+  if (CONSTANT_CLASS_P (res))
+    return res;
+  return var;
+}
+
 /* Given a loop-phi-node, return the initial conditions of the
    variable on entry of the loop.  When the CCP has propagated
    constants into the loop-phi-node, the initial condition is
@@ -1574,21 +1602,9 @@ analyze_initial_condition (gphi *loop_phi_node)
   if (init_cond == chrec_not_analyzed_yet)
     init_cond = chrec_dont_know;
 
-  /* During early loop unrolling we do not have fully constant propagated IL.
-     Handle degenerate PHIs here to not miss important unrollings.  */
-  if (TREE_CODE (init_cond) == SSA_NAME)
-    {
-      gimple *def = SSA_NAME_DEF_STMT (init_cond);
-      if (gphi *phi = dyn_cast <gphi *> (def))
-	{
-	  tree res = degenerate_phi_result (phi);
-	  if (res != NULL_TREE
-	      /* Only allow invariants here, otherwise we may break
-		 loop-closed SSA form.  */
-	      && is_gimple_min_invariant (res))
-	    init_cond = res;
-	}
-    }
+  /* We may not have fully constant propagated IL.  Handle degenerate PHIs here
+     to not miss important early loop unrollings.  */
+  init_cond = follow_copies_to_constant (init_cond);
 
   if (dump_file && (dump_flags & TDF_SCEV))
     {
@@ -1687,7 +1703,7 @@ static tree
 interpret_rhs_expr (struct loop *loop, gimple *at_stmt,
 		    tree type, tree rhs1, enum tree_code code, tree rhs2)
 {
-  tree res, chrec1, chrec2;
+  tree res, chrec1, chrec2, ctype;
   gimple *def;
 
   if (get_gimple_rhs_class (code) == GIMPLE_SINGLE_RHS)
@@ -1782,30 +1798,63 @@ interpret_rhs_expr (struct loop *loop, gimple *at_stmt,
     case PLUS_EXPR:
       chrec1 = analyze_scalar_evolution (loop, rhs1);
       chrec2 = analyze_scalar_evolution (loop, rhs2);
-      chrec1 = chrec_convert (type, chrec1, at_stmt);
-      chrec2 = chrec_convert (type, chrec2, at_stmt);
+      ctype = type;
+      /* When the stmt is conditionally executed re-write the CHREC
+         into a form that has well-defined behavior on overflow.  */
+      if (at_stmt
+	  && INTEGRAL_TYPE_P (type)
+	  && ! TYPE_OVERFLOW_WRAPS (type)
+	  && ! dominated_by_p (CDI_DOMINATORS, loop->latch,
+			       gimple_bb (at_stmt)))
+	ctype = unsigned_type_for (type);
+      chrec1 = chrec_convert (ctype, chrec1, at_stmt);
+      chrec2 = chrec_convert (ctype, chrec2, at_stmt);
       chrec1 = instantiate_parameters (loop, chrec1);
       chrec2 = instantiate_parameters (loop, chrec2);
-      res = chrec_fold_plus (type, chrec1, chrec2);
+      res = chrec_fold_plus (ctype, chrec1, chrec2);
+      if (type != ctype)
+	res = chrec_convert (type, res, at_stmt);
       break;
 
     case MINUS_EXPR:
       chrec1 = analyze_scalar_evolution (loop, rhs1);
       chrec2 = analyze_scalar_evolution (loop, rhs2);
-      chrec1 = chrec_convert (type, chrec1, at_stmt);
-      chrec2 = chrec_convert (type, chrec2, at_stmt);
+      ctype = type;
+      /* When the stmt is conditionally executed re-write the CHREC
+         into a form that has well-defined behavior on overflow.  */
+      if (at_stmt
+	  && INTEGRAL_TYPE_P (type)
+	  && ! TYPE_OVERFLOW_WRAPS (type)
+	  && ! dominated_by_p (CDI_DOMINATORS,
+			       loop->latch, gimple_bb (at_stmt)))
+	ctype = unsigned_type_for (type);
+      chrec1 = chrec_convert (ctype, chrec1, at_stmt);
+      chrec2 = chrec_convert (ctype, chrec2, at_stmt);
       chrec1 = instantiate_parameters (loop, chrec1);
       chrec2 = instantiate_parameters (loop, chrec2);
-      res = chrec_fold_minus (type, chrec1, chrec2);
+      res = chrec_fold_minus (ctype, chrec1, chrec2);
+      if (type != ctype)
+	res = chrec_convert (type, res, at_stmt);
       break;
 
     case NEGATE_EXPR:
       chrec1 = analyze_scalar_evolution (loop, rhs1);
-      chrec1 = chrec_convert (type, chrec1, at_stmt);
+      ctype = type;
+      /* When the stmt is conditionally executed re-write the CHREC
+         into a form that has well-defined behavior on overflow.  */
+      if (at_stmt
+	  && INTEGRAL_TYPE_P (type)
+	  && ! TYPE_OVERFLOW_WRAPS (type)
+	  && ! dominated_by_p (CDI_DOMINATORS,
+			       loop->latch, gimple_bb (at_stmt)))
+	ctype = unsigned_type_for (type);
+      chrec1 = chrec_convert (ctype, chrec1, at_stmt);
       /* TYPE may be integer, real or complex, so use fold_convert.  */
       chrec1 = instantiate_parameters (loop, chrec1);
-      res = chrec_fold_multiply (type, chrec1,
-				 fold_convert (type, integer_minus_one_node));
+      res = chrec_fold_multiply (ctype, chrec1,
+				 fold_convert (ctype, integer_minus_one_node));
+      if (type != ctype)
+	res = chrec_convert (type, res, at_stmt);
       break;
 
     case BIT_NOT_EXPR:
@@ -1821,11 +1870,22 @@ interpret_rhs_expr (struct loop *loop, gimple *at_stmt,
     case MULT_EXPR:
       chrec1 = analyze_scalar_evolution (loop, rhs1);
       chrec2 = analyze_scalar_evolution (loop, rhs2);
-      chrec1 = chrec_convert (type, chrec1, at_stmt);
-      chrec2 = chrec_convert (type, chrec2, at_stmt);
+      ctype = type;
+      /* When the stmt is conditionally executed re-write the CHREC
+         into a form that has well-defined behavior on overflow.  */
+      if (at_stmt
+	  && INTEGRAL_TYPE_P (type)
+	  && ! TYPE_OVERFLOW_WRAPS (type)
+	  && ! dominated_by_p (CDI_DOMINATORS,
+			       loop->latch, gimple_bb (at_stmt)))
+	ctype = unsigned_type_for (type);
+      chrec1 = chrec_convert (ctype, chrec1, at_stmt);
+      chrec2 = chrec_convert (ctype, chrec2, at_stmt);
       chrec1 = instantiate_parameters (loop, chrec1);
       chrec2 = instantiate_parameters (loop, chrec2);
-      res = chrec_fold_multiply (type, chrec1, chrec2);
+      res = chrec_fold_multiply (ctype, chrec1, chrec2);
+      if (type != ctype)
+	res = chrec_convert (type, res, at_stmt);
       break;
 
     case LSHIFT_EXPR:
@@ -1968,8 +2028,8 @@ analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res)
   if (bb == NULL
       || !flow_bb_inside_loop_p (loop, bb))
     {
-      /* Keep the symbolic form.  */
-      res = var;
+      /* Keep symbolic form, but look through obvious copies for constants.  */
+      res = follow_copies_to_constant (var);
       goto set_and_end;
     }
 

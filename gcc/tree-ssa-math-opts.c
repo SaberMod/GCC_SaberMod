@@ -1,5 +1,5 @@
 /* Global, SSA-based optimizations using mathematical identities.
-   Copyright (C) 2005-2015 Free Software Foundation, Inc.
+   Copyright (C) 2005-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -42,7 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 
    First of all, with some experiments it was found out that the
    transformation is not always useful if there are only two divisions
-   hy the same divisor.  This is probably because modern processors
+   by the same divisor.  This is probably because modern processors
    can pipeline the divisions; on older, in-order processors it should
    still be effective to optimize two divisions by the same number.
    We make this a param, and it shall be called N in the remainder of
@@ -1535,6 +1535,14 @@ gimple_expand_builtin_pow (gimple_stmt_iterator *gsi, location_t loc,
   if (TREE_CODE (arg1) != REAL_CST)
     return NULL_TREE;
 
+  /* Don't perform the operation if flag_signaling_nans is on
+     and the operand is a signaling NaN.  */
+  if (HONOR_SNANS (TYPE_MODE (TREE_TYPE (arg1)))
+      && ((TREE_CODE (arg0) == REAL_CST
+	   && REAL_VALUE_ISSIGNALING_NAN (TREE_REAL_CST (arg0)))
+	  || REAL_VALUE_ISSIGNALING_NAN (TREE_REAL_CST (arg1))))
+    return NULL_TREE;
+
   /* If the exponent is equivalent to an integer, expand to an optimal
      multiplication sequence when profitable.  */
   c = TREE_REAL_CST (arg1);
@@ -2441,9 +2449,9 @@ find_bswap_or_nop_1 (gimple *stmt, struct symbolic_number *n, int limit)
 static gimple *
 find_bswap_or_nop (gimple *stmt, struct symbolic_number *n, bool *bswap)
 {
-/* The number which the find_bswap_or_nop_1 result should match in order
-   to have a full byte swap.  The number is shifted to the right
-   according to the size of the symbolic number before using it.  */
+  /* The number which the find_bswap_or_nop_1 result should match in order
+     to have a full byte swap.  The number is shifted to the right
+     according to the size of the symbolic number before using it.  */
   uint64_t cmpxchg = CMPXCHG;
   uint64_t cmpnop = CMPNOP;
 
@@ -2465,10 +2473,14 @@ find_bswap_or_nop (gimple *stmt, struct symbolic_number *n, bool *bswap)
   /* Find real size of result (highest non-zero byte).  */
   if (n->base_addr)
     {
-      int rsize;
+      unsigned HOST_WIDE_INT rsize;
       uint64_t tmpn;
 
       for (tmpn = n->n, rsize = 0; tmpn; tmpn >>= BITS_PER_MARKER, rsize++);
+      if (BYTES_BIG_ENDIAN && n->range != rsize)
+	/* This implies an offset, which is currently not handled by
+	   bswap_replace.  */
+	return NULL;
       n->range = rsize;
     }
 
@@ -2598,6 +2610,8 @@ bswap_replace (gimple *cur_stmt, gimple *src_stmt, tree fndecl,
       /* Move cur_stmt just before  one of the load of the original
 	 to ensure it has the same VUSE.  See PR61517 for what could
 	 go wrong.  */
+      if (gimple_bb (cur_stmt) != gimple_bb (src_stmt))
+	reset_flow_sensitive_info (gimple_assign_lhs (cur_stmt));
       gsi_move_before (&gsi, &gsi_ins);
       gsi = gsi_for_stmt (cur_stmt);
 

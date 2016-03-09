@@ -1,6 +1,6 @@
 /* This file contains the definitions for timing variables used to
    measure run-time performance of the compiler.
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
    Contributed by Alex Samuel <samuel@codesourcery.com>
 
    This file is part of GCC.
@@ -43,8 +43,6 @@ DEFTIMEVAR (TV_PHASE_PARSING         , "phase parsing")
 DEFTIMEVAR (TV_PHASE_DEFERRED        , "phase lang. deferred")
 DEFTIMEVAR (TV_PHASE_LATE_PARSING_CLEANUPS, "phase late parsing cleanups")
 DEFTIMEVAR (TV_PHASE_OPT_GEN         , "phase opt and generate")
-DEFTIMEVAR (TV_PHASE_DBGINFO         , "phase debug info")
-DEFTIMEVAR (TV_PHASE_CHECK_DBGINFO   , "phase check & debug info")
 DEFTIMEVAR (TV_PHASE_LATE_ASM        , "phase last asm")
 DEFTIMEVAR (TV_PHASE_STREAM_IN       , "phase stream in")
 DEFTIMEVAR (TV_PHASE_STREAM_OUT      , "phase stream out")
@@ -97,6 +95,7 @@ DEFTIMEVAR (TV_WHOPR_WPA_IO          , "whopr wpa I/O")
 DEFTIMEVAR (TV_WHOPR_PARTITIONING    , "whopr partitioning")
 DEFTIMEVAR (TV_WHOPR_LTRANS          , "whopr ltrans")
 DEFTIMEVAR (TV_IPA_REFERENCE         , "ipa reference")
+DEFTIMEVAR (TV_IPA_HSA		     , "ipa HSA")
 DEFTIMEVAR (TV_IPA_PROFILE           , "ipa profile")
 DEFTIMEVAR (TV_IPA_AUTOFDO           , "auto profile")
 DEFTIMEVAR (TV_IPA_PURE_CONST        , "ipa pure const")

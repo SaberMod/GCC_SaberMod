@@ -1,5 +1,5 @@
 /* dwarf2out.h - Various declarations for functions found in dwarf2out.c
-   Copyright (C) 1998-2015 Free Software Foundation, Inc.
+   Copyright (C) 1998-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -239,7 +239,7 @@ struct GTY((chain_next ("%h.dw_loc_next"))) dw_loc_descr_node {
      frame offset.  */
   unsigned int frame_offset_rel : 1;
   int dw_loc_addr;
-#if ENABLE_CHECKING
+#if CHECKING_P
   /* When translating a function into a DWARF procedure, contains the frame
      offset *before* evaluating this operation.  It is -1 when not yet
      initialized.  */

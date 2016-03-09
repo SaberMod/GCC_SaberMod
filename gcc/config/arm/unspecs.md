@@ -1,5 +1,5 @@
 ;; Unspec defintions.
-;; Copyright (C) 2012-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2016 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 
 ;; This file is part of GCC.
@@ -139,6 +139,7 @@
   VUNSPEC_ATOMIC_XCHG	; Represent an atomic exchange.
   VUNSPEC_ATOMIC_OP	; Represent an atomic operation.
   VUNSPEC_LL		; Represent a load-register-exclusive.
+  VUNSPEC_LDRD_ATOMIC	; Represent an LDRD used as an atomic DImode load.
   VUNSPEC_SC		; Represent a store-register-exclusive.
   VUNSPEC_LAX		; Represent a load-register-acquire-exclusive.
   VUNSPEC_SLX		; Represent a store-register-release-exclusive.
@@ -226,8 +227,10 @@
   UNSPEC_VLD4_LANE
   UNSPEC_VMAX
   UNSPEC_VMAX_U
+  UNSPEC_VMAXNM
   UNSPEC_VMIN
   UNSPEC_VMIN_U
+  UNSPEC_VMINNM
   UNSPEC_VMLA
   UNSPEC_VMLA_LANE
   UNSPEC_VMLAL_S

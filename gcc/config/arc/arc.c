@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on the Synopsys DesignWare ARC cpu.
-   Copyright (C) 1994-2015 Free Software Foundation, Inc.
+   Copyright (C) 1994-2016 Free Software Foundation, Inc.
 
    Sources derived from work done by Sankhya Technologies (www.sankhya.com) on
    behalf of Synopsys Inc.
@@ -175,164 +175,6 @@ struct GTY (()) arc_ccfsm
    this to be no less than the 1/p  */
 #define MAX_INSNS_SKIPPED 3
 
-/* The values of unspec's first field.  */
-enum {
-  ARC_UNSPEC_PLT = 3,
-  ARC_UNSPEC_GOT,
-  ARC_UNSPEC_GOTOFF
-} ;
-
-
-enum arc_builtins {
-  ARC_BUILTIN_NOP        =    2,
-  ARC_BUILTIN_NORM       =    3,
-  ARC_BUILTIN_NORMW      =    4,
-  ARC_BUILTIN_SWAP       =    5,
-  ARC_BUILTIN_BRK        =    6,
-  ARC_BUILTIN_DIVAW      =    7,
-  ARC_BUILTIN_EX         =    8,
-  ARC_BUILTIN_MUL64      =    9,
-  ARC_BUILTIN_MULU64     =   10,
-  ARC_BUILTIN_RTIE       =   11,
-  ARC_BUILTIN_SYNC       =   12,
-  ARC_BUILTIN_CORE_READ  =   13,
-  ARC_BUILTIN_CORE_WRITE =   14,
-  ARC_BUILTIN_FLAG       =   15,
-  ARC_BUILTIN_LR         =   16,
-  ARC_BUILTIN_SR         =   17,
-  ARC_BUILTIN_SLEEP      =   18,
-  ARC_BUILTIN_SWI        =   19,
-  ARC_BUILTIN_TRAP_S     =   20,
-  ARC_BUILTIN_UNIMP_S    =   21,
-  ARC_BUILTIN_ALIGNED    =   22,
-
-  /* Sentinel to mark start of simd builtins.  */
-  ARC_SIMD_BUILTIN_BEGIN      = 1000,
-
-  ARC_SIMD_BUILTIN_VADDAW     = 1001,
-  ARC_SIMD_BUILTIN_VADDW      = 1002,
-  ARC_SIMD_BUILTIN_VAVB       = 1003,
-  ARC_SIMD_BUILTIN_VAVRB      = 1004,
-  ARC_SIMD_BUILTIN_VDIFAW     = 1005,
-  ARC_SIMD_BUILTIN_VDIFW      = 1006,
-  ARC_SIMD_BUILTIN_VMAXAW     = 1007,
-  ARC_SIMD_BUILTIN_VMAXW      = 1008,
-  ARC_SIMD_BUILTIN_VMINAW     = 1009,
-  ARC_SIMD_BUILTIN_VMINW      = 1010,
-  ARC_SIMD_BUILTIN_VMULAW     = 1011,
-  ARC_SIMD_BUILTIN_VMULFAW    = 1012,
-  ARC_SIMD_BUILTIN_VMULFW     = 1013,
-  ARC_SIMD_BUILTIN_VMULW      = 1014,
-  ARC_SIMD_BUILTIN_VSUBAW     = 1015,
-  ARC_SIMD_BUILTIN_VSUBW      = 1016,
-  ARC_SIMD_BUILTIN_VSUMMW     = 1017,
-  ARC_SIMD_BUILTIN_VAND       = 1018,
-  ARC_SIMD_BUILTIN_VANDAW     = 1019,
-  ARC_SIMD_BUILTIN_VBIC       = 1020,
-  ARC_SIMD_BUILTIN_VBICAW     = 1021,
-  ARC_SIMD_BUILTIN_VOR        = 1022,
-  ARC_SIMD_BUILTIN_VXOR       = 1023,
-  ARC_SIMD_BUILTIN_VXORAW     = 1024,
-  ARC_SIMD_BUILTIN_VEQW       = 1025,
-  ARC_SIMD_BUILTIN_VLEW       = 1026,
-  ARC_SIMD_BUILTIN_VLTW       = 1027,
-  ARC_SIMD_BUILTIN_VNEW       = 1028,
-  ARC_SIMD_BUILTIN_VMR1AW     = 1029,
-  ARC_SIMD_BUILTIN_VMR1W      = 1030,
-  ARC_SIMD_BUILTIN_VMR2AW     = 1031,
-  ARC_SIMD_BUILTIN_VMR2W      = 1032,
-  ARC_SIMD_BUILTIN_VMR3AW     = 1033,
-  ARC_SIMD_BUILTIN_VMR3W      = 1034,
-  ARC_SIMD_BUILTIN_VMR4AW     = 1035,
-  ARC_SIMD_BUILTIN_VMR4W      = 1036,
-  ARC_SIMD_BUILTIN_VMR5AW     = 1037,
-  ARC_SIMD_BUILTIN_VMR5W      = 1038,
-  ARC_SIMD_BUILTIN_VMR6AW     = 1039,
-  ARC_SIMD_BUILTIN_VMR6W      = 1040,
-  ARC_SIMD_BUILTIN_VMR7AW     = 1041,
-  ARC_SIMD_BUILTIN_VMR7W      = 1042,
-  ARC_SIMD_BUILTIN_VMRB       = 1043,
-  ARC_SIMD_BUILTIN_VH264F     = 1044,
-  ARC_SIMD_BUILTIN_VH264FT    = 1045,
-  ARC_SIMD_BUILTIN_VH264FW    = 1046,
-  ARC_SIMD_BUILTIN_VVC1F      = 1047,
-  ARC_SIMD_BUILTIN_VVC1FT     = 1048,
-
-  /* Va, Vb, rlimm instructions.  */
-  ARC_SIMD_BUILTIN_VBADDW     = 1050,
-  ARC_SIMD_BUILTIN_VBMAXW     = 1051,
-  ARC_SIMD_BUILTIN_VBMINW     = 1052,
-  ARC_SIMD_BUILTIN_VBMULAW    = 1053,
-  ARC_SIMD_BUILTIN_VBMULFW    = 1054,
-  ARC_SIMD_BUILTIN_VBMULW     = 1055,
-  ARC_SIMD_BUILTIN_VBRSUBW    = 1056,
-  ARC_SIMD_BUILTIN_VBSUBW     = 1057,
-
-  /* Va, Vb, Ic instructions.  */
-  ARC_SIMD_BUILTIN_VASRW      = 1060,
-  ARC_SIMD_BUILTIN_VSR8       = 1061,
-  ARC_SIMD_BUILTIN_VSR8AW     = 1062,
-
-  /* Va, Vb, u6 instructions.  */
-  ARC_SIMD_BUILTIN_VASRRWi    = 1065,
-  ARC_SIMD_BUILTIN_VASRSRWi   = 1066,
-  ARC_SIMD_BUILTIN_VASRWi     = 1067,
-  ARC_SIMD_BUILTIN_VASRPWBi   = 1068,
-  ARC_SIMD_BUILTIN_VASRRPWBi  = 1069,
-  ARC_SIMD_BUILTIN_VSR8AWi    = 1070,
-  ARC_SIMD_BUILTIN_VSR8i      = 1071,
-
-  /* Va, Vb, u8 (simm) instructions.  */
-  ARC_SIMD_BUILTIN_VMVAW      = 1075,
-  ARC_SIMD_BUILTIN_VMVW       = 1076,
-  ARC_SIMD_BUILTIN_VMVZW      = 1077,
-  ARC_SIMD_BUILTIN_VD6TAPF    = 1078,
-
-  /* Va, rlimm, u8 (simm) instructions.  */
-  ARC_SIMD_BUILTIN_VMOVAW     = 1080,
-  ARC_SIMD_BUILTIN_VMOVW      = 1081,
-  ARC_SIMD_BUILTIN_VMOVZW     = 1082,
-
-  /* Va, Vb instructions.  */
-  ARC_SIMD_BUILTIN_VABSAW     = 1085,
-  ARC_SIMD_BUILTIN_VABSW      = 1086,
-  ARC_SIMD_BUILTIN_VADDSUW    = 1087,
-  ARC_SIMD_BUILTIN_VSIGNW     = 1088,
-  ARC_SIMD_BUILTIN_VEXCH1     = 1089,
-  ARC_SIMD_BUILTIN_VEXCH2     = 1090,
-  ARC_SIMD_BUILTIN_VEXCH4     = 1091,
-  ARC_SIMD_BUILTIN_VUPBAW     = 1092,
-  ARC_SIMD_BUILTIN_VUPBW      = 1093,
-  ARC_SIMD_BUILTIN_VUPSBAW    = 1094,
-  ARC_SIMD_BUILTIN_VUPSBW     = 1095,
-
-  ARC_SIMD_BUILTIN_VDIRUN     = 1100,
-  ARC_SIMD_BUILTIN_VDORUN     = 1101,
-  ARC_SIMD_BUILTIN_VDIWR      = 1102,
-  ARC_SIMD_BUILTIN_VDOWR      = 1103,
-
-  ARC_SIMD_BUILTIN_VREC       = 1105,
-  ARC_SIMD_BUILTIN_VRUN       = 1106,
-  ARC_SIMD_BUILTIN_VRECRUN    = 1107,
-  ARC_SIMD_BUILTIN_VENDREC    = 1108,
-
-  ARC_SIMD_BUILTIN_VLD32WH    = 1110,
-  ARC_SIMD_BUILTIN_VLD32WL    = 1111,
-  ARC_SIMD_BUILTIN_VLD64      = 1112,
-  ARC_SIMD_BUILTIN_VLD32      = 1113,
-  ARC_SIMD_BUILTIN_VLD64W     = 1114,
-  ARC_SIMD_BUILTIN_VLD128     = 1115,
-  ARC_SIMD_BUILTIN_VST128     = 1116,
-  ARC_SIMD_BUILTIN_VST64      = 1117,
-
-  ARC_SIMD_BUILTIN_VST16_N    = 1120,
-  ARC_SIMD_BUILTIN_VST32_N    = 1121,
-
-  ARC_SIMD_BUILTIN_VINTI      = 1201,
-
-  ARC_SIMD_BUILTIN_END
-};
-
 /* A nop is needed between a 4 byte insn that sets the condition codes and
    a branch that uses them (the same isn't true for an 8 byte insn that sets
    the condition codes).  Set by arc_ccfsm_advance.  Used by
@@ -385,7 +227,6 @@ static bool arc_in_small_data_p (const_tree);
 
 static void arc_init_reg_tables (void);
 static bool arc_return_in_memory (const_tree, const_tree);
-static void arc_init_simd_builtins (void);
 static bool arc_vector_mode_supported_p (machine_mode);
 
 static bool arc_can_use_doloop_p (const widest_int &, const widest_int &,
@@ -455,6 +296,9 @@ static void arc_finalize_pic (void);
 
 #undef  TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN arc_expand_builtin
+
+#undef  TARGET_BUILTIN_DECL
+#define TARGET_BUILTIN_DECL arc_builtin_decl
 
 #undef  TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK arc_output_mi_thunk
@@ -575,6 +419,9 @@ static void arc_finalize_pic (void);
 #define TARGET_ASM_ALIGNED_HI_OP "\t.hword\t"
 #undef TARGET_ASM_ALIGNED_SI_OP
 #define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
+
+#undef TARGET_DWARF_REGISTER_SPAN
+#define TARGET_DWARF_REGISTER_SPAN arc_dwarf_register_span
 
 /* Try to keep the (mov:DF _, reg) as early as possible so
    that the d<add/sub/mul>h-lr insns appear together and can
@@ -872,8 +719,15 @@ arc_init (void)
 
   /* FPX-3. No FPX extensions on pre-ARC600 cores.  */
   if ((TARGET_DPFP || TARGET_SPFP)
-      && !TARGET_ARCOMPACT_FAMILY)
+      && (!TARGET_ARCOMPACT_FAMILY && !TARGET_EM))
     error ("FPX extensions not available on pre-ARC600 cores");
+
+  /* FPX-4.  No FPX extensions mixed with FPU extensions for ARC HS
+     cpus.  */
+  if ((TARGET_DPFP || TARGET_SPFP)
+      && TARGET_HARD_FLOAT
+      && TARGET_HS)
+    error ("No FPX/FPU mixing allowed");
 
   /* Only selected multiplier configurations are available for HS.  */
   if (TARGET_HS && ((arc_mpy_option > 2 && arc_mpy_option < 7)
@@ -891,6 +745,23 @@ arc_init (void)
 
   if (TARGET_ATOMIC && !(TARGET_ARC700 || TARGET_HS))
     error ("-matomic is only supported for ARC700 or ARC HS cores");
+
+  /* ll64 ops only available for HS.  */
+  if (TARGET_LL64 && !TARGET_HS)
+    error ("-mll64 is only supported for ARC HS cores");
+
+  /* FPU support only for V2.  */
+  if (TARGET_HARD_FLOAT)
+    {
+      if (TARGET_EM
+	  && (arc_fpu_build & ~(FPU_SP | FPU_SF | FPU_SC | FPU_SD | FPX_DP)))
+	error ("FPU double precision options are available for ARC HS only");
+      if (TARGET_HS && (arc_fpu_build & FPX_DP))
+	error ("FPU double precision assist "
+	       "options are not available for ARC HS");
+      if (!TARGET_HS && !TARGET_EM)
+	error ("FPU options are available for ARCv2 architecture only");
+    }
 
   arc_init_reg_tables ();
 
@@ -1075,6 +946,33 @@ get_arc_condition_code (rtx comparison)
 	case UNEQ      : return ARC_CC_LS;
 	default : gcc_unreachable ();
 	}
+    case CC_FPUmode:
+      switch (GET_CODE (comparison))
+	{
+	case EQ	       : return ARC_CC_EQ;
+	case NE	       : return ARC_CC_NE;
+	case GT	       : return ARC_CC_GT;
+	case GE	       : return ARC_CC_GE;
+	case LT	       : return ARC_CC_C;
+	case LE	       : return ARC_CC_LS;
+	case UNORDERED : return ARC_CC_V;
+	case ORDERED   : return ARC_CC_NV;
+	case UNGT      : return ARC_CC_HI;
+	case UNGE      : return ARC_CC_HS;
+	case UNLT      : return ARC_CC_LT;
+	case UNLE      : return ARC_CC_LE;
+	  /* UNEQ and LTGT do not have representation.  */
+	case LTGT      : /* Fall through.  */
+	case UNEQ      : /* Fall through.  */
+	default : gcc_unreachable ();
+	}
+    case CC_FPU_UNEQmode:
+      switch (GET_CODE (comparison))
+	{
+	case LTGT : return ARC_CC_NE;
+	case UNEQ : return ARC_CC_EQ;
+	default : gcc_unreachable ();
+	}
     default : gcc_unreachable ();
     }
   /*NOTREACHED*/
@@ -1158,19 +1056,46 @@ arc_select_cc_mode (enum rtx_code op, rtx x, rtx y)
 	return CC_FP_GEmode;
       default: gcc_unreachable ();
       }
-  else if (GET_MODE_CLASS (mode) == MODE_FLOAT && TARGET_OPTFPE)
+  else if (TARGET_HARD_FLOAT
+	   && ((mode == SFmode && TARGET_FP_SP_BASE)
+	       || (mode == DFmode && TARGET_FP_DP_BASE)))
     switch (op)
       {
-      case EQ: case NE: return CC_Zmode;
-      case LT: case UNGE:
-      case GT: case UNLE: return CC_FP_GTmode;
-      case LE: case UNGT:
-      case GE: case UNLT: return CC_FP_GEmode;
-      case UNEQ: case LTGT: return CC_FP_UNEQmode;
-      case ORDERED: case UNORDERED: return CC_FP_ORDmode;
-      default: gcc_unreachable ();
-      }
+      case EQ:
+      case NE:
+      case UNORDERED:
+      case ORDERED:
+      case UNLT:
+      case UNLE:
+      case UNGT:
+      case UNGE:
+      case LT:
+      case LE:
+      case GT:
+      case GE:
+	return CC_FPUmode;
 
+      case LTGT:
+      case UNEQ:
+	return CC_FPU_UNEQmode;
+
+      default:
+	gcc_unreachable ();
+      }
+  else if (GET_MODE_CLASS (mode) == MODE_FLOAT && TARGET_OPTFPE)
+    {
+      switch (op)
+	{
+	case EQ: case NE: return CC_Zmode;
+	case LT: case UNGE:
+	case GT: case UNLE: return CC_FP_GTmode;
+	case LE: case UNGT:
+	case GE: case UNLT: return CC_FP_GEmode;
+	case UNEQ: case LTGT: return CC_FP_UNEQmode;
+	case ORDERED: case UNORDERED: return CC_FP_ORDmode;
+	default: gcc_unreachable ();
+	}
+    }
   return CCmode;
 }
 
@@ -1297,7 +1222,8 @@ arc_init_reg_tables (void)
 	     we must explicitly check for them here.  */
 	  if (i == (int) CCmode || i == (int) CC_ZNmode || i == (int) CC_Zmode
 	      || i == (int) CC_Cmode
-	      || i == CC_FP_GTmode || i == CC_FP_GEmode || i == CC_FP_ORDmode)
+	      || i == CC_FP_GTmode || i == CC_FP_GEmode || i == CC_FP_ORDmode
+	      || i == CC_FPUmode || i == CC_FPU_UNEQmode)
 	    arc_mode_class[i] = 1 << (int) C_MODE;
 	  else
 	    arc_mode_class[i] = 0;
@@ -1431,6 +1357,16 @@ arc_conditional_register_usage (void)
 	arc_hard_regno_mode_ok[60] = 1 << (int) S_MODE;
     }
 
+  /* ARCHS has 64-bit data-path which makes use of the even-odd paired
+     registers.  */
+  if (TARGET_HS)
+    {
+      for (regno = 1; regno < 32; regno +=2)
+	{
+	  arc_hard_regno_mode_ok[regno] = S_MODES;
+	}
+    }
+
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
       if (i < 29)
@@ -1525,6 +1461,19 @@ arc_conditional_register_usage (void)
 
   /* pc : r63 */
   arc_regno_reg_class[PROGRAM_COUNTER_REGNO] = GENERAL_REGS;
+
+  /*ARCV2 Accumulator.  */
+  if (TARGET_V2
+      && (TARGET_FP_DP_FUSED || TARGET_FP_SP_FUSED))
+  {
+    arc_regno_reg_class[ACCL_REGNO] = WRITABLE_CORE_REGS;
+    arc_regno_reg_class[ACCH_REGNO] = WRITABLE_CORE_REGS;
+    SET_HARD_REG_BIT (reg_class_contents[WRITABLE_CORE_REGS], ACCL_REGNO);
+    SET_HARD_REG_BIT (reg_class_contents[WRITABLE_CORE_REGS], ACCH_REGNO);
+    SET_HARD_REG_BIT (reg_class_contents[CHEAP_CORE_REGS], ACCL_REGNO);
+    SET_HARD_REG_BIT (reg_class_contents[CHEAP_CORE_REGS], ACCH_REGNO);
+    arc_hard_regno_mode_ok[ACC_REG_FIRST] = D_MODES;
+  }
 }
 
 /* Handle an "interrupt" attribute; arguments as in
@@ -1694,6 +1643,10 @@ gen_compare_reg (rtx comparison, machine_mode omode)
 						 gen_rtx_REG (CC_FPXmode, 61),
 						 const0_rtx)));
     }
+  else if (TARGET_HARD_FLOAT
+	   && ((cmode == SFmode && TARGET_FP_SP_BASE)
+	       || (cmode == DFmode && TARGET_FP_DP_BASE)))
+    emit_insn (gen_rtx_SET (cc_reg, gen_rtx_COMPARE (mode, x, y)));
   else if (GET_MODE_CLASS (cmode) == MODE_FLOAT && TARGET_OPTFPE)
     {
       rtx op0 = gen_rtx_REG (cmode, 0);
@@ -1787,10 +1740,11 @@ arc_setup_incoming_varargs (cumulative_args_t args_so_far,
   /* We must treat `__builtin_va_alist' as an anonymous arg.  */
 
   next_cum = *get_cumulative_args (args_so_far);
-  arc_function_arg_advance (pack_cumulative_args (&next_cum), mode, type, 1);
+  arc_function_arg_advance (pack_cumulative_args (&next_cum),
+			    mode, type, true);
   first_anon_arg = next_cum;
 
-  if (first_anon_arg < MAX_ARC_PARM_REGS)
+  if (FUNCTION_ARG_REGNO_P (first_anon_arg))
     {
       /* First anonymous (unnamed) argument is in a reg.  */
 
@@ -2331,9 +2285,26 @@ arc_save_restore (rtx base_reg,
 
       for (regno = 0; regno <= 31; regno++)
 	{
-	  if ((gmask & (1L << regno)) != 0)
+	  enum machine_mode mode = SImode;
+	  bool found = false;
+
+	  if (TARGET_LL64
+	      && (regno % 2 == 0)
+	      && ((gmask & (1L << regno)) != 0)
+	      && ((gmask & (1L << (regno+1))) != 0))
 	    {
-	      rtx reg = gen_rtx_REG (SImode, regno);
+	      found = true;
+	      mode  = DImode;
+	    }
+	  else if ((gmask & (1L << regno)) != 0)
+	    {
+	      found = true;
+	      mode  = SImode;
+	    }
+
+	  if (found)
+	    {
+	      rtx reg = gen_rtx_REG (mode, regno);
 	      rtx addr, mem;
 	      int cfa_adjust = *first_offset;
 
@@ -2349,7 +2320,7 @@ arc_save_restore (rtx base_reg,
 		  gcc_assert (SMALL_INT (offset));
 		  addr = plus_constant (Pmode, base_reg, offset);
 		}
-	      mem = gen_frame_mem (SImode, addr);
+	      mem = gen_frame_mem (mode, addr);
 	      if (epilogue_p)
 		{
 		  rtx insn =
@@ -2368,6 +2339,11 @@ arc_save_restore (rtx base_reg,
 	      else
 		frame_move_inc (mem, reg, base_reg, addr);
 	      offset += UNITS_PER_WORD;
+	      if (mode == DImode)
+		{
+		  offset += UNITS_PER_WORD;
+		  ++regno;
+		}
 	    } /* if */
 	} /* for */
     }/* if */
@@ -4983,8 +4959,6 @@ arc_arg_partial_bytes (cumulative_args_t cum_v, machine_mode mode,
   return ret;
 }
 
-
-
 /* This function is used to control a function argument is passed in a
    register, and which register.
 
@@ -5022,8 +4996,10 @@ arc_arg_partial_bytes (cumulative_args_t cum_v, machine_mode mode,
    and the rest are pushed.  */
 
 static rtx
-arc_function_arg (cumulative_args_t cum_v, machine_mode mode,
-		  const_tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
+arc_function_arg (cumulative_args_t cum_v,
+		  machine_mode mode,
+		  const_tree type ATTRIBUTE_UNUSED,
+		  bool named ATTRIBUTE_UNUSED)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   int arg_num = *cum;
@@ -5069,8 +5045,10 @@ arc_function_arg (cumulative_args_t cum_v, machine_mode mode,
    course function_arg_partial_nregs will come into play.  */
 
 static void
-arc_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
-			  const_tree type, bool named ATTRIBUTE_UNUSED)
+arc_function_arg_advance (cumulative_args_t cum_v,
+			  machine_mode mode,
+			  const_tree type,
+			  bool named ATTRIBUTE_UNUSED)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   int bytes = (mode == BLKmode
@@ -5241,91 +5219,225 @@ arc_cannot_force_const_mem (machine_mode mode, rtx x)
   return !arc_legitimate_constant_p (mode, x);
 }
 
+/* IDs for all the ARC builtins.  */
 
-/* Generic function to define a builtin.  */
-#define def_mbuiltin(MASK, NAME, TYPE, CODE)				\
-  do									\
-    {									\
-       if (MASK)							\
-	  add_builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD, NULL, NULL_TREE); \
-    }									\
-  while (0)
+enum arc_builtin_id
+  {
+#define DEF_BUILTIN(NAME, N_ARGS, TYPE, ICODE, MASK)	\
+    ARC_BUILTIN_ ## NAME,
+#include "builtins.def"
+#undef DEF_BUILTIN
 
+    ARC_BUILTIN_COUNT
+  };
+
+struct GTY(()) arc_builtin_description
+{
+  enum insn_code icode;
+  int n_args;
+  tree fndecl;
+};
+
+static GTY(()) struct arc_builtin_description
+arc_bdesc[ARC_BUILTIN_COUNT] =
+{
+#define DEF_BUILTIN(NAME, N_ARGS, TYPE, ICODE, MASK)		\
+  { (enum insn_code) CODE_FOR_ ## ICODE, N_ARGS, NULL_TREE },
+#include "builtins.def"
+#undef DEF_BUILTIN
+};
+
+/* Transform UP into lowercase and write the result to LO.
+   You must provide enough space for LO.  Return LO.  */
+
+static char*
+arc_tolower (char *lo, const char *up)
+{
+  char *lo0 = lo;
+
+  for (; *up; up++, lo++)
+    *lo = TOLOWER (*up);
+
+  *lo = '\0';
+
+  return lo0;
+}
+
+/* Implement `TARGET_BUILTIN_DECL'.  */
+
+static tree
+arc_builtin_decl (unsigned id, bool initialize_p ATTRIBUTE_UNUSED)
+{
+  if (id < ARC_BUILTIN_COUNT)
+    return arc_bdesc[id].fndecl;
+
+  return error_mark_node;
+}
 
 static void
 arc_init_builtins (void)
 {
-    tree endlink = void_list_node;
+  tree pcvoid_type_node
+    = build_pointer_type (build_qualified_type (void_type_node,
+						TYPE_QUAL_CONST));
+  tree V8HI_type_node = build_vector_type_for_mode (intHI_type_node,
+						    V8HImode);
 
-    tree void_ftype_void
-	= build_function_type (void_type_node,
-			       endlink);
+  tree void_ftype_void
+    = build_function_type_list (void_type_node, NULL_TREE);
+  tree int_ftype_int
+    = build_function_type_list (integer_type_node, integer_type_node,
+				NULL_TREE);
+  tree int_ftype_pcvoid_int
+    = build_function_type_list (integer_type_node, pcvoid_type_node,
+				integer_type_node, NULL_TREE);
+  tree void_ftype_usint_usint
+    = build_function_type_list (void_type_node, long_unsigned_type_node,
+				long_unsigned_type_node, NULL_TREE);
+  tree int_ftype_int_int
+    = build_function_type_list (integer_type_node, integer_type_node,
+				integer_type_node, NULL_TREE);
+  tree usint_ftype_usint
+    = build_function_type_list  (long_unsigned_type_node,
+				 long_unsigned_type_node, NULL_TREE);
+  tree void_ftype_usint
+    = build_function_type_list (void_type_node, long_unsigned_type_node,
+				NULL_TREE);
+  tree int_ftype_void
+    = build_function_type_list (integer_type_node, void_type_node,
+				NULL_TREE);
+  tree void_ftype_int
+    = build_function_type_list (void_type_node, integer_type_node,
+				NULL_TREE);
+  tree int_ftype_short
+    = build_function_type_list (integer_type_node, short_integer_type_node,
+				NULL_TREE);
 
-    tree int_ftype_int
-	= build_function_type (integer_type_node,
-			   tree_cons (NULL_TREE, integer_type_node, endlink));
+  /* Old ARC SIMD types.  */
+  tree v8hi_ftype_v8hi_v8hi
+    = build_function_type_list (V8HI_type_node, V8HI_type_node,
+				V8HI_type_node, NULL_TREE);
+  tree v8hi_ftype_v8hi_int
+    = build_function_type_list (V8HI_type_node, V8HI_type_node,
+				integer_type_node, NULL_TREE);
+  tree v8hi_ftype_v8hi_int_int
+    = build_function_type_list (V8HI_type_node, V8HI_type_node,
+				integer_type_node, integer_type_node,
+				NULL_TREE);
+  tree void_ftype_v8hi_int_int
+    = build_function_type_list (void_type_node, V8HI_type_node,
+				integer_type_node, integer_type_node,
+				NULL_TREE);
+  tree void_ftype_v8hi_int_int_int
+    = build_function_type_list (void_type_node, V8HI_type_node,
+				integer_type_node, integer_type_node,
+				integer_type_node, NULL_TREE);
+  tree v8hi_ftype_int_int
+    = build_function_type_list (V8HI_type_node, integer_type_node,
+				integer_type_node, NULL_TREE);
+  tree void_ftype_int_int
+    = build_function_type_list (void_type_node, integer_type_node,
+				integer_type_node, NULL_TREE);
+  tree v8hi_ftype_v8hi
+    = build_function_type_list (V8HI_type_node, V8HI_type_node,
+				NULL_TREE);
 
-    tree pcvoid_type_node
-	= build_pointer_type (build_qualified_type (void_type_node, TYPE_QUAL_CONST));
-    tree int_ftype_pcvoid_int
-	= build_function_type (integer_type_node,
-			   tree_cons (NULL_TREE, pcvoid_type_node,
-			       tree_cons (NULL_TREE, integer_type_node,
-				    endlink)));
-
-    tree int_ftype_short_int
-	= build_function_type (integer_type_node,
-			       tree_cons (NULL_TREE, short_integer_type_node, endlink));
-
-    tree void_ftype_int_int
-	= build_function_type (void_type_node,
-			       tree_cons (NULL_TREE, integer_type_node,
-					  tree_cons (NULL_TREE, integer_type_node, endlink)));
-    tree void_ftype_usint_usint
-	= build_function_type (void_type_node,
-			       tree_cons (NULL_TREE, long_unsigned_type_node,
-					  tree_cons (NULL_TREE, long_unsigned_type_node, endlink)));
-
-    tree int_ftype_int_int
-	= build_function_type (integer_type_node,
-			       tree_cons (NULL_TREE, integer_type_node,
-					  tree_cons (NULL_TREE, integer_type_node, endlink)));
-
-    tree usint_ftype_usint
-	= build_function_type (long_unsigned_type_node,
-			   tree_cons (NULL_TREE, long_unsigned_type_node, endlink));
-
-    tree void_ftype_usint
-	= build_function_type (void_type_node,
-			   tree_cons (NULL_TREE, long_unsigned_type_node, endlink));
-
-    /* Add the builtins.  */
-    def_mbuiltin (1,"__builtin_arc_nop", void_ftype_void, ARC_BUILTIN_NOP);
-    def_mbuiltin (TARGET_NORM, "__builtin_arc_norm", int_ftype_int, ARC_BUILTIN_NORM);
-    def_mbuiltin (TARGET_NORM, "__builtin_arc_normw", int_ftype_short_int, ARC_BUILTIN_NORMW);
-    def_mbuiltin (TARGET_SWAP, "__builtin_arc_swap", int_ftype_int, ARC_BUILTIN_SWAP);
-    def_mbuiltin (TARGET_MUL64_SET,"__builtin_arc_mul64", void_ftype_int_int, ARC_BUILTIN_MUL64);
-    def_mbuiltin (TARGET_MUL64_SET,"__builtin_arc_mulu64", void_ftype_usint_usint, ARC_BUILTIN_MULU64);
-    def_mbuiltin (1,"__builtin_arc_rtie", void_ftype_void, ARC_BUILTIN_RTIE);
-    def_mbuiltin (TARGET_ARC700,"__builtin_arc_sync", void_ftype_void, ARC_BUILTIN_SYNC);
-    def_mbuiltin ((TARGET_EA_SET),"__builtin_arc_divaw", int_ftype_int_int, ARC_BUILTIN_DIVAW);
-    def_mbuiltin (1,"__builtin_arc_brk", void_ftype_void, ARC_BUILTIN_BRK);
-    def_mbuiltin (1,"__builtin_arc_flag", void_ftype_usint, ARC_BUILTIN_FLAG);
-    def_mbuiltin (1,"__builtin_arc_sleep", void_ftype_usint, ARC_BUILTIN_SLEEP);
-    def_mbuiltin (1,"__builtin_arc_swi", void_ftype_void, ARC_BUILTIN_SWI);
-    def_mbuiltin (1,"__builtin_arc_core_read", usint_ftype_usint, ARC_BUILTIN_CORE_READ);
-    def_mbuiltin (1,"__builtin_arc_core_write", void_ftype_usint_usint, ARC_BUILTIN_CORE_WRITE);
-    def_mbuiltin (1,"__builtin_arc_lr", usint_ftype_usint, ARC_BUILTIN_LR);
-    def_mbuiltin (1,"__builtin_arc_sr", void_ftype_usint_usint, ARC_BUILTIN_SR);
-    def_mbuiltin (TARGET_ARC700,"__builtin_arc_trap_s", void_ftype_usint, ARC_BUILTIN_TRAP_S);
-    def_mbuiltin (TARGET_ARC700,"__builtin_arc_unimp_s", void_ftype_void, ARC_BUILTIN_UNIMP_S);
-    def_mbuiltin (1,"__builtin_arc_aligned", int_ftype_pcvoid_int, ARC_BUILTIN_ALIGNED);
-
-    if (TARGET_SIMD_SET)
-      arc_init_simd_builtins ();
+  /* Add the builtins.  */
+#define DEF_BUILTIN(NAME, N_ARGS, TYPE, ICODE, MASK)			\
+  {									\
+    int id = ARC_BUILTIN_ ## NAME;					\
+    const char *Name = "__builtin_arc_" #NAME;				\
+    char *name = (char*) alloca (1 + strlen (Name));			\
+									\
+    gcc_assert (id < ARC_BUILTIN_COUNT);				\
+    if (MASK)								\
+      arc_bdesc[id].fndecl						\
+	= add_builtin_function (arc_tolower(name, Name), TYPE, id,	\
+				BUILT_IN_MD, NULL, NULL_TREE);		\
+  }
+#include "builtins.def"
+#undef DEF_BUILTIN
 }
 
-static rtx arc_expand_simd_builtin (tree, rtx, rtx, machine_mode, int);
+/* Helper to expand __builtin_arc_aligned (void* val, int
+  alignval).  */
+
+static rtx
+arc_expand_builtin_aligned (tree exp)
+{
+  tree arg0 = CALL_EXPR_ARG (exp, 0);
+  tree arg1 = CALL_EXPR_ARG (exp, 1);
+  fold (arg1);
+  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+
+  if (!CONST_INT_P (op1))
+    {
+      /* If we can't fold the alignment to a constant integer
+	 whilst optimizing, this is probably a user error.  */
+      if (optimize)
+	warning (0, "__builtin_arc_aligned with non-constant alignment");
+    }
+  else
+    {
+      HOST_WIDE_INT alignTest = INTVAL (op1);
+      /* Check alignTest is positive, and a power of two.  */
+      if (alignTest <= 0 || alignTest != (alignTest & -alignTest))
+	{
+	  error ("invalid alignment value for __builtin_arc_aligned");
+	  return NULL_RTX;
+	}
+
+      if (CONST_INT_P (op0))
+	{
+	  HOST_WIDE_INT pnt = INTVAL (op0);
+
+	  if ((pnt & (alignTest - 1)) == 0)
+	    return const1_rtx;
+	}
+      else
+	{
+	  unsigned  align = get_pointer_alignment (arg0);
+	  unsigned  numBits = alignTest * BITS_PER_UNIT;
+
+	  if (align && align >= numBits)
+	    return const1_rtx;
+	  /* Another attempt to ascertain alignment.  Check the type
+	     we are pointing to.  */
+	  if (POINTER_TYPE_P (TREE_TYPE (arg0))
+	      && TYPE_ALIGN (TREE_TYPE (TREE_TYPE (arg0))) >= numBits)
+	    return const1_rtx;
+	}
+    }
+
+  /* Default to false.  */
+  return const0_rtx;
+}
+
+/* Helper arc_expand_builtin, generates a pattern for the given icode
+   and arguments.  */
+
+static rtx_insn *
+apply_GEN_FCN (enum insn_code icode, rtx *arg)
+{
+  switch (insn_data[icode].n_generator_args)
+    {
+    case 0:
+      return GEN_FCN (icode) ();
+    case 1:
+      return GEN_FCN (icode) (arg[0]);
+    case 2:
+      return GEN_FCN (icode) (arg[0], arg[1]);
+    case 3:
+      return GEN_FCN (icode) (arg[0], arg[1], arg[2]);
+    case 4:
+      return GEN_FCN (icode) (arg[0], arg[1], arg[2], arg[3]);
+    case 5:
+      return GEN_FCN (icode) (arg[0], arg[1], arg[2], arg[3], arg[4]);
+    default:
+      gcc_unreachable ();
+    }
+}
 
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
@@ -5336,314 +5448,396 @@ static rtx arc_expand_simd_builtin (tree, rtx, rtx, machine_mode, int);
 static rtx
 arc_expand_builtin (tree exp,
 		    rtx target,
-		    rtx subtarget,
-		    machine_mode mode,
-		    int ignore)
+		    rtx subtarget ATTRIBUTE_UNUSED,
+		    machine_mode mode ATTRIBUTE_UNUSED,
+		    int ignore ATTRIBUTE_UNUSED)
 {
-  tree              fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
-  tree              arg0;
-  tree              arg1;
-  rtx               op0;
-  rtx               op1;
-  int               fcode = DECL_FUNCTION_CODE (fndecl);
-  int               icode;
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
+  unsigned int id = DECL_FUNCTION_CODE (fndecl);
+  const struct arc_builtin_description *d = &arc_bdesc[id];
+  int i, j, n_args = call_expr_nargs (exp);
+  rtx pat = NULL_RTX;
+  rtx xop[5];
+  enum insn_code icode = d->icode;
+  machine_mode tmode = insn_data[icode].operand[0].mode;
+  int nonvoid;
+  tree arg0;
+  tree arg1;
+  tree arg2;
+  tree arg3;
+  rtx op0;
+  rtx op1;
+  rtx op2;
+  rtx op3;
+  rtx op4;
   machine_mode mode0;
   machine_mode mode1;
+  machine_mode mode2;
+  machine_mode mode3;
+  machine_mode mode4;
 
-  if (fcode > ARC_SIMD_BUILTIN_BEGIN && fcode < ARC_SIMD_BUILTIN_END)
-    return arc_expand_simd_builtin (exp, target, subtarget, mode, ignore);
+  if (id >= ARC_BUILTIN_COUNT)
+    internal_error ("bad builtin fcode");
 
-  switch (fcode)
+  /* 1st part: Expand special builtins.  */
+  switch (id)
     {
     case ARC_BUILTIN_NOP:
-      emit_insn (gen_nop ());
-      return NULL_RTX;
-
-    case ARC_BUILTIN_NORM:
-      icode = CODE_FOR_clrsbsi2;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-      mode0 =  insn_data[icode].operand[1].mode;
-      target = gen_reg_rtx (SImode);
-
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, op0);
-
-      emit_insn (gen_clrsbsi2 (target, op0));
-      return target;
-
-    case ARC_BUILTIN_NORMW:
-
-      /* FIXME : This should all be HImode, not SImode.  */
-      icode = CODE_FOR_normw;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-      mode0 =  insn_data[icode].operand[1].mode;
-      target = gen_reg_rtx (SImode);
-
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, convert_to_mode (mode0, op0,0));
-
-      emit_insn (gen_normw (target, op0));
-      return target;
-
-    case ARC_BUILTIN_MUL64:
-      icode = CODE_FOR_mul64;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      arg1 = CALL_EXPR_ARG (exp, 1);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-
-      mode0 =  insn_data[icode].operand[0].mode;
-      mode1 =  insn_data[icode].operand[1].mode;
-
-      if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, op0);
-
-      if (! (*insn_data[icode].operand[1].predicate) (op1, mode1))
-	op1 = copy_to_mode_reg (mode1, op1);
-
-      emit_insn (gen_mul64 (op0,op1));
-      return NULL_RTX;
-
-    case ARC_BUILTIN_MULU64:
-      icode = CODE_FOR_mulu64;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      arg1 = CALL_EXPR_ARG (exp, 1);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-
-      mode0 =  insn_data[icode].operand[0].mode;
-      mode1 =  insn_data[icode].operand[1].mode;
-
-      if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, op0);
-
-      if (! (*insn_data[icode].operand[0].predicate) (op1, mode1))
-	op1 = copy_to_mode_reg (mode1, op1);
-
-      emit_insn (gen_mulu64 (op0,op1));
+      emit_insn (gen_nopv ());
       return NULL_RTX;
 
     case ARC_BUILTIN_RTIE:
-      icode = CODE_FOR_rtie;
-      emit_insn (gen_rtie (const1_rtx));
-      return NULL_RTX;
-
     case ARC_BUILTIN_SYNC:
-      icode = CODE_FOR_sync;
-      emit_insn (gen_sync (const1_rtx));
-      return NULL_RTX;
-
-    case ARC_BUILTIN_SWAP:
-      icode = CODE_FOR_swap;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-      mode0 =  insn_data[icode].operand[1].mode;
-      target = gen_reg_rtx (SImode);
-
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, op0);
-
-      emit_insn (gen_swap (target, op0));
-      return target;
-
-    case ARC_BUILTIN_DIVAW:
-      icode = CODE_FOR_divaw;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      arg1 = CALL_EXPR_ARG (exp, 1);
-
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-      target = gen_reg_rtx (SImode);
-
-      mode0 =  insn_data[icode].operand[0].mode;
-      mode1 =  insn_data[icode].operand[1].mode;
-
-      if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, op0);
-
-      if (! (*insn_data[icode].operand[1].predicate) (op1, mode1))
-	op1 = copy_to_mode_reg (mode1, op1);
-
-      emit_insn (gen_divaw (target, op0, op1));
-      return target;
-
     case ARC_BUILTIN_BRK:
-      icode = CODE_FOR_brk;
-      emit_insn (gen_brk (const1_rtx));
-      return NULL_RTX;
-
-    case ARC_BUILTIN_SLEEP:
-      icode = CODE_FOR_sleep;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-
-      fold (arg0);
-
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-      mode0 = insn_data[icode].operand[1].mode;
-
-      emit_insn (gen_sleep (op0));
-      return NULL_RTX;
-
     case ARC_BUILTIN_SWI:
-      icode = CODE_FOR_swi;
-      emit_insn (gen_swi (const1_rtx));
-      return NULL_RTX;
-
-    case ARC_BUILTIN_FLAG:
-      icode = CODE_FOR_flag;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-      mode0 =  insn_data[icode].operand[0].mode;
-
-      if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, op0);
-
-      emit_insn (gen_flag (op0));
-      return NULL_RTX;
-
-    case ARC_BUILTIN_CORE_READ:
-      icode = CODE_FOR_core_read;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      target = gen_reg_rtx (SImode);
-
-      fold (arg0);
-
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-      mode0 = insn_data[icode].operand[1].mode;
-
-      emit_insn (gen_core_read (target, op0));
-      return target;
-
-    case ARC_BUILTIN_CORE_WRITE:
-      icode = CODE_FOR_core_write;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      arg1 = CALL_EXPR_ARG (exp, 1);
-
-      fold (arg1);
-
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-
-      mode0 = insn_data[icode].operand[0].mode;
-      mode1 = insn_data[icode].operand[1].mode;
-
-      emit_insn (gen_core_write (op0, op1));
-      return NULL_RTX;
-
-    case ARC_BUILTIN_LR:
-      icode = CODE_FOR_lr;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      target = gen_reg_rtx (SImode);
-
-      fold (arg0);
-
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-      mode0 = insn_data[icode].operand[1].mode;
-
-      emit_insn (gen_lr (target, op0));
-      return target;
-
-    case ARC_BUILTIN_SR:
-      icode = CODE_FOR_sr;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      arg1 = CALL_EXPR_ARG (exp, 1);
-
-      fold (arg1);
-
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-
-      mode0 = insn_data[icode].operand[0].mode;
-      mode1 = insn_data[icode].operand[1].mode;
-
-      emit_insn (gen_sr (op0, op1));
-      return NULL_RTX;
-
-    case ARC_BUILTIN_TRAP_S:
-      icode = CODE_FOR_trap_s;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-
-      fold (arg0);
-
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-      mode0 = insn_data[icode].operand[1].mode;
-
-      /* We don't give an error for non-cost values here because
-	 we still want to allow things to be fixed up by later inlining /
-	 constant folding / dead code elimination.  */
-      if  (CONST_INT_P (op0) && !satisfies_constraint_L (op0))
-	{
-	  /* Keep this message in sync with the one in arc.md:trap_s,
-	     because *.md files don't get scanned by exgettext.  */
-	  error ("operand to trap_s should be an unsigned 6-bit value");
-	}
-      emit_insn (gen_trap_s (op0));
-      return NULL_RTX;
-
     case ARC_BUILTIN_UNIMP_S:
-      icode = CODE_FOR_unimp_s;
-      emit_insn (gen_unimp_s (const1_rtx));
+      gcc_assert (icode != 0);
+      emit_insn (GEN_FCN (icode) (const1_rtx));
       return NULL_RTX;
 
     case ARC_BUILTIN_ALIGNED:
-      /* __builtin_arc_aligned (void* val, int alignval) */
+      return arc_expand_builtin_aligned (exp);
+
+    case ARC_BUILTIN_CLRI:
+      target = gen_reg_rtx (SImode);
+      emit_insn (gen_clri (target, const1_rtx));
+      return target;
+
+    case ARC_BUILTIN_TRAP_S:
+    case ARC_BUILTIN_SLEEP:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      fold (arg0);
+      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+
+      if  (!CONST_INT_P (op0) || !satisfies_constraint_L (op0))
+	{
+	  error ("builtin operand should be an unsigned 6-bit value");
+	  return NULL_RTX;
+	}
+      gcc_assert (icode != 0);
+      emit_insn (GEN_FCN (icode) (op0));
+      return NULL_RTX;
+
+    case ARC_BUILTIN_VDORUN:
+    case ARC_BUILTIN_VDIRUN:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
-      fold (arg1);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-      target = gen_reg_rtx (SImode);
+      op0 = expand_expr (arg0, NULL_RTX, SImode, EXPAND_NORMAL);
+      op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
 
-      if (!CONST_INT_P (op1))
-	{
-	  /* If we can't fold the alignment to a constant integer
-	     whilst optimizing, this is probably a user error.  */
-	  if (optimize)
-	    warning (0, "__builtin_arc_aligned with non-constant alignment");
-	}
+      target = gen_rtx_REG (SImode, (id == ARC_BUILTIN_VDIRUN) ? 131 : 139);
+
+      mode0 =  insn_data[icode].operand[1].mode;
+      mode1 =  insn_data[icode].operand[2].mode;
+
+      if (!insn_data[icode].operand[1].predicate (op0, mode0))
+	op0 = copy_to_mode_reg (mode0, op0);
+
+      if (!insn_data[icode].operand[2].predicate (op1, mode1))
+	op1 = copy_to_mode_reg (mode1, op1);
+
+      pat = GEN_FCN (icode) (target, op0, op1);
+      if (!pat)
+	return NULL_RTX;
+
+      emit_insn (pat);
+      return NULL_RTX;
+
+    case ARC_BUILTIN_VDIWR:
+    case ARC_BUILTIN_VDOWR:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      op0 = expand_expr (arg0, NULL_RTX, SImode, EXPAND_NORMAL);
+      op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
+
+      if (!CONST_INT_P (op0)
+	  || !(UNSIGNED_INT3 (INTVAL (op0))))
+	error ("operand 1 should be an unsigned 3-bit immediate");
+
+      mode1 =  insn_data[icode].operand[1].mode;
+
+      if (icode == CODE_FOR_vdiwr_insn)
+	target = gen_rtx_REG (SImode,
+			      ARC_FIRST_SIMD_DMA_CONFIG_IN_REG + INTVAL (op0));
+      else if (icode == CODE_FOR_vdowr_insn)
+	target = gen_rtx_REG (SImode,
+			      ARC_FIRST_SIMD_DMA_CONFIG_OUT_REG + INTVAL (op0));
       else
-	{
-	  HOST_WIDE_INT alignTest = INTVAL (op1);
-	  /* Check alignTest is positive, and a power of two.  */
-	  if (alignTest <= 0 || alignTest != (alignTest & -alignTest))
-	    {
-	      error ("invalid alignment value for __builtin_arc_aligned");
-	      return NULL_RTX;
-	    }
+	gcc_unreachable ();
 
-	  if (CONST_INT_P (op0))
-	    {
-	      HOST_WIDE_INT pnt = INTVAL (op0);
+      if (!insn_data[icode].operand[2].predicate (op1, mode1))
+	op1 = copy_to_mode_reg (mode1, op1);
 
-	      if ((pnt & (alignTest - 1)) == 0)
-		return const1_rtx;
-	    }
-	  else
-	    {
-	      unsigned  align = get_pointer_alignment (arg0);
-	      unsigned  numBits = alignTest * BITS_PER_UNIT;
+      pat = GEN_FCN (icode) (target, op1);
+      if (!pat)
+	return NULL_RTX;
 
-	      if (align && align >= numBits)
-		return const1_rtx;
-	      /* Another attempt to ascertain alignment.  Check the type
-		 we are pointing to.  */
-	      if (POINTER_TYPE_P (TREE_TYPE (arg0))
-		  && TYPE_ALIGN (TREE_TYPE (TREE_TYPE (arg0))) >= numBits)
-		return const1_rtx;
-	    }
-	}
+      emit_insn (pat);
+      return NULL_RTX;
 
-      /* Default to false.  */
-      return const0_rtx;
+    case ARC_BUILTIN_VASRW:
+    case ARC_BUILTIN_VSR8:
+    case ARC_BUILTIN_VSR8AW:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      op0 = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);
+      op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
+      op2 = gen_rtx_REG (V8HImode, ARC_FIRST_SIMD_VR_REG);
+
+      target = gen_reg_rtx (V8HImode);
+      mode0 =  insn_data[icode].operand[1].mode;
+      mode1 =  insn_data[icode].operand[2].mode;
+
+      if (!insn_data[icode].operand[1].predicate (op0, mode0))
+	op0 = copy_to_mode_reg (mode0, op0);
+
+      if ((!insn_data[icode].operand[2].predicate (op1, mode1))
+	  || !(UNSIGNED_INT3 (INTVAL (op1))))
+	error ("operand 2 should be an unsigned 3-bit value (I0-I7)");
+
+      pat = GEN_FCN (icode) (target, op0, op1, op2);
+      if (!pat)
+	return NULL_RTX;
+
+      emit_insn (pat);
+      return target;
+
+    case ARC_BUILTIN_VLD32WH:
+    case ARC_BUILTIN_VLD32WL:
+    case ARC_BUILTIN_VLD64:
+    case ARC_BUILTIN_VLD32:
+      rtx src_vreg;
+      icode = d->icode;
+      arg0 = CALL_EXPR_ARG (exp, 0); /* source vreg.  */
+      arg1 = CALL_EXPR_ARG (exp, 1); /* [I]0-7.  */
+      arg2 = CALL_EXPR_ARG (exp, 2); /* u8.  */
+
+      src_vreg = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);
+      op0 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
+      op1 = expand_expr (arg2, NULL_RTX, SImode, EXPAND_NORMAL);
+      op2 = gen_rtx_REG (V8HImode, ARC_FIRST_SIMD_VR_REG);
+
+      /* target <- src vreg.  */
+      emit_insn (gen_move_insn (target, src_vreg));
+
+      /* target <- vec_concat: target, mem (Ib, u8).  */
+      mode0 =  insn_data[icode].operand[3].mode;
+      mode1 =  insn_data[icode].operand[1].mode;
+
+      if ((!insn_data[icode].operand[3].predicate (op0, mode0))
+	  || !(UNSIGNED_INT3 (INTVAL (op0))))
+	error ("operand 1 should be an unsigned 3-bit value (I0-I7)");
+
+      if ((!insn_data[icode].operand[1].predicate (op1, mode1))
+	  || !(UNSIGNED_INT8 (INTVAL (op1))))
+	error ("operand 2 should be an unsigned 8-bit value");
+
+      pat = GEN_FCN (icode) (target, op1, op2, op0);
+      if (!pat)
+	return NULL_RTX;
+
+      emit_insn (pat);
+      return target;
+
+    case ARC_BUILTIN_VLD64W:
+    case ARC_BUILTIN_VLD128:
+      arg0 = CALL_EXPR_ARG (exp, 0); /* dest vreg.  */
+      arg1 = CALL_EXPR_ARG (exp, 1); /* [I]0-7.  */
+
+      op0 = gen_rtx_REG (V8HImode, ARC_FIRST_SIMD_VR_REG);
+      op1 = expand_expr (arg0, NULL_RTX, SImode, EXPAND_NORMAL);
+      op2 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
+
+      /* target <- src vreg.  */
+      target = gen_reg_rtx (V8HImode);
+
+      /* target <- vec_concat: target, mem (Ib, u8).  */
+      mode0 =  insn_data[icode].operand[1].mode;
+      mode1 =  insn_data[icode].operand[2].mode;
+      mode2 =  insn_data[icode].operand[3].mode;
+
+      if ((!insn_data[icode].operand[2].predicate (op1, mode1))
+	  || !(UNSIGNED_INT3 (INTVAL (op1))))
+	error ("operand 1 should be an unsigned 3-bit value (I0-I7)");
+
+      if ((!insn_data[icode].operand[3].predicate (op2, mode2))
+	  || !(UNSIGNED_INT8 (INTVAL (op2))))
+	error ("operand 2 should be an unsigned 8-bit value");
+
+      pat = GEN_FCN (icode) (target, op0, op1, op2);
+
+      if (!pat)
+	return NULL_RTX;
+
+      emit_insn (pat);
+      return target;
+
+    case ARC_BUILTIN_VST128:
+    case ARC_BUILTIN_VST64:
+      arg0 = CALL_EXPR_ARG (exp, 0); /* src vreg.  */
+      arg1 = CALL_EXPR_ARG (exp, 1); /* [I]0-7.  */
+      arg2 = CALL_EXPR_ARG (exp, 2); /* u8.  */
+
+      op0 = gen_rtx_REG (V8HImode, ARC_FIRST_SIMD_VR_REG);
+      op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
+      op2 = expand_expr (arg2, NULL_RTX, SImode, EXPAND_NORMAL);
+      op3 = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);
+
+      mode0 = insn_data[icode].operand[0].mode;
+      mode1 = insn_data[icode].operand[1].mode;
+      mode2 = insn_data[icode].operand[2].mode;
+      mode3 = insn_data[icode].operand[3].mode;
+
+      if ((!insn_data[icode].operand[1].predicate (op1, mode1))
+	  || !(UNSIGNED_INT3 (INTVAL (op1))))
+	error ("operand 2 should be an unsigned 3-bit value (I0-I7)");
+
+      if ((!insn_data[icode].operand[2].predicate (op2, mode2))
+	  || !(UNSIGNED_INT8 (INTVAL (op2))))
+	error ("operand 3 should be an unsigned 8-bit value");
+
+      if (!insn_data[icode].operand[3].predicate (op3, mode3))
+	op3 = copy_to_mode_reg (mode3, op3);
+
+      pat = GEN_FCN (icode) (op0, op1, op2, op3);
+      if (!pat)
+	return NULL_RTX;
+
+      emit_insn (pat);
+      return NULL_RTX;
+
+    case ARC_BUILTIN_VST16_N:
+    case ARC_BUILTIN_VST32_N:
+      arg0 = CALL_EXPR_ARG (exp, 0); /* source vreg.  */
+      arg1 = CALL_EXPR_ARG (exp, 1); /* u3.  */
+      arg2 = CALL_EXPR_ARG (exp, 2); /* [I]0-7.  */
+      arg3 = CALL_EXPR_ARG (exp, 3); /* u8.  */
+
+      op0 = expand_expr (arg3, NULL_RTX, SImode, EXPAND_NORMAL);
+      op1 = gen_rtx_REG (V8HImode, ARC_FIRST_SIMD_VR_REG);
+      op2 = expand_expr (arg2, NULL_RTX, SImode, EXPAND_NORMAL);
+      op3 = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);
+      op4 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
+
+      mode0 = insn_data[icode].operand[0].mode;
+      mode2 = insn_data[icode].operand[2].mode;
+      mode3 = insn_data[icode].operand[3].mode;
+      mode4 = insn_data[icode].operand[4].mode;
+
+      /* Do some correctness checks for the operands.  */
+      if ((!insn_data[icode].operand[0].predicate (op0, mode0))
+	  || !(UNSIGNED_INT8 (INTVAL (op0))))
+	error ("operand 4 should be an unsigned 8-bit value (0-255)");
+
+      if ((!insn_data[icode].operand[2].predicate (op2, mode2))
+	  || !(UNSIGNED_INT3 (INTVAL (op2))))
+	error ("operand 3 should be an unsigned 3-bit value (I0-I7)");
+
+      if (!insn_data[icode].operand[3].predicate (op3, mode3))
+	op3 = copy_to_mode_reg (mode3, op3);
+
+      if ((!insn_data[icode].operand[4].predicate (op4, mode4))
+	   || !(UNSIGNED_INT3 (INTVAL (op4))))
+	error ("operand 2 should be an unsigned 3-bit value (subreg 0-7)");
+      else if (icode == CODE_FOR_vst32_n_insn
+	       && ((INTVAL (op4) % 2) != 0))
+	error ("operand 2 should be an even 3-bit value (subreg 0,2,4,6)");
+
+      pat = GEN_FCN (icode) (op0, op1, op2, op3, op4);
+      if (!pat)
+	return NULL_RTX;
+
+      emit_insn (pat);
+      return NULL_RTX;
 
     default:
       break;
     }
 
-  /* @@@ Should really do something sensible here.  */
-  return NULL_RTX;
+  /* 2nd part: Expand regular builtins.  */
+  if (icode == 0)
+    internal_error ("bad builtin fcode");
+
+  nonvoid = TREE_TYPE (TREE_TYPE (fndecl)) != void_type_node;
+  j = 0;
+
+  if (nonvoid)
+    {
+      if (target == NULL_RTX
+	  || GET_MODE (target) != tmode
+	  || !insn_data[icode].operand[0].predicate (target, tmode))
+	{
+	  target = gen_reg_rtx (tmode);
+	}
+      xop[j++] = target;
+    }
+
+  gcc_assert (n_args <= 4);
+  for (i = 0; i < n_args; i++, j++)
+    {
+      tree arg = CALL_EXPR_ARG (exp, i);
+      machine_mode mode = insn_data[icode].operand[j].mode;
+      rtx op = expand_expr (arg, NULL_RTX, mode, EXPAND_NORMAL);
+      machine_mode opmode = GET_MODE (op);
+      char c = insn_data[icode].operand[j].constraint[0];
+
+      /* SIMD extension requires exact immediate operand match.  */
+      if ((id > ARC_BUILTIN_SIMD_BEGIN)
+	  && (id < ARC_BUILTIN_SIMD_END)
+	  && (c != 'v')
+	  && (c != 'r'))
+	{
+	  if (!CONST_INT_P (op))
+	    error ("builtin requires an immediate for operand %d", j);
+	  switch (c)
+	    {
+	    case 'L':
+	      if (!satisfies_constraint_L (op))
+		error ("operand %d should be a 6 bit unsigned immediate", j);
+	      break;
+	    case 'P':
+	      if (!satisfies_constraint_P (op))
+		error ("operand %d should be a 8 bit unsigned immediate", j);
+	      break;
+	    case 'K':
+	      if (!satisfies_constraint_K (op))
+		error ("operand %d should be a 3 bit unsigned immediate", j);
+	      break;
+	    default:
+	      error ("unknown builtin immediate operand type for operand %d",
+		     j);
+	    }
+	}
+
+      if (CONST_INT_P (op))
+	opmode = mode;
+
+      if ((opmode == SImode) && (mode == HImode))
+	{
+	  opmode = HImode;
+	  op = gen_lowpart (HImode, op);
+	}
+
+      /* In case the insn wants input operands in modes different from
+	 the result, abort.  */
+      gcc_assert (opmode == mode || opmode == VOIDmode);
+
+      if (!insn_data[icode].operand[i + nonvoid].predicate (op, mode))
+	op = copy_to_mode_reg (mode, op);
+
+      xop[j] = op;
+    }
+
+  pat = apply_GEN_FCN (icode, xop);
+  if (pat == NULL_RTX)
+    return NULL_RTX;
+
+  emit_insn (pat);
+
+  if (nonvoid)
+    return target;
+  else
+    return const0_rtx;
 }
 
 /* Returns true if the operands[opno] is a valid compile-time constant to be
@@ -6309,6 +6503,11 @@ arc_reorg (void)
 
 	  pc_target = SET_SRC (pattern);
 
+	  /* Avoid FPU instructions.  */
+	  if ((GET_MODE (XEXP (XEXP (pc_target, 0), 0)) == CC_FPUmode)
+	      || (GET_MODE (XEXP (XEXP (pc_target, 0), 0)) == CC_FPU_UNEQmode))
+	    continue;
+
 	  /* Now go back and search for the set cc insn.  */
 
 	  label = XEXP (pc_target, 1);
@@ -6331,7 +6530,7 @@ arc_reorg (void)
 		      break;
 		    }
 		}
-	      if (! link_insn)
+	      if (!link_insn)
 		continue;
 	      else
 		/* Check if this is a data dependency.  */
@@ -6708,809 +6907,6 @@ arc_asm_output_aligned_decl_local (FILE * stream, tree decl, const char * name,
     ASM_OUTPUT_SKIP (stream, size);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* SIMD builtins support.  */
-enum simd_insn_args_type {
-  Va_Vb_Vc,
-  Va_Vb_rlimm,
-  Va_Vb_Ic,
-  Va_Vb_u6,
-  Va_Vb_u8,
-  Va_rlimm_u8,
-
-  Va_Vb,
-
-  void_rlimm,
-  void_u6,
-
-  Da_u3_rlimm,
-  Da_rlimm_rlimm,
-
-  Va_Ib_u8,
-  void_Va_Ib_u8,
-
-  Va_Vb_Ic_u8,
-  void_Va_u3_Ib_u8
-};
-
-struct builtin_description
-{
-  enum simd_insn_args_type args_type;
-  const enum insn_code     icode;
-  const char * const       name;
-  const enum arc_builtins  code;
-};
-
-static const struct builtin_description arc_simd_builtin_desc_list[] =
-{
-  /* VVV builtins go first.  */
-#define SIMD_BUILTIN(type, code, string, builtin) \
-  { type,CODE_FOR_##code, "__builtin_arc_" string, \
-    ARC_SIMD_BUILTIN_##builtin },
-
-  SIMD_BUILTIN (Va_Vb_Vc,    vaddaw_insn,   "vaddaw",     VADDAW)
-  SIMD_BUILTIN (Va_Vb_Vc,     vaddw_insn,    "vaddw",      VADDW)
-  SIMD_BUILTIN (Va_Vb_Vc,      vavb_insn,     "vavb",       VAVB)
-  SIMD_BUILTIN (Va_Vb_Vc,     vavrb_insn,    "vavrb",      VAVRB)
-  SIMD_BUILTIN (Va_Vb_Vc,    vdifaw_insn,   "vdifaw",     VDIFAW)
-  SIMD_BUILTIN (Va_Vb_Vc,     vdifw_insn,    "vdifw",      VDIFW)
-  SIMD_BUILTIN (Va_Vb_Vc,    vmaxaw_insn,   "vmaxaw",     VMAXAW)
-  SIMD_BUILTIN (Va_Vb_Vc,     vmaxw_insn,    "vmaxw",      VMAXW)
-  SIMD_BUILTIN (Va_Vb_Vc,    vminaw_insn,   "vminaw",     VMINAW)
-  SIMD_BUILTIN (Va_Vb_Vc,     vminw_insn,    "vminw",      VMINW)
-  SIMD_BUILTIN (Va_Vb_Vc,    vmulaw_insn,   "vmulaw",     VMULAW)
-  SIMD_BUILTIN (Va_Vb_Vc,   vmulfaw_insn,  "vmulfaw",    VMULFAW)
-  SIMD_BUILTIN (Va_Vb_Vc,    vmulfw_insn,   "vmulfw",     VMULFW)
-  SIMD_BUILTIN (Va_Vb_Vc,     vmulw_insn,    "vmulw",      VMULW)
-  SIMD_BUILTIN (Va_Vb_Vc,    vsubaw_insn,   "vsubaw",     VSUBAW)
-  SIMD_BUILTIN (Va_Vb_Vc,     vsubw_insn,    "vsubw",      VSUBW)
-  SIMD_BUILTIN (Va_Vb_Vc,    vsummw_insn,   "vsummw",     VSUMMW)
-  SIMD_BUILTIN (Va_Vb_Vc,      vand_insn,     "vand",       VAND)
-  SIMD_BUILTIN (Va_Vb_Vc,    vandaw_insn,   "vandaw",     VANDAW)
-  SIMD_BUILTIN (Va_Vb_Vc,      vbic_insn,     "vbic",       VBIC)
-  SIMD_BUILTIN (Va_Vb_Vc,    vbicaw_insn,   "vbicaw",     VBICAW)
-  SIMD_BUILTIN (Va_Vb_Vc,       vor_insn,      "vor",        VOR)
-  SIMD_BUILTIN (Va_Vb_Vc,      vxor_insn,     "vxor",       VXOR)
-  SIMD_BUILTIN (Va_Vb_Vc,    vxoraw_insn,   "vxoraw",     VXORAW)
-  SIMD_BUILTIN (Va_Vb_Vc,      veqw_insn,     "veqw",       VEQW)
-  SIMD_BUILTIN (Va_Vb_Vc,      vlew_insn,     "vlew",       VLEW)
-  SIMD_BUILTIN (Va_Vb_Vc,      vltw_insn,     "vltw",       VLTW)
-  SIMD_BUILTIN (Va_Vb_Vc,      vnew_insn,     "vnew",       VNEW)
-  SIMD_BUILTIN (Va_Vb_Vc,    vmr1aw_insn,   "vmr1aw",     VMR1AW)
-  SIMD_BUILTIN (Va_Vb_Vc,     vmr1w_insn,    "vmr1w",      VMR1W)
-  SIMD_BUILTIN (Va_Vb_Vc,    vmr2aw_insn,   "vmr2aw",     VMR2AW)
-  SIMD_BUILTIN (Va_Vb_Vc,     vmr2w_insn,    "vmr2w",      VMR2W)
-  SIMD_BUILTIN (Va_Vb_Vc,    vmr3aw_insn,   "vmr3aw",     VMR3AW)
-  SIMD_BUILTIN (Va_Vb_Vc,     vmr3w_insn,    "vmr3w",      VMR3W)
-  SIMD_BUILTIN (Va_Vb_Vc,    vmr4aw_insn,   "vmr4aw",     VMR4AW)
-  SIMD_BUILTIN (Va_Vb_Vc,     vmr4w_insn,    "vmr4w",      VMR4W)
-  SIMD_BUILTIN (Va_Vb_Vc,    vmr5aw_insn,   "vmr5aw",     VMR5AW)
-  SIMD_BUILTIN (Va_Vb_Vc,     vmr5w_insn,    "vmr5w",      VMR5W)
-  SIMD_BUILTIN (Va_Vb_Vc,    vmr6aw_insn,   "vmr6aw",     VMR6AW)
-  SIMD_BUILTIN (Va_Vb_Vc,     vmr6w_insn,    "vmr6w",      VMR6W)
-  SIMD_BUILTIN (Va_Vb_Vc,    vmr7aw_insn,   "vmr7aw",     VMR7AW)
-  SIMD_BUILTIN (Va_Vb_Vc,     vmr7w_insn,    "vmr7w",      VMR7W)
-  SIMD_BUILTIN (Va_Vb_Vc,      vmrb_insn,     "vmrb",       VMRB)
-  SIMD_BUILTIN (Va_Vb_Vc,    vh264f_insn,   "vh264f",     VH264F)
-  SIMD_BUILTIN (Va_Vb_Vc,   vh264ft_insn,  "vh264ft",    VH264FT)
-  SIMD_BUILTIN (Va_Vb_Vc,   vh264fw_insn,  "vh264fw",    VH264FW)
-  SIMD_BUILTIN (Va_Vb_Vc,     vvc1f_insn,    "vvc1f",      VVC1F)
-  SIMD_BUILTIN (Va_Vb_Vc,    vvc1ft_insn,   "vvc1ft",     VVC1FT)
-
-  SIMD_BUILTIN (Va_Vb_rlimm,    vbaddw_insn,   "vbaddw",     VBADDW)
-  SIMD_BUILTIN (Va_Vb_rlimm,    vbmaxw_insn,   "vbmaxw",     VBMAXW)
-  SIMD_BUILTIN (Va_Vb_rlimm,    vbminw_insn,   "vbminw",     VBMINW)
-  SIMD_BUILTIN (Va_Vb_rlimm,   vbmulaw_insn,  "vbmulaw",    VBMULAW)
-  SIMD_BUILTIN (Va_Vb_rlimm,   vbmulfw_insn,  "vbmulfw",    VBMULFW)
-  SIMD_BUILTIN (Va_Vb_rlimm,    vbmulw_insn,   "vbmulw",     VBMULW)
-  SIMD_BUILTIN (Va_Vb_rlimm,   vbrsubw_insn,  "vbrsubw",    VBRSUBW)
-  SIMD_BUILTIN (Va_Vb_rlimm,    vbsubw_insn,   "vbsubw",     VBSUBW)
-
-  /* Va, Vb, Ic instructions.  */
-  SIMD_BUILTIN (Va_Vb_Ic,        vasrw_insn,    "vasrw",      VASRW)
-  SIMD_BUILTIN (Va_Vb_Ic,         vsr8_insn,     "vsr8",       VSR8)
-  SIMD_BUILTIN (Va_Vb_Ic,       vsr8aw_insn,   "vsr8aw",     VSR8AW)
-
-  /* Va, Vb, u6 instructions.  */
-  SIMD_BUILTIN (Va_Vb_u6,      vasrrwi_insn,  "vasrrwi",    VASRRWi)
-  SIMD_BUILTIN (Va_Vb_u6,     vasrsrwi_insn, "vasrsrwi",   VASRSRWi)
-  SIMD_BUILTIN (Va_Vb_u6,       vasrwi_insn,   "vasrwi",     VASRWi)
-  SIMD_BUILTIN (Va_Vb_u6,     vasrpwbi_insn, "vasrpwbi",   VASRPWBi)
-  SIMD_BUILTIN (Va_Vb_u6,    vasrrpwbi_insn,"vasrrpwbi",  VASRRPWBi)
-  SIMD_BUILTIN (Va_Vb_u6,      vsr8awi_insn,  "vsr8awi",    VSR8AWi)
-  SIMD_BUILTIN (Va_Vb_u6,        vsr8i_insn,    "vsr8i",      VSR8i)
-
-  /* Va, Vb, u8 (simm) instructions.  */
-  SIMD_BUILTIN (Va_Vb_u8,        vmvaw_insn,    "vmvaw",      VMVAW)
-  SIMD_BUILTIN (Va_Vb_u8,         vmvw_insn,     "vmvw",       VMVW)
-  SIMD_BUILTIN (Va_Vb_u8,        vmvzw_insn,    "vmvzw",      VMVZW)
-  SIMD_BUILTIN (Va_Vb_u8,      vd6tapf_insn,  "vd6tapf",    VD6TAPF)
-
-  /* Va, rlimm, u8 (simm) instructions.  */
-  SIMD_BUILTIN (Va_rlimm_u8,    vmovaw_insn,   "vmovaw",     VMOVAW)
-  SIMD_BUILTIN (Va_rlimm_u8,     vmovw_insn,    "vmovw",      VMOVW)
-  SIMD_BUILTIN (Va_rlimm_u8,    vmovzw_insn,   "vmovzw",     VMOVZW)
-
-  /* Va, Vb instructions.  */
-  SIMD_BUILTIN (Va_Vb,          vabsaw_insn,   "vabsaw",     VABSAW)
-  SIMD_BUILTIN (Va_Vb,           vabsw_insn,    "vabsw",      VABSW)
-  SIMD_BUILTIN (Va_Vb,         vaddsuw_insn,  "vaddsuw",    VADDSUW)
-  SIMD_BUILTIN (Va_Vb,          vsignw_insn,   "vsignw",     VSIGNW)
-  SIMD_BUILTIN (Va_Vb,          vexch1_insn,   "vexch1",     VEXCH1)
-  SIMD_BUILTIN (Va_Vb,          vexch2_insn,   "vexch2",     VEXCH2)
-  SIMD_BUILTIN (Va_Vb,          vexch4_insn,   "vexch4",     VEXCH4)
-  SIMD_BUILTIN (Va_Vb,          vupbaw_insn,   "vupbaw",     VUPBAW)
-  SIMD_BUILTIN (Va_Vb,           vupbw_insn,    "vupbw",      VUPBW)
-  SIMD_BUILTIN (Va_Vb,         vupsbaw_insn,  "vupsbaw",    VUPSBAW)
-  SIMD_BUILTIN (Va_Vb,          vupsbw_insn,   "vupsbw",     VUPSBW)
-
-  /* DIb, rlimm, rlimm instructions.  */
-  SIMD_BUILTIN (Da_rlimm_rlimm,  vdirun_insn,  "vdirun",     VDIRUN)
-  SIMD_BUILTIN (Da_rlimm_rlimm,  vdorun_insn,  "vdorun",     VDORUN)
-
-  /* DIb, limm, rlimm instructions.  */
-  SIMD_BUILTIN (Da_u3_rlimm,   vdiwr_insn,    "vdiwr",      VDIWR)
-  SIMD_BUILTIN (Da_u3_rlimm,    vdowr_insn,    "vdowr",     VDOWR)
-
-  /* rlimm instructions.  */
-  SIMD_BUILTIN (void_rlimm,        vrec_insn,     "vrec",      VREC)
-  SIMD_BUILTIN (void_rlimm,        vrun_insn,     "vrun",      VRUN)
-  SIMD_BUILTIN (void_rlimm,     vrecrun_insn,  "vrecrun",   VRECRUN)
-  SIMD_BUILTIN (void_rlimm,     vendrec_insn,  "vendrec",   VENDREC)
-
-  /* Va, [Ib,u8] instructions.  */
-  SIMD_BUILTIN (Va_Vb_Ic_u8,       vld32wh_insn,  "vld32wh",   VLD32WH)
-  SIMD_BUILTIN (Va_Vb_Ic_u8,       vld32wl_insn,  "vld32wl",   VLD32WL)
-  SIMD_BUILTIN (Va_Vb_Ic_u8,         vld64_insn,    "vld64",     VLD64)
-  SIMD_BUILTIN (Va_Vb_Ic_u8,         vld32_insn,    "vld32",     VLD32)
-
-  SIMD_BUILTIN (Va_Ib_u8,           vld64w_insn,   "vld64w",   VLD64W)
-  SIMD_BUILTIN (Va_Ib_u8,           vld128_insn,   "vld128",   VLD128)
-  SIMD_BUILTIN (void_Va_Ib_u8,      vst128_insn,   "vst128",   VST128)
-  SIMD_BUILTIN (void_Va_Ib_u8,       vst64_insn,    "vst64",    VST64)
-
-  /* Va, [Ib, u8] instructions.  */
-  SIMD_BUILTIN (void_Va_u3_Ib_u8,  vst16_n_insn,  "vst16_n",   VST16_N)
-  SIMD_BUILTIN (void_Va_u3_Ib_u8,  vst32_n_insn,  "vst32_n",   VST32_N)
-
-  SIMD_BUILTIN (void_u6,  vinti_insn,  "vinti",   VINTI)
-};
-
-static void
-arc_init_simd_builtins (void)
-{
-  int i;
-  tree endlink = void_list_node;
-  tree V8HI_type_node = build_vector_type_for_mode (intHI_type_node, V8HImode);
-
-  tree v8hi_ftype_v8hi_v8hi
-    = build_function_type (V8HI_type_node,
-			   tree_cons (NULL_TREE, V8HI_type_node,
-				      tree_cons (NULL_TREE, V8HI_type_node,
-						 endlink)));
-  tree v8hi_ftype_v8hi_int
-    = build_function_type (V8HI_type_node,
-			   tree_cons (NULL_TREE, V8HI_type_node,
-				      tree_cons (NULL_TREE, integer_type_node,
-						 endlink)));
-
-  tree v8hi_ftype_v8hi_int_int
-    = build_function_type (V8HI_type_node,
-			   tree_cons (NULL_TREE, V8HI_type_node,
-				      tree_cons (NULL_TREE, integer_type_node,
-						 tree_cons (NULL_TREE,
-							    integer_type_node,
-							    endlink))));
-
-  tree void_ftype_v8hi_int_int
-    = build_function_type (void_type_node,
-			   tree_cons (NULL_TREE, V8HI_type_node,
-				      tree_cons (NULL_TREE, integer_type_node,
-						 tree_cons (NULL_TREE,
-							    integer_type_node,
-							    endlink))));
-
-  tree void_ftype_v8hi_int_int_int
-    = (build_function_type
-	(void_type_node,
-	 tree_cons (NULL_TREE, V8HI_type_node,
-		    tree_cons (NULL_TREE, integer_type_node,
-			       tree_cons (NULL_TREE, integer_type_node,
-					  tree_cons (NULL_TREE,
-						     integer_type_node,
-						     endlink))))));
-
-  tree v8hi_ftype_int_int
-    = build_function_type (V8HI_type_node,
-			   tree_cons (NULL_TREE, integer_type_node,
-				      tree_cons (NULL_TREE, integer_type_node,
-						 endlink)));
-
-  tree void_ftype_int_int
-    = build_function_type (void_type_node,
-			   tree_cons (NULL_TREE, integer_type_node,
-				      tree_cons (NULL_TREE, integer_type_node,
-						 endlink)));
-
-  tree void_ftype_int
-    = build_function_type (void_type_node,
-			   tree_cons (NULL_TREE, integer_type_node, endlink));
-
-  tree v8hi_ftype_v8hi
-    = build_function_type (V8HI_type_node, tree_cons (NULL_TREE, V8HI_type_node,
-						      endlink));
-
-  /* These asserts have been introduced to ensure that the order of builtins
-     does not get messed up, else the initialization goes wrong.  */
-  gcc_assert (arc_simd_builtin_desc_list [0].args_type == Va_Vb_Vc);
-  for (i=0; arc_simd_builtin_desc_list [i].args_type == Va_Vb_Vc; i++)
-    def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list[i].name,
-		  v8hi_ftype_v8hi_v8hi, arc_simd_builtin_desc_list[i].code);
-
-  gcc_assert (arc_simd_builtin_desc_list [i].args_type == Va_Vb_rlimm);
-  for (; arc_simd_builtin_desc_list [i].args_type == Va_Vb_rlimm; i++)
-    def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list[i].name,
-		  v8hi_ftype_v8hi_int, arc_simd_builtin_desc_list[i].code);
-
-  gcc_assert (arc_simd_builtin_desc_list [i].args_type == Va_Vb_Ic);
-  for (; arc_simd_builtin_desc_list [i].args_type == Va_Vb_Ic; i++)
-    def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list[i].name,
-		  v8hi_ftype_v8hi_int, arc_simd_builtin_desc_list[i].code);
-
-  gcc_assert (arc_simd_builtin_desc_list [i].args_type == Va_Vb_u6);
-  for (; arc_simd_builtin_desc_list [i].args_type == Va_Vb_u6; i++)
-    def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list[i].name,
-		  v8hi_ftype_v8hi_int, arc_simd_builtin_desc_list[i].code);
-
-  gcc_assert (arc_simd_builtin_desc_list [i].args_type == Va_Vb_u8);
-  for (; arc_simd_builtin_desc_list [i].args_type == Va_Vb_u8; i++)
-    def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list[i].name,
-		  v8hi_ftype_v8hi_int, arc_simd_builtin_desc_list[i].code);
-
-  gcc_assert (arc_simd_builtin_desc_list [i].args_type == Va_rlimm_u8);
-  for (; arc_simd_builtin_desc_list [i].args_type == Va_rlimm_u8; i++)
-    def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list[i].name,
-		  v8hi_ftype_int_int, arc_simd_builtin_desc_list[i].code);
-
-  gcc_assert (arc_simd_builtin_desc_list [i].args_type == Va_Vb);
-  for (; arc_simd_builtin_desc_list [i].args_type == Va_Vb; i++)
-    def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list[i].name,
-		  v8hi_ftype_v8hi, arc_simd_builtin_desc_list[i].code);
-
-  gcc_assert (arc_simd_builtin_desc_list [i].args_type == Da_rlimm_rlimm);
-  for (; arc_simd_builtin_desc_list [i].args_type == Da_rlimm_rlimm; i++)
-    def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list [i].name,
-		  void_ftype_int_int, arc_simd_builtin_desc_list[i].code);
-
-  gcc_assert (arc_simd_builtin_desc_list [i].args_type == Da_u3_rlimm);
-  for (; arc_simd_builtin_desc_list [i].args_type == Da_u3_rlimm; i++)
-    def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list[i].name,
-		  void_ftype_int_int, arc_simd_builtin_desc_list[i].code);
-
-  gcc_assert (arc_simd_builtin_desc_list [i].args_type == void_rlimm);
-  for (; arc_simd_builtin_desc_list [i].args_type == void_rlimm; i++)
-    def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list[i].name,
-		  void_ftype_int, arc_simd_builtin_desc_list[i].code);
-
-  gcc_assert (arc_simd_builtin_desc_list [i].args_type == Va_Vb_Ic_u8);
-  for (; arc_simd_builtin_desc_list [i].args_type == Va_Vb_Ic_u8; i++)
-    def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list[i].name,
-		  v8hi_ftype_v8hi_int_int, arc_simd_builtin_desc_list[i].code);
-
-  gcc_assert (arc_simd_builtin_desc_list [i].args_type == Va_Ib_u8);
-  for (; arc_simd_builtin_desc_list [i].args_type == Va_Ib_u8; i++)
-    def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list[i].name,
-		  v8hi_ftype_int_int, arc_simd_builtin_desc_list[i].code);
-
-  gcc_assert (arc_simd_builtin_desc_list [i].args_type == void_Va_Ib_u8);
-  for (; arc_simd_builtin_desc_list [i].args_type == void_Va_Ib_u8; i++)
-    def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list [i].name,
-		  void_ftype_v8hi_int_int, arc_simd_builtin_desc_list[i].code);
-
-  gcc_assert (arc_simd_builtin_desc_list [i].args_type == void_Va_u3_Ib_u8);
-  for (; arc_simd_builtin_desc_list [i].args_type == void_Va_u3_Ib_u8; i++)
-    def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list[i].name,
-		  void_ftype_v8hi_int_int_int,
-		  arc_simd_builtin_desc_list[i].code);
-
-  gcc_assert (arc_simd_builtin_desc_list [i].args_type == void_u6);
-  for (; arc_simd_builtin_desc_list [i].args_type == void_u6; i++)
-    def_mbuiltin (TARGET_SIMD_SET, arc_simd_builtin_desc_list[i].name,
-		  void_ftype_int, arc_simd_builtin_desc_list[i].code);
-
-  gcc_assert(i == ARRAY_SIZE (arc_simd_builtin_desc_list));
-}
-
-/* Helper function of arc_expand_builtin; has the same parameters,
-   except that EXP is now known to be a call to a simd builtin.  */
-
-static rtx
-arc_expand_simd_builtin (tree exp,
-			 rtx target,
-			 rtx subtarget ATTRIBUTE_UNUSED,
-			 machine_mode mode ATTRIBUTE_UNUSED,
-			 int ignore ATTRIBUTE_UNUSED)
-{
-  tree              fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
-  tree              arg0;
-  tree              arg1;
-  tree              arg2;
-  tree              arg3;
-  rtx               op0;
-  rtx               op1;
-  rtx               op2;
-  rtx               op3;
-  rtx               op4;
-  rtx pat;
-  unsigned int         i;
-  int               fcode = DECL_FUNCTION_CODE (fndecl);
-  int               icode;
-  machine_mode mode0;
-  machine_mode mode1;
-  machine_mode mode2;
-  machine_mode mode3;
-  machine_mode mode4;
-  const struct builtin_description * d;
-
-  for (i = 0, d = arc_simd_builtin_desc_list;
-       i < ARRAY_SIZE (arc_simd_builtin_desc_list); i++, d++)
-    if (d->code == (const enum arc_builtins) fcode)
-      break;
-
-  /* We must get an entry here.  */
-  gcc_assert (i < ARRAY_SIZE (arc_simd_builtin_desc_list));
-
-  switch (d->args_type)
-    {
-    case Va_Vb_rlimm:
-      icode = d->icode;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      arg1 = CALL_EXPR_ARG (exp, 1);
-      op0 = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);
-      op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
-
-      target = gen_reg_rtx (V8HImode);
-      mode0 =  insn_data[icode].operand[1].mode;
-      mode1 =  insn_data[icode].operand[2].mode;
-
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, op0);
-
-      if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
-	  op1 = copy_to_mode_reg (mode1, op1);
-
-      pat = GEN_FCN (icode) (target, op0, op1);
-      if (! pat)
-	return 0;
-
-      emit_insn (pat);
-      return target;
-
-    case Va_Vb_u6:
-    case Va_Vb_u8:
-      icode = d->icode;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      arg1 = CALL_EXPR_ARG (exp, 1);
-      op0 = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);
-      op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
-
-      target = gen_reg_rtx (V8HImode);
-      mode0 =  insn_data[icode].operand[1].mode;
-      mode1 =  insn_data[icode].operand[2].mode;
-
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, op0);
-
-      if (! (*insn_data[icode].operand[2].predicate) (op1, mode1)
-	  ||  (d->args_type == Va_Vb_u6 && !UNSIGNED_INT6 (INTVAL (op1)))
-	  ||  (d->args_type == Va_Vb_u8 && !UNSIGNED_INT8 (INTVAL (op1))))
-	error ("operand 2 of %s instruction should be an unsigned %d-bit value",
-	       d->name,
-	       (d->args_type == Va_Vb_u6)? 6: 8);
-
-      pat = GEN_FCN (icode) (target, op0, op1);
-      if (! pat)
-	return 0;
-
-      emit_insn (pat);
-      return target;
-
-    case Va_rlimm_u8:
-      icode = d->icode;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      arg1 = CALL_EXPR_ARG (exp, 1);
-      op0 = expand_expr (arg0, NULL_RTX, SImode, EXPAND_NORMAL);
-      op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
-
-      target = gen_reg_rtx (V8HImode);
-      mode0 =  insn_data[icode].operand[1].mode;
-      mode1 =  insn_data[icode].operand[2].mode;
-
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, op0);
-
-      if ( (!(*insn_data[icode].operand[2].predicate) (op1, mode1))
-	   || !(UNSIGNED_INT8 (INTVAL (op1))))
-	error ("operand 2 of %s instruction should be an unsigned 8-bit value",
-	       d->name);
-
-      pat = GEN_FCN (icode) (target, op0, op1);
-      if (! pat)
-	return 0;
-
-      emit_insn (pat);
-      return target;
-
-    case Va_Vb_Ic:
-      icode = d->icode;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      arg1 = CALL_EXPR_ARG (exp, 1);
-      op0 = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);
-      op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
-      op2 = gen_rtx_REG (V8HImode, ARC_FIRST_SIMD_VR_REG);
-
-      target = gen_reg_rtx (V8HImode);
-      mode0 =  insn_data[icode].operand[1].mode;
-      mode1 =  insn_data[icode].operand[2].mode;
-
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, op0);
-
-      if ( (!(*insn_data[icode].operand[2].predicate) (op1, mode1))
-	   || !(UNSIGNED_INT3 (INTVAL (op1))))
-	error ("operand 2 of %s instruction should be an unsigned 3-bit value (I0-I7)",
-	       d->name);
-
-      pat = GEN_FCN (icode) (target, op0, op1, op2);
-      if (! pat)
-	return 0;
-
-      emit_insn (pat);
-      return target;
-
-    case Va_Vb_Vc:
-      icode = d->icode;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      arg1 = CALL_EXPR_ARG (exp, 1);
-      op0 = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);
-      op1 = expand_expr (arg1, NULL_RTX, V8HImode, EXPAND_NORMAL);
-
-      target = gen_reg_rtx (V8HImode);
-      mode0 =  insn_data[icode].operand[1].mode;
-      mode1 =  insn_data[icode].operand[2].mode;
-
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, op0);
-
-      if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
-	op1 = copy_to_mode_reg (mode1, op1);
-
-      pat = GEN_FCN (icode) (target, op0, op1);
-      if (! pat)
-	return 0;
-
-      emit_insn (pat);
-      return target;
-
-    case Va_Vb:
-      icode = d->icode;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      op0 = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);
-
-      target = gen_reg_rtx (V8HImode);
-      mode0 =  insn_data[icode].operand[1].mode;
-
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, op0);
-
-      pat = GEN_FCN (icode) (target, op0);
-      if (! pat)
-	return 0;
-
-      emit_insn (pat);
-      return target;
-
-    case Da_rlimm_rlimm:
-      icode = d->icode;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      arg1 = CALL_EXPR_ARG (exp, 1);
-      op0 = expand_expr (arg0, NULL_RTX, SImode, EXPAND_NORMAL);
-      op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
-
-
-      if (icode == CODE_FOR_vdirun_insn)
-	target = gen_rtx_REG (SImode, 131);
-      else if (icode == CODE_FOR_vdorun_insn)
-	target = gen_rtx_REG (SImode, 139);
-      else
-	  gcc_unreachable ();
-
-      mode0 =  insn_data[icode].operand[1].mode;
-      mode1 =  insn_data[icode].operand[2].mode;
-
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, op0);
-
-      if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
-	op1 = copy_to_mode_reg (mode1, op1);
-
-
-      pat = GEN_FCN (icode) (target, op0, op1);
-      if (! pat)
-	return 0;
-
-      emit_insn (pat);
-      return NULL_RTX;
-
-    case Da_u3_rlimm:
-      icode = d->icode;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      arg1 = CALL_EXPR_ARG (exp, 1);
-      op0 = expand_expr (arg0, NULL_RTX, SImode, EXPAND_NORMAL);
-      op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);
-
-
-      if (! (GET_CODE (op0) == CONST_INT)
-	  || !(UNSIGNED_INT3 (INTVAL (op0))))
-	error ("operand 1 of %s instruction should be an unsigned 3-bit value (DR0-DR7)",
-	       d->name);
-
-      mode1 =  insn_data[icode].operand[1].mode;
-
-      if (icode == CODE_FOR_vdiwr_insn)
-	target = gen_rtx_REG (SImode,
-			      ARC_FIRST_SIMD_DMA_CONFIG_IN_REG + INTVAL (op0));
-      else if (icode == CODE_FOR_vdowr_insn)
-	target = gen_rtx_REG (SImode,
-			      ARC_FIRST_SIMD_DMA_CONFIG_OUT_REG + INTVAL (op0));
-      else
-	gcc_unreachable ();
-
-      if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
-	op1 = copy_to_mode_reg (mode1, op1);
-
-      pat = GEN_FCN (icode) (target, op1);
-      if (! pat)
-	return 0;
-
-      emit_insn (pat);
-      return NULL_RTX;
-
-    case void_u6:
-      icode = d->icode;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-
-      fold (arg0);
-
-      op0 = expand_expr (arg0, NULL_RTX, SImode, EXPAND_NORMAL);
-      mode0 = insn_data[icode].operand[0].mode;
-
-      /* op0 should be u6.  */
-      if (! (*insn_data[icode].operand[0].predicate) (op0, mode0)
-	  || !(UNSIGNED_INT6 (INTVAL (op0))))
-	error ("operand of %s instruction should be an unsigned 6-bit value",
-	       d->name);
-
-      pat = GEN_FCN (icode) (op0);
-      if (! pat)
-	return 0;
-
-      emit_insn (pat);
-      return NULL_RTX;
-
-    case void_rlimm:
-      icode = d->icode;
-      arg0 = CALL_EXPR_ARG (exp, 0);
-
-      fold (arg0);
-
-      op0 = expand_expr (arg0, NULL_RTX, SImode, EXPAND_NORMAL);
-      mode0 = insn_data[icode].operand[0].mode;
-
-      if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
-	op0 = copy_to_mode_reg (mode0, op0);
-
-      pat = GEN_FCN (icode) (op0);
-      if (! pat)
-	return 0;
-
-      emit_insn (pat);
-      return NULL_RTX;
-
-    case Va_Vb_Ic_u8:
-      {
-	rtx src_vreg;
-	icode = d->icode;
-	arg0 = CALL_EXPR_ARG (exp, 0); /* source vreg */
-	arg1 = CALL_EXPR_ARG (exp, 1); /* [I]0-7 */
-	arg2 = CALL_EXPR_ARG (exp, 2); /* u8 */
-
-	src_vreg = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);
-	op0 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);  /* [I]0-7 */
-	op1 = expand_expr (arg2, NULL_RTX, SImode, EXPAND_NORMAL);  /* u8 */
-	op2 = gen_rtx_REG (V8HImode, ARC_FIRST_SIMD_VR_REG);	    /* VR0 */
-
-	/* target <- src vreg */
-	emit_insn (gen_move_insn (target, src_vreg));
-
-	/* target <- vec_concat: target, mem(Ib, u8) */
-	mode0 =  insn_data[icode].operand[3].mode;
-	mode1 =  insn_data[icode].operand[1].mode;
-
-	if ( (!(*insn_data[icode].operand[3].predicate) (op0, mode0))
-	     || !(UNSIGNED_INT3 (INTVAL (op0))))
-	  error ("operand 1 of %s instruction should be an unsigned 3-bit value (I0-I7)",
-		 d->name);
-
-	if ( (!(*insn_data[icode].operand[1].predicate) (op1, mode1))
-	     || !(UNSIGNED_INT8 (INTVAL (op1))))
-	  error ("operand 2 of %s instruction should be an unsigned 8-bit value",
-		 d->name);
-
-	pat = GEN_FCN (icode) (target, op1, op2, op0);
-	if (! pat)
-	  return 0;
-
-	emit_insn (pat);
-	return target;
-      }
-
-    case void_Va_Ib_u8:
-      icode = d->icode;
-      arg0 = CALL_EXPR_ARG (exp, 0); /* src vreg */
-      arg1 = CALL_EXPR_ARG (exp, 1); /* [I]0-7 */
-      arg2 = CALL_EXPR_ARG (exp, 2); /* u8 */
-
-      op0 = gen_rtx_REG (V8HImode, ARC_FIRST_SIMD_VR_REG);         /* VR0    */
-      op1 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);   /* I[0-7] */
-      op2 = expand_expr (arg2, NULL_RTX, SImode, EXPAND_NORMAL);   /* u8     */
-      op3 = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL); /* Vdest  */
-
-      mode0 =  insn_data[icode].operand[0].mode;
-      mode1 =  insn_data[icode].operand[1].mode;
-      mode2 =  insn_data[icode].operand[2].mode;
-      mode3 =  insn_data[icode].operand[3].mode;
-
-      if ( (!(*insn_data[icode].operand[1].predicate) (op1, mode1))
-	   || !(UNSIGNED_INT3 (INTVAL (op1))))
-	error ("operand 2 of %s instruction should be an unsigned 3-bit value (I0-I7)",
-	       d->name);
-
-      if ( (!(*insn_data[icode].operand[2].predicate) (op2, mode2))
-	   || !(UNSIGNED_INT8 (INTVAL (op2))))
-	error ("operand 3 of %s instruction should be an unsigned 8-bit value",
-	       d->name);
-
-      if (!(*insn_data[icode].operand[3].predicate) (op3, mode3))
-	op3 = copy_to_mode_reg (mode3, op3);
-
-      pat = GEN_FCN (icode) (op0, op1, op2, op3);
-      if (! pat)
-	return 0;
-
-      emit_insn (pat);
-      return NULL_RTX;
-
-    case Va_Ib_u8:
-      icode = d->icode;
-      arg0 = CALL_EXPR_ARG (exp, 0); /* dest vreg */
-      arg1 = CALL_EXPR_ARG (exp, 1); /* [I]0-7 */
-
-      op0 = gen_rtx_REG (V8HImode, ARC_FIRST_SIMD_VR_REG);       /* VR0    */
-      op1 = expand_expr (arg0, NULL_RTX, SImode, EXPAND_NORMAL); /* I[0-7] */
-      op2 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL); /* u8     */
-
-      /* target <- src vreg */
-      target = gen_reg_rtx (V8HImode);
-
-      /* target <- vec_concat: target, mem(Ib, u8) */
-      mode0 =  insn_data[icode].operand[1].mode;
-      mode1 =  insn_data[icode].operand[2].mode;
-      mode2 =  insn_data[icode].operand[3].mode;
-
-      if ( (!(*insn_data[icode].operand[2].predicate) (op1, mode1))
-	   || !(UNSIGNED_INT3 (INTVAL (op1))))
-	error ("operand 1 of %s instruction should be an unsigned 3-bit value (I0-I7)",
-	       d->name);
-
-      if ( (!(*insn_data[icode].operand[3].predicate) (op2, mode2))
-	   || !(UNSIGNED_INT8 (INTVAL (op2))))
-	error ("operand 2 of %s instruction should be an unsigned 8-bit value",
-	       d->name);
-
-      pat = GEN_FCN (icode) (target, op0, op1, op2);
-      if (! pat)
-	return 0;
-
-      emit_insn (pat);
-      return target;
-
-    case void_Va_u3_Ib_u8:
-      icode = d->icode;
-      arg0 = CALL_EXPR_ARG (exp, 0); /* source vreg */
-      arg1 = CALL_EXPR_ARG (exp, 1); /* u3 */
-      arg2 = CALL_EXPR_ARG (exp, 2); /* [I]0-7 */
-      arg3 = CALL_EXPR_ARG (exp, 3); /* u8 */
-
-      op0 = expand_expr (arg3, NULL_RTX, SImode, EXPAND_NORMAL); /* u8        */
-      op1 = gen_rtx_REG (V8HImode, ARC_FIRST_SIMD_VR_REG);       /* VR        */
-      op2 = expand_expr (arg2, NULL_RTX, SImode, EXPAND_NORMAL); /* [I]0-7    */
-      op3 = expand_expr (arg0, NULL_RTX, V8HImode, EXPAND_NORMAL);/* vreg to be stored */
-      op4 = expand_expr (arg1, NULL_RTX, SImode, EXPAND_NORMAL);  /* vreg 0-7 subreg no. */
-
-      mode0 =  insn_data[icode].operand[0].mode;
-      mode2 =  insn_data[icode].operand[2].mode;
-      mode3 =  insn_data[icode].operand[3].mode;
-      mode4 =  insn_data[icode].operand[4].mode;
-
-      /* Do some correctness checks for the operands.  */
-      if ( (!(*insn_data[icode].operand[0].predicate) (op0, mode0))
-	   || !(UNSIGNED_INT8 (INTVAL (op0))))
-	error ("operand 4 of %s instruction should be an unsigned 8-bit value (0-255)",
-	       d->name);
-
-      if ( (!(*insn_data[icode].operand[2].predicate) (op2, mode2))
-	   || !(UNSIGNED_INT3 (INTVAL (op2))))
-	error ("operand 3 of %s instruction should be an unsigned 3-bit value (I0-I7)",
-	       d->name);
-
-      if (!(*insn_data[icode].operand[3].predicate) (op3, mode3))
-	op3 = copy_to_mode_reg (mode3, op3);
-
-      if ( (!(*insn_data[icode].operand[4].predicate) (op4, mode4))
-	   || !(UNSIGNED_INT3 (INTVAL (op4))))
-	error ("operand 2 of %s instruction should be an unsigned 3-bit value (subreg 0-7)",
-	       d->name);
-      else if (icode == CODE_FOR_vst32_n_insn
-	       && ((INTVAL(op4) % 2 ) != 0))
-	error ("operand 2 of %s instruction should be an even 3-bit value (subreg 0,2,4,6)",
-	       d->name);
-
-      pat = GEN_FCN (icode) (op0, op1, op2, op3, op4);
-      if (! pat)
-	return 0;
-
-      emit_insn (pat);
-      return NULL_RTX;
-
-    default:
-      gcc_unreachable ();
-    }
-  return NULL_RTX;
-}
-
 static bool
 arc_preserve_reload_p (rtx in)
 {
@@ -7729,9 +7125,8 @@ force_offsettable (rtx addr, HOST_WIDE_INT size, bool reuse)
   return addr;
 }
 
-/* Like move_by_pieces, but take account of load latency,
-   and actual offset ranges.
-   Return true on success.  */
+/* Like move_by_pieces, but take account of load latency, and actual
+   offset ranges.  Return true on success.  */
 
 bool
 arc_expand_movmem (rtx *operands)
@@ -7752,14 +7147,23 @@ arc_expand_movmem (rtx *operands)
   size = INTVAL (operands[2]);
   /* move_by_pieces_ninsns is static, so we can't use it.  */
   if (align >= 4)
-    n_pieces = (size + 2) / 4U + (size & 1);
+    {
+      if (TARGET_LL64)
+	n_pieces = (size + 4) / 8U + ((size >> 1) & 1) + (size & 1);
+      else
+	n_pieces = (size + 2) / 4U + (size & 1);
+    }
   else if (align == 2)
     n_pieces = (size + 1) / 2U;
   else
     n_pieces = size;
   if (n_pieces >= (unsigned int) (optimize_size ? 3 : 15))
     return false;
-  if (piece > 4)
+  /* Force 32 bit aligned and larger datum to use 64 bit transfers, if
+     possible.  */
+  if (TARGET_LL64 && (piece >= 4) && (size >= 8))
+    piece = 8;
+  else if (piece > 4)
     piece = 4;
   dst_addr = force_offsettable (XEXP (operands[0], 0), size, 0);
   src_addr = force_offsettable (XEXP (operands[1], 0), size, 0);
@@ -7770,8 +7174,8 @@ arc_expand_movmem (rtx *operands)
       rtx tmp;
       machine_mode mode;
 
-      if (piece > size)
-	piece = size & -size;
+      while (piece > size)
+	piece >>= 1;
       mode = smallest_mode_for_size (piece * BITS_PER_UNIT, MODE_INT);
       /* If we don't re-use temporaries, the scheduler gets carried away,
 	 and the register pressure gets unnecessarily high.  */
@@ -9206,12 +8610,11 @@ split_subsi (rtx *operands)
    Operand 0: destination register
    Operand 1: source register  */
 
-static rtx
+static bool
 arc_process_double_reg_moves (rtx *operands)
 {
   rtx dest = operands[0];
   rtx src  = operands[1];
-  rtx val;
 
   enum usesDxState { none, srcDx, destDx, maxDx };
   enum usesDxState state = none;
@@ -9226,9 +8629,7 @@ arc_process_double_reg_moves (rtx *operands)
     }
 
   if (state == none)
-    return NULL_RTX;
-
-  start_sequence ();
+    return false;
 
   if (state == srcDx)
     {
@@ -9251,11 +8652,13 @@ arc_process_double_reg_moves (rtx *operands)
 
 	  /* Produce the two LR insns to get the high and low parts.  */
 	  emit_insn (gen_rtx_SET (destHigh,
-				  gen_rtx_UNSPEC_VOLATILE (Pmode, gen_rtvec (1, src),
-				  VUNSPEC_LR_HIGH)));
+				  gen_rtx_UNSPEC_VOLATILE (Pmode,
+							   gen_rtvec (1, src),
+				  VUNSPEC_ARC_LR_HIGH)));
 	  emit_insn (gen_rtx_SET (destLow,
-				  gen_rtx_UNSPEC_VOLATILE (Pmode, gen_rtvec (1, src),
-				  VUNSPEC_LR)));
+				  gen_rtx_UNSPEC_VOLATILE (Pmode,
+							   gen_rtvec (1, src),
+				  VUNSPEC_ARC_LR)));
 	}
     }
   else if (state == destDx)
@@ -9267,35 +8670,41 @@ arc_process_double_reg_moves (rtx *operands)
 
       emit_insn (gen_rtx_UNSPEC_VOLATILE (Pmode,
 					  gen_rtvec (3, dest, srcHigh, srcLow),
-					  VUNSPEC_DEXCL_NORES));
+					  VUNSPEC_ARC_DEXCL_NORES));
 
     }
   else
     gcc_unreachable ();
 
-  val = get_insns ();
-  end_sequence ();
-  return val;
+  return true;
 }
 
 /* operands 0..1 are the operands of a 64 bit move instruction.
    split it into two moves with operands 2/3 and 4/5.  */
 
-rtx
+void
 arc_split_move (rtx *operands)
 {
   machine_mode mode = GET_MODE (operands[0]);
   int i;
   int swap = 0;
   rtx xop[4];
-  rtx val;
 
   if (TARGET_DPFP)
   {
-    val = arc_process_double_reg_moves (operands);
-    if (val)
-      return val;
+    if (arc_process_double_reg_moves (operands))
+      return;
   }
+
+  if (TARGET_LL64
+      && ((memory_operand (operands[0], mode)
+	   && even_register_operand (operands[1], mode))
+	  || (memory_operand (operands[1], mode)
+	      && even_register_operand (operands[0], mode))))
+    {
+      emit_move_insn (operands[0], operands[1]);
+      return;
+    }
 
   for (i = 0; i < 2; i++)
     {
@@ -9344,18 +8753,10 @@ arc_split_move (rtx *operands)
       swap = 2;
       gcc_assert (!reg_overlap_mentioned_p (xop[2], xop[1]));
     }
-  operands[2+swap] = xop[0];
-  operands[3+swap] = xop[1];
-  operands[4-swap] = xop[2];
-  operands[5-swap] = xop[3];
 
-  start_sequence ();
-  emit_insn (gen_rtx_SET (operands[2], operands[3]));
-  emit_insn (gen_rtx_SET (operands[4], operands[5]));
-  val = get_insns ();
-  end_sequence ();
+  emit_move_insn (xop[0 + swap], xop[1 + swap]);
+  emit_move_insn (xop[2 - swap], xop[3 - swap]);
 
-  return val;
 }
 
 /* Select between the instruction output templates s_tmpl (for short INSNs)
@@ -10069,6 +9470,28 @@ arc_no_speculation_in_delay_slots_p ()
 {
   return true;
 }
+
+/* Return a parallel of registers to represent where to find the
+   register pieces if required, otherwise NULL_RTX.  */
+
+static rtx
+arc_dwarf_register_span (rtx rtl)
+{
+   enum machine_mode mode = GET_MODE (rtl);
+   unsigned regno;
+   rtx p;
+
+   if (GET_MODE_SIZE (mode) != 8)
+     return NULL_RTX;
+
+   p = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (2));
+   regno = REGNO (rtl);
+   XVECEXP (p, 0, 0) = gen_rtx_REG (SImode, regno);
+   XVECEXP (p, 0, 1) = gen_rtx_REG (SImode, regno + 1);
+
+   return p;
+}
+
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
