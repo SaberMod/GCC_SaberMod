@@ -1,3 +1,7 @@
+2016-03-10  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* gcc/config/arm/t-baremetal: Add cortex-r8.
+
 2016-03-07  Andre Vieira  <andre.simoesdiasvieira@arm.com>
 
 	* config/arm/arm-cores.def (cortex-r8): New.
