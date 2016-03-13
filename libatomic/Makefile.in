@@ -506,23 +506,6 @@ distclean-multi:
 maintainer-clean-multi:
 	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=maintainer-clean multi-clean # $(MAKE)
 
-# GNU Make needs to see an explicit $(MAKE) variable in the command it
-# runs to enable its job server during parallel builds.  Hence the
-# comments below.
-all-multi:
-	$(MULTIDO) $(AM_MAKEFLAGS) DO=all multi-do # $(MAKE)
-install-multi:
-	$(MULTIDO) $(AM_MAKEFLAGS) DO=install multi-do # $(MAKE)
-
-mostlyclean-multi:
-	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=mostlyclean multi-clean # $(MAKE)
-clean-multi:
-	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=clean multi-clean # $(MAKE)
-distclean-multi:
-	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=distclean multi-clean # $(MAKE)
-maintainer-clean-multi:
-	$(MULTICLEAN) $(AM_MAKEFLAGS) DO=maintainer-clean multi-clean # $(MAKE)
-
 # This directory's subdirectories are mostly independent; you can cd
 # into them and run `make' without going through this Makefile.
 # To change the values of `make' variables: instead of editing Makefiles,
