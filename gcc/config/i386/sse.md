@@ -483,7 +483,7 @@
   [(V16SF "f") (V16SI "i") (V8DF "f") (V8DI "i")
   (V8SF "f") (V8SI "i") (V4DF "f") (V4DI "i")
   (V4SF "f") (V4SI "i") (V2DF "f") (V2DI "i")
-  (V32QI "i") (V16HI "u") (V16QI "i") (V8HI "i")
+  (V32QI "i") (V16HI "i") (V16QI "i") (V8HI "i")
   (V64QI "i") (V1TI "i") (V2TI "i")])
 
 (define_mode_attr ssequartermode
@@ -16811,7 +16811,8 @@
    v<sseintprefix>broadcast<bcstscalarsuff>\t{%1, %0|%0, %1}
    v<sseintprefix>broadcast<bcstscalarsuff>\t{%x1, %0|%0, %x1}
    #"
-  [(set_attr "type" "ssemov")
+  [(set_attr "isa" "*,*,noavx512vl")
+   (set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
    (set_attr "prefix" "maybe_evex")
    (set_attr "mode" "<sseinsnmode>")])
