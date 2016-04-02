@@ -1,3 +1,28 @@
+2016-03-18  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backported from mainline
+	2014-12-19  Kai Tietz  <ktietz@redhat.com>
+
+	PR c++/61198
+	* pt.c (most_general_template): Don't break for template-alias.
+
+2016-03-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65061
+	* parser.c (cp_parser_template_name): Call strip_using_decl.
+
+2016-02-25  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	Backported from mainline
+	2016-02-19  Jakub Jelinek  <jakub@redhat.com>
+		    Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* Make-lang.in: Invoke gperf with -L C++.
+	* cfns.gperf: Remove prototypes for hash and libc_name_p
+	inlines.
+	* cfns.h: Regenerated.
+	* except.c (nothrow_libfn_p): Adjust.
+
 2016-02-11  Jakub Jelinek  <jakub@redhat.com>
 
 	Backported from mainline

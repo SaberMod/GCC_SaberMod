@@ -1,3 +1,141 @@
+2016-03-31  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/arm/atomic_loaddi_relaxed_cond.c: New test.
+
+2016-03-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70460
+	* gcc.c-torture/execute/pr70460.c: New test.
+
+2016-02-29  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/69875
+	* gcc.target/arm/atomic_loaddi_acquire.x: New file.
+	* gcc.target/arm/atomic_loaddi_relaxed.x: Likewise.
+	* gcc.target/arm/atomic_loaddi_seq_cst.x: Likewise.
+	* gcc.target/arm/atomic_loaddi_1.c: New test.
+	* gcc.target/arm/atomic_loaddi_2.c: Likewise.
+	* gcc.target/arm/atomic_loaddi_3.c: Likewise.
+	* gcc.target/arm/atomic_loaddi_4.c: Likewise.
+	* gcc.target/arm/atomic_loaddi_5.c: Likewise.
+	* gcc.target/arm/atomic_loaddi_6.c: Likewise.
+	* gcc.target/arm/atomic_loaddi_7.c: Likewise.
+	* gcc.target/arm/atomic_loaddi_8.c: Likewise.
+	* gcc.target/arm/atomic_loaddi_9.c: Likewise.
+
+2016-03-29  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2016-03-23  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* lib/target-supports.exp: Remove v7ve entry from loop
+	creating effective target checks.
+	(check_effective_target_arm_arch_v7ve_ok): New procedure.
+	(add_options_for_arm_arch_v7ve): Likewise.
+
+2016-03-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/70327
+	* gcc.target/i386/pr70327.c: New test.
+
+2016-03-21  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2016-03-18  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/pr70161-2.c: New test.
+	* gcc.dg/pr70161.c: New test.
+
+2016-03-18  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backported from mainline
+	2014-12-19  Kai Tietz  <ktietz@redhat.com>
+		    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/61198
+	* g++.dg/cpp0x/alias-decl-45.C: New file.
+
+2016-03-15  Bernd Schmidt  <bschmidt@redhat.com>
+
+	Backport from mainline
+	2016-03-04  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/69941
+	* gcc.dg/torture/pr69941.c: New test.
+
+2016-03-14  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR fortran/45076
+	gfortran.dg/prof/prof.exp: New script.
+	gfortran.dg/prof/dynamic_dispatch_6.f03: New test.
+
+2016-03-10  Alan Modra  <amodra@gmail.com>
+
+	* gcc.dg/pr69195.c: New.
+	* gcc.dg/pr69238.c: New.
+
+2016-03-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70059
+	* gcc.target/i386/avx512f-pr70059.c: New test.
+
+2016-03-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* lib/gcc-gdb-test.exp (gdb-test): Make log message match command.
+	Invoke gdb with -batch.
+	* lib/gcc-simulate-thread.exp (simulate-thread): Likewise.
+
+2016-03-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/i386/pr70007.c: New test.
+
+2016-02-29  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/60126
+	* gfortran.dg/pr60126.f90: New test.
+
+2016-02-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/61156
+	* gfortran.dg/include_6.f90: Update test.
+
+2016-02-18  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from gcc-5-branch.
+	PR libgfortran/69668
+	* gfortran.dg/namelist_38.f90: Update test.
+	* gfortran.dg/namelist_84.f90: Update test.
+
+2016-02-18  Marek Polacek  <polacek@redhat.com>
+
+	2016-02-12  Marek Polacek  <polacek@redhat.com>
+	Backport from mainline
+
+	* gcc.dg/pr69522.c: Add empty dg-options.
+
+2016-02-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2012-02-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-cg.c: New test.
+
+2016-02-17  Bernd Schmidt  <bschmidt@redhat.com>
+
+	Backport from mainline
+	2016-02-12  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR c/69522
+	* gcc.dg/pr69522.c: New test.
+
+2016-02-16  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2015-10-21  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* gcc.dg/lto/simd-function_0.c: New test.
+
 2016-02-13  Oleg Endo  <olegendo@gcc.gnu.org>
 
 	Backport from mainline
